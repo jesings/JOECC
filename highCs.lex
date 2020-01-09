@@ -113,16 +113,20 @@ INTSIZE (u|U|l|L)*
 "~" {return '~';}
 "^" {return '^';}
 
-{LET}({LET}|{DEC})* {yylval.id = strdup(yytext);/*specify size here in yylval.size maybe?*/
-                     return IDENTIFIER; }
-0[bB]{BIN}+{INTSIZE}? {yylval.num = strtoul(yytext+2,NULL,2);/*specify intsize here in yylval.size maybe?*/
-                       return IDENTIFIER; }
-0{OCT}+{INTSIZE}? {yylval.num = strtoul(yytext,NULL,8);/*specify intsize here in yylval.size maybe?*/
-                   return IDENTIFIER; }
-{DEC}+{INTSIZE}?  {yylval.num = strtoul(yytext,NULL,10); /*specify intsize here in yylval.size maybe?*/
-                   return IDENTIFIER; }
-0[xX]{HEX}+{INTSIZE}? {yylval.num = strtoul(yytext,NULL,16); /*specify intsize here in yylval.size maybe?*/
-                       return IDENTIFIER; }
+{LET}({LET}|{DEC})* {yylval.id = strdup(yytext);
+                     return INT; }
+0[bB]{BIN}+{INTSIZE}? {yylval.num = strtoul(yytext+2,NULL,2);//every intconst is 8 bits
+                       yylval.sign = !(strchr(yytext,'u') || strchr(yytext,'U'));
+                       return INT; }
+0{OCT}+{INTSIZE}? {yylval.num = strtoul(yytext,NULL,8);//every intconst is 8 bits
+                   yylval.sign = !(strchr(yytext,'u') || strchr(yytext,'U'));
+                   return INT; }
+{DEC}+{INTSIZE}?  {yylval.num = strtoul(yytext,NULL,10);//every intconst is 8 bits
+                   yylval.sign = !(strchr(yytext,'u') || strchr(yytext,'U'));
+                   return INT; }
+0[xX]{HEX}+{INTSIZE}? {yylval.num = strtoul(yytext+2,NULL,16); /*specify intsize here in yylval.size maybe?*/
+                       yylval.sign = !(strchr(yytext,'u') || strchr(yytext,'U'));
+                       return INT; }
 
 {DEC}+{EXP}{FLOATSIZE}? 
 {DEC}*"."?{DEC}+({EXP})?{FLOATSIZE}? 
@@ -131,8 +135,14 @@ INTSIZE (u|U|l|L)*
 ((?i:"infinity")|(?i:"inf")) {}
 (?i:"nan") {}
 
-L?'(\\.|[^\\'])+'	{return INT;}
-L?\"(\\.|[^\\"])*\"	{return STRING_LITERAL;}
+'(\\.|[^\\'])+'	{yylval.num = charconv(strdup(yytext));
+                 return INT;}
+\"(\\.|[^\\"])*\" {yylval.str = strconv(strdup(yytext));
+                  return STRING_LITERAL;}
+L'(\\.|[^\\'])+' {yylval.num = widecharconv(strdup(yytext));
+                  return INT;}
+L\"(\\.|[^\\"])*\" {yylval.str = widestrconv(strdup(yytext));
+                    return STRING_LITERAL;}
 
 [\t\v\n\f] {/*Whitespace, ignored*/}
 . {/*Other char, ignored*/}

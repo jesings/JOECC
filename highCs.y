@@ -37,8 +37,39 @@ typedef struct {
 } IDENTIFIER;
 
 typedef enum{
-  INT8, INT16, INT32, INT64, BYTE, DBYTE, QBYTE, OBYTE, SINGLE, DOUBLE
+  VOID, CHAR, INT8, INT16, INT32, INT64, BYTE, DBYTE, QBYTE, OBYTE, SINGLE, DOUBLE, STRUCT, UNION, ENUM
 } VARTYPE;
+typedef enum{
+  NONE, CONST, VOLATILE
+} TYPESPEC;
+typedef enum{
+  NONE, EXTERN, STATIC, PARAM
+} TYPEQUAL;
+
+typedef struct{
+  DYNARR* fields;//Each entry is a struct that contains a full identifier and a size
+  char* name;
+} STRUCTDEF;
+typedef struct{
+  DYNARR* fields;//Each entry is a struct that contains a full identifier and a size
+  char* name;
+} UNIONDEF;
+typedef struct{
+  DYNARR* fields;//Each entry is a string-int hybrid struct
+  char* name;
+} ENUMDEF;
+
+struct structdef;
+typedef struct{
+  TYPESPEC typespec;
+  TYPESPEC typequal;
+  VARTYPE vartype;
+  union{
+    STRUCTDEF structtype;
+    UNIONDEF uniontype;
+    ENUMDEF enumtype;
+  };
+} IDTYPE;
 
 typedef enum{
   NOP, STRING, INT, FLOAT, IDENT,
@@ -82,6 +113,7 @@ typedef struct expr{
     long intconst;
     double floatconst;
     IDENTIFIER id;
+    DYNARR* dynvals;
     /*possible struct const for later struct initializations*/
   };
 } EXPRESSION;
@@ -222,16 +254,17 @@ typedef struct stmt{
     };
     struct{
       EXPRESSION* cond;
-      struct stmt* loopbody;
+      struct stmt* body;
     };
     struct{
       EXPRESSION* init;
       EXPRESSION* forcond;
       EXPRESSION* increment;
-      struct stmt* forloopbody;
+      struct stmt* forbody;
     };
     IDENTIFIER* gotoloc;
     DYNARR* stmtsandinits;
+    STATEMENT* substatement;
   }
 } STATEMENT;
 STATEMENT* mkexprstmt(enum stmttype type, EXPRESSION* express){
@@ -252,14 +285,14 @@ STATEMENT* mkforstmt(EXPRESSION* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* 
   retval->init = e1;
   retval->forcond = e2;
   retval->increment = e3;
-  retval->forloopbody = bdy;
+  retval->forbody = bdy;
   return retval;
 }
 STATEMENT* mklsstmt(enum stmttype type, EXPRESSION* condition, STATEMENT* bdy){
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = type;
   retval->cond = condition;
-  retval->loopbody = bdy;
+  retval->body = bdy;
   return retval;
 }
 STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy){
@@ -272,8 +305,27 @@ STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy)
 }
 STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits){
   STATEMENT* retval = malloc(sizeof(STATEMENT));
-  retval->type = CMPND
+  retval->type = CMPND;
   retval->stmtsandinits = stmtsandinits;
+  return retval;
+}
+STATEMENT* mklblstmt(IDENTIFIER* identifier){
+  STATEMENT* retval = malloc(sizeof(STATEMENT));
+  retval->type = LABEL;
+  retval->label = identifier;
+  return retval;
+}
+STATEMENT* mkcasestmt(EXPRESSION* casexpr, STATEMENT* stmt){
+  STATEMENT* retval = malloc(sizeof(STATEMENT));
+  retval->type = CASE;
+  retval->cond = casexpr;
+  retval->body = stmt;
+  return retval;
+}
+STATEMENT* mkdefaultstmt(STATEMENT* stmt){
+  STATEMENT* retval = malloc(sizeof(STATEMENT));
+  retval->type = DEFAULT;
+  retval->substatement = stmt;
   return retval;
 }
 }
@@ -351,13 +403,15 @@ types1:
   "const" 
 | "volatile";
 types2:
-  "typedef" 
-| "extern" 
+  "extern" 
 | "static";
 typews1:
   typem
 | types1 typews1;
 typebs:
+  "typedef" typebs2
+| typebs2;
+typebs2:
   typem
 | types1 typebs
 | types2 typebs;
@@ -466,10 +520,10 @@ escl:
 function:
   typebs declarator compound_statement;
 statement:
-  compound_statement
-|  IDENTIFIER ':' statement
-| "case" esc ':' statement
-| "default" ':' statement
+  compound_statement {$$ = $1}
+|  IDENTIFIER ':' statement {$$ = mklblstmt($1, $3);}
+| "case" esc ':' statement {$$ = mkcasestmt($2, $4);}
+| "default" ':' statement {$$ = mkdefaultstmt($3);}
 | "if" '(' expression ')' statement %prec THEN {$$ = mkifstmt($3, $5, NULL);}
 | "if" '(' expression ')' statement "else" statement {$$ = mkifstmt($3, $5, $7);}
 | "switch" '(' expression ')' statement {$$ = mklsstmt(SWITCH, $3, $5);}
@@ -504,8 +558,8 @@ struct:
 | "struct" '{' struct_decls '}'
 | "struct" IDENTIFIER;
 struct_decls:
-  struct_decl 
-| struct_decls struct_decl;
+  struct_decl {$$ = dactor(32); dapush($$,$1);}
+| struct_decls struct_decl {$$ = $1; dapush($$,$2);};
 struct_decl:
   type cs_decls ';'
 cs_decls:
