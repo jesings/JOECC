@@ -23,6 +23,7 @@ INTSIZE (u|U|l|L)*
             yylloc->last_column++; \
         } \
     }
+#define SIGNEDCHAR 0
 
 %}
 
@@ -61,7 +62,12 @@ INTSIZE (u|U|l|L)*
 "typedef" {return TYPEDEF;}
 "static" {return STATIC;}
 "extern" {return EXTERN;}
+"signed" {return SIGNED;}
+"unsigned" {return UNSIGNED;}
 "char" {return CHAR;}
+"short" {return INT16;}
+"int" {return INT32;}
+"long" {return INT64;}
 "int8" {return INT8;}
 "int16" {return INT16;}
 "int32" {return INT32;}
@@ -71,6 +77,7 @@ INTSIZE (u|U|l|L)*
 "qbyte" {return QBYTE;}
 "obyte" {return OBYTE;}
 "single" {return SINGLE;}
+"float" {return SINGLE;}
 "double" {return DOUBLE;}
 "case" {return CASE;}
 "default" {return DEFAULT;}
@@ -136,10 +143,12 @@ INTSIZE (u|U|l|L)*
 (?i:"nan") {}
 
 '(\\.|[^\\'])+'	{yylval.num = charconv(strdup(yytext));
+                 yylval.sign = IFSIGNEDCHAR;
                  return INT;}
 \"(\\.|[^\\"])*\" {yylval.str = strconv(strdup(yytext));
                   return STRING_LITERAL;}
 L'(\\.|[^\\'])+' {yylval.num = widecharconv(strdup(yytext));
+                  yylval.sign = IFSIGNEDCHAR;
                   return INT;}
 L\"(\\.|[^\\"])*\" {yylval.str = widestrconv(strdup(yytext));
                     return STRING_LITERAL;}

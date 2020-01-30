@@ -9,6 +9,7 @@ typedef struct{
 } HASHTABLE;
 
 HASHTABLE* htctor();
+HASHTABLE* htclone(HASHTABLE* ht);
 void htdtor(HASHTABLE* ht);
 void insert(HASHTABLE* ht, char* key, void* value);
 void* search(HASHTABLE* ht, char* key);

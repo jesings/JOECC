@@ -14,6 +14,11 @@ unsigned long hash(unsigned char *str){/*courtesy of http://www.cse.yorku.ca/~oz
 HASHTABLE* htctor(){
   return calloc(1,sizeof(HASHTABLE));
 }
+HASHTABLE* htclone(HASHTABLE* ht){
+  HASHTABLE* retval = calloc(1,sizeof(HASHTABLE));
+  memcpy(retval, ht, sizeof(HASHTABLE));
+  return retval;
+}
 
 void hpdtor(HASHPAIR* hp){
   if(hp->next)

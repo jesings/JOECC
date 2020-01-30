@@ -8,7 +8,22 @@ DYNARR* dactor(int initiallen){
   retval->arr = malloc(sizeof(void*)*initiallen);
   return retval;
 }
+
+DYNARR* damerge(DYNARR* arr1, DYNARR* arr2){
+  DYNARR* retval = malloc(sizeof(DYNARR));
+  retval->maxlength = arr1->maxlength + arr2->maxlength;
+  retval->arr = reallocarray(arr1->arr, retval->maxlength, sizeof(void*));
+  retval->length = arr1->length + arr2->length;
+  memcpy(retval->arr + arr1->length, arr2->arr, arr2->length);
+  free(arr1);
+  free(arr2->arr);
+  free(arr2);
+  return retval;
+}
+
 void dadtor(DYNARR* da){
+  for(int i = 0; i<da->length; i++)
+    free((da->arr)[i]);
   free(da->arr);
   free(da);
 }
