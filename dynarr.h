@@ -7,6 +7,7 @@ typedef struct{
 DYNARR* dactor(int initiallen);
 DYNARR* damerge(DYNARR* arr1, DYNARR* arr2);
 void dadtor(DYNARR* da);
+void dadtorfr(DYNARR* da);
 
 void dainsert(DYNARR* da, void* val);
 #define dapush dainsert

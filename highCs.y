@@ -44,14 +44,15 @@ typedef enum{
   PARAMETER,
   LOCAL_VAR,
   GLOBAL_VAR
-} IDTYPE;
+} IDTYPE1;
+struct idtypeval;
 typedef struct {
-  IDTYPE type;
+  struct idtypeval* type;
   struct expr* bitflen;
   //int index;//index of type within scope (i.e. parameter index)
   char* name;
 } IDENTIFIER;
-IDENTIFIER* genident(char* name, IDTYPE id){
+IDENTIFIER* genident(char* name, struct idtypeval* id){
   IDENTIFIER* retval = malloc(sizeof(IDENTIFIER));
   retval->name = name;
   retval->type = id;
@@ -432,6 +433,30 @@ DECLARATOR* mkdeclarator(char* name){
   return retval;
 }
 
+typedef struct{
+  char* varname;
+  IDTYPE* type;
+} DECLARATION;
+DECLARATION* mkdeclaration(char* name){
+  DECLARATOR* retval = malloc(sizeof(declarator));
+  retval->idname = name;
+  retval->declparts = dactor(4);
+  return retval;
+}
+EXPRESSION* exprfromdecl(char* name, IDTYPE* id){
+  EXPRESSION* outer = ct_ident_expr(name);
+  DYNARR* ptrs = IDTYPE->pointerstack;
+  if(ptrs)
+    for(int i = 0; i<ptrs->length; i++){
+    }
+}
+
+
+typedef struct{
+  DECLARATION* declaration;
+  EXPRESSION* assign;
+} INITBITS;
+
 struct lexctx{
   FUNCTION* funclist;
   unsigned int fllast, fllen;
@@ -466,7 +491,7 @@ int scopepush(struct lexctx* ctx){
 %type<IDTYPE*> typem typews1 typebs
 %type<IDENTIFIER*> sdecl initializer
 %type<STATEMENT*> statement compound_statement
-%type<DYNARR*> statements_and_initializers struct_decls struct_decl cs_decls enums escl abstract_ptr params
+%type<DYNARR*> statements_and_initializers struct_decls struct_decl cs_decls enums escl abstract_ptr params cs_inits 
 %type<UNION*> union
 %type<STRUCT*> struct
 %type<ENUM*> enum

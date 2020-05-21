@@ -1,14 +1,21 @@
+CC = gcc
 CFLAGS = -g
 lex.yy.c: highCs.lex highCs.tab.c
 	flex highCs.lex
 highCs.tab.c: highCs.y
 	bison highCs.y --defines
 hash.o: hash.c
-	gcc hash.c -c $(CFLAGS)
+	$(CC) hash.c -c $(CFLAGS)
 dynarr.o: dynarr.c
-	gcc dynarr.c -c $(CFLAGS)
+	$(CC) dynarr.c -c $(CFLAGS)
 lex.yy.o: lex.yy.c
-	gcc lex.yy.c -c $(CFLAGS)
+	$(CC) lex.yy.c -c $(CFLAGS)
 highCs.tab.o: highCs.tab.c
-	gcc highCs.tab.c -c $(CFLAGS)
+	$(CC) highCs.tab.c -c $(CFLAGS)
 
+
+dstest.o: dstest.c
+	$(CC) dstest.c -c $(CFLAGS)
+dstest: dynarr.o hash.o dstest.o
+	$(CC) dynarr.o hash.o dstest.o -o dstest
+	./dstest
