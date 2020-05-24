@@ -73,24 +73,24 @@ int* allocnum(int i){
 typedef struct{
   DYNARR* fields;//Each entry is a struct that contains a full identifier and a size
   char* name;
-} STRUCTDEF;
+} STRUCT;
 typedef struct{
   DYNARR* fields;//Each entry is a struct that contains a full identifier and a size
   char* name;
-} UNIONDEF;
+} UNION;
 typedef struct{
-  DYNARR* fields;//Each entry is a string-int hybrid struct
   char* name;
-} ENUMDEF;
+  DYNARR* fields;
+} ENUM;
 
 struct structdef;
 typedef struct{
   DYNARR* pointerstack;
   TYPEBITS tb;
   union{
-    STRUCTDEF structtype;
-    UNIONDEF uniontype;
-    ENUMDEF enumtype;
+    STRUCT* structtype;
+    UNION* uniontype;
+    ENUM* enumtype;
   };
 } IDTYPE;
 
@@ -144,10 +144,6 @@ typedef struct expr{
   };
 } EXPRESSION;
 
-typedef struct{
-  char* name;
-  DYNARR* fields;
-} STRUCT;
 STRUCT* structor(char* name, DYNARR* fields){
     STRUCT* retval = malloc(sizeof(STRUCT));
     retval->name = name;
@@ -155,10 +151,6 @@ STRUCT* structor(char* name, DYNARR* fields){
     return retval;
 }
 
-typedef struct{
-  char* name;
-  DYNARR* fields;
-} UNION;
 UNION* unionctor(char* name, DYNARR* fields){
     UNION* retval = malloc(sizeof(UNION));
     retval->name = name;
@@ -166,10 +158,6 @@ UNION* unionctor(char* name, DYNARR* fields){
     return retval;
 }
 
-typedef struct{
-  char* name;
-  DYNARR* fields;
-} ENUM;
 ENUM* enumctor(char* name, DYNARR* fields){
     ENUM* retval = malloc(sizeof(ENUM));
     retval->name = name;
@@ -503,7 +491,7 @@ struct intinfo{
   struct intinfo ii;
   char* str;
   double dbl;
-  TYPEBITS* typevariant;
+  TYPEBITS typevariant;
   EXPRESSION* exprvariant;
   IDTYPE* idvariant;
   IDENTIFIERINFO* initvariant;
@@ -517,8 +505,8 @@ struct intinfo{
 }
 
 %type<typevariant> type types1 types2 types1o
-%type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee
 %type<idvariant> typem typews1 typebs
+%type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee
 %type<initvariant> initializer
 %type<stmtvariant> statement compound_statement
 %type<arrvariant> statements_and_initializers struct_decls struct_decl cs_decls enums escl abstract_ptr params cs_inits cs_minutes
@@ -563,17 +551,17 @@ declarator:
   abstract_ptr declname {$$ = $2; $2->declparts = damerge($2->declparts, $1);}
 | declname {$$ = $1;};
 declname:
-  IDENTIFIER {$$ = mkdeclarator($1.str);}
+  IDENTIFIER {$$ = mkdeclarator($1);}
 | '(' declarator ')' {$$ = $2;}
-| declname '[' ']' {$$ = mkdeclpart(ARRAYSPEC, NULL);}
-| declname '[' expression ']' {$$ = mkdeclpart(ARRAYSPEC, $3);}
-| declname '(' ')' {$$ = mkdeclpart(PARAMSSPEC, NULL);}
-| declname '(' params ')' {$$ = mkdeclpart(PARAMSSPEC, $3);};
+| declname '[' ']' {$$ = $1; dapush($$->declparts,mkdeclpart(ARRAYSPEC, NULL));}
+| declname '[' expression ']' {$$ = $1; dapush($$->declparts,mkdeclpart(ARRAYSPEC, $3));}
+| declname '(' ')' {$$ = $1; dapush($$->declparts, mkdeclpart(PARAMSSPEC, NULL));}
+| declname '(' params ')' {$$ = $1; dapush($$->declparts, mkdeclpart(PARAMSSPEC, $3));};
 params:
   param_decl {$$ = dactor(8); dapush($$, $1);}
 | params ',' param_decl {$$ = $1; dapush($$, $3);};
 param_decl:
-  typebs declarator {$$ = $2; $$->typebs = $1;};
+  typebs declarator {$$ = $2; $$->tb = $1->tb;/*TODO: THIS IS NOT RIGHT, I need proper type handling*/free($2);};
 typem:
   "char" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 1;}
 | "int8" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 1;}
@@ -586,7 +574,7 @@ typem:
 | "obyte" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 8 | UNSIGNEDNUM;}
 | "single" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 4 | FLOATNUM;}
 | "double" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 8 | FLOATNUM;}
-| "void" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = VOIDVAL;}
+| "void" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = VOIDNUM;}
 | "signed" {$$ = calloc(1,sizeof(IDTYPE)); $$->tb = 0;}
 | "unsigned" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = UNSIGNEDNUM;}
 | struct {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = STRUCTVAL; $$->structtype = $1;}
