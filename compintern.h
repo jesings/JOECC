@@ -1,6 +1,6 @@
 typedef enum{
   FLOATNUM    = 0x10,
-  UNSIGNEDNUM = 0x20
+  UNSIGNEDNUM = 0x20,
   CONSTNUM    = 0x40,
   VOLATILENUM = 0x80,
   STATICNUM   = 0x100,
@@ -9,5 +9,5 @@ typedef enum{
   VOIDNUM     = 0x800,
   ENUMVAL     = 0x1000,
   STRUCTVAL   = 0x2000,
-  UNIONVAL    = 0x4000
+  UNIONVAL    = 0x4000,
 } TYPEBITS;

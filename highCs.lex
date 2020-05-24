@@ -41,15 +41,15 @@ int check_type(struct lexctx* ctx);
 "//" {BEGIN(SINGLELINE_COMMENT);}
 <SINGLELINE_COMMENT>. {/*The single line comment is not terminated*/}
 <SINGLELINE_COMMENT>\n {BEGIN(INITIAL);}
-"->" {return ARROW;}
+"->" {return ARROWTK;}
 "++" {return INC;}
 "--" {return DEC;}
-"<<" {return SHL;}
-">>" {return SHR;}
+"<<" {return SHLTK;}
+">>" {return SHRTK;}
 "<=" {return LE;}
 ">=" {return GE;}
-"==" {return EQ;}
-"!=" {return NEQ;}
+"==" {return EQTK;}
+"!=" {return NEQTK;}
 "&&" {return AND;}
 "||" {return OR;}
 "/=" {return DIV_GETS;}
@@ -82,11 +82,11 @@ int check_type(struct lexctx* ctx);
 "single" {return SINGLE;}
 "float" {return SINGLE;}
 "double" {return DOUBLE;}
-"case" {return CASE;}
-"default" {return DEFAULT;}
+"case" {return CASETK;}
+"default" {return DEFAULTTK;}
 "if" {return IF;}
 "else" {return ELSE;}
-"switch" {return SWITCH;}
+"switch" {return SWITCHTK;}
 "while" {return WHILE;}
 "do" {return DO;}
 "for" {return FOR;}
@@ -95,9 +95,9 @@ int check_type(struct lexctx* ctx);
 "break" {return BREAK;}
 "return" {return RETURN;}
 "sizeof" {return SIZEOF;}
-"struct" {return STRUCT;}
-"enum" {return ENUM;}
-"union" {return UNION;}
+"struct" {return STRUCTTK;}
+"enum" {return ENUMTK;}
+"union" {return UNIONTK;}
 "&" {return '&';}
 "*" {return '*';}
 "<" {return '<';}
@@ -123,36 +123,30 @@ int check_type(struct lexctx* ctx);
 "~" {return '~';}
 "^" {return '^';}
 
-((?i:"infinity")|(?i:"inf")) {yylval.dbl = 0x7f800000; return FLOAT;}
-(?i:"nan") {yylval.dbl = 0x7fffffff; return FLOAT;}
+((?i:"infinity")|(?i:"inf")) {yylval.dbl = 0x7f800000; return FLOAT_LITERAL;}
+(?i:"nan") {yylval.dbl = 0x7fffffff; return FLOAT_LITERAL;}
 
 {LET}({LET}|{DEC})* {yylval.str = strdup(yytext);
                      return check_type(); }
 0[bB]{BIN}+{INTSIZE}? {yylval.num = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
-                       yylval.sign = !(strchr(yytext,'u') || strchr(yytext,'U'));
-                       return INT; }
+                       yylval.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
 0{OCT}+{INTSIZE}? {yylval.num = strtoul(yytext,NULL,8);//every intconst is 8 bytes
-                   yylval.sign = !(strchr(yytext,'u') || strchr(yytext,'U'));
-                   return INT; }
+                   yylval.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
 {DEC}+{INTSIZE}?  {yylval.num = strtoul(yytext,NULL,10);//every intconst is 8 bytes
-                   yylval.sign = !(strchr(yytext,'u') || strchr(yytext,'U'));
-                   return INT; }
+                   yylval.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
 0[xX]{HEX}+{INTSIZE}? {yylval.num = strtoul(yytext,NULL,16); /*specify intsize here in yylval.size maybe?*/
-                       yylval.sign = !(strchr(yytext,'u') || strchr(yytext,'U'));
-                       return INT; }
+                       yylval.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
 
-{DEC}+{EXP}{FLOATSIZE}? {sscanf(yytext, "%ld", &yylval.dbl); return FLOAT;}
-{DEC}*"."?{DEC}+({EXP})?{FLOATSIZE}? {sscanf(yytext, "%ld", &yylval.dbl); return FLOAT;}
-{DEC}+"."?{DEC}*({EXP})?{FLOATSIZE}? {sscanf(yytext, "%ld", &yylval.dbl); return FLOAT;}
+{DEC}+{EXP}{FLOATSIZE}? {sscanf(yytext, "%ld", &yylval.dbl);return INTEGER_LITERAL;}
+{DEC}*"."?{DEC}+({EXP})?{FLOATSIZE}? {sscanf(yytext, "%ld", &yylval.dbl);return INTEGER_LITERAL;}
+{DEC}+"."?{DEC}*({EXP})?{FLOATSIZE}? {sscanf(yytext, "%ld", &yylval.dbl);return INTEGER_LITERAL;}
 
 '(\\.|[^\\'])+'	{yylval.num = charconv(strdup(yytext));
-                 yylval.sign = IFSIGNEDCHAR;
-                 return INT;}
+                 yylval.sign = IFSIGNEDCHAR;}
 \"(\\.|[^\\"])*\" {yylval.str = strconv(strdup(yytext));
                   return STRING_LITERAL;}
 L'(\\.|[^\\'])+' {yylval.num = widecharconv(strdup(yytext));
-                  yylval.sign = IFSIGNEDCHAR;
-                  return INT;}
+                  yylval.sign = IFSIGNEDCHAR;}
 L\"(\\.|[^\\"])*\" {yylval.str = widestrconv(strdup(yytext));
                     return STRING_LITERAL;}
 
