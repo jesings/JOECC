@@ -1,6 +1,10 @@
 CC = gcc
 CFLAGS = -g
-lex.yy.c: highCs.lex highCs.tab.c
+lex.yy.o: lex.yy.c highCs.tab.c
+	gcc -c lex.yy.c
+	gcc -c highCs.tab.c
+
+lex.yy.c: highCs.lex 
 	flex highCs.lex
 highCs.tab.c: highCs.y
 	bison highCs.y --defines
@@ -13,6 +17,10 @@ lex.yy.o: lex.yy.c
 highCs.tab.o: highCs.tab.c
 	$(CC) highCs.tab.c -c $(CFLAGS)
 
+clean:
+	-rm *.o
+	-rm ./dstest
+	-rm *.tab.*
 
 dstest.o: dstest.c
 	$(CC) dstest.c -c $(CFLAGS)

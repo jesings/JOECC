@@ -26,8 +26,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "compintern.h"
-#include "hash.h"
-#include "dynarr.h"
 
 struct expr;
 
@@ -40,59 +38,11 @@ enum ident_type{
   TYPE_DEFN
 };
 
-struct idtypeval;
-
 typedef struct {
   //int index;//index of type within scope (i.e. parameter index)
   //value perhaps?
   char* name;
 } IDENTIFIERINFO;
-
-//IDENTIFIER* genident(char* name, struct idtypeval* id){
-//  IDENTIFIER* retval = malloc(sizeof(IDENTIFIER));
-//  retval->name = name;
-//  retval->type = id;
-//  retval->bitflen = 0;
-//  return retval;
-//}
-//
-//IDENTIFIER* genidentbit(char* name, struct expr* expret){
-//  IDENTIFIER* retval = malloc(sizeof(IDENTIFIER));
-//  retval->name = name;
-//  retval->type = 0;
-//  retval->bitflen = expret;
-//  return retval;
-//}
-
-int* allocnum(int i){
-  int* j = malloc(sizeof(int));
-  *j = i;
-  return j;
-}
-
-typedef struct{
-  DYNARR* fields;//Each entry is a struct that contains a full identifier and a size
-  char* name;
-} STRUCT;
-typedef struct{
-  DYNARR* fields;//Each entry is a struct that contains a full identifier and a size
-  char* name;
-} UNION;
-typedef struct{
-  char* name;
-  DYNARR* fields;
-} ENUM;
-
-struct structdef;
-typedef struct{
-  DYNARR* pointerstack;
-  TYPEBITS tb;
-  union{
-    STRUCT* structtype;
-    UNION* uniontype;
-    ENUM* enumtype;
-  };
-} IDTYPE;
 
 typedef enum{
   NOP, STRING, INT, UINT, FLOAT, IDENT,
@@ -135,10 +85,12 @@ typedef struct expr{
     };
     struct expr* unaryparam;
     char* strconst;
+    char* ident;
     long intconst;
     unsigned long uintconst;
     double floatconst;
     IDENTIFIERINFO* id;//for identifier expressions???????
+    IDTYPE* typesz;//for sizeof
     DYNARR* dynvals;//?
     /*possible struct const for later struct initializations*/
   };
@@ -150,14 +102,12 @@ STRUCT* structor(char* name, DYNARR* fields){
     retval->fields = fields;
     return retval;
 }
-
 UNION* unionctor(char* name, DYNARR* fields){
     UNION* retval = malloc(sizeof(UNION));
     retval->name = name;
     retval->fields = fields;
     return retval;
 }
-
 ENUM* enumctor(char* name, DYNARR* fields){
     ENUM* retval = malloc(sizeof(ENUM));
     retval->name = name;
@@ -177,6 +127,12 @@ EXPRESSION* ct_unary_expr(EXPRTYPE t, EXPRESSION* param){
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = t;
   retval->unaryparam = param;
+  return retval;
+}
+EXPRESSION* ct_sztype(IDTYPE* whichtype){
+  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
+  retval->type = SZOF;
+  retval->typesz = whichtype;
   return retval;
 }
 EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2){
@@ -211,7 +167,7 @@ EXPRESSION* ct_fcall_expr(EXPRESSION* func, int num, EXPRESSION* params){
   retval->params = params;
   return retval;
 }
-EXPRESSION* ct_strconst_expr(EXPRTYPE t, char* str){
+EXPRESSION* ct_strconst_expr(char* str){
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = STRING;
   retval->strconst = strdup(str);//may or may not need to duplicate
@@ -229,16 +185,16 @@ EXPRESSION* ct_uintconst_expr(unsigned long num){
   retval->uintconst = num;
   return retval;
 }
-EXPRESSION* ct_floatconst_expr(EXPRTYPE t, double num){
+EXPRESSION* ct_floatconst_expr(double num){
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));\
   retval->type = FLOAT;
   retval->floatconst = num;
   return retval;
 }
-EXPRESSION* ct_ident_expr(IDENTIFIERINFO* id){
+EXPRESSION* ct_ident_expr(/*IDENTIFIERINFO* id*/ char* ident){
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = IDENT;
-  retval->id = id;
+  retval->ident = ident;
   return retval;
 }
 
@@ -254,13 +210,35 @@ enum stmttype{
 };
 
 typedef struct{
+  DYNARR* declparts;
+  char* idname;
+  TYPEBITS tb;
+} DECLARATOR;
+DECLARATOR* mkdeclarator(char* name){
+  DECLARATOR* retval = calloc(1,sizeof(DECLARATOR));
+  retval->idname = name;
+  retval->declparts = dactor(4);
+  return retval;
+}
+
+typedef struct {
+  DECLARATOR* decl;
+  EXPRESSION* expr;//null if it's only a declaration not an initialization as well
 } INITIALIZER;
+
+INITIALIZER* geninit(DECLARATOR* decl, EXPRESSION* expr) {
+  INITIALIZER* retval = malloc(sizeof(INITIALIZER));
+  retval->decl = decl;
+  retval->expr = expr;
+  return retval;
+}
+
 struct stmt;
 typedef struct{
   char isstmt;
   union{
     struct stmt* state;
-    INITIALIZER* init;
+    DYNARR* init;
   };
 } SOI;
 
@@ -270,7 +248,7 @@ SOI* sois(struct stmt* state){
   retval->state = state;
   return retval;
 }
-SOI* soii(INITIALIZER* init){
+SOI* soii(DYNARR* init){
   SOI* retval = malloc(sizeof(SOI));
   retval->isstmt = 0;
   retval->init = init;
@@ -297,6 +275,7 @@ typedef struct stmt{
       struct stmt* forbody;
     };
     IDENTIFIERINFO* label; //case or label, maybe also goto?
+    char* glabel; //for label and goto
     DYNARR* stmtsandinits; //compound
     struct stmt* substatement; //default
   };
@@ -308,10 +287,10 @@ STATEMENT* mkexprstmt(enum stmttype type, EXPRESSION* express){
   retval->expression = express;
   return retval;
 }
-STATEMENT* mkgotostmt(IDENTIFIERINFO* gotoloc){
+STATEMENT* mkgotostmt(char* gotoloc){
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = JGOTO;
-  retval->label = gotoloc;
+  retval->glabel = gotoloc;
   return retval;
 }
 STATEMENT* mkforstmt(EXPRESSION* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy){
@@ -344,17 +323,17 @@ STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits){
   retval->stmtsandinits = stmtsandinits;
   return retval;
 }
-STATEMENT* mklblstmt(IDENTIFIERINFO* identifier){
+STATEMENT* mklblstmt(char* identifier){
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = LABEL;
-  retval->label = identifier;
+  retval->glabel = identifier;
   return retval;
 }
-STATEMENT* mkcasestmt(EXPRESSION* casexpr, STATEMENT* stmt){
+STATEMENT* mkcasestmt(EXPRESSION* casexpr/*, STATEMENT* stmt*/){
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = CASE;
   retval->cond = casexpr;
-  retval->body = stmt;
+  //retval->body = stmt;
   return retval;
 }
 STATEMENT* mkdefaultstmt(STATEMENT* stmt){
@@ -366,26 +345,27 @@ STATEMENT* mkdefaultstmt(STATEMENT* stmt){
 
 typedef struct{
   char* name;
-  unsigned long value;
+  EXPRESSION* value;
 } ENUMFIELD;
-ENUMFIELD* genenumfield(char* name, STATEMENT* value){
+ENUMFIELD* genenumfield(char* name, EXPRESSION* value){
   ENUMFIELD* retval = malloc(sizeof(ENUMFIELD));
   retval->name = name;
   //confirm is expression statement
-  //confirm is uintconst expr
-  retval->value = value->expression->uintconst;
+  //confirm is expr that will resolve into something uintconstifiable that is known at compile time
+  retval->value = value;//this is worthless TODO: FIX
   return retval;
 }
 
 enum declpart_info{
-  POINTERSPEC, ARRAYSPEC, PARAMSSPEC
+  POINTERSPEC, ARRAYSPEC, PARAMSSPEC, BITFIELDSPEC
 };
 struct declarator_part{
   enum declpart_info type;
   union{
     DYNARR* params;
     EXPRESSION* arrspec;
-    DYNARR* ptrspec;
+    EXPRESSION* bfspec;
+    TYPEBITS ptrspec;
     void* garbage;
   };
 };
@@ -394,16 +374,12 @@ struct declarator_part* mkdeclpart(enum declpart_info typ, void* d){
   struct declarator_part* retval = malloc(sizeof(struct declarator_part));
   retval->type = typ;
   retval->garbage = d;
+  return retval;
 }
-typedef struct{
-  DYNARR* declparts;
-  char* idname;
-  TYPEBITS tb;
-} DECLARATOR;
-DECLARATOR* mkdeclarator(char* name){
-  DECLARATOR* retval = calloc(1,sizeof(DECLARATOR));
-  retval->idname = name;
-  retval->declparts = dactor(4);
+struct declarator_part* mkdeclptr(TYPEBITS d){
+  struct declarator_part* retval = malloc(sizeof(struct declarator_part));
+  retval->type = POINTERSPEC;
+  retval->ptrspec = d;
   return retval;
 }
 
@@ -424,6 +400,7 @@ EXPRESSION* exprfromdecl(char* name, IDTYPE* id){
   DYNARR* ptrs = id->pointerstack;
   if(ptrs) {
     for(int i = 0; i<ptrs->length; i++){
+      //TODO
     }
   }
   return outer;
@@ -434,17 +411,8 @@ typedef struct{
   DECLARATION* declaration;
   EXPRESSION* assign;
 } INITBITS;//?
-typedef struct {
-} VARTYPE;
 
-typedef struct function{
-  char* name;
-  STATEMENT* body; //compound statement
-  DYNARR* params;
-  VARTYPE retrn;
-} FUNC;
-
-FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, VARTYPE retrn) {
+FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, IDTYPE* retrn) {
   FUNC* func = malloc(sizeof(FUNC));
   func->name = name;
   func->body = body;
@@ -453,14 +421,6 @@ FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, VARTYPE retrn) {
   return func;
 }
 
-struct lexctx{
-  FUNC* funclist;
-  unsigned int fllast, fllen;
-  FUNC* curfunc;
-  DYNARR* scopes;
-  unsigned int layer;//Necessary?
-  HASHTABLE* labels;
-};
 typedef struct{
   HASHTABLE* identifiers;
   HASHTABLE* structs;
@@ -476,7 +436,7 @@ SCOPE* mkscope(SCOPE* parent){
   child->enums = htclone(parent->enums);
   return child;
 }
-int scopepush(struct lexctx* ctx){
+void scopepush(struct lexctx* ctx){
   SCOPE* child = mkscope(dapeek(ctx->scopes));
 }
 
@@ -484,6 +444,23 @@ struct intinfo{
   long num;
   char sign;
 }; 
+#define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
+
+typedef struct {
+  char isfunc;
+  union {
+    INITIALIZER* i;
+    FUNC* f;
+    void* garbage;
+  };
+} TOPBLOCK;
+
+TOPBLOCK* gtb(char isfunc, void* assign) {
+  TOPBLOCK* retval = malloc(sizeof(TOPBLOCK));
+  retval->isfunc = isfunc;
+  retval->garbage = assign;
+  return retval;
+}
 }
 
 %param {struct lexctx* ctx}
@@ -494,7 +471,7 @@ struct intinfo{
   TYPEBITS typevariant;
   EXPRESSION* exprvariant;
   IDTYPE* idvariant;
-  IDENTIFIERINFO* initvariant;
+  INITIALIZER* initvariant;
   STATEMENT* stmtvariant;
   DYNARR* arrvariant;
   UNION* unionvariant;
@@ -504,12 +481,11 @@ struct intinfo{
   FUNC* funcvariant;
 }
 
-%type<typevariant> type types1 types2 types1o
-%type<idvariant> typem typews1 typebs
+%type<typevariant> types1 types2 types1o
+%type<idvariant> typem typews1 typebs type
 %type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee
-%type<initvariant> initializer
 %type<stmtvariant> statement compound_statement
-%type<arrvariant> statements_and_initializers struct_decls struct_decl cs_decls enums escl abstract_ptr params cs_inits cs_minutes
+%type<arrvariant> statements_and_initializers struct_decls struct_decl cs_decls enums escl abstract_ptr params cs_inits cs_minutes initializer program
 %type<unionvariant> union
 %type<structvariant> struct
 %type<enumvariant> enum
@@ -532,23 +508,28 @@ struct intinfo{
 
 %%
 program:
-  function 
-| initializer
-| program function
-| program initializer;
+  function {$$ = dactor(4096); dapush($$, gtb(1, $1));}
+| initializer {$$ = dactor(4096); for(int i = 0; i < $1->length; i++) dapush($$, gtb(1, daget($1, i))); free($1);}
+| program function {$$ = $1; dapush($$, gtb(1, $2));}
+| program initializer {$$ = $1; for(int i = 0; i < $1->length; i++) dapush($$, gtb(1, daget($2, i))); free($2);};
 initializer:
-  "typedef" typebs cs_minutes ';'
-| typebs cs_inits ';';
+  "typedef" typebs cs_minutes ';' {/*add to context but do not push anything, maybe return null?*/}
+| typebs cs_inits ';' 
+{$$ = $2; for(int i = 0; i < $$->length; i++){
+  aget($$, i)->decl->tb |= $1->tb; 
+  if($1->pointerstack->length) 
+    aget($$, 0)->decl->declparts = damerge($1->pointerstack, aget($$, 0)->decl->declparts);
+}};
 cs_inits:
-  declarator '=' esc ',' cs_inits {}
-| declarator '=' esc {}
-| declarator ',' cs_inits {}
-| declarator {$$ = dactor(8); dapush($$, $1);};
+  cs_inits ',' declarator '=' esc {$$ = $1; dapush($$, geninit($3, $5));}
+| declarator '=' esc {$$ = dactor(8); dapush($$, geninit($1, $3));}
+| cs_inits ',' declarator {$$ = $1; dapush($$, geninit($3, NULL));}
+| declarator {$$ = dactor(8); dapush($$, geninit($1, NULL));};
 cs_minutes:
   cs_minutes ',' declarator {$$ = $1; dapush($1, $3);}
 | declarator {$$ = dactor(8); dapush($$, $1);};
 declarator:
-  abstract_ptr declname {$$ = $2; $2->declparts = damerge($2->declparts, $1);}
+  abstract_ptr declname {$$ = $2; $2->declparts = damerge($1, $2->declparts);}
 | declname {$$ = $1;};
 declname:
   IDENTIFIER {$$ = mkdeclarator($1);}
@@ -587,23 +568,23 @@ types2:
   "extern" {$$ = EXTERNNUM;}
 | "static" {$$ = STATICNUM;};
 typews1:
-  TYPE_NAME {$$ = search(ctx->types, $1.yytext);}
+  TYPE_NAME {$$ = search(ctx->idents, $1);}
 | typem {$$ = $1;}
-| types1 typews1 {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = $1 | $2;};
+| types1 typews1 {$$ = $2; $$->tb |= $1;};
 typebs:
   typem {$$ = $1;}
-| types1 typebs {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = $1 | $2;}
-| types2 typebs {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = $1 | $2;};
+| types1 typebs {$$ = $2; $$->tb |= $1;}
+| types2 typebs {$$ = $2; $$->tb |= $1;};
 type:
   typews1 {$$ = $1;};
 types1o:
   types1 {$$ = $1;}
 | types1o types1 {$$ = $1 | $2;};
 abstract_ptr:
-  '*' {$$ = dactor(4); dapush($$,allocnum(sizeof(intptr_t)));}
-| '*' abstract_ptr {$$ = $2; dapush($$, allocnum(sizeof(intptr_t)));}
-| '*' types1o {$$ = dactor(4); dapush($$,allocnum(sizeof(intptr_t) | $2));}
-| '*' types1o abstract_ptr {$$ = $3; dapush($$, allocnum(sizeof(intptr_t) | $2));};
+  '*' {$$ = dactor(4); dapush($$,mkdeclptr(sizeof(intptr_t)));}
+| '*' abstract_ptr {$$ = $2; dapush($$, mkdeclptr(sizeof(intptr_t)));}
+| '*' types1o {$$ = dactor(4); dapush($$,mkdeclptr(sizeof(intptr_t) | $2));}
+| '*' types1o abstract_ptr {$$ = $3; dapush($$, mkdeclptr(sizeof(intptr_t) | $2));};
 expression:
   expression ',' esc {$$ = ct_binary_expr(COMMA, $1, $3);}
 | esc {$$ = $1;};
@@ -673,34 +654,34 @@ esca:
 | '~' esm {$$ = ct_unary_expr(B_NOT, $2);}
 | '*' esm {$$ = ct_unary_expr(DEREF, $2);}
 | '&' esm {$$ = ct_unary_expr(ADDR, $2);}
-| "sizeof" '(' type ')' {$$ = ct_unary_expr(SZOF,$3);}
+| "sizeof" '(' type ')' {$$ = ct_sztype($3);}
 | "sizeof" esca {$$ = ct_unary_expr(SZOFEXPR,$2);}
 | esp {$$ = $1;};
 esp:
   esp "++" {$$ = ct_unary_expr(POSTINC, $1);}
 | esp "--" {$$ = ct_unary_expr(POSTDEC, $1);}
-| esp '(' ')' {$$ = ct_nary_expr($1,0,NULL);}
-| esp '(' escl ')' {$$ = ct_fcall_expr($1,$3->numargs,$3->argl);}
+| esp '(' ')' {$$ = ct_fcall_expr($1,0,NULL);}
+| esp '(' escl ')' {$$ = ct_fcall_expr($1,$3->length,(EXPRESSION*)*$3->arr); free($3);}
 | esp '[' expression ']' {$$ = ct_unary_expr(DEREF, ct_binary_expr(ADD, $1, $3));}
 | esp '.' IDENTIFIER {$$ = ct_binary_expr(DOTOP, $1, ct_ident_expr($3));}
 | esp  "->" IDENTIFIER {$$ = ct_binary_expr(ARROW, $1, ct_ident_expr($3));}
 | esu {$$ = $1;};
 esu:
   '(' expression ')' {$$ = $2;}
-| STRING_LITERAL {$$ = ct_strconst_expr($1.str);}
+| STRING_LITERAL {$$ = ct_strconst_expr($1/*.str*/);}
 | INTEGER_LITERAL {$$ = $1.sign ? ct_intconst_expr($1.num) : ct_uintconst_expr($1.num);}
-| FLOAT_LITERAL {$$ = ct_floatconst_expr($1.dbl);}
-| IDENTIFIER {$$ = ct_ident_expr($1.str);};
+| FLOAT_LITERAL {$$ = ct_floatconst_expr($1/*.dbl*/);}
+| IDENTIFIER {$$ = ct_ident_expr($1/*.str*/);};
 escl:
   esc {$$ = dactor(32); dapush($$, $1);}
 | escl ',' esc {$$ = $1; dapush($$, $3); };
 
 function:
-  typebs declname compound_statement {$$ = ct_function($2->name, $3, $2->params, $1); free($2);/*check that it is in fact a param spec*/};
+  typebs declname compound_statement {struct declarator_part* dp = dapop($2->declparts); $1->pointerstack = damerge($1->pointerstack, $2->declparts);/*TODO: have this extract only pointers and arrays and not i.e. params)*/ $$ = ct_function($2->idname, $3, dp->params, $1); free($2);/*check that it is in fact a param spec*/};
 statement:
   compound_statement {$$ = $1;}
-|  IDENTIFIER ':' statement {$$ = mklblstmt($1, $3);}
-| "case" esc ':' statement {$$ = mkcasestmt($2, $4);}
+|  IDENTIFIER ':' /*statement*/ {$$ = mklblstmt($1/*, $3*/);}
+| "case" esc ':' /*statement*/ {$$ = mkcasestmt($2/*, $4*/);}
 | "default" ':' statement {$$ = mkdefaultstmt($3);}
 | "if" '(' expression ')' statement %prec THEN {$$ = mkifstmt($3, $5, NULL);}
 | "if" '(' expression ')' statement "else" statement {$$ = mkifstmt($3, $5, $7);}
@@ -708,7 +689,7 @@ statement:
 | "while" '(' expression ')' statement {$$ = mklsstmt(WHILEL, $3, $5);}
 | "do" statement "while" '(' expression ')' ';' {$$ = mklsstmt(DOWHILEL, $5, $2);}
 | "for" '(' ee ';' ee ';' ee ')' statement {$$ = mkforstmt($3, $5, $7, $9);}
-| "goto" IDENTIFIER ';' {$$ = mkgotostmt($2.yytext);/*find label within scopes at some point, probably not now though*/}
+| "goto" IDENTIFIER ';' {$$ = mkgotostmt($2/*.yytext*/);/*find label within scopes at some point, probably not now though*/}
 | "break" ';' {$$ = mkexprstmt(LBREAK,NULL);}
 | "continue" ';' {$$ = mkexprstmt(LCONT,NULL);}
 | "return" ';' {$$ = mkexprstmt(FRET,NULL);}
@@ -717,7 +698,7 @@ statement:
 | ';' {$$ = mkexprstmt(NOPSTMT, NULL);};
 ee: 
   expression {$$ = $1;}
-| %empty {$$ = NULL};
+| %empty {$$ = NULL;};
 compound_statement:/*add new scope to scope stack here*/
   '{' '}' {$$ = mkcmpndstmt(NULL);}
 | '{' statements_and_initializers '}' {$$ = mkcmpndstmt($2);};
@@ -728,34 +709,34 @@ statements_and_initializers:
 | statements_and_initializers statement {$$ = $1; dapush($$,sois($2));};
 
 union:
-  "union" IDENTIFIER '{' struct_decls '}' {$$ = unionctor($2.yytext, $4);}
+  "union" IDENTIFIER '{' struct_decls '}' {$$ = unionctor($2/*.yytext*/, $4);}
 | "union" '{' struct_decls '}' {$$ = unionctor(NULL, $3);}
-| "union" IDENTIFIER {$$ = unionctor($2.yytext, NULL);};
+| "union" IDENTIFIER {$$ = unionctor($2/*.yytext*/, NULL);};
 struct:
-  "struct" IDENTIFIER '{' struct_decls '}' {$$ = structor($2.yytext, $4);}
+  "struct" IDENTIFIER '{' struct_decls '}' {$$ = structor($2/*.yytext*/, $4);}
 | "struct" '{' struct_decls '}' {$$ = structor(NULL, $3);}
-| "struct" IDENTIFIER {$$ = structor($2.yytext, NULL);};
+| "struct" IDENTIFIER {$$ = structor($2/*.yytext*/, NULL);};
 struct_decls:
   struct_decl {$$ = $1;}
 | struct_decls struct_decl {$$ = damerge($1, $2);};
 struct_decl:
-  type cs_decls ';' {$$ = $2; for(int i = 0; i < $2->length; i++) $2->arr[i]->type |= $1;};
+  type cs_decls ';' {$$ = $2; for(int i = 0; i < $2->length; i++) ((DECLARATOR*) $2->arr[i])->tb |= $1->tb; if($1->pointerstack->length) ((DECLARATOR*)$$->arr[0])->declparts = damerge($1->pointerstack, ((DECLARATOR*)$$->arr[0])->declparts);};
 cs_decls:
   sdecl ',' cs_decls {$$ = $3; dapush($$, $1);}
 | sdecl {$$ = dactor(8); dapush($$, $1);};
 sdecl: 
   declarator {$$ = $1;}
-| declarator ':' esc {$$ = $1; $$->tb |= $3;}
-| ':' esc {$$ = mkdeclarator(NULL); $$->tb = $2};
+| declarator ':' esc {$$ = $1; dapush($$->declparts, mkdeclpart(BITFIELDSPEC, $3));}
+| ':' esc {$$ = mkdeclarator(NULL); dapush($$->declparts, mkdeclpart(BITFIELDSPEC, $2));};
 enum:
-  "enum" IDENTIFIER '{' enums '}' {$$ = enumctor($2.yytext, $4);}
+  "enum" IDENTIFIER '{' enums '}' {$$ = enumctor($2/*.yytext*/, $4);}
 | "enum" '{' enums '}' {$$ = enumctor(NULL, $3);}
-| "enum" IDENTIFIER {$$ = enumctor($2.yytext, NULL);};
+| "enum" IDENTIFIER {$$ = enumctor($2/*.yytext*/, NULL);};
 enums:
-  IDENTIFIER {$$ = dactor(256);dapush($$, genenumfield($1.yytext,ct_intconst_expr(0)));}
-| IDENTIFIER '=' esc {$$ = dactor(256); dapush($$, genenumfield($1.yytext,$3));}
-| enums ',' IDENTIFIER {$$ = $1; dapush($$, genenumfield($3.yytext,ct_binary_expr(ADD,ct_intconst_expr(1),dapeek($$))));}
-| enums ',' IDENTIFIER '=' esc {$$ = $1; dapush($$, genenumfield($3.yytext,$5));};
+  IDENTIFIER {$$ = dactor(256);dapush($$, genenumfield($1/*.yytext*/,ct_intconst_expr(0)));}
+| IDENTIFIER '=' esc {$$ = dactor(256); dapush($$, genenumfield($1/*.yytext*/,$3));}
+| enums ',' IDENTIFIER {$$ = $1; dapush($$, genenumfield($3/*.yytext*/,ct_binary_expr(ADD,ct_intconst_expr(1),dapeek($$))));}
+| enums ',' IDENTIFIER '=' esc {$$ = $1; dapush($$, genenumfield($3/*.yytext*/,$5));};
 %%
 #include <stdio.h>
 int yyerror(char* s){
