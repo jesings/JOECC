@@ -1,10 +1,9 @@
 CC = gcc
+LDFLAGS = 
 CFLAGS = -g
-lex.yy.o: lex.yy.c highCs.tab.c
-	gcc -c lex.yy.c
-	gcc -c highCs.tab.c
-
-lex.yy.c: highCs.lex 
+compiler: lex.yy.o highCs.tab.o hash.o dynarr.o conv.o
+	$(CC) lex.yy.o highCs.tab.o hash.o dynarr.o -o compiler $(LDFLAGS)
+lex.yy.c: highCs.lex
 	flex highCs.lex
 highCs.tab.c: highCs.y
 	bison highCs.y --defines
@@ -12,6 +11,8 @@ hash.o: hash.c
 	$(CC) hash.c -c $(CFLAGS)
 dynarr.o: dynarr.c
 	$(CC) dynarr.c -c $(CFLAGS)
+conv.o: conv.c
+	$(CC) conv.c -c $(CFLAGS)
 lex.yy.o: lex.yy.c
 	$(CC) lex.yy.c -c $(CFLAGS)
 highCs.tab.o: highCs.tab.c

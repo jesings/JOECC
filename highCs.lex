@@ -13,21 +13,21 @@ INTSIZE (u|U|l|L)*
 #include "hash.h"
 #include <math.h>
 
-#define YY_USER_ACTION \
-    yylloc->first_line = yylloc->last_line; \
-    yylloc->first_column = yylloc->last_column; \
-    for(int i = 0; yytext[i] != '\0'; i++) { \
-        if(yytext[i] == '\n') { \
-            yylloc->last_line++; \
-            yylloc->last_column = 0; \
-        } \
-        else { \
-            yylloc->last_column++; \
-        } \
-    }
+//#define YY_USER_ACTION \
+//    yylloc->first_line = yylloc->last_line; \
+//    yylloc->first_column = yylloc->last_column; \
+//    for(int i = 0; yytext[i] != '\0'; i++) { \
+//        if(yytext[i] == '\n') { \
+//            yylloc->last_line++; \
+//            yylloc->last_column = 0; \
+//        } \
+//        else { \
+//            yylloc->last_column++; \
+//        } \
+//    }
 #define SIGNEDCHAR 0
 
-int check_type(struct lexctx* ctx);
+int check_type(/*struct lexctx* ctx*/);
 %}
 
 %option yylineno

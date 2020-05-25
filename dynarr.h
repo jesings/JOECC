@@ -1,3 +1,5 @@
+#ifndef DYNARR_H
+#define DYNARR_H
 typedef struct{
   void** arr;
   int length;
@@ -14,3 +16,4 @@ void dainsert(DYNARR* da, void* val);
 void* dapop(DYNARR* da);
 #define dapeek(A) ((A)->arr[(A)->length-1])
 #define daget(A,I) ((A)->arr[(I)])
+#endif
