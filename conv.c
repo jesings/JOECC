@@ -2,56 +2,58 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <wchar.h>
+#include "conv.h"
 
-char charconv(char** text);
-wchar_t wcharconv(char** text);
-int main(){
-    char* s1 = "\\q";
-    char* s2 = "\\n";
-    char* s3 = "\\40";
-    char* s4 = "\\101";
-    char* s5 = "\\040";
-    char* s6 = "\\x41";
-    char* s7 = "\\xA";
-    char* s8 = "H";
-    char* s9 = "i";
-    char* s10 = "!";
-    char* s11 = "\\x0a";
-    putchar(charconv(&s1));
-    putchar(charconv(&s2));
-    putchar(charconv(&s3));
-    putchar(charconv(&s4));
-    putchar(charconv(&s5));
-    putchar(charconv(&s6));
-    putchar(charconv(&s7));
-    putchar(charconv(&s8));
-    putchar(charconv(&s9));
-    putchar(charconv(&s10));
-    putchar(charconv(&s11));
-    char* ws1 = "\\q";
-    char* ws2 = "\\n";
-    char* ws3 = "\\40";
-    char* ws4 = "\\101";
-    char* ws5 = "\\040";
-    char* ws6 = "\\x41";
-    char* ws7 = "\\xA";
-    char* ws8 = "H";
-    char* ws9 = "i";
-    char* ws10 = "!";
-    char* ws11 = "\\x0a";
-    putwchar(wcharconv(&ws1));
-    putwchar(wcharconv(&ws2));
-    putwchar(wcharconv(&ws3));
-    putwchar(wcharconv(&ws4));
-    putwchar(wcharconv(&ws5));
-    putwchar(wcharconv(&ws6));
-    putwchar(wcharconv(&ws7));
-    putwchar(wcharconv(&ws8));
-    putwchar(wcharconv(&ws9));
-    putwchar(wcharconv(&ws10));
-    putwchar(wcharconv(&ws11));
-    return 0;
-}
+//int main(){
+//    char* s1 = "\\q";
+//    char* s2 = "\\n";
+//    char* s3 = "\\40";
+//    char* s4 = "\\101";
+//    char* s5 = "\\040";
+//    char* s6 = "\\x41";
+//    char* s7 = "\\xA";
+//    char* s8 = "H";
+//    char* s9 = "i";
+//    char* s10 = "!";
+//    char* s11 = "\\x0a";
+//    putchar(charconv(&s1));
+//    putchar(charconv(&s2));
+//    putchar(charconv(&s3));
+//    putchar(charconv(&s4));
+//    putchar(charconv(&s5));
+//    putchar(charconv(&s6));
+//    putchar(charconv(&s7));
+//    putchar(charconv(&s8));
+//    putchar(charconv(&s9));
+//    putchar(charconv(&s10));
+//    putchar(charconv(&s11));
+//    char* ws1 = "\\q";
+//    char* ws2 = "\\n";
+//    char* ws3 = "\\40";
+//    char* ws4 = "\\101";
+//    char* ws5 = "\\040";
+//    char* ws6 = "\\x41";
+//    char* ws7 = "\\xA";
+//    char* ws8 = "H";
+//    char* ws9 = "i";
+//    char* ws10 = "!";
+//    char* ws11 = "\\x0a";
+//    putwchar(wcharconv(&ws1));
+//    putwchar(wcharconv(&ws2));
+//    putwchar(wcharconv(&ws3));
+//    putwchar(wcharconv(&ws4));
+//    putwchar(wcharconv(&ws5));
+//    putwchar(wcharconv(&ws6));
+//    putwchar(wcharconv(&ws7));
+//    putwchar(wcharconv(&ws8));
+//    putwchar(wcharconv(&ws9));
+//    putwchar(wcharconv(&ws10));
+//    putwchar(wcharconv(&ws11));
+//
+//    char* actualstring = "\"what the actual \n\t hell is going on ????\n\"";
+//    puts(strconv(actualstring));
+//    return 0;
+//}
 
 char octconv(char** text){
     char* begin = *text;
@@ -180,9 +182,14 @@ char charconv(char** text){
 
 char* strconv(char* text) {
     unsigned int index = 0;
-    char* newstr = text;
-    while(*text != '\"')
+    char* newstr = malloc(strlen(text) + 1);
+    char* tstart = text;
+    ++text;
+    while(*text != '\"') {
         newstr[index++] = charconv(&text);
+    }
+    newstr[index] = 0;
+    //free(tstart);
     return newstr;
 }
 
@@ -225,4 +232,15 @@ wchar_t wcharconv(char** text){
         }
     }
     return *((*text)++);
+}
+
+wchar_t* wstrconv(char* text) {
+    unsigned int index = 0;
+    wchar_t* newstr = malloc((strlen(text) + 1) * sizeof(wchar_t));
+    char* tstart = text;
+    while(*text != '\"')
+        newstr[index++] = charconv(&text);
+    newstr[index] = 0;
+    //free(tstart);
+    return newstr;
 }

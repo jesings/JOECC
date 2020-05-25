@@ -10,7 +10,7 @@ INTSIZE (u|U|l|L)*
 %{
 
 #include "highCs.tab.h"
-#include "hash.h"
+#include "conv.h"
 #include <math.h>
 
 //#define YY_USER_ACTION \
@@ -27,7 +27,7 @@ INTSIZE (u|U|l|L)*
 //    }
 #define SIGNEDCHAR 0
 
-int check_type(/*struct lexctx* ctx*/);
+int check_type(struct lexctx* ctx);
 %}
 
 %option yylineno
@@ -128,27 +128,23 @@ int check_type(/*struct lexctx* ctx*/);
 
 {LET}({LET}|{DEC})* {yylval.str = strdup(yytext);
                      return check_type(); }
-0[bB]{BIN}+{INTSIZE}? {yylval.num = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
-                       yylval.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
-0{OCT}+{INTSIZE}? {yylval.num = strtoul(yytext,NULL,8);//every intconst is 8 bytes
-                   yylval.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
-{DEC}+{INTSIZE}?  {yylval.num = strtoul(yytext,NULL,10);//every intconst is 8 bytes
-                   yylval.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
-0[xX]{HEX}+{INTSIZE}? {yylval.num = strtoul(yytext,NULL,16); /*specify intsize here in yylval.size maybe?*/
-                       yylval.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
+0[bB]{BIN}+{INTSIZE}? {yylval.ii.num = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
+                       yylval.ii.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
+0{OCT}+{INTSIZE}? {yylval.ii.num = strtoul(yytext,NULL,8);//every intconst is 8 bytes
+                   yylval.ii.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
+{DEC}+{INTSIZE}?  {yylval.ii.num = strtoul(yytext,NULL,10);//every intconst is 8 bytes
+                   yylval.ii.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
+0[xX]{HEX}+{INTSIZE}? {yylval.ii.num = strtoul(yytext,NULL,16); /*specify intsize here in yylval.ii.size maybe?*/
+                       yylval.ii.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
 
 {DEC}+{EXP}{FLOATSIZE}? {sscanf(yytext, "%ld", &yylval.dbl);return INTEGER_LITERAL;}
 {DEC}*"."?{DEC}+({EXP})?{FLOATSIZE}? {sscanf(yytext, "%ld", &yylval.dbl);return INTEGER_LITERAL;}
 {DEC}+"."?{DEC}*({EXP})?{FLOATSIZE}? {sscanf(yytext, "%ld", &yylval.dbl);return INTEGER_LITERAL;}
 
-'(\\.|[^\\'])+'	{yylval.num = charconv(strdup(yytext));
-                 yylval.sign = IFSIGNEDCHAR;}
-\"(\\.|[^\\"])*\" {yylval.str = strconv(strdup(yytext));
-                  return STRING_LITERAL;}
-L'(\\.|[^\\'])+' {yylval.num = widecharconv(strdup(yytext));
-                  yylval.sign = IFSIGNEDCHAR;}
-L\"(\\.|[^\\"])*\" {yylval.str = widestrconv(strdup(yytext));
-                    return STRING_LITERAL;}
+'(\\.|[^\\'])+'	{yylval.ii.num = charconv(&yytext); return INTEGER_LITERAL;}
+\"(\\.|[^\\"])*\" {yylval.str = strconv(yytext); yylval.ii.sign = 0; return STRING_LITERAL;}
+L'(\\.|[^\\'])+' {yylval.ii.num = wcharconv(&yytext); return INTEGER_LITERAL;}
+L\"(\\.|[^\\"])*\" {yylval.wstr = wstrconv(yytext); yylval.ii.sign = 0; return WSTRING_LITERAL;}
 
 [\t\v\n\f] {/*Whitespace, ignored*/}
 . {/*Other char, ignored*/}
@@ -157,7 +153,7 @@ int yywrap(){
   return 1;
 }
 int check_type(struct lexctx* ctx){
-  IDTYPE* possible_type =  search(ctx->typedefs,yytext);
+  IDTYPE* possible_type =  search(((SCOPE*) dapeek(ctx->scopes))->identifiers,yytext);
   if(possible_type)
     return TYPE_NAME;
   return IDENTIFIER;

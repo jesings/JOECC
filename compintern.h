@@ -1,7 +1,11 @@
+#ifndef COMPINTERN_H
+#define COMPINTERN_H
+#include <stdlib.h>
+#include <string.h>
 #include "hash.h"
 #include "dynarr.h"
 
-typedef enum{
+typedef enum {
   FLOATNUM    = 0x10,
   UNSIGNEDNUM = 0x20,
   CONSTNUM    = 0x40,
@@ -15,31 +19,80 @@ typedef enum{
   UNIONVAL    = 0x4000,
 } TYPEBITS;
 
+enum ident_type {
+  UNDEFINED,
+  FUNCTION,
+  PARAMETER,
+  LOCAL_VAR,
+  GLOBAL_VAR,
+  TYPE_DEFN
+};
+
+typedef struct {
+  //int index;//index of type within scope (i.e. parameter index)
+  //value perhaps?
+  char* name;
+} IDENTIFIERINFO;
+
+typedef enum {
+  NOP, STRING, WSTRING, INT, UINT, FLOAT, IDENT,
+  ADD, NEG, SUB, EQ, NEQ, GT, LT, GTE, LTE, MULT, DIVI, MOD,
+  PREINC, POSTINC, PREDEC, POSTDEC,
+  L_AND, L_OR, L_NOT, B_AND, B_OR, B_XOR, B_NOT, SHL, SHR,
+  DOTOP, ARROW,
+  SZOF, SZOFEXPR,
+  ASSIGN,
+  ADDASSIGN, SUBASSIGN, SHLASSIGN, SHRASSIGN, ANDASSIGN, 
+  XORASSIGN, ORASSIGN, DIVASSIGN, MULTASSIGN, MODASSIGN,
+  CASES,
+  CAST,
+  COMMA,
+  ADDR, DEREF,
+  FCALL,FCOPY,
+  TERNARY
+} EXPRTYPE;
+
+enum stmttype {
+  FRET, LBREAK, JGOTO, LCONT,
+  FORL, WHILEL, DOWHILEL,
+  IFS, IFELSES,
+  SWITCH,
+  CASE, LABEL,
+  CMPND,
+  EXPR, NOPSTMT,
+  DEFAULT
+};
+
+enum declpart_info {
+  POINTERSPEC, ARRAYSPEC, PARAMSSPEC, BITFIELDSPEC
+};
+
 struct stmt;
 
-typedef struct{
+typedef struct {
   DYNARR* fields;//Each entry is a struct that contains a full identifier and a size
   char* name;
 } STRUCT;
-typedef struct{
+typedef struct {
   DYNARR* fields;//Each entry is a struct that contains a full identifier and a size
   char* name;
 } UNION;
-typedef struct{
+typedef struct {
   char* name;
   DYNARR* fields;
 } ENUM;
 
-typedef struct{
+typedef struct {
   DYNARR* pointerstack;
   TYPEBITS tb;
-  union{
+  union {
     STRUCT* structtype;
     UNION* uniontype;
     ENUM* enumtype;
   };
 } IDTYPE;
-typedef struct function{
+
+typedef struct {
   char* name;
   struct stmt* body; //compound statement
   DYNARR* params;
@@ -53,3 +106,170 @@ struct lexctx {//TODO: FIX
   unsigned int layer;//Necessary?
   HASHTABLE* idents;
 };
+
+typedef struct expr {
+  EXPRTYPE type;
+  union {
+    struct {
+      int numparams;
+      struct expr* params;
+      struct expr* ftocall;
+    };
+    struct {
+      struct expr* param1;
+      struct expr* param2;
+    };
+    struct {
+      struct expr* ifexpr;
+      struct expr* thenexpr;
+      struct expr* elseexpr;
+    };
+    struct {
+      IDTYPE* casttype;
+      struct expr* castexpr;
+    };
+    struct expr* unaryparam;
+    char* strconst;
+    wchar_t* wstrconst;
+    char* ident;
+    long intconst;
+    unsigned long uintconst;
+    double floatconst;
+    IDENTIFIERINFO* id;//for identifier expressions???????
+    IDTYPE* typesz;//for sizeof
+    DYNARR* dynvals;//?
+    /*possible struct const for later struct initializations*/
+  };
+} EXPRESSION;
+
+typedef struct {
+  DYNARR* declparts;
+  char* idname;
+  TYPEBITS tb;
+} DECLARATOR;
+
+typedef struct {
+  DECLARATOR* decl;
+  EXPRESSION* expr;//null if it's only a declaration not an initialization as well
+} INITIALIZER;
+
+typedef struct stmt {
+  enum stmttype type;
+  union {
+    EXPRESSION* expression;
+    struct { //if or if/else
+      EXPRESSION* ifcond;
+      struct stmt* thencond;
+      struct stmt* elsecond;
+    };
+    struct { //while or dowhile or switch(?)
+      EXPRESSION* cond;
+      struct stmt* body;
+    };
+    struct { //for
+      EXPRESSION* init;
+      EXPRESSION* forcond;
+      EXPRESSION* increment;
+      struct stmt* forbody;
+    };
+    IDENTIFIERINFO* label; //case or label, maybe also goto?
+    char* glabel; //for label and goto
+    DYNARR* stmtsandinits; //compound
+    struct stmt* substatement; //default
+  };
+} STATEMENT;
+
+typedef struct {
+  char isstmt;
+  union {
+    struct stmt* state;
+    DYNARR* init;
+  };
+} SOI;
+
+typedef struct {
+  char* name;
+  EXPRESSION* value;
+} ENUMFIELD;
+
+struct declarator_part {
+  enum declpart_info type;
+  union {
+    DYNARR* params;
+    EXPRESSION* arrspec;
+    EXPRESSION* bfspec;
+    TYPEBITS ptrspec;
+    void* garbage;
+  };
+};
+
+typedef struct {
+  char* varname;
+  IDTYPE* type;
+} DECLARATION;//???
+
+typedef struct {
+  DECLARATION* declaration;
+  EXPRESSION* assign;
+} INITBITS;//?
+
+struct intinfo {
+  long num;
+  char sign;
+}; 
+
+typedef struct {
+  char isfunc;
+  union {
+    INITIALIZER* i;
+    FUNC* f;
+    void* garbage;
+  };
+} TOPBLOCK;
+
+typedef struct {
+  HASHTABLE* identifiers;//struct union enum or typedef
+} SCOPE;
+
+struct ID_OR_TYPEDEF {
+};
+
+STRUCT* structor(char* name, DYNARR* fields);
+UNION* unionctor(char* name, DYNARR* fields);
+ENUM* enumctor(char* name, DYNARR* fields);
+EXPRESSION* cloneexpr(EXPRESSION* orig);
+EXPRESSION* ct_unary_expr(EXPRTYPE t, EXPRESSION* param);
+EXPRESSION* ct_sztype(IDTYPE* whichtype);
+EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2);
+EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr );
+EXPRESSION* ct_ternary_expr(EXPRESSION* param1, EXPRESSION* param2, EXPRESSION* param3);
+EXPRESSION* ct_fcall_expr(EXPRESSION* func, int num, EXPRESSION* params);
+EXPRESSION* ct_strconst_expr(char* str);
+EXPRESSION* ct_wstrconst_expr(wchar_t* str);
+EXPRESSION* ct_intconst_expr(long num); 
+EXPRESSION* ct_uintconst_expr(unsigned long num);
+EXPRESSION* ct_floatconst_expr(double num);
+EXPRESSION* ct_ident_expr(/*IDENTIFIERINFO* id*/ char* ident);
+DECLARATOR* mkdeclarator(char* name);
+INITIALIZER* geninit(DECLARATOR* decl, EXPRESSION* expr);
+SOI* sois(struct stmt* state);
+SOI* soii(DYNARR* init);
+STATEMENT* mkexprstmt(enum stmttype type, EXPRESSION* express);
+STATEMENT* mkgotostmt(char* gotoloc);
+STATEMENT* mkforstmt(EXPRESSION* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy);
+STATEMENT* mklsstmt(enum stmttype type, EXPRESSION* condition, STATEMENT* bdy);
+STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy);
+STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits);
+STATEMENT* mklblstmt(char* identifier);
+STATEMENT* mkcasestmt(EXPRESSION* casexpr/*, STATEMENT* stmt*/);
+STATEMENT* mkdefaultstmt(STATEMENT* stmt);
+ENUMFIELD* genenumfield(char* name, EXPRESSION* value);
+struct declarator_part* mkdeclpart(enum declpart_info typ, void* d);
+struct declarator_part* mkdeclptr(TYPEBITS d);
+DECLARATION* mkdeclaration(char* name);
+EXPRESSION* exprfromdecl(char* name, IDTYPE* id);
+FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, IDTYPE* retrn);
+SCOPE* mkscope(SCOPE* parent);
+void scopepush(struct lexctx* ctx);
+TOPBLOCK* gtb(char isfunc, void* assign);
+#endif

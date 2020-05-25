@@ -20,453 +20,23 @@
 %token<ii> INTEGER_LITERAL
 %token<dbl> FLOAT_LITERAL;
 %token<str> IDENTIFIER STRING_LITERAL TYPE_NAME;
+%token<wstr> WSTRING_LITERAL;
 
 %code requires{
-#include <string.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include "compintern.h"
-
-struct expr;
-
-enum ident_type{
-  UNDEFINED,
-  FUNCTION,
-  PARAMETER,
-  LOCAL_VAR,
-  GLOBAL_VAR,
-  TYPE_DEFN
-};
-
-typedef struct {
-  //int index;//index of type within scope (i.e. parameter index)
-  //value perhaps?
-  char* name;
-} IDENTIFIERINFO;
-
-typedef enum{
-  NOP, STRING, INT, UINT, FLOAT, IDENT,
-  ADD, NEG, SUB, EQ, NEQ, GT, LT, GTE, LTE, MULT, DIVI, MOD,
-  PREINC, POSTINC, PREDEC, POSTDEC,
-  L_AND, L_OR, L_NOT, B_AND, B_OR, B_XOR, B_NOT, SHL, SHR,
-  DOTOP, ARROW,
-  SZOF, SZOFEXPR,
-  ASSIGN,
-  ADDASSIGN, SUBASSIGN, SHLASSIGN, SHRASSIGN, ANDASSIGN, 
-  XORASSIGN, ORASSIGN, DIVASSIGN, MULTASSIGN, MODASSIGN,
-  CASES,
-  CAST,
-  COMMA,
-  ADDR, DEREF,
-  FCALL,FCOPY,
-  TERNARY
-} EXPRTYPE;
-
-typedef struct expr{
-  EXPRTYPE type;
-  union{
-    struct{
-      int numparams;
-      struct expr* params;
-      struct expr* ftocall;
-    };
-    struct{
-      struct expr* param1;
-      struct expr* param2;
-    };
-    struct{
-      struct expr* ifexpr;
-      struct expr* thenexpr;
-      struct expr* elseexpr;
-    };
-    struct{
-      IDTYPE* casttype;
-      struct expr* castexpr;
-    };
-    struct expr* unaryparam;
-    char* strconst;
-    char* ident;
-    long intconst;
-    unsigned long uintconst;
-    double floatconst;
-    IDENTIFIERINFO* id;//for identifier expressions???????
-    IDTYPE* typesz;//for sizeof
-    DYNARR* dynvals;//?
-    /*possible struct const for later struct initializations*/
-  };
-} EXPRESSION;
-
-STRUCT* structor(char* name, DYNARR* fields){
-    STRUCT* retval = malloc(sizeof(STRUCT));
-    retval->name = name;
-    retval->fields = fields;
-    return retval;
-}
-UNION* unionctor(char* name, DYNARR* fields){
-    UNION* retval = malloc(sizeof(UNION));
-    retval->name = name;
-    retval->fields = fields;
-    return retval;
-}
-ENUM* enumctor(char* name, DYNARR* fields){
-    ENUM* retval = malloc(sizeof(ENUM));
-    retval->name = name;
-    retval->fields = fields;
-    return retval;
-}
-
-struct lexctx;
-
-EXPRESSION* cloneexpr(EXPRESSION* orig){
-  EXPRESSION* clone = malloc(sizeof(EXPRESSION));
-  memcpy(clone, orig, sizeof(EXPRESSION));
-  return clone;
-}
-
-EXPRESSION* ct_unary_expr(EXPRTYPE t, EXPRESSION* param){
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = t;
-  retval->unaryparam = param;
-  return retval;
-}
-EXPRESSION* ct_sztype(IDTYPE* whichtype){
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = SZOF;
-  retval->typesz = whichtype;
-  return retval;
-}
-EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2){
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-
-  retval->type = t;
-  retval->param1 = param1;
-  retval->param2 = param2;
-  return retval;
-}
-EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr ){
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = CAST;
-  retval->castexpr = expr;
-  retval->casttype = type;
-  return retval;
-}
-EXPRESSION* ct_ternary_expr(EXPRESSION* param1, EXPRESSION* param2, EXPRESSION* param3){
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = TERNARY;
-  retval->ifexpr = param1;
-  retval->thenexpr = param2;
-  retval->elseexpr = param2;
-  return retval;
-}
-
-EXPRESSION* ct_fcall_expr(EXPRESSION* func, int num, EXPRESSION* params){
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = FCALL;
-  retval->ftocall = func;
-  retval->numparams = num;
-  retval->params = params;
-  return retval;
-}
-EXPRESSION* ct_strconst_expr(char* str){
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = STRING;
-  retval->strconst = strdup(str);//may or may not need to duplicate
-  return retval;
-}
-EXPRESSION* ct_intconst_expr(long num){
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = INT;
-  retval->intconst = num;
-  return retval;
-}
-EXPRESSION* ct_uintconst_expr(unsigned long num){
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = INT;
-  retval->uintconst = num;
-  return retval;
-}
-EXPRESSION* ct_floatconst_expr(double num){
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));\
-  retval->type = FLOAT;
-  retval->floatconst = num;
-  return retval;
-}
-EXPRESSION* ct_ident_expr(/*IDENTIFIERINFO* id*/ char* ident){
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = IDENT;
-  retval->ident = ident;
-  return retval;
-}
-
-enum stmttype{
-  FRET, LBREAK, JGOTO, LCONT,
-  FORL, WHILEL, DOWHILEL,
-  IFS, IFELSES,
-  SWITCH,
-  CASE, LABEL,
-  CMPND,
-  EXPR, NOPSTMT,
-  DEFAULT
-};
-
-typedef struct{
-  DYNARR* declparts;
-  char* idname;
-  TYPEBITS tb;
-} DECLARATOR;
-DECLARATOR* mkdeclarator(char* name){
-  DECLARATOR* retval = calloc(1,sizeof(DECLARATOR));
-  retval->idname = name;
-  retval->declparts = dactor(4);
-  return retval;
-}
-
-typedef struct {
-  DECLARATOR* decl;
-  EXPRESSION* expr;//null if it's only a declaration not an initialization as well
-} INITIALIZER;
-
-INITIALIZER* geninit(DECLARATOR* decl, EXPRESSION* expr) {
-  INITIALIZER* retval = malloc(sizeof(INITIALIZER));
-  retval->decl = decl;
-  retval->expr = expr;
-  return retval;
-}
-
-struct stmt;
-typedef struct{
-  char isstmt;
-  union{
-    struct stmt* state;
-    DYNARR* init;
-  };
-} SOI;
-
-SOI* sois(struct stmt* state){
-  SOI* retval = malloc(sizeof(SOI));
-  retval->isstmt = 1;
-  retval->state = state;
-  return retval;
-}
-SOI* soii(DYNARR* init){
-  SOI* retval = malloc(sizeof(SOI));
-  retval->isstmt = 0;
-  retval->init = init;
-  return retval;
-}
-
-typedef struct stmt{
-  enum stmttype type;
-  union{
-    EXPRESSION* expression;
-    struct{ //if or if/else
-      EXPRESSION* ifcond;
-      struct stmt* thencond;
-      struct stmt* elsecond;
-    };
-    struct{ //while or dowhile or switch(?)
-      EXPRESSION* cond;
-      struct stmt* body;
-    };
-    struct{ //for
-      EXPRESSION* init;
-      EXPRESSION* forcond;
-      EXPRESSION* increment;
-      struct stmt* forbody;
-    };
-    IDENTIFIERINFO* label; //case or label, maybe also goto?
-    char* glabel; //for label and goto
-    DYNARR* stmtsandinits; //compound
-    struct stmt* substatement; //default
-  };
-} STATEMENT;
-
-STATEMENT* mkexprstmt(enum stmttype type, EXPRESSION* express){
-  STATEMENT* retval = malloc(sizeof(STATEMENT));
-  retval->type = type;
-  retval->expression = express;
-  return retval;
-}
-STATEMENT* mkgotostmt(char* gotoloc){
-  STATEMENT* retval = malloc(sizeof(STATEMENT));
-  retval->type = JGOTO;
-  retval->glabel = gotoloc;
-  return retval;
-}
-STATEMENT* mkforstmt(EXPRESSION* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy){
-  STATEMENT* retval = malloc(sizeof(STATEMENT));
-  retval->type = FORL;
-  retval->init = e1;
-  retval->forcond = e2;
-  retval->increment = e3;
-  retval->forbody = bdy;
-  return retval;
-}
-STATEMENT* mklsstmt(enum stmttype type, EXPRESSION* condition, STATEMENT* bdy){
-  STATEMENT* retval = malloc(sizeof(STATEMENT));
-  retval->type = type;
-  retval->cond = condition;
-  retval->body = bdy;
-  return retval;
-}
-STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy){
-  STATEMENT* retval = malloc(sizeof(STATEMENT));
-  retval->type = IFS;
-  retval->ifcond = condition;
-  retval->thencond = ifbdy;
-  retval->elsecond = elsebdy;
-  return retval;
-}
-STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits){
-  STATEMENT* retval = malloc(sizeof(STATEMENT));
-  retval->type = CMPND;
-  retval->stmtsandinits = stmtsandinits;
-  return retval;
-}
-STATEMENT* mklblstmt(char* identifier){
-  STATEMENT* retval = malloc(sizeof(STATEMENT));
-  retval->type = LABEL;
-  retval->glabel = identifier;
-  return retval;
-}
-STATEMENT* mkcasestmt(EXPRESSION* casexpr/*, STATEMENT* stmt*/){
-  STATEMENT* retval = malloc(sizeof(STATEMENT));
-  retval->type = CASE;
-  retval->cond = casexpr;
-  //retval->body = stmt;
-  return retval;
-}
-STATEMENT* mkdefaultstmt(STATEMENT* stmt){
-  STATEMENT* retval = malloc(sizeof(STATEMENT));
-  retval->type = DEFAULT;
-  retval->substatement = stmt;
-  return retval;
-}
-
-typedef struct{
-  char* name;
-  EXPRESSION* value;
-} ENUMFIELD;
-ENUMFIELD* genenumfield(char* name, EXPRESSION* value){
-  ENUMFIELD* retval = malloc(sizeof(ENUMFIELD));
-  retval->name = name;
-  //confirm is expression statement
-  //confirm is expr that will resolve into something uintconstifiable that is known at compile time
-  retval->value = value;//this is worthless TODO: FIX
-  return retval;
-}
-
-enum declpart_info{
-  POINTERSPEC, ARRAYSPEC, PARAMSSPEC, BITFIELDSPEC
-};
-struct declarator_part{
-  enum declpart_info type;
-  union{
-    DYNARR* params;
-    EXPRESSION* arrspec;
-    EXPRESSION* bfspec;
-    TYPEBITS ptrspec;
-    void* garbage;
-  };
-};
-
-struct declarator_part* mkdeclpart(enum declpart_info typ, void* d){
-  struct declarator_part* retval = malloc(sizeof(struct declarator_part));
-  retval->type = typ;
-  retval->garbage = d;
-  return retval;
-}
-struct declarator_part* mkdeclptr(TYPEBITS d){
-  struct declarator_part* retval = malloc(sizeof(struct declarator_part));
-  retval->type = POINTERSPEC;
-  retval->ptrspec = d;
-  return retval;
-}
-
-typedef struct{
-  char* varname;
-  IDTYPE* type;
-} DECLARATION;//???
-DECLARATION* mkdeclaration(char* name){
-  DECLARATION* retval = malloc(sizeof(DECLARATION));
-  retval->varname = name;
-  //retval->type = dactor(4);
-  return retval;
-}
-EXPRESSION* exprfromdecl(char* name, IDTYPE* id){
-  EXPRESSION* outer = malloc(sizeof(EXPRESSION));
-  outer->type = IDENT;
-  //outer->id = id;
-  DYNARR* ptrs = id->pointerstack;
-  if(ptrs) {
-    for(int i = 0; i<ptrs->length; i++){
-      //TODO
-    }
-  }
-  return outer;
-}
+#include "lex.h"
 
 
-typedef struct{
-  DECLARATION* declaration;
-  EXPRESSION* assign;
-} INITBITS;//?
-
-FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, IDTYPE* retrn) {
-  FUNC* func = malloc(sizeof(FUNC));
-  func->name = name;
-  func->body = body;
-  func->params = params;
-  func->retrn = retrn;
-  return func;
-}
-
-typedef struct{
-  HASHTABLE* identifiers;
-  HASHTABLE* structs;
-  HASHTABLE* unions;
-  HASHTABLE* enums;
-  HASHTABLE* typedefs;
-} SCOPE;
-SCOPE* mkscope(SCOPE* parent){
-  SCOPE* child = malloc(sizeof(SCOPE));
-  child->identifiers = htclone(parent->identifiers);
-  child->structs = htclone(parent->structs);
-  child->unions = htclone(parent->unions);
-  child->enums = htclone(parent->enums);
-  return child;
-}
-void scopepush(struct lexctx* ctx){
-  SCOPE* child = mkscope(dapeek(ctx->scopes));
-}
-
-struct intinfo{
-  long num;
-  char sign;
-}; 
 #define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
 
-typedef struct {
-  char isfunc;
-  union {
-    INITIALIZER* i;
-    FUNC* f;
-    void* garbage;
-  };
-} TOPBLOCK;
-
-TOPBLOCK* gtb(char isfunc, void* assign) {
-  TOPBLOCK* retval = malloc(sizeof(TOPBLOCK));
-  retval->isfunc = isfunc;
-  retval->garbage = assign;
-  return retval;
-}
 }
 
 %param {struct lexctx* ctx}
 %union {
   struct intinfo ii;
   char* str;
+  wchar_t* wstr;
   double dbl;
   TYPEBITS typevariant;
   EXPRESSION* exprvariant;
@@ -568,9 +138,10 @@ types2:
   "extern" {$$ = EXTERNNUM;}
 | "static" {$$ = STATICNUM;};
 typews1:
-  TYPE_NAME {$$ = search(ctx->idents, $1);}
+  TYPE_NAME {$$ = search(ctx->idents, $1);/*TODO: extract, and duplicate*/}
 | typem {$$ = $1;}
-| types1 typews1 {$$ = $2; $$->tb |= $1;};
+| types1 typem {$$ = $2; $$->tb |= $1;}
+| types1 TYPE_NAME {$$ = search(ctx->idents, $1);/*TODO: extract, and duplicate*/ };
 typebs:
   typem {$$ = $1;}
 | types1 typebs {$$ = $2; $$->tb |= $1;}
@@ -669,6 +240,7 @@ esp:
 esu:
   '(' expression ')' {$$ = $2;}
 | STRING_LITERAL {$$ = ct_strconst_expr($1/*.str*/);}
+| WSTRING_LITERAL {$$ = ct_wstrconst_expr($1/*.str*/);}
 | INTEGER_LITERAL {$$ = $1.sign ? ct_intconst_expr($1.num) : ct_uintconst_expr($1.num);}
 | FLOAT_LITERAL {$$ = ct_floatconst_expr($1/*.dbl*/);}
 | IDENTIFIER {$$ = ct_ident_expr($1/*.str*/);};
@@ -722,7 +294,7 @@ struct_decls:
 struct_decl:
   type cs_decls ';' {$$ = $2; for(int i = 0; i < $2->length; i++) ((DECLARATOR*) $2->arr[i])->tb |= $1->tb; if($1->pointerstack->length) ((DECLARATOR*)$$->arr[0])->declparts = damerge($1->pointerstack, ((DECLARATOR*)$$->arr[0])->declparts);};
 cs_decls:
-  sdecl ',' cs_decls {$$ = $3; dapush($$, $1);}
+  cs_decls ',' sdecl {$$ = $3; dapush($$, $1);}
 | sdecl {$$ = dactor(8); dapush($$, $1);};
 sdecl: 
   declarator {$$ = $1;}
