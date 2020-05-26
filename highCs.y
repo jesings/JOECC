@@ -138,10 +138,10 @@ types2:
   "extern" {$$ = EXTERNNUM;}
 | "static" {$$ = STATICNUM;};
 typews1:
-  TYPE_NAME {$$ = search(ctx->idents, $1);/*TODO: extract, and duplicate*/}
+  TYPE_NAME {$$ = malloc(sizeof(IDTYPE)); SCOPEMEMBER* sm = ((SCOPEMEMBER*) search(((SCOPE*) dapeek(ctx->scopes))->members, $1)); memcpy($$, sm->typememb, sizeof(IDTYPE));/*TODO: extract, and duplicate*/ }
 | typem {$$ = $1;}
 | types1 typem {$$ = $2; $$->tb |= $1;}
-| types1 TYPE_NAME {$$ = search(ctx->idents, $1);/*TODO: extract, and duplicate*/ };
+| types1 TYPE_NAME {$$ = malloc(sizeof(IDTYPE)); SCOPEMEMBER* sm = ((SCOPEMEMBER*) search(((SCOPE*) dapeek(ctx->scopes))->members, $2)); memcpy($$, sm->typememb, sizeof(IDTYPE)); $$->tb |= 1;/*TODO: extract, and duplicate*/ };
 typebs:
   typem {$$ = $1;}
 | types1 typebs {$$ = $2; $$->tb |= $1;}
@@ -294,7 +294,7 @@ struct_decls:
 struct_decl:
   type cs_decls ';' {$$ = $2; for(int i = 0; i < $2->length; i++) ((DECLARATOR*) $2->arr[i])->tb |= $1->tb; if($1->pointerstack->length) ((DECLARATOR*)$$->arr[0])->declparts = damerge($1->pointerstack, ((DECLARATOR*)$$->arr[0])->declparts);};
 cs_decls:
-  cs_decls ',' sdecl {$$ = $3; dapush($$, $1);}
+  cs_decls ',' sdecl {$$ = $1; dapush($$, $3);}
 | sdecl {$$ = dactor(8); dapush($$, $1);};
 sdecl: 
   declarator {$$ = $1;}

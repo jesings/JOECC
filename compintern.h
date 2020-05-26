@@ -28,12 +28,6 @@ enum ident_type {
   TYPE_DEFN
 };
 
-typedef struct {
-  //int index;//index of type within scope (i.e. parameter index)
-  //value perhaps?
-  char* name;
-} IDENTIFIERINFO;
-
 typedef enum {
   NOP, STRING, WSTRING, INT, UINT, FLOAT, IDENT,
   ADD, NEG, SUB, EQ, NEQ, GT, LT, GTE, LTE, MULT, DIVI, MOD,
@@ -93,11 +87,19 @@ typedef struct {
 } IDTYPE;
 
 typedef struct {
+  //int index;//index of type within scope (i.e. parameter index)
+  //value perhaps?
+  IDTYPE* type;
+  char* name;
+} IDENTIFIERINFO;
+
+typedef struct {
   char* name;
   struct stmt* body; //compound statement
   DYNARR* params;
   IDTYPE* retrn;
 } FUNC;
+
 struct lexctx {//TODO: FIX
   FUNC* funclist;
   unsigned int fllast, fllen;
@@ -172,7 +174,7 @@ typedef struct stmt {
       EXPRESSION* increment;
       struct stmt* forbody;
     };
-    IDENTIFIERINFO* label; //case or label, maybe also goto?
+    //IDENTIFIERINFO* label; //case or label, maybe also goto?
     char* glabel; //for label and goto
     DYNARR* stmtsandinits; //compound
     struct stmt* substatement; //default
@@ -227,12 +229,25 @@ typedef struct {
   };
 } TOPBLOCK;
 
-typedef struct {
-  HASHTABLE* identifiers;//struct union enum or typedef
-} SCOPE;
-
-struct ID_OR_TYPEDEF {
+enum membertype {
+  M_LABEL, M_TYPEDEF, M_VARIABLE, M_STRUCT, M_UNION, M_ENUM
 };
+
+typedef struct {
+  enum membertype mtype;
+  union {
+    STRUCT* structmemb;
+    ENUM* enummemb;
+    UNION* unionmemb;
+    IDTYPE* typememb;
+    //variable? label?
+    void* garbage;
+  };
+} SCOPEMEMBER;
+
+typedef struct {
+  HASHTABLE* members;//SCOPEMEMBER argument
+} SCOPE;
 
 STRUCT* structor(char* name, DYNARR* fields);
 UNION* unionctor(char* name, DYNARR* fields);
@@ -271,5 +286,6 @@ EXPRESSION* exprfromdecl(char* name, IDTYPE* id);
 FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, IDTYPE* retrn);
 SCOPE* mkscope(SCOPE* parent);
 void scopepush(struct lexctx* ctx);
+void add2scope(SCOPE* scope, char* memname, enum membertype mtype, void* memberval);
 TOPBLOCK* gtb(char isfunc, void* assign);
 #endif

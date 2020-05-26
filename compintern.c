@@ -83,7 +83,7 @@ EXPRESSION* ct_strconst_expr(char* str) {
   return retval;
 }
 
-EXPRESSION* ct_strconst_expr(wchar_t* str) {
+EXPRESSION* ct_wstrconst_expr(wchar_t* str) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = WSTRING;
   retval->wstrconst = wcsdup(str);//may or may not need to duplicate
@@ -276,6 +276,14 @@ SCOPE* mkscope(SCOPE* parent) {
 
 void scopepush(struct lexctx* ctx) {
   SCOPE* child = mkscope(dapeek(ctx->scopes));
+  dapush(ctx->scopes, child);
+}
+
+void add2scope(SCOPE* scope, char* memname, enum membertype mtype, void* memberval) {
+  SCOPEMEMBER sm = malloc(sizeof(SCOPEMEMBER));
+  sm->mtype = mtype;
+  sm->garbage = memberval;
+  insert(SCOPE->members, memname, sm);
 }
 
 TOPBLOCK* gtb(char isfunc, void* assign) {
