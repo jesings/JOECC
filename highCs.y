@@ -29,6 +29,7 @@
 
 
 #define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
+#define dget(param, index) ((DECLARATION*) (param)->arr[(index)])
 
 }
 
@@ -47,12 +48,12 @@
   UNION* unionvariant;
   STRUCT* structvariant;
   ENUM* enumvariant;
-  DECLARATOR* declvariant;
+  DECLARATION* declvariant;
   FUNC* funcvariant;
 }
 
 %type<typevariant> types1 types2 types1o
-%type<idvariant> typem typews1 typebs type
+%type<idvariant> typem typews1 /*typebs*/ type
 %type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee
 %type<stmtvariant> statement compound_statement
 %type<arrvariant> statements_and_initializers struct_decls struct_decl cs_decls enums escl abstract_ptr params cs_inits cs_minutes initializer program
@@ -83,13 +84,27 @@ program:
 | program function {$$ = $1; dapush($$, gtb(1, $2));}
 | program initializer {$$ = $1; for(int i = 0; i < $1->length; i++) dapush($$, gtb(1, daget($2, i))); free($2);};
 initializer:
-  "typedef" typebs cs_minutes ';' {/*add to context but do not push anything, maybe return null?*/}
-| typebs cs_inits ';' 
-{$$ = $2; for(int i = 0; i < $$->length; i++){
-  aget($$, i)->decl->tb |= $1->tb; 
-  if($1->pointerstack->length) 
-    aget($$, 0)->decl->declparts = damerge($1->pointerstack, aget($$, 0)->decl->declparts);
-}};
+"typedef" type/*bs*/ cs_minutes ';' {
+  SCOPE* current = scopepeek(ctx);
+  for(int i = 0; i < $3->length; i++) {
+    aget($3, i)->decl->type->tb |= $2->tb; 
+    //if($1->pointerstack->length) 
+    aget($3, 0)->decl->type->pointerstack = damerge($2->pointerstack, aget($3, 0)->decl->type->pointerstack);
+    add2scope(current, aget($3, i)->decl->varname, M_TYPEDEF, aget($3, i)->decl->type);
+    free(aget($3, i));
+    free(aget($3, i)->decl);
+  }
+  $$ = dactor(0);
+}
+| type/*bs*/ cs_inits ';' {
+  SCOPE* current = scopepeek(ctx);
+  $$ = $2;
+  for(int i = 0; i < $$->length; i++) {
+    aget($$, i)->decl->type->tb |= $1->tb; 
+    //if($1->pointerstack->length) 
+    aget($$, 0)->decl->type->pointerstack = damerge($1->pointerstack, aget($$, 0)->decl->type->pointerstack);
+  }
+};
 cs_inits:
   cs_inits ',' declarator '=' esc {$$ = $1; dapush($$, geninit($3, $5));}
 | declarator '=' esc {$$ = dactor(8); dapush($$, geninit($1, $3));}
@@ -99,20 +114,20 @@ cs_minutes:
   cs_minutes ',' declarator {$$ = $1; dapush($1, $3);}
 | declarator {$$ = dactor(8); dapush($$, $1);};
 declarator:
-  abstract_ptr declname {$$ = $2; $2->declparts = damerge($1, $2->declparts);}
+  abstract_ptr declname {$$ = $2; $2->type->pointerstack = damerge($1, $2->type->pointerstack);}
 | declname {$$ = $1;};
 declname:
-  IDENTIFIER {$$ = mkdeclarator($1);}
+  IDENTIFIER {$$ = mkdeclaration($1);}
 | '(' declarator ')' {$$ = $2;}
-| declname '[' ']' {$$ = $1; dapush($$->declparts,mkdeclpart(ARRAYSPEC, NULL));}
-| declname '[' expression ']' {$$ = $1; dapush($$->declparts,mkdeclpart(ARRAYSPEC, $3));}
-| declname '(' ')' {$$ = $1; dapush($$->declparts, mkdeclpart(PARAMSSPEC, NULL));}
-| declname '(' params ')' {$$ = $1; dapush($$->declparts, mkdeclpart(PARAMSSPEC, $3));};
+| declname '[' ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, NULL));}
+| declname '[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, $3));}
+| declname '(' ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, NULL));}
+| declname '(' params ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));};
 params:
   param_decl {$$ = dactor(8); dapush($$, $1);}
 | params ',' param_decl {$$ = $1; dapush($$, $3);};
 param_decl:
-  typebs declarator {$$ = $2; $$->tb = $1->tb;/*TODO: THIS IS NOT RIGHT, I need proper type handling*/free($2);};
+  type/*bs*/ declarator {$$ = $2; $$->type->tb = $1->tb;/*TODO: THIS IS NOT RIGHT, I need proper type handling*/free($2);};
 typem:
   "char" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 1;}
 | "int8" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 1;}
@@ -141,11 +156,13 @@ typews1:
   TYPE_NAME {$$ = malloc(sizeof(IDTYPE)); SCOPEMEMBER* sm = ((SCOPEMEMBER*) search(((SCOPE*) dapeek(ctx->scopes))->members, $1)); memcpy($$, sm->typememb, sizeof(IDTYPE));/*TODO: extract, and duplicate*/ }
 | typem {$$ = $1;}
 | types1 typem {$$ = $2; $$->tb |= $1;}
-| types1 TYPE_NAME {$$ = malloc(sizeof(IDTYPE)); SCOPEMEMBER* sm = ((SCOPEMEMBER*) search(((SCOPE*) dapeek(ctx->scopes))->members, $2)); memcpy($$, sm->typememb, sizeof(IDTYPE)); $$->tb |= 1;/*TODO: extract, and duplicate*/ };
-typebs:
-  typem {$$ = $1;}
-| types1 typebs {$$ = $2; $$->tb |= $1;}
-| types2 typebs {$$ = $2; $$->tb |= $1;};
+| types1 TYPE_NAME {$$ = malloc(sizeof(IDTYPE)); SCOPEMEMBER* sm = ((SCOPEMEMBER*) search(((SCOPE*) dapeek(ctx->scopes))->members, $2)); memcpy($$, sm->typememb, sizeof(IDTYPE)); $$->tb |= 1;/*TODO: extract, and duplicate*/ }
+| types2 typem {$$ = $2; $$->tb |= $1;}
+| types2 TYPE_NAME {$$ = malloc(sizeof(IDTYPE)); SCOPEMEMBER* sm = ((SCOPEMEMBER*) search(((SCOPE*) dapeek(ctx->scopes))->members, $2)); memcpy($$, sm->typememb, sizeof(IDTYPE)); $$->tb |= 1;/*TODO: extract, and duplicate*/ };
+/* typebs: */
+/*   typem {$$ = $1;} */
+/* | types1 typebs {$$ = $2; $$->tb |= $1;} */
+/* | types2 typebs {$$ = $2; $$->tb |= $1;}; */
 type:
   typews1 {$$ = $1;};
 types1o:
@@ -249,7 +266,7 @@ escl:
 | escl ',' esc {$$ = $1; dapush($$, $3); };
 
 function:
-  typebs declname compound_statement {struct declarator_part* dp = dapop($2->declparts); $1->pointerstack = damerge($1->pointerstack, $2->declparts);/*TODO: have this extract only pointers and arrays and not i.e. params)*/ $$ = ct_function($2->idname, $3, dp->params, $1); free($2);/*check that it is in fact a param spec*/};
+  type/*bs*/ declname compound_statement {struct declarator_part* dp = dapop($2->type->pointerstack); $1->pointerstack = damerge($1->pointerstack, $2->type->pointerstack);/*TODO: have this extract only pointers and arrays and not i.e. params)*/ $$ = ct_function($2->varname, $3, dp->params, $1); free($2);/*check that it is in fact a param spec*/};
 statement:
   compound_statement {$$ = $1;}
 |  IDENTIFIER ':' /*statement*/ {$$ = mklblstmt($1/*, $3*/);}
@@ -271,9 +288,9 @@ statement:
 ee: 
   expression {$$ = $1;}
 | %empty {$$ = NULL;};
-compound_statement:/*add new scope to scope stack here*/
+compound_statement:/*add new scope to scope stack, remove when done*/
   '{' '}' {$$ = mkcmpndstmt(NULL);}
-| '{' statements_and_initializers '}' {$$ = mkcmpndstmt($2);};
+| '{' statements_and_initializers '}' {scopepush(ctx); $$ = mkcmpndstmt($2); scopepop(ctx);};
 statements_and_initializers:
   initializer {$$ = dactor(256); dapush($$,soii($1));}
 | statement {$$ = dactor(256); dapush($$,sois($1));}
@@ -292,14 +309,14 @@ struct_decls:
   struct_decl {$$ = $1;}
 | struct_decls struct_decl {$$ = damerge($1, $2);};
 struct_decl:
-  type cs_decls ';' {$$ = $2; for(int i = 0; i < $2->length; i++) ((DECLARATOR*) $2->arr[i])->tb |= $1->tb; if($1->pointerstack->length) ((DECLARATOR*)$$->arr[0])->declparts = damerge($1->pointerstack, ((DECLARATOR*)$$->arr[0])->declparts);};
+  type cs_decls ';' {$$ = $2; for(int i = 0; i < $2->length; i++) dget($2, i)->type->tb |= $1->tb; if($1->pointerstack->length) dget($$, 0)->type->pointerstack = damerge($1->pointerstack, dget($$, 0)->type->pointerstack);};
 cs_decls:
   cs_decls ',' sdecl {$$ = $1; dapush($$, $3);}
 | sdecl {$$ = dactor(8); dapush($$, $1);};
 sdecl: 
   declarator {$$ = $1;}
-| declarator ':' esc {$$ = $1; dapush($$->declparts, mkdeclpart(BITFIELDSPEC, $3));}
-| ':' esc {$$ = mkdeclarator(NULL); dapush($$->declparts, mkdeclpart(BITFIELDSPEC, $2));};
+| declarator ':' esc {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $3));}
+| ':' esc {$$ = mkdeclaration(NULL); dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $2));};
 enum:
   "enum" IDENTIFIER '{' enums '}' {$$ = enumctor($2/*.yytext*/, $4);}
 | "enum" '{' enums '}' {$$ = enumctor(NULL, $3);}

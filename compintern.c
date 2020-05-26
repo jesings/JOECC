@@ -279,12 +279,24 @@ void scopepush(struct lexctx* ctx) {
   dapush(ctx->scopes, child);
 }
 
+void scopepop(struct lexctx* ctx) {
+  SCOPE* cleanup = dapop(ctx->scopes);
+  free(cleanup);
+}
+
 void add2scope(SCOPE* scope, char* memname, enum membertype mtype, void* memberval) {
+  static long numvars = 0;
   SCOPEMEMBER sm = malloc(sizeof(SCOPEMEMBER));
   sm->mtype = mtype;
-  sm->garbage = memberval;
+  if(mtype != M_VARIABLE) {
+    sm->garbage = memberval;
+  } else {
+    sm->vartype = memberval;
+    sm->varcount = numvars++;
+  }
   insert(SCOPE->members, memname, sm);
 }
+
 
 TOPBLOCK* gtb(char isfunc, void* assign) {
   TOPBLOCK* retval = malloc(sizeof(TOPBLOCK));

@@ -144,17 +144,6 @@ typedef struct expr {
   };
 } EXPRESSION;
 
-typedef struct {
-  DYNARR* declparts;
-  char* idname;
-  TYPEBITS tb;
-} DECLARATOR;
-
-typedef struct {
-  DECLARATOR* decl;
-  EXPRESSION* expr;//null if it's only a declaration not an initialization as well
-} INITIALIZER;
-
 typedef struct stmt {
   enum stmttype type;
   union {
@@ -208,12 +197,12 @@ struct declarator_part {
 typedef struct {
   char* varname;
   IDTYPE* type;
-} DECLARATION;//???
+} DECLARATION;
 
 typedef struct {
-  DECLARATION* declaration;
-  EXPRESSION* assign;
-} INITBITS;//?
+  DECLARATION* decl;
+  EXPRESSION* expr;
+} INITIALIZER;//?
 
 struct intinfo {
   long num;
@@ -240,7 +229,11 @@ typedef struct {
     ENUM* enummemb;
     UNION* unionmemb;
     IDTYPE* typememb;
-    //variable? label?
+    union {
+      IDTYPE* vartype;
+      long varcount;
+    };
+    //label needs nothing?
     void* garbage;
   };
 } SCOPEMEMBER;
@@ -265,8 +258,8 @@ EXPRESSION* ct_intconst_expr(long num);
 EXPRESSION* ct_uintconst_expr(unsigned long num);
 EXPRESSION* ct_floatconst_expr(double num);
 EXPRESSION* ct_ident_expr(/*IDENTIFIERINFO* id*/ char* ident);
-DECLARATOR* mkdeclarator(char* name);
-INITIALIZER* geninit(DECLARATOR* decl, EXPRESSION* expr);
+DECLARATION* mkdeclaration(char* name);
+INITIALIZER* geninit(DECLARATION* decl, EXPRESSION* expr);
 SOI* sois(struct stmt* state);
 SOI* soii(DYNARR* init);
 STATEMENT* mkexprstmt(enum stmttype type, EXPRESSION* express);
@@ -281,11 +274,16 @@ STATEMENT* mkdefaultstmt(STATEMENT* stmt);
 ENUMFIELD* genenumfield(char* name, EXPRESSION* value);
 struct declarator_part* mkdeclpart(enum declpart_info typ, void* d);
 struct declarator_part* mkdeclptr(TYPEBITS d);
-DECLARATION* mkdeclaration(char* name);
 EXPRESSION* exprfromdecl(char* name, IDTYPE* id);
 FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, IDTYPE* retrn);
 SCOPE* mkscope(SCOPE* parent);
 void scopepush(struct lexctx* ctx);
+void scopepop(struct lexctx* ctx);
+
+inline SCOPE* scopepeek(struct lexctx* ctx) {
+  return dapeek(ctx->scopes);
+}
+
 void add2scope(SCOPE* scope, char* memname, enum membertype mtype, void* memberval);
 TOPBLOCK* gtb(char isfunc, void* assign);
 #endif
