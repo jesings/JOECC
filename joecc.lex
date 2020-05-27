@@ -10,7 +10,7 @@ INTSIZE (u|U|l|L)*
 %{
 
 #include <math.h>
-#include "highCs.tab.h"
+#include "joecc.tab.h"
 #include "conv.h"
 #include "compintern.h"
 
@@ -30,8 +30,8 @@ INTSIZE (u|U|l|L)*
 
 extern struct lexctx* ctx;
 int check_type(void** garbage, char* symb);
-//%option yylineno
 %}
+%option yylineno
 
 %x MULTILINE_COMMENT
 %x SINGLELINE_COMMENT
@@ -136,7 +136,7 @@ int check_type(void** garbage, char* symb);
                         case M_TYPEDEF:
                           yylval.idvariant = v; break;
                         case M_ENUM_CONST:
-                          ; struct intinfo ini = {(long) v, 1}; yylval.ii = ini; break;
+                          yylval.exprvariant = v; break;
                         case IDENTIFIER:
                           yylval.str = v; break;
                         default:
@@ -184,6 +184,8 @@ int check_type(void** garbage, char* symb) {
     case M_VARIABLE:
       *garbage = symb;
       return IDENTIFIER;
+    case M_LABEL:
+      return LABEL;
     default:
       return 0;
   }

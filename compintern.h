@@ -219,7 +219,7 @@ typedef struct {
 } TOPBLOCK;
 
 enum membertype {
-  M_LABEL, M_TYPEDEF, M_VARIABLE, M_STRUCT, M_UNION, M_ENUM, M_ENUM_CONST
+  M_LABEL, M_TYPEDEF, M_VARIABLE, M_STRUCT, M_UNION, M_ENUM, M_ENUM_CONST, M_CASE
 };
 
 typedef struct {
@@ -233,13 +233,18 @@ typedef struct {
       IDTYPE* vartype;
       long varcount;
     };
-    long enumnum;
+    EXPRESSION* enumnum;
+    EXPRESSION* caseval;
     //label needs nothing?
     void* garbage;
   };
 } SCOPEMEMBER;
 
 typedef struct {
+  //one for vars
+  //one for struct enum and union
+  //one for typedef
+  //one for labels
   HASHTABLE* members;//SCOPEMEMBER argument
 } SCOPE;
 
@@ -283,4 +288,5 @@ void scopepop(struct lexctx* ctx);
 SCOPE* scopepeek(struct lexctx* ctx);
 void add2scope(SCOPE* scope, char* memname, enum membertype mtype, void* memberval);
 TOPBLOCK* gtb(char isfunc, void* assign);
+
 #endif

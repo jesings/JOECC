@@ -17,11 +17,12 @@
 %define parse.assert
 %define parse.error verbose
 
-%token<ii> INTEGER_LITERAL ENUM_CONST;
+%token<ii> INTEGER_LITERAL;
 %token<dbl> FLOAT_LITERAL;
 %token<str> IDENTIFIER STRING_LITERAL;
 %token<idvariant> TYPE_NAME;
 %token<wstr> WSTRING_LITERAL;
+%token<exprvariant> ENUM_CONST;
 
 %code requires{
   #include <stdint.h>
@@ -35,6 +36,8 @@
 
 %{
   extern struct lexctx* ctx;
+  int yylex();
+  int yyerror();
 %}
 
 %union {
@@ -92,6 +95,7 @@ initializer:
     aget($$, i)->decl->type->tb |= $1->tb; 
     //if($1->pointerstack->length) 
     aget($$, 0)->decl->type->pointerstack = damerge($1->pointerstack, aget($$, 0)->decl->type->pointerstack);
+    add2scope(current, aget($$, i)->decl->varname, M_VARIABLE, aget($$, i)->decl->type);
   }
 };
 cs_inits:
@@ -248,6 +252,7 @@ esu:
 | STRING_LITERAL {$$ = ct_strconst_expr($1/*.str*/);}
 | WSTRING_LITERAL {$$ = ct_wstrconst_expr($1/*.str*/);}
 | INTEGER_LITERAL {$$ = $1.sign ? ct_intconst_expr($1.num) : ct_uintconst_expr($1.num);}
+| ENUM_CONST {$$ = $1;}
 | FLOAT_LITERAL {$$ = ct_floatconst_expr($1/*.dbl*/);}
 | IDENTIFIER {$$ = ct_ident_expr($1/*.str*/);};
 escl:
@@ -255,15 +260,15 @@ escl:
 | escl ',' esc {$$ = $1; dapush($$, $3); };
 
 function:
-  type/*bs*/ declname compound_statement {struct declarator_part* dp = dapop($2->type->pointerstack); $1->pointerstack = damerge($1->pointerstack, $2->type->pointerstack);/*TODO: have this extract only pointers and arrays and not i.e. params)*/ $$ = ct_function($2->varname, $3, dp->params, $1); free($2);/*check that it is in fact a param spec*/};
+  type/*bs*/ declname compound_statement {struct declarator_part* dp = dapop($2->type->pointerstack); $1->pointerstack = damerge($1->pointerstack, $2->type->pointerstack);/*TODO: have this extract only pointers and arrays and not params, add params to scope*/ $$ = ct_function($2->varname, $3, dp->params, $1); free($2);/*check that it is in fact a param spec*/};
 statement:
   compound_statement {$$ = $1;}
-|  IDENTIFIER ':' /*statement*/ {$$ = mklblstmt($1/*, $3*/);}
-| "case" esc ':' /*statement*/ {$$ = mkcasestmt($2/*, $4*/);}
-| "default" ':' statement {$$ = mkdefaultstmt($3);}
+|  IDENTIFIER ':' /*statement*/ {$$ = mklblstmt($1/*, $3*/); /* not sure if necessary*/ add2scope(scopepeek(ctx), $1, M_LABEL, NULL);}
+| "case" esc ':' /*statement*/ {$$ = mkcasestmt($2/*, $4*/); add2scope(scopepeek(ctx), NULL/*no clue what this should be*/, M_CASE/*?*/, NULL);}
+| "default" ':' statement {$$ = mkdefaultstmt($3);add2scope(scopepeek(ctx), "default", M_CASE/*?*/, NULL);}/*case labels are scoped and regular labels arent?? This will be difficult*/
 | "if" '(' expression ')' statement %prec THEN {$$ = mkifstmt($3, $5, NULL);}
 | "if" '(' expression ')' statement "else" statement {$$ = mkifstmt($3, $5, $7);}
-| "switch" '(' expression ')' statement {$$ = mklsstmt(SWITCH, $3, $5);}
+| "switch" '(' expression ')' compound_statement {$$ = mklsstmt(SWITCH, $3, $5);}
 | "while" '(' expression ')' statement {$$ = mklsstmt(WHILEL, $3, $5);}
 | "do" statement "while" '(' expression ')' ';' {$$ = mklsstmt(DOWHILEL, $5, $2);}
 | "for" '(' ee ';' ee ';' ee ')' statement {$$ = mkforstmt($3, $5, $7, $9);}
@@ -287,13 +292,13 @@ statements_and_initializers:
 | statements_and_initializers statement {$$ = $1; dapush($$,sois($2));};
 
 union:
-  "union" IDENTIFIER '{' struct_decls '}' {$$ = unionctor($2/*.yytext*/, $4);}
+  "union" IDENTIFIER '{' struct_decls '}' {$$ = unionctor($2/*.yytext*/, $4); add2scope(scopepeek(ctx), $2, M_UNION, $$);}
 | "union" '{' struct_decls '}' {$$ = unionctor(NULL, $3);}
-| "union" IDENTIFIER {$$ = unionctor($2/*.yytext*/, NULL);};
+| "union" IDENTIFIER {$$ = unionctor($2/*.yytext*/, NULL); add2scope(scopepeek(ctx), $2, M_UNION, NULL);}
 struct:
-  "struct" IDENTIFIER '{' struct_decls '}' {$$ = structor($2/*.yytext*/, $4);}
+  "struct" IDENTIFIER '{' struct_decls '}' {$$ = structor($2/*.yytext*/, $4); add2scope(scopepeek(ctx), $2, M_STRUCT, $$);}
 | "struct" '{' struct_decls '}' {$$ = structor(NULL, $3);}
-| "struct" IDENTIFIER {$$ = structor($2/*.yytext*/, NULL);};
+| "struct" IDENTIFIER {$$ = structor($2/*.yytext*/, NULL); add2scope(scopepeek(ctx), $2, M_STRUCT, NULL);};
 struct_decls:
   struct_decl {$$ = $1;}
 | struct_decls struct_decl {$$ = damerge($1, $2);};
@@ -307,14 +312,14 @@ sdecl:
 | declarator ':' esc {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $3));}
 | ':' esc {$$ = mkdeclaration(NULL); dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $2));};
 enum:
-  "enum" IDENTIFIER '{' enums '}' {$$ = enumctor($2/*.yytext*/, $4);}
+  "enum" IDENTIFIER '{' enums '}' {$$ = enumctor($2/*.yytext*/, $4); add2scope(scopepeek(ctx), $2, M_ENUM, $$);}
 | "enum" '{' enums '}' {$$ = enumctor(NULL, $3);}
-| "enum" IDENTIFIER {$$ = enumctor($2/*.yytext*/, NULL);};
+| "enum" IDENTIFIER {$$ = enumctor($2/*.yytext*/, NULL); add2scope(scopepeek(ctx), $2, M_ENUM, NULL);};
 enums:
-  IDENTIFIER {$$ = dactor(256);dapush($$, genenumfield($1/*.yytext*/,ct_intconst_expr(0)));}
-| IDENTIFIER '=' esc {$$ = dactor(256); dapush($$, genenumfield($1/*.yytext*/,$3));}
-| enums ',' IDENTIFIER {$$ = $1; dapush($$, genenumfield($3/*.yytext*/,ct_binary_expr(ADD,ct_intconst_expr(1),dapeek($$))));}
-| enums ',' IDENTIFIER '=' esc {$$ = $1; dapush($$, genenumfield($3/*.yytext*/,$5));};
+  IDENTIFIER {$$ = dactor(256);dapush($$, genenumfield($1/*.yytext*/,ct_intconst_expr(0))); add2scope(scopepeek(ctx), $1, M_ENUM_CONST, dapeek($$));}
+| IDENTIFIER '=' esc {$$ = dactor(256); dapush($$, genenumfield($1/*.yytext*/,$3)); add2scope(scopepeek(ctx), $1, M_ENUM_CONST, $3);}
+| enums ',' IDENTIFIER {$$ = $1; dapush($$, genenumfield($3/*.yytext*/,ct_binary_expr(ADD,ct_intconst_expr(1),dapeek($$)))); add2scope(scopepeek(ctx), $3, M_ENUM_CONST, dapeek($$));}
+| enums ',' IDENTIFIER '=' esc {$$ = $1; dapush($$, genenumfield($3/*.yytext*/,$5)); add2scope(scopepeek(ctx), $3, M_ENUM_CONST, $5);/*somehow confirm no collisions*/};
 %%
 #include <stdio.h>
 int yyerror(char* s){
