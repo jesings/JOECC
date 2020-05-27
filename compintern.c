@@ -1,3 +1,4 @@
+#include <wchar.h>
 #include "compintern.h"
 
 STRUCT* structor(char* name, DYNARR* fields) {
@@ -118,14 +119,16 @@ EXPRESSION* ct_ident_expr(/*IDENTIFIERINFO* id*/ char* ident) {
   return retval;
 }
 
-DECLARATOR* mkdeclarator(char* name) {
-  DECLARATOR* retval = calloc(1,sizeof(DECLARATOR));
-  retval->idname = name;
-  retval->declparts = dactor(4);
+DECLARATION* mkdeclaration(char* name) {
+  DECLARATION* retval = calloc(1,sizeof(DECLARATION));
+  retval->varname = name;
+  IDTYPE* idt = calloc(1, sizeof(IDTYPE));
+  idt->pointerstack = dactor(4);
+  retval->type = idt;
   return retval;
 }
 
-INITIALIZER* geninit(DECLARATOR* decl, EXPRESSION* expr) {
+INITIALIZER* geninit(DECLARATION* decl, EXPRESSION* expr) {
   INITIALIZER* retval = malloc(sizeof(INITIALIZER));
   retval->decl = decl;
   retval->expr = expr;
@@ -239,13 +242,6 @@ struct declarator_part* mkdeclptr(TYPEBITS d) {
   return retval;
 }
 
-DECLARATION* mkdeclaration(char* name) {
-  DECLARATION* retval = malloc(sizeof(DECLARATION));
-  retval->varname = name;
-  //retval->type = dactor(4);
-  return retval;
-}
-
 EXPRESSION* exprfromdecl(char* name, IDTYPE* id) {
   EXPRESSION* outer = malloc(sizeof(EXPRESSION));
   outer->type = IDENT;
@@ -270,7 +266,7 @@ FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, IDTYPE* retrn) {
 
 SCOPE* mkscope(SCOPE* parent) {
   SCOPE* child = malloc(sizeof(SCOPE));
-  child->identifiers = htclone(parent->identifiers);
+  child->members = htclone(parent->members);
   return child;
 }
 
@@ -284,9 +280,13 @@ void scopepop(struct lexctx* ctx) {
   free(cleanup);
 }
 
+SCOPE* scopepeek(struct lexctx* ctx) {
+  return dapeek(ctx->scopes);
+}
+
 void add2scope(SCOPE* scope, char* memname, enum membertype mtype, void* memberval) {
   static long numvars = 0;
-  SCOPEMEMBER sm = malloc(sizeof(SCOPEMEMBER));
+  SCOPEMEMBER* sm = malloc(sizeof(SCOPEMEMBER));
   sm->mtype = mtype;
   if(mtype != M_VARIABLE) {
     sm->garbage = memberval;
@@ -294,9 +294,8 @@ void add2scope(SCOPE* scope, char* memname, enum membertype mtype, void* memberv
     sm->vartype = memberval;
     sm->varcount = numvars++;
   }
-  insert(SCOPE->members, memname, sm);
+  insert(scope->members, memname, sm);
 }
-
 
 TOPBLOCK* gtb(char isfunc, void* assign) {
   TOPBLOCK* retval = malloc(sizeof(TOPBLOCK));
@@ -304,3 +303,5 @@ TOPBLOCK* gtb(char isfunc, void* assign) {
   retval->garbage = assign;
   return retval;
 }
+
+

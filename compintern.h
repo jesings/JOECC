@@ -101,13 +101,13 @@ typedef struct {
 } FUNC;
 
 struct lexctx {//TODO: FIX
-  FUNC* funclist;
-  unsigned int fllast, fllen;
-  FUNC* curfunc;
+  DYNARR* funclist;
+  //unsigned int fllast, fllen;
   DYNARR* scopes;
-  unsigned int layer;//Necessary?
-  HASHTABLE* idents;
+  //unsigned int layer;//Necessary?
+  HASHTABLE* symtab;
 };
+
 
 typedef struct expr {
   EXPRTYPE type;
@@ -219,7 +219,7 @@ typedef struct {
 } TOPBLOCK;
 
 enum membertype {
-  M_LABEL, M_TYPEDEF, M_VARIABLE, M_STRUCT, M_UNION, M_ENUM
+  M_LABEL, M_TYPEDEF, M_VARIABLE, M_STRUCT, M_UNION, M_ENUM, M_ENUM_CONST
 };
 
 typedef struct {
@@ -233,6 +233,7 @@ typedef struct {
       IDTYPE* vartype;
       long varcount;
     };
+    long enumnum;
     //label needs nothing?
     void* garbage;
   };
@@ -279,11 +280,7 @@ FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, IDTYPE* retrn);
 SCOPE* mkscope(SCOPE* parent);
 void scopepush(struct lexctx* ctx);
 void scopepop(struct lexctx* ctx);
-
-inline SCOPE* scopepeek(struct lexctx* ctx) {
-  return dapeek(ctx->scopes);
-}
-
+SCOPE* scopepeek(struct lexctx* ctx);
 void add2scope(SCOPE* scope, char* memname, enum membertype mtype, void* memberval);
 TOPBLOCK* gtb(char isfunc, void* assign);
 #endif

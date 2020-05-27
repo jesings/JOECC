@@ -17,23 +17,26 @@
 %define parse.assert
 %define parse.error verbose
 
-%token<ii> INTEGER_LITERAL
+%token<ii> INTEGER_LITERAL ENUM_CONST;
 %token<dbl> FLOAT_LITERAL;
-%token<str> IDENTIFIER STRING_LITERAL TYPE_NAME;
+%token<str> IDENTIFIER STRING_LITERAL;
+%token<idvariant> TYPE_NAME;
 %token<wstr> WSTRING_LITERAL;
 
 %code requires{
-#include <stdint.h>
-#include "compintern.h"
-#include "lex.h"
+  #include <stdint.h>
+  #include "compintern.h"
+//  #include "lex.h"
 
 
-#define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
-#define dget(param, index) ((DECLARATION*) (param)->arr[(index)])
-
+  #define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
+  #define dget(param, index) ((DECLARATION*) (param)->arr[(index)])
 }
 
-%param {struct lexctx* ctx}
+%{
+  extern struct lexctx* ctx;
+%}
+
 %union {
   struct intinfo ii;
   char* str;
@@ -62,20 +65,6 @@
 %type<enumvariant> enum
 %type<declvariant> declarator declname param_decl sdecl
 %type<funcvariant> function
-
-%code {
-  //ctx->layer = 0;
-  //ctx->scopes = dactor(64);
-  //SCOPE* rootscope = malloc(sizeof(SCOPE));
-  //rootscope->identifiers = htctor();
-  //rootscope->structs = htctor();
-  //rootscope->unions = htctor();
-  //rootscope->enums = htctor();
-  //dapush(ctx->scopes, rootscope);
-  //ctx->labels = htctor();
-  //cs_inits is a dynarr of initializers
-  //not sure what to do with typedefs
-}
 
 %%
 program:
@@ -153,12 +142,12 @@ types2:
   "extern" {$$ = EXTERNNUM;}
 | "static" {$$ = STATICNUM;};
 typews1:
-  TYPE_NAME {$$ = malloc(sizeof(IDTYPE)); SCOPEMEMBER* sm = ((SCOPEMEMBER*) search(((SCOPE*) dapeek(ctx->scopes))->members, $1)); memcpy($$, sm->typememb, sizeof(IDTYPE));/*TODO: extract, and duplicate*/ }
+  TYPE_NAME {$$ = malloc(sizeof(IDTYPE)); memcpy($$, $1, sizeof(IDTYPE));/*TODO: extract, and duplicate*/ }
 | typem {$$ = $1;}
 | types1 typem {$$ = $2; $$->tb |= $1;}
-| types1 TYPE_NAME {$$ = malloc(sizeof(IDTYPE)); SCOPEMEMBER* sm = ((SCOPEMEMBER*) search(((SCOPE*) dapeek(ctx->scopes))->members, $2)); memcpy($$, sm->typememb, sizeof(IDTYPE)); $$->tb |= 1;/*TODO: extract, and duplicate*/ }
+| types1 TYPE_NAME {$$ = malloc(sizeof(IDTYPE)); memcpy($$, $2, sizeof(IDTYPE)); $$->tb |= $1;/*TODO: extract, and duplicate*/ }
 | types2 typem {$$ = $2; $$->tb |= $1;}
-| types2 TYPE_NAME {$$ = malloc(sizeof(IDTYPE)); SCOPEMEMBER* sm = ((SCOPEMEMBER*) search(((SCOPE*) dapeek(ctx->scopes))->members, $2)); memcpy($$, sm->typememb, sizeof(IDTYPE)); $$->tb |= 1;/*TODO: extract, and duplicate*/ };
+| types2 TYPE_NAME {$$ = malloc(sizeof(IDTYPE)); memcpy($$, $2, sizeof(IDTYPE)); $$->tb |= $1;/*TODO: extract, and duplicate*/ };
 /* typebs: */
 /*   typem {$$ = $1;} */
 /* | types1 typebs {$$ = $2; $$->tb |= $1;} */

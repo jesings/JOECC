@@ -9,9 +9,10 @@ INTSIZE (u|U|l|L)*
 
 %{
 
+#include <math.h>
 #include "highCs.tab.h"
 #include "conv.h"
-#include <math.h>
+#include "compintern.h"
 
 //#define YY_USER_ACTION \
 //    yylloc->first_line = yylloc->last_line; \
@@ -27,10 +28,11 @@ INTSIZE (u|U|l|L)*
 //    }
 #define SIGNEDCHAR 0
 
-int check_type(struct lexctx* ctx);
+extern struct lexctx* ctx;
+int check_type(void** garbage, char* symb);
+//%option yylineno
 %}
 
-%option yylineno
 %x MULTILINE_COMMENT
 %x SINGLELINE_COMMENT
 
@@ -126,8 +128,22 @@ int check_type(struct lexctx* ctx);
 ((?i:"infinity")|(?i:"inf")) {yylval.dbl = 0x7f800000; return FLOAT_LITERAL;}
 (?i:"nan") {yylval.dbl = 0x7fffffff; return FLOAT_LITERAL;}
 
-{LET}({LET}|{DEC})* {yylval.str = strdup(yytext);
-                     return check_type(); }
+{LET}({LET}|{DEC})* {
+                      yylval.str = strdup(yytext);
+                      void* v;
+                      int mt = check_type(&v, yytext);
+                      switch(mt) {
+                        case M_TYPEDEF:
+                          yylval.idvariant = v; break;
+                        case M_ENUM_CONST:
+                          ; struct intinfo ini = {(long) v, 1}; yylval.ii = ini; break;
+                        case IDENTIFIER:
+                          yylval.str = v; break;
+                        default:
+                          return YYUNDEF;
+                      } 
+                      return mt;
+                    }
 0[bB]{BIN}+{INTSIZE}? {yylval.ii.num = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
                        yylval.ii.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
 0{OCT}+{INTSIZE}? {yylval.ii.num = strtoul(yytext,NULL,8);//every intconst is 8 bytes
@@ -149,13 +165,27 @@ L\"(\\.|[^\\"])*\" {yylval.wstr = wstrconv(yytext); yylval.ii.sign = 0; return W
 [\t\v\n\f] {/*Whitespace, ignored*/}
 . {/*Other char, ignored*/}
 %%
-int yywrap(){
+int yywrap() {
   return 1;
 }
-int check_type(struct lexctx* ctx){
-  IDTYPE* possible_type =  search(((SCOPE*) dapeek(ctx->scopes))->identifiers,yytext);
-  if(possible_type)
-    return TYPE_NAME;
-  return IDENTIFIER;
+int check_type(void** garbage, char* symb) {
+  SCOPEMEMBER* symtab_ent = search(scopepeek(ctx)->members,symb);
+  if(!symtab_ent) {
+    *garbage = symb;
+    return IDENTIFIER;
+  }
+  switch(symtab_ent->mtype) {
+    case M_TYPEDEF:
+      *garbage = symtab_ent->typememb;
+      return TYPE_NAME;
+    case M_ENUM_CONST:
+      *garbage = (void*) symtab_ent->enumnum;
+      return ENUM_CONST;
+    case M_VARIABLE:
+      *garbage = symb;
+      return IDENTIFIER;
+    default:
+      return 0;
+  }
 }
 

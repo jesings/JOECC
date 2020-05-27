@@ -1,8 +1,8 @@
 CC = gcc
 LDFLAGS = 
 CFLAGS = -g
-compiler: highCs.tab.o lex.yy.o hash.o dynarr.o conv.o compintern.o
-	$(CC) highCs.tab.o lex.yy.o hash.o dynarr.o conv.o compintern.o -o compiler $(LDFLAGS)
+compiler: highCs.tab.o lex.yy.o hash.o dynarr.o conv.o compintern.o compmain.o
+	$(CC) highCs.tab.o lex.yy.o hash.o dynarr.o conv.o compintern.o compmain.o -o compiler $(LDFLAGS)
 lex.yy.c: highCs.lex
 	flex --header-file=lex.h highCs.lex
 highCs.tab.c: highCs.y
@@ -19,6 +19,8 @@ highCs.tab.o: highCs.tab.c
 	$(CC) highCs.tab.c -c $(CFLAGS)
 compintern.o: compintern.c
 	$(CC) compintern.c -c $(CFLAGS)
+compmain.o: compmain.c
+	$(CC) compmain.c -c $(CFLAGS)
 
 clean:
 	-rm *.o
