@@ -1,6 +1,7 @@
 #ifndef HASH_H
 #define HASH_H
 #define HASHSIZE 4096
+#include "dynarr.h"
 
 struct hp;
 typedef struct hp{
@@ -21,4 +22,5 @@ void insertfr(HASHTABLE* ht, char* key, void* value);
 void* search(HASHTABLE* ht, char* key);
 void rmpair(HASHTABLE* ht, char* key);
 void rmpairfr(HASHTABLE* ht, char* key);
+DYNARR* htpairs(HASHTABLE* ht);
 #endif

@@ -71,10 +71,44 @@
 
 %%
 program:
-  function {$$ = dactor(4096); dapush($$, gtb(1, $1));}
-| initializer {$$ = dactor(4096); for(int i = 0; i < $1->length; i++) dapush($$, gtb(1, daget($1, i))); free($1);}
-| program function {$$ = $1; dapush($$, gtb(1, $2));}
-| program initializer {$$ = $1; for(int i = 0; i < $1->length; i++) dapush($$, gtb(1, daget($2, i))); free($2);};
+  function {
+    $$ = dactor(4096);
+    if(!search(ctx->funcs, $1->name)) {
+      insert(ctx->funcs, $1->name, $1);
+      dapush($$, gtb(1, $1));
+    }
+    else {}
+  }
+| initializer {
+    $$ = dactor(4096);
+    for(int i = 0; i < $1->length; i++) {
+      if(!search(scopepeek(ctx)->members, aget($1, i)->decl->varname)) {
+        add2scope(scopepeek(ctx), aget($1, i)->decl->varname, M_VARIABLE, aget($1, i)->expr);
+      }
+      else {}
+      dapush($$, gtb(0, $1));
+    }
+    free($1);
+  }
+| program function {
+    $$ = $1;
+    if(!search(ctx->funcs, $2->name)) {
+      insert(ctx->funcs, $2->name, $2);
+      dapush($$, gtb(1, $2));
+    }
+    else {}
+  }
+| program initializer {
+    $$ = $1;
+    for(int i = 0; i < $2->length; i++) {
+      if(!search(scopepeek(ctx)->members, aget($1, i)->decl->varname)) {
+        add2scope(scopepeek(ctx), aget($2, i)->decl->varname, M_VARIABLE, aget($2, i)->expr);
+      }
+      else {}
+      dapush($$, gtb(0, $2));
+    }
+    free($2);
+  };
 initializer:
 "typedef" type/*bs*/ cs_minutes ';' {
   SCOPE* current = scopepeek(ctx);
@@ -120,7 +154,7 @@ params:
   param_decl {$$ = dactor(8); dapush($$, $1);}
 | params ',' param_decl {$$ = $1; dapush($$, $3);};
 param_decl:
-  type/*bs*/ declarator {$$ = $2; $$->type->tb = $1->tb;/*TODO: THIS IS NOT RIGHT, I need proper type handling*/free($2);};
+  type/*bs*/ declarator {$$ = $2; $1->pointerstack = damerge($1->pointerstack, $2->type->pointerstack); free($2->type); $2->type = $1;};
 typem:
   "char" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 1;}
 | "int8" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 1;}
@@ -254,7 +288,8 @@ esu:
 | INTEGER_LITERAL {$$ = $1.sign ? ct_intconst_expr($1.num) : ct_uintconst_expr($1.num);}
 | ENUM_CONST {$$ = $1;}
 | FLOAT_LITERAL {$$ = ct_floatconst_expr($1/*.dbl*/);}
-| IDENTIFIER {$$ = ct_ident_expr($1/*.str*/);};
+| IDENTIFIER {$$ = ct_ident_expr($1/*.str*/);}
+| error {$$ = ct_nop_expr(); /*print error, location, etc.*/};
 escl:
   esc {$$ = dactor(32); dapush($$, $1);}
 | escl ',' esc {$$ = $1; dapush($$, $3); };

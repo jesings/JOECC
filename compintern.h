@@ -38,11 +38,11 @@ typedef enum {
   ASSIGN,
   ADDASSIGN, SUBASSIGN, SHLASSIGN, SHRASSIGN, ANDASSIGN, 
   XORASSIGN, ORASSIGN, DIVASSIGN, MULTASSIGN, MODASSIGN,
-  CASES,
+  /*CASES,*/
   CAST,
   COMMA,
   ADDR, DEREF,
-  FCALL,FCOPY,
+  FCALL, /*FCOPY,*/
   TERNARY
 } EXPRTYPE;
 
@@ -101,7 +101,7 @@ typedef struct {
 } FUNC;
 
 struct lexctx {//TODO: FIX
-  DYNARR* funclist;
+  HASHTABLE* funcs;
   //unsigned int fllast, fllen;
   DYNARR* scopes;
   //unsigned int layer;//Necessary?
@@ -252,6 +252,7 @@ STRUCT* structor(char* name, DYNARR* fields);
 UNION* unionctor(char* name, DYNARR* fields);
 ENUM* enumctor(char* name, DYNARR* fields);
 EXPRESSION* cloneexpr(EXPRESSION* orig);
+EXPRESSION* ct_nop_expr();
 EXPRESSION* ct_unary_expr(EXPRTYPE t, EXPRESSION* param);
 EXPRESSION* ct_sztype(IDTYPE* whichtype);
 EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2);

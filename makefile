@@ -1,8 +1,8 @@
 CC = gcc
 LDFLAGS = 
 CFLAGS = -g
-compiler: joecc.tab.o lex.yy.o hash.o dynarr.o conv.o compintern.o compmain.o
-	$(CC) joecc.tab.o lex.yy.o hash.o dynarr.o conv.o compintern.o compmain.o -o compiler $(LDFLAGS)
+compiler: joecc.tab.o lex.yy.o hash.o dynarr.o conv.o compintern.o compmain.o preparse.o
+	$(CC) joecc.tab.o lex.yy.o hash.o dynarr.o conv.o compintern.o compmain.o preparse.o -o compiler $(LDFLAGS)
 lex.yy.c: joecc.lex
 	flex --header-file=lex.h joecc.lex
 joecc.tab.c: joecc.y
@@ -21,6 +21,8 @@ compintern.o: compintern.c
 	$(CC) compintern.c -c $(CFLAGS)
 compmain.o: compmain.c
 	$(CC) compmain.c -c $(CFLAGS)
+preparse.o: preparse.c
+	$(CC) preparse.c -c $(CFLAGS)
 
 clean:
 	-rm *.o
