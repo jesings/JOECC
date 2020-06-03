@@ -159,8 +159,6 @@ int check_type(void** garbage, char* symb);
 
 '(\\.|[^\\'])+'	{yylval.ii.num = charconv(&yytext); return INTEGER_LITERAL;}
 \"(\\.|[^\\"])*\" {yylval.str = strconv(yytext); yylval.ii.sign = 0; return STRING_LITERAL;}
-L'(\\.|[^\\'])+' {yylval.ii.num = wcharconv(&yytext); return INTEGER_LITERAL;}
-L\"(\\.|[^\\"])*\" {yylval.wstr = wstrconv(yytext); yylval.ii.sign = 0; return WSTRING_LITERAL;}
 
 [\t\v\n\f] {/*Whitespace, ignored*/}
 . {/*Other char, ignored*/}

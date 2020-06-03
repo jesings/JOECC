@@ -1,4 +1,3 @@
-#include <wchar.h>
 #include "compintern.h"
 
 STRUCT* structor(char* name, DYNARR* fields) {
@@ -87,13 +86,6 @@ EXPRESSION* ct_strconst_expr(char* str) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = STRING;
   retval->strconst = strdup(str);//may or may not need to duplicate
-  return retval;
-}
-
-EXPRESSION* ct_wstrconst_expr(wchar_t* str) {
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = WSTRING;
-  retval->wstrconst = wcsdup(str);//may or may not need to duplicate
   return retval;
 }
 

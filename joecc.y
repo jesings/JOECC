@@ -21,7 +21,6 @@
 %token<dbl> FLOAT_LITERAL;
 %token<str> IDENTIFIER STRING_LITERAL;
 %token<idvariant> TYPE_NAME;
-%token<wstr> WSTRING_LITERAL;
 %token<exprvariant> ENUM_CONST;
 
 %code requires{
@@ -44,7 +43,6 @@
 %union {
   struct intinfo ii;
   char* str;
-  wchar_t* wstr;
   double dbl;
   TYPEBITS typevariant;
   EXPRESSION* exprvariant;
@@ -285,7 +283,6 @@ esp:
 esu:
   '(' expression ')' {$$ = $2;}
 | STRING_LITERAL {$$ = ct_strconst_expr($1/*.str*/);}
-| WSTRING_LITERAL {$$ = ct_wstrconst_expr($1/*.str*/);}
 | INTEGER_LITERAL {$$ = $1.sign ? ct_intconst_expr($1.num) : ct_uintconst_expr($1.num);}
 | ENUM_CONST {$$ = $1;}
 | FLOAT_LITERAL {$$ = ct_floatconst_expr($1/*.dbl*/);}

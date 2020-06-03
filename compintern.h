@@ -132,7 +132,6 @@ typedef struct expr {
     };
     struct expr* unaryparam;
     char* strconst;
-    wchar_t* wstrconst;
     char* ident;
     long intconst;
     unsigned long uintconst;
@@ -260,7 +259,6 @@ EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr );
 EXPRESSION* ct_ternary_expr(EXPRESSION* param1, EXPRESSION* param2, EXPRESSION* param3);
 EXPRESSION* ct_fcall_expr(EXPRESSION* func, int num, EXPRESSION* params);
 EXPRESSION* ct_strconst_expr(char* str);
-EXPRESSION* ct_wstrconst_expr(wchar_t* str);
 EXPRESSION* ct_intconst_expr(long num); 
 EXPRESSION* ct_uintconst_expr(unsigned long num);
 EXPRESSION* ct_floatconst_expr(double num);

@@ -4,7 +4,7 @@
 #include "dynarr.h"
 int preparse();
 enum ifdefstate {
-  IFANDTRUE, IFANDFALSE, ELSEANDTRUE, ELSEANDFALSE
+  IFDEFDUMMY, IFANDTRUE, IFANDFALSE, ELSEANDTRUE, ELSEANDFALSE
 };
 struct ppstate {
   DYNARR* ifdefstack;

@@ -9,6 +9,7 @@
 #define UNTILWHITE(var) while(!isspace(*var)) ++(var)
 #define SKIPWHITEB(var, var2) while(isspace(*var) && var >= var2) --(var)
 #define IFDEFGOOD(var) if(var->length > 0 && *(enum ifdefstate*) dapeek(var) != IFANDTRUE && *(enum ifdefstate*) dapeek(var) != ELSEANDFALSE) return 0
+#define DOADDDUMMY(var) (var->length > 0 && *(enum ifdefstate*) dapeek(var) != IFANDTRUE && *(enum ifdefstate*) dapeek(var) != ELSEANDFALSE) 
 struct ppstate pps;
 FILE* curstream = NULL;
 int ppline(char* line, size_t linelen) {
@@ -23,6 +24,7 @@ int ppline(char* line, size_t linelen) {
       size_t bread = getline(&lineptr, &guysread, curstream);
       if(bread == -1) {
         free(lineptr);
+        fprintf(stderr, "Warning: last line of file ends in /\n");
         break;//throw some garbage error idk
       }
       linelen = (bline - linenew) + bread;
@@ -43,7 +45,7 @@ int ppline(char* line, size_t linelen) {
     UNTILWHITE(line);
     *line = '\0';
     ++line;
-    //no elif, defined, 
+    //no if, elif, defined, 
     if(strcmp(beginword, "include") == 0) {
       IFDEFGOOD(pps.ifdefstack);
 
@@ -72,40 +74,48 @@ int ppline(char* line, size_t linelen) {
       IFDEFGOOD(pps.ifdefstack);
       SKIPWHITE(line);
       char* todef= line;
-      UNTILWHITE(line);      
+      UNTILWHITE(line);
       *line = '\0';
       line++;
-      //handle function like macros
+      //TODO: handle function like macros
       if(search(pps.defines, todef) != NULL) {//probably not necessary
+        fprintf(stderr, "Warning: Redefinition of %s\n", todef);
       } else {
         //line[linelen - 1] = '\0';
         insert(pps.defines, todef, line);//confirm newline is stripped, etc
       }
     } else if (strcmp(beginword, "ifdef") == 0){
-      //if already in a bad ifdef state, add a dummy to the stack
       SKIPWHITE(line);
       char* todef= line;
-      UNTILWHITE(line);      
+      UNTILWHITE(line);
       *line = '\0';
       line++;
       enum ifdefstate* ids = malloc(sizeof(enum ifdefstate));
-      if(search(pps.defines, todef) != NULL) {
-        *ids = IFANDTRUE;
+      if(DOADDDUMMY(pps.ifdefstack)) {
+        *ids = IFDEFDUMMY;
       } else {
-        *ids = IFANDFALSE;
+        if(search(pps.defines, todef) != NULL) {
+          *ids = IFANDTRUE;
+        } else {
+          *ids = IFANDFALSE;
+        }
       }
       dapush(pps.ifdefstack, ids);
     } else if (strcmp(beginword, "ifndef") == 0){
       SKIPWHITE(line);
       char* todef= line;
-      UNTILWHITE(line);      
+      UNTILWHITE(line);
       *line = '\0';
       line++;
       enum ifdefstate* ids = malloc(sizeof(enum ifdefstate));
-      if(search(pps.defines, todef) == NULL) {
-        *ids = IFANDTRUE;
+      if(DOADDDUMMY(pps.ifdefstack)) {
+        *ids = IFDEFDUMMY;
       } else {
-        *ids = IFANDFALSE;
+        if(search(pps.defines, todef) == NULL) {
+          *ids = IFANDTRUE;
+        } else {
+          *ids = IFANDFALSE;
+        }
       }
       dapush(pps.ifdefstack, ids);
     } else if (strcmp(beginword, "else") == 0){
@@ -117,17 +127,17 @@ int ppline(char* line, size_t linelen) {
         } else if(*destate == IFANDFALSE) {
           *destate = ELSEANDFALSE;
         } else {
-          //error else doesn't mean anything
+          fprintf(stderr, "Error: #if corresponds to more than one #else\n");
         }
       } else {
-        //error, else doesn't mean anything
+          fprintf(stderr, "Error: #else found with no preceding if\n");
       }
     } else if (strcmp(beginword, "endif") == 0){
       //even if it is dummy value, we're still good
       if(pps.ifdefstack->length > 0) {
         dapop(pps.ifdefstack);
       } else {
-        //error, endif doesn't mean anything
+        fprintf(stderr, "Error: #endif found with no preceding if\n");
       }
     } else if (strcmp(beginword, "undef") == 0){
       IFDEFGOOD(pps.ifdefstack);

@@ -1,8 +1,10 @@
 CC = gcc
-LDFLAGS = 
-CFLAGS = -g
+LDFLAGS = -pthread
+CFLAGS = -g 
 compiler: joecc.tab.o lex.yy.o hash.o dynarr.o conv.o compintern.o compmain.o preparse.o
 	$(CC) joecc.tab.o lex.yy.o hash.o dynarr.o conv.o compintern.o compmain.o preparse.o -o compiler $(LDFLAGS)
+gotest: compiler
+	./compiler < dynarr.c
 lex.yy.c: joecc.lex
 	flex --header-file=lex.h joecc.lex
 joecc.tab.c: joecc.y
