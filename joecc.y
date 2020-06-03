@@ -26,6 +26,7 @@
 
 %code requires{
   #include <stdint.h>
+  #include <stdio.h>
   #include "compintern.h"
 //  #include "lex.h"
 
@@ -289,7 +290,11 @@ esu:
 | ENUM_CONST {$$ = $1;}
 | FLOAT_LITERAL {$$ = ct_floatconst_expr($1/*.dbl*/);}
 | IDENTIFIER {$$ = ct_ident_expr($1/*.str*/);}
-| error {$$ = ct_nop_expr(); /*print error, location, etc.*/};
+| error {$$ = ct_nop_expr(); 
+  fprintf (stderr, "%d.%d-%d.%d: error encountered\n",
+           @1.first_line, @1.first_column,
+           @1.last_line, @1.last_column);
+			/*TODO: print error, location, etc.*/};
 escl:
   esc {$$ = dactor(32); dapush($$, $1);}
 | escl ',' esc {$$ = $1; dapush($$, $3); };
