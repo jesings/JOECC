@@ -1,5 +1,5 @@
 CC = gcc
-LDFLAGS = -pthread
+LDFLAGS = 
 CFLAGS = -g 
 compiler: joecc.tab.o lex.yy.o hash.o dynarr.o conv.o compintern.o compmain.o preparse.o
 	$(CC) joecc.tab.o lex.yy.o hash.o dynarr.o conv.o compintern.o compmain.o preparse.o -o compiler $(LDFLAGS)

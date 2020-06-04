@@ -27,7 +27,6 @@
   #include <stdint.h>
   #include <stdio.h>
   #include "compintern.h"
-//  #include "lex.h"
 
 
   #define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
@@ -325,7 +324,6 @@ compound_statement:/*add new scope to scope stack, remove when done*/
 statements_and_initializers:
   initializer {$$ = dactor(256); dapush($$,soii($1));}
 | statement {$$ = dactor(256); dapush($$,sois($1));}
-| statements_and_initializers initializer {$$ = $1; dapush($$,soii($2));}
 | statements_and_initializers statement {$$ = $1; dapush($$,sois($2));};
 
 union:

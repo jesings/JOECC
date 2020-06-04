@@ -32,6 +32,7 @@ extern struct lexctx* ctx;
 int check_type(void** garbage, char* symb);
 %}
 %option yylineno
+%option noyywrap
 
 %x MULTILINE_COMMENT
 %x SINGLELINE_COMMENT
@@ -158,14 +159,19 @@ int check_type(void** garbage, char* symb);
 {DEC}+"."?{DEC}*({EXP})?{FLOATSIZE}? {sscanf(yytext, "%ld", &yylval.dbl);return INTEGER_LITERAL;}
 
 '(\\.|[^\\'])+'	{yylval.ii.num = charconv(&yytext); return INTEGER_LITERAL;}
-\"(\\.|[^\\"])*\" {yylval.str = strconv(yytext); yylval.ii.sign = 0; return STRING_LITERAL;}
+\"(\\.|[^\\"])*\" {yylval.str = strconv(yytext); yylval.ii.sign = 0; return STRING_LITERAL;}/*"to fix syntax highlighting*/
+
+<<EOF>>  {
+  fprintf(stderr, "Fuck you\n");
+  yyterminate();
+}
 
 [\t\v\n\f] {/*Whitespace, ignored*/}
 . {/*Other char, ignored*/}
 %%
-int yywrap() {
-  return 1;
-}
+//int yywrap() {
+//  return 1;
+//}
 int check_type(void** garbage, char* symb) {
   SCOPEMEMBER* symtab_ent = search(scopepeek(ctx)->members,symb);
   if(!symtab_ent) {
