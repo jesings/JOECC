@@ -4,7 +4,7 @@
 %token ADD_GETS "+=" SUB_GETS "-=" SHL_GETS "<<=" SHR_GETS ">>=" AND_GETS "&=" 
 %token XOR_GETS "^=" OR_GETS "|="
 
-%token TYPEDEF "typedef" STATIC "static" EXTERN "extern" CHAR "char"
+%token TYPEDEF "typedef" STATIC "static" EXTERN "extern" CHAR "char" VOID "void"
 %token INT8 "int8" INT16 "int16" INT32 "int32" INT64 "int64" BYTE "byte"
 %token DBYTE "dbyte" QBYTE "qbyte" OBYTE "obyte" SINGLE "single" DOUBLE "double" 
 %token CASETK "case" DEFAULTTK "default" IF "if" ELSE "else" SWITCHTK "switch"
@@ -99,7 +99,7 @@ program:
 | program initializer {
     $$ = $1;
     for(int i = 0; i < $2->length; i++) {
-      if(!search(scopepeek(ctx)->members, aget($1, i)->decl->varname)) {
+      if(!search(scopepeek(ctx)->members, aget($2, i)->decl->varname)) {
         add2scope(scopepeek(ctx), aget($2, i)->decl->varname, M_VARIABLE, aget($2, i)->expr);
       }
       else {}
@@ -111,22 +111,22 @@ initializer:
 "typedef" type/*bs*/ cs_minutes ';' {
   SCOPE* current = scopepeek(ctx);
   for(int i = 0; i < $3->length; i++) {
-    aget($3, i)->decl->type->tb |= $2->tb; 
-    //if($1->pointerstack->length) 
-    aget($3, 0)->decl->type->pointerstack = damerge($2->pointerstack, aget($3, 0)->decl->type->pointerstack);
-    add2scope(current, aget($3, i)->decl->varname, M_TYPEDEF, aget($3, i)->decl->type);
-    free(aget($3, i));
-    free(aget($3, i)->decl);
+    dget($3, i)->type->tb |= $2->tb; 
+    if($2->pointerstack) 
+      $2->pointerstack = damerge($2->pointerstack, dget($3, i)->type->pointerstack);
+    add2scope(current, dget($3, i)->varname, M_TYPEDEF, $2);
+    free(dget($3, i));
+    free(dget($3, i)->type);
   }
-  $$ = dactor(0);
-}
+  $$ = dactor(8);
+  }
 | type/*bs*/ cs_inits ';' {
   SCOPE* current = scopepeek(ctx);
   $$ = $2;
   for(int i = 0; i < $$->length; i++) {
     aget($$, i)->decl->type->tb |= $1->tb; 
-    //if($1->pointerstack->length) 
-    aget($$, 0)->decl->type->pointerstack = damerge($1->pointerstack, aget($$, 0)->decl->type->pointerstack);
+    if($1->pointerstack) 
+      aget($$, i)->decl->type->pointerstack = damerge($1->pointerstack, aget($$, i)->decl->type->pointerstack);
     add2scope(current, aget($$, i)->decl->varname, M_VARIABLE, aget($$, i)->decl->type);
   }
 };
@@ -152,7 +152,15 @@ params:
   param_decl {$$ = dactor(8); dapush($$, $1);}
 | params ',' param_decl {$$ = $1; dapush($$, $3);};
 param_decl:
-  type/*bs*/ declarator {$$ = $2; $1->pointerstack = damerge($1->pointerstack, $2->type->pointerstack); free($2->type); $2->type = $1;};
+  type/*bs*/ declarator {
+    $$ = $2; 
+    if($1->pointerstack) 
+      $1->pointerstack = damerge($1->pointerstack, $2->type->pointerstack); 
+    else 
+      $1->pointerstack = $2->type->pointerstack;
+    free($2->type); 
+    $2->type = $1;
+    };
 typem:
   "char" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 1;}
 | "int8" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 1;}
@@ -338,7 +346,13 @@ struct_decls:
   struct_decl {$$ = $1;}
 | struct_decls struct_decl {$$ = damerge($1, $2);};
 struct_decl:
-  type cs_decls ';' {$$ = $2; for(int i = 0; i < $2->length; i++) dget($2, i)->type->tb |= $1->tb; if($1->pointerstack->length) dget($$, 0)->type->pointerstack = damerge($1->pointerstack, dget($$, 0)->type->pointerstack);};
+  type cs_decls ';' {
+    $$ = $2; 
+    for(int i = 0; i < $2->length; i++) 
+      dget($2, i)->type->tb |= $1->tb; 
+    if($1->pointerstack && $1->pointerstack->length) 
+      dget($$, 0)->type->pointerstack = damerge($1->pointerstack, dget($$, 0)->type->pointerstack);
+    };
 cs_decls:
   cs_decls ',' sdecl {$$ = $1; dapush($$, $3);}
 | sdecl {$$ = dactor(8); dapush($$, $1);};

@@ -1,7 +1,6 @@
 BIN [0-1]
 OCT [0-7]
-LET [[:alpha:]_]
-IDENT {LET}({LET}|[[:digit:]])
+IDENT [[:alpha:]_][[:alnum:]_]*
 EXP [Ee][+-]?[[:digit:]]+
 FLOATSIZE (f|F|l|L)
 INTSIZE (u|U|l|L)*
@@ -30,11 +29,22 @@ INTSIZE (u|U|l|L)*
 extern struct lexctx* ctx;
 int check_type(void** garbage, char* symb);
 char stmtover, skipping;
-char* defname;
+char* defname, * strconst;
+int strconstlen, strconstindex;
+char nc(char c) {
+  if(strconstindex + 1 >= strconstlen) {
+    strconst = realloc(strconst, strconstlen *= 1.5);
+  }
+  strconst[strconstindex++] = c;
+}
 %}
 %option yylineno
 %option noyywrap
 %option stack
+
+%option debug
+%option nodefault
+%option warn
 
 %x MULTILINE_COMMENT
 %x SINGLELINE_COMMENT
@@ -47,11 +57,12 @@ char* defname;
 %x IFDEF
 %x KILLSPACE
 %x PPSKIP
+%x STRINGLIT
 
 %%
 <KILLSPACE>{
   [[:blank:]]+ {}
-  [^[:blank:]] {yy_pop_state(); yyless(1);}
+  [^[:blank:]] {yy_pop_state(); unput('\n');}
 }
 
 <INITIAL,PREPROCESSOR,INCLUDE,DEFINE,DEFARG,DEFINE2,IFDEF,IFNDEF>{
@@ -116,7 +127,7 @@ char* defname;
           break;
       }
     } else {
-      puts("Error: Unexpected #else");
+      puts("Error: Unexpected #endif");
     }
     }
   \n {yy_pop_state();/*error state*/}
@@ -154,7 +165,7 @@ char* defname;
   }
   [[:space:]]+[<\"] {if(stmtover) REJECT;/*"*/yyless(1);}
   [[:space:]]*\n {yy_pop_state(); BEGIN(INITIAL); }
-  \n {yy_pop_state();BEGIN(INITIAL);if(!stmtover)/*error*/;}
+  \n {yy_pop_state();BEGIN(INITIAL);if(!stmtover) fprintf(stderr, "Error: incomplete include\n");}
   . {printf("INCLUDE: I made a stupid: %c\n", *yytext);}
 }
 
@@ -180,12 +191,13 @@ char* defname;
 }
 
 <IFDEF>{
-  [[:alpha:]_][[:alnum:]_]* {yy_pop_state(); yy_pop_state(); stmtover = 1; defname = yytext; yy_push_state(KILLSPACE);}
+  [[:alpha:]_][[:alnum:]_]* {stmtover = 1; defname = yytext; yy_push_state(KILLSPACE);}
   \n {
     yy_pop_state();
     yy_pop_state(); 
     if(!stmtover) {
       /*error state*/
+      fprintf(stderr, "Incomplete ifdef!\n");
     } else {
       DYNARR* ds = ctx->definestack;
       enum ifdefstate* rids = malloc(sizeof(enum ifdefstate));
@@ -218,12 +230,13 @@ char* defname;
   . {printf("IFDEF: I made a stupid: %c\n", *yytext);}
 }
 <IFNDEF>{
-  [[:alpha:]_][[:alnum:]_]* {yy_pop_state(); yy_pop_state(); stmtover = 1; defname = yytext; yy_push_state(KILLSPACE);}
+  [[:alpha:]_][[:alnum:]_]* {stmtover = 1; defname = yytext; yy_push_state(KILLSPACE);}
   \n {
     yy_pop_state();
     yy_pop_state(); 
     if(!stmtover) {
       /*error state*/
+      fprintf(stderr, "Incomplete ifndef!\n");
     } else {
       DYNARR* ds = ctx->definestack;
       enum ifdefstate* rids = malloc(sizeof(enum ifdefstate));
@@ -256,7 +269,7 @@ char* defname;
   . {printf("IFNDEF: I made a stupid: %c\n", *yytext);}
 }
 
-<INITIAL,SINGLELINE_COMMENT,PREPROCESSOR,INCLUDE,DEFINE,DEFINE2,IFDEF,IFNDEF>\\+[[:blank:]]*\n {/*the newline is ignored*/}
+<INITIAL,SINGLELINE_COMMENT,PREPROCESSOR,INCLUDE,DEFINE,DEFINE2,IFDEF,IFNDEF,STRINGLIT>\\+[[:blank:]]*\n {/*the newline is ignored*/}
 "->" {return ARROWTK;}
 "++" {return INC;}
 "--" {return DEC;}
@@ -298,6 +311,7 @@ char* defname;
 "single" {return SINGLE;}
 "float" {return SINGLE;}
 "double" {return DOUBLE;}
+"void" {return VOID;}
 "case" {return CASETK;}
 "default" {return DEFAULTTK;}
 "if" {return IF;}
@@ -372,10 +386,65 @@ char* defname;
 [[:digit:]]+"."?[[:digit:]]*({EXP})?{FLOATSIZE}? {sscanf(yytext, "%ld", &yylval.dbl);return INTEGER_LITERAL;}
 
 '(\\.|[^\\'])+'	{yylval.ii.num = charconv(&yytext); return INTEGER_LITERAL;}
-\"(\\.|[^\\"])*\" {/*"*/yylval.str = strconv(yytext); yylval.ii.sign = 0; return STRING_LITERAL;}
+
+\" {/*"*/yy_push_state(STRINGLIT); strconst = malloc(2048); puts("stringthing");}
+<STRINGLIT>{
+  \" {/*"*/
+  	yylval.str = strconst; 
+  	strconst[strconstindex < strconstlen ? strconstindex: strconstlen - 1] = 0; 
+  	yy_pop_state(); 
+  	puts(strconst);
+  	return STRING_LITERAL;
+  	}
+  \n {
+    free(strconst); 
+    puts("ERROR: String terminated with newline unexpectedly");
+    yy_pop_state();
+    }
+  \\a {nc('\a');}
+  \\b {nc('\b');}
+  \\e {nc('\e');}
+  \\f {nc('\f');}
+  \\n {nc('\n');}
+  \\r {nc('\r');}
+  \\t {nc('\t');}
+  \\v {nc('\v');}
+  \\\' {nc('\'');}
+  \\\" {nc('\"');/*"*/}
+  \\\\ {nc('\\');}
+  \\\? {nc('\?');}
+  \\[0-7]{1,3} {
+    int result;
+    sscanf(yytext + 1, "%o", &result);
+    if(result >= 1 << 8) {
+      fprintf(stderr, "Warning: octal character %s in string literal out of bounds\n", yytext);
+    }
+    nc((char) result);
+    }
+  \\0x[[:xdigit:]]{1,2} {
+    int result;
+    sscanf(yytext + 3, "%x", &result);
+    if(result >= 1 << 8) {
+      fprintf(stderr, "Warning: hex character %s in string literal out of bounds\n", yytext);
+    }
+    nc((char) result);
+    }
+  \\. {
+    printf("Warning: Unknown escape sequence %s in string literal\n", yytext);
+    nc(yytext[1]);
+  }
+  [^\\]+ {
+    int previndex = strconstindex;
+    strconstindex += yyleng;
+    while(strconstindex >= strconstlen) {
+      strconst = realloc(strconst, strconstlen *= 1.5);
+    }
+    strcpy(strconst + previndex, yytext);
+  }
+}
 
 [[:space:]]+ {/*Whitespace, ignored*/}
-. {/*Other char, ignored*/}
+. {printf("Unexpected character encountered: %c\n", *yytext);}
 
 <<EOF>> {
   fprintf(stderr, "I want for death\n");
