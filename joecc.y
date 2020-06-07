@@ -137,7 +137,7 @@ cs_inits:
 | declarator {$$ = dactor(8); dapush($$, geninit($1, NULL));};
 cs_minutes:
   cs_minutes ',' declarator {$$ = $1; dapush($1, $3);}
-| declarator {$$ = dactor(8); DECLARATION* dc = $1; dapush($$, $1);};
+| declarator {$$ = dactor(8); dapush($$, $1);};
 declarator:
   abstract_ptr declname {$$ = $2; $2->type->pointerstack = damerge($1, $2->type->pointerstack);}
 | declname {$$ = $1;};

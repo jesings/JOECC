@@ -10,18 +10,18 @@ INTSIZE (u|U|l|L)*
 #include "joecc.tab.h"
 #include "compintern.h"
 
-//#define YY_USER_ACTION \
-//    yylloc->first_line = yylloc->last_line; \
-//    yylloc->first_column = yylloc->last_column; \
-//    for(int i = 0; yytext[i] != '\0'; i++) { \
-//        if(yytext[i] == '\n') { \
-//            yylloc->last_line++; \
-//            yylloc->last_column = 0; \
-//        } \
-//        else { \
-//            yylloc->last_column++; \
-//        } \
-//    }
+#define YY_USER_ACTION \
+    yylloc.first_line = yylloc.last_line; \
+    yylloc.first_column = yylloc.last_column; \
+    for(int i = 0; yytext[i] != '\0'; i++) { \
+        if(yytext[i] == '\n') { \
+            yylloc.last_line++; \
+            yylloc.last_column = 0; \
+        } \
+        else { \
+            yylloc.last_column++; \
+        } \
+    }
 #define SIGNEDCHAR 0
 
 extern struct lexctx* ctx;
@@ -64,7 +64,7 @@ void nc(char c) {
 %%
 <KILLSPACE>{
   [[:blank:]]+ {}
-  [^[:blank:]] {yy_pop_state(); unput('\n');}
+  [^[:blank:]] {yy_pop_state(); unput(*yytext);}
 }
 
 <INITIAL,PREPROCESSOR,INCLUDE,DEFINE,DEFARG,DEFINE2,IFDEF,IFNDEF>{
@@ -111,7 +111,7 @@ void nc(char c) {
         yy_pop_state();
         break;
       default:
-        puts("Error: Unexpected #else");
+        fputs("Error: Unexpected #else", stderr);
       case IFDEFDUMMY:
         break;
     }
@@ -129,11 +129,11 @@ void nc(char c) {
           break;
       }
     } else {
-      puts("Error: Unexpected #endif");
+      fputs("Error: Unexpected #endif", stderr);
     }
     }
   \n {yy_pop_state();/*error state*/}
-  . {printf("PREPROCESSOR: I made a stupid: %c\n", *yytext);}
+  . {fprintf(stderr, "PREPROCESSOR: I made a stupid: %c\n", *yytext);}
 }
 
 <INCLUDE>{
@@ -149,7 +149,7 @@ void nc(char c) {
       //yy_push_state(INITIAL);
       //yypush_buffer_state(ybs);
     } else {
-      printf("Invalid system file %s included!\n", yytext + 1);
+      fprintf(stderr, "Invalid system file %s included!\n", yytext + 1);
     }
   }
   \"[^\"\n]*\" {/*"*/
@@ -162,27 +162,27 @@ void nc(char c) {
       yy_push_state(INITIAL);
       yypush_buffer_state(ybs);
     } else {
-      printf("Invalid local file %s included!\n", yytext + 1);
+      fprintf(stderr, "Invalid local file %s included!\n", yytext + 1);
     }
   }
   [[:space:]]+[<\"] {if(stmtover) REJECT;/*"*/yyless(1);}
   [[:space:]]*\n {yy_pop_state(); BEGIN(INITIAL); }
   \n {yy_pop_state();BEGIN(INITIAL);if(!stmtover) fprintf(stderr, "Error: incomplete include\n");}
-  . {printf("INCLUDE: I made a stupid: %c\n", *yytext);}
+  . {fprintf(stderr, "INCLUDE: I made a stupid: %c\n", *yytext);}
 }
 
 <DEFINE>{
   {IDENT} {yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLSPACE); defname = yytext;}
   {IDENT}"(" {yy_pop_state(); yy_push_state(DEFARG); yy_push_state(KILLSPACE); yytext[yyleng - 1] = '\0'; defname = yytext;}
   \n {yy_pop_state();BEGIN(INITIAL);/*error state*/}
-  . {printf("DEFINE: I made a stupid: %c\n", *yytext);}
+  . {fprintf(stderr, "DEFINE: I made a stupid: %c\n", *yytext);}
 }
 
 <DEFARG>{
   {IDENT}[[:blank:]]*"," {/*new arg encountered*/yy_push_state(KILLSPACE);}
   {IDENT}[[:blank:]]*")" {/*last arg encountered*/yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLSPACE);}
   \n {yy_pop_state();BEGIN(INITIAL);/*error state*/}
-  . {printf("DEFINE: I made a stupid: %c\n", *yytext);}
+  . {fprintf(stderr, "DEFINE: I made a stupid: %c\n", *yytext);}
 }
 
 <DEFINE2>{
@@ -229,7 +229,7 @@ void nc(char c) {
       dapush(ds, rids);
     }
     }
-  . {printf("IFDEF: I made a stupid: %c\n", *yytext);}
+  . {fprintf(stderr, "IFDEF: I made a stupid: %c\n", *yytext);}
 }
 <IFNDEF>{
   [[:alpha:]_][[:alnum:]_]* {stmtover = 1; defname = yytext; yy_push_state(KILLSPACE);}
@@ -268,7 +268,7 @@ void nc(char c) {
       dapush(ds, rids);
     }
     }
-  . {printf("IFNDEF: I made a stupid: %c\n", *yytext);}
+  . {fprintf(stderr, "IFNDEF: I made a stupid: %c\n", *yytext);}
 }
 
 <INITIAL,SINGLELINE_COMMENT,PREPROCESSOR,INCLUDE,DEFINE,DEFINE2,IFDEF,IFNDEF,STRINGLIT>\\+[[:blank:]]*\n {/*the newline is ignored*/}
@@ -359,21 +359,22 @@ void nc(char c) {
 (?i:"nan") {yylval.dbl = 0x7fffffff; return FLOAT_LITERAL;}
 
 {IDENT} {
-          yylval.str = strdup(yytext);
-          void* v;
-          int mt = check_type(&v, yytext);
-          switch(mt) {
-            case M_TYPEDEF:
-              yylval.idvariant = v; break;
-            case M_ENUM_CONST:
-              yylval.exprvariant = v; break;
-            case IDENTIFIER:
-              yylval.str = v; break;
-            default:
-              return YYUNDEF;
-          } 
-          return mt;
-         }
+  char* ylstr = strdup(yytext);
+  void* v;
+  int mt = check_type(&v, ylstr);
+  switch(mt) {
+    case TYPE_NAME:
+      yylval.idvariant = v; break;
+    case ENUM_CONST:
+      yylval.exprvariant = v; break;
+    case IDENTIFIER:
+      yylval.str = v; break;
+    case LABEL:
+    default:
+      return YYUNDEF;
+  } 
+  return mt;
+  }
 0[bB]{BIN}+{INTSIZE}? {yylval.ii.num = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
                        yylval.ii.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
 0{OCT}+{INTSIZE}? {yylval.ii.num = strtoul(yytext,NULL,8);//every intconst is 8 bytes
@@ -394,7 +395,7 @@ void nc(char c) {
     GOC('?');
   	}
   \n {
-    puts("ERROR: character literal terminated with newline unexpectedly");
+    fputs("ERROR: character literal terminated with newline unexpectedly", stderr);
     yy_pop_state();
     }
   \\a\' {GOC('\a');}
@@ -423,7 +424,7 @@ void nc(char c) {
     GOC((char) result);
     }
   \\.\' {
-    printf("Warning: Unknown escape sequence %s in string literal\n", yytext);
+    fprintf(stderr, "Warning: Unknown escape sequence %s in string literal\n", yytext);
     GOC(yytext[1]);
   }
   [^\\\'] {
@@ -451,7 +452,7 @@ void nc(char c) {
   	}
   \n {
     free(strconst); 
-    puts("ERROR: String terminated with newline unexpectedly");
+    fputs("ERROR: String terminated with newline unexpectedly", stderr);
     yy_pop_state();
     }
   \\a {nc('\a');}
@@ -480,7 +481,7 @@ void nc(char c) {
     nc((char) result);
     }
   \\. {
-    printf("Warning: Unknown escape sequence %s in string literal\n", yytext);
+    fprintf(stderr, "Warning: Unknown escape sequence %s in string literal\n", yytext);
     nc(yytext[1]);
   }
   [^\\]+ {
@@ -494,10 +495,10 @@ void nc(char c) {
 }
 
 [[:space:]]+ {/*Whitespace, ignored*/}
-. {printf("Unexpected character encountered: %c\n", *yytext);}
+. {fprintf(stderr, "Unexpected character encountered: %c\n", *yytext);}
 
 <<EOF>> {
-  fprintf(stderr, "I want for death\n");
+  //fprintf(stderr, "I want for death\n");
   yypop_buffer_state();
   if ( !YY_CURRENT_BUFFER ) {
     yyterminate();
