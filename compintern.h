@@ -249,6 +249,10 @@ typedef struct {
   HASHTABLE* members;//SCOPEMEMBER argument
 } SCOPE;
 
+enum ifdefstate {
+  IFDEFDUMMY, IFANDTRUE, IFANDFALSE, ELSEANDTRUE, ELSEANDFALSE
+};
+
 STRUCT* structor(char* name, DYNARR* fields);
 UNION* unionctor(char* name, DYNARR* fields);
 ENUM* enumctor(char* name, DYNARR* fields);

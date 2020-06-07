@@ -8,9 +8,7 @@ INTSIZE (u|U|l|L)*
 
 #include <math.h>
 #include "joecc.tab.h"
-#include "conv.h"
 #include "compintern.h"
-#include "preparse.h"
 
 //#define YY_USER_ACTION \
 //    yylloc->first_line = yylloc->last_line; \

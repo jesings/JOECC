@@ -1,7 +1,0 @@
-#ifndef PREPARSE_H
-#define PREPARSE_H
-enum ifdefstate {
-  IFDEFDUMMY, IFANDTRUE, IFANDFALSE, ELSEANDTRUE, ELSEANDFALSE
-};
-#endif
-
