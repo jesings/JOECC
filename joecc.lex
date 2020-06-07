@@ -31,12 +31,15 @@ int check_type(void** garbage, char* symb);
 char stmtover, skipping;
 char* defname, * strconst;
 int strconstlen, strconstindex;
-char nc(char c) {
+char charconst;
+void nc(char c) {
   if(strconstindex + 1 >= strconstlen) {
     strconst = realloc(strconst, strconstlen *= 1.5);
   }
   strconst[strconstindex++] = c;
 }
+#define GOC(c) yylval.ii.num = c, yy_pop_state(); return INTEGER_LITERAL
+
 %}
 %option yylineno
 %option noyywrap
@@ -58,6 +61,7 @@ char nc(char c) {
 %x KILLSPACE
 %x PPSKIP
 %x STRINGLIT
+%x CHARLIT
 
 %%
 <KILLSPACE>{
@@ -356,7 +360,7 @@ char nc(char c) {
 ((?i:"infinity")|(?i:"inf")) {yylval.dbl = 0x7f800000; return FLOAT_LITERAL;}
 (?i:"nan") {yylval.dbl = 0x7fffffff; return FLOAT_LITERAL;}
 
-{IDENT}* {
+{IDENT} {
           yylval.str = strdup(yytext);
           void* v;
           int mt = check_type(&v, yytext);
@@ -385,9 +389,60 @@ char nc(char c) {
 [[:digit:]]*"."?[[:digit:]]+({EXP})?{FLOATSIZE}? {sscanf(yytext, "%ld", &yylval.dbl);return INTEGER_LITERAL;}
 [[:digit:]]+"."?[[:digit:]]*({EXP})?{FLOATSIZE}? {sscanf(yytext, "%ld", &yylval.dbl);return INTEGER_LITERAL;}
 
-'(\\.|[^\\'])+'	{yylval.ii.num = charconv(&yytext); return INTEGER_LITERAL;}
+\' {yy_push_state(CHARLIT); }
+<CHARLIT>{
+  \' {
+    fprintf(stderr, "Error: 0 length character literal %s\n", yytext);
+    GOC('?');
+  	}
+  \n {
+    puts("ERROR: character literal terminated with newline unexpectedly");
+    yy_pop_state();
+    }
+  \\a\' {GOC('\a');}
+  \\b\' {GOC('\b');}
+  \\e\' {GOC('\e');}
+  \\f\' {GOC('\f');}
+  \\n\' {GOC('\n');}
+  \\r\' {GOC('\r');}
+  \\t\' {GOC('\t');}
+  \\v\' {GOC('\v');}
+  \\\'\' {GOC('\'');}
+  \\\"\' {GOC('\"');/*"*/}
+  \\\\\' {GOC('\\');}
+  \\\?\' {GOC('\?');}
+  \\[0-7]{1,3}\' {
+    int result;
+    sscanf(yytext + 1, "%o", &result);
+    if(result >= 1 << 8) {
+      fprintf(stderr, "Warning: octal character %s in string literal out of bounds\n", yytext);
+    }
+    GOC((char) result);
+    }
+  \\0x[[:xdigit:]]{1,2}\' {
+    int result;
+    sscanf(yytext + 3, "%x", &result);
+    GOC((char) result);
+    }
+  \\.\' {
+    printf("Warning: Unknown escape sequence %s in string literal\n", yytext);
+    GOC(yytext[1]);
+  }
+  [^\\\'] {
+    int previndex = strconstindex;
+    strconstindex += yyleng;
+    while(strconstindex >= strconstlen) {
+      strconst = realloc(strconst, strconstlen *= 1.5);
+    }
+    strcpy(strconst + previndex, yytext);
+  }
+  [^\']{2,}\' {
+    fprintf(stderr, "Error: character literal too long %s\n", yytext);
+    GOC(yytext[1]);
+  }
+}
 
-\" {/*"*/yy_push_state(STRINGLIT); strconst = malloc(2048); puts("stringthing");}
+\" {/*"*/yy_push_state(STRINGLIT); strconst = malloc(2048);}
 <STRINGLIT>{
   \" {/*"*/
   	yylval.str = strconst; 
@@ -424,9 +479,6 @@ char nc(char c) {
   \\0x[[:xdigit:]]{1,2} {
     int result;
     sscanf(yytext + 3, "%x", &result);
-    if(result >= 1 << 8) {
-      fprintf(stderr, "Warning: hex character %s in string literal out of bounds\n", yytext);
-    }
     nc((char) result);
     }
   \\. {
