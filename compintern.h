@@ -106,6 +106,8 @@ struct lexctx {//TODO: FIX
   DYNARR* scopes;
   //unsigned int layer;//Necessary?
   HASHTABLE* symtab;
+  HASHTABLE* defines;
+  DYNARR* definestack;
 };
 
 

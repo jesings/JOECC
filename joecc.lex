@@ -11,6 +11,7 @@ INTSIZE (u|U|l|L)*
 #include "joecc.tab.h"
 #include "conv.h"
 #include "compintern.h"
+#include "preparse.h"
 
 //#define YY_USER_ACTION \
 //    yylloc->first_line = yylloc->last_line; \
@@ -28,7 +29,8 @@ INTSIZE (u|U|l|L)*
 
 extern struct lexctx* ctx;
 int check_type(void** garbage, char* symb);
-char stmtover;
+char stmtover, skipping;
+char* defname;
 %}
 %option yylineno
 %option noyywrap
@@ -43,8 +45,15 @@ char stmtover;
 %x DEFINE2
 %x IFNDEF
 %x IFDEF
+%x KILLSPACE
+%x PPSKIP
 
 %%
+<KILLSPACE>{
+  [[:blank:]]+ {}
+  [^[:blank:]] {yy_pop_state(); yyless(1);}
+}
+
 <INITIAL,PREPROCESSOR,INCLUDE,DEFINE,DEFARG,DEFINE2,IFDEF,IFNDEF>{
   "/*" {yy_push_state(MULTILINE_COMMENT);}
   "//" {yy_push_state(SINGLELINE_COMMENT);}
@@ -62,16 +71,55 @@ char stmtover;
   \n {yy_pop_state(); unput('\n');}
 }
 
-^[[:blank:]]*# {BEGIN(PREPROCESSOR); stmtover = 0;}
+<PPSKIP>{
+  [^\n#]+ {}
+  # {}
+  \n {}
+  ^[[:blank:]]*#[[:blank:]]* {yy_push_state(PREPROCESSOR); stmtover = 0; skipping = 1;}
+}
+
+^[[:blank:]]*#[[:blank:]]* {yy_push_state(PREPROCESSOR); stmtover = 0; skipping = 0;}
 <PREPROCESSOR>{
-  [[:blank:]]+ {}
-  include[[:blank:]]+ {yy_push_state(INCLUDE);}
-  define[[:blank:]]+ {yy_push_state(DEFINE);}
+  include[[:blank:]]+ {if(!skipping) yy_push_state(INCLUDE); else yy_pop_state();}
+  define[[:blank:]]+ {if(!skipping) yy_push_state(DEFINE); else yy_pop_state();}
   ifdef[[:blank:]]+ {yy_push_state(IFDEF);}
   ifndef[[:blank:]]+ {yy_push_state(IFNDEF);}
-  else[[:blank:]]* {/*handle else case*/BEGIN(INITIAL);}
-  endif[[:blank:]]* {/*handle endif case*/BEGIN(INITIAL);}
-  \n {BEGIN(INITIAL);}
+  else[[:blank:]]* {
+    yy_pop_state();
+    DYNARR* ds = ctx->definestack;
+    enum ifdefstate ids = ds->length > 0 ? *(enum ifdefstate*) dapeek(ds) : ELSEANDFALSE;
+    switch(ids) {
+      case IFANDTRUE: 
+        *(enum ifdefstate*) dapeek(ds) = ELSEANDTRUE;
+        yy_push_state(PPSKIP);
+        break;
+      case IFANDFALSE: 
+        *(enum ifdefstate*) dapeek(ds) = ELSEANDFALSE;
+        yy_pop_state();
+        break;
+      default:
+        puts("Error: Unexpected #else");
+      case IFDEFDUMMY:
+        break;
+    }
+    }
+  endif[[:blank:]]* {/*handle endif case*/
+    yy_pop_state();
+    DYNARR* ds = ctx->definestack;
+    if(ds->length > 0) {
+      enum ifdefstate ids = *(enum ifdefstate*) dapop(ds);
+      switch(ids) {
+        case IFANDTRUE: case ELSEANDFALSE:
+          break;
+        default: //case IFANDFALSE: case ELSEANDTRUE: case IFDEFDUMMY:
+          yy_pop_state();
+          break;
+      }
+    } else {
+      puts("Error: Unexpected #else");
+    }
+    }
+  \n {yy_pop_state();/*error state*/}
   . {printf("PREPROCESSOR: I made a stupid: %c\n", *yytext);}
 }
 
@@ -106,43 +154,105 @@ char stmtover;
   }
   [[:space:]]+[<\"] {if(stmtover) REJECT;/*"*/yyless(1);}
   [[:space:]]*\n {yy_pop_state(); BEGIN(INITIAL); }
-  \n {yy_pop_state();BEGIN(INITIAL);/*maybe error?*/}
+  \n {yy_pop_state();BEGIN(INITIAL);if(!stmtover)/*error*/;}
   . {printf("INCLUDE: I made a stupid: %c\n", *yytext);}
 }
 
 <DEFINE>{
-  {IDENT} {yy_pop_state(); yy_push_state(DEFINE2);}
-  {IDENT}"(" {yy_pop_state(); yy_push_state(DEFARG);}
+  {IDENT} {yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLSPACE); defname = yytext;}
+  {IDENT}"(" {yy_pop_state(); yy_push_state(DEFARG); yy_push_state(KILLSPACE); yytext[yyleng - 1] = '\0'; defname = yytext;}
   \n {yy_pop_state();BEGIN(INITIAL);/*error state*/}
   . {printf("DEFINE: I made a stupid: %c\n", *yytext);}
 }
 
 <DEFARG>{
-  [[:blank:]]* {}
-  {IDENT}[[:blank:]]*"," {/*new arg encountered*/}
-  {IDENT}[[:blank:]]*")" {/*last arg encountered*/yy_pop_state(); yy_push_state(DEFINE2);}
+  {IDENT}[[:blank:]]*"," {/*new arg encountered*/yy_push_state(KILLSPACE);}
+  {IDENT}[[:blank:]]*")" {/*last arg encountered*/yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLSPACE);}
   \n {yy_pop_state();BEGIN(INITIAL);/*error state*/}
   . {printf("DEFINE: I made a stupid: %c\n", *yytext);}
 }
 
 <DEFINE2>{
-  [^\\/\n]+ {/*append to string*/}
-  "/" {/*append to string*/}
-  \\ {/*append to string*/}
-  \n {yy_pop_state();BEGIN(INITIAL);}
-  . {printf("DEFINE: I made a stupid: %c\n", *yytext);}
+  [^\\/\n]+ {yymore();}
+  "/" {yymore();}
+  \\ {yymore();}
+  \n {yy_pop_state(); yy_pop_state(); yytext[yyleng - 1] = '\0'; insert(ctx->defines, strdup(defname), strdup(yytext));}
 }
 
 <IFDEF>{
-  [[:blank:]]+ {}
-  [[:alpha:]_][[:alnum:]_]*[[:blank:]]*\n {yy_pop_state();BEGIN(INITIAL);}
-  \n {yy_pop_state();BEGIN(INITIAL);/*error state*/}
+  [[:alpha:]_][[:alnum:]_]* {yy_pop_state(); yy_pop_state(); stmtover = 1; defname = yytext; yy_push_state(KILLSPACE);}
+  \n {
+    yy_pop_state();
+    yy_pop_state(); 
+    if(!stmtover) {
+      /*error state*/
+    } else {
+      DYNARR* ds = ctx->definestack;
+      enum ifdefstate* rids = malloc(sizeof(enum ifdefstate));
+      if(ds->length > 0) {
+        switch(*(enum ifdefstate*) dapeek(ds)) {
+          case IFANDTRUE: case ELSEANDFALSE:
+            if(search(ctx->defines, defname)) {
+              *rids = IFANDTRUE;
+            } else {
+              *rids = IFANDFALSE;
+              yy_push_state(PPSKIP);
+            }
+            break;
+          default:
+            *rids= IFDEFDUMMY;
+            yy_push_state(PPSKIP);
+            break;
+        }
+      } else {
+        if(search(ctx->defines, defname)) {
+          *rids = IFANDTRUE;
+        } else {
+          *rids = IFANDFALSE;
+          yy_push_state(PPSKIP);
+        }
+      }
+      dapush(ds, rids);
+    }
+    }
   . {printf("IFDEF: I made a stupid: %c\n", *yytext);}
 }
 <IFNDEF>{
-  [[:blank:]]+ {}
-  [[:alpha:]_][[:alnum:]_]*[[:blank:]]*\n {yy_pop_state();BEGIN(INITIAL);}
-  \n {yy_pop_state();BEGIN(INITIAL);/*error state*/}
+  [[:alpha:]_][[:alnum:]_]* {yy_pop_state(); yy_pop_state(); stmtover = 1; defname = yytext; yy_push_state(KILLSPACE);}
+  \n {
+    yy_pop_state();
+    yy_pop_state(); 
+    if(!stmtover) {
+      /*error state*/
+    } else {
+      DYNARR* ds = ctx->definestack;
+      enum ifdefstate* rids = malloc(sizeof(enum ifdefstate));
+      if(ds->length > 0) {
+        switch(*(enum ifdefstate*) dapeek(ds)) {
+          case IFANDTRUE: case ELSEANDFALSE:
+            if(search(ctx->defines, defname)) {
+              *rids = IFANDFALSE;
+              yy_push_state(PPSKIP);
+            } else {
+              *rids = IFANDTRUE;
+            }
+            break;
+          default:
+            *rids= IFDEFDUMMY;
+            yy_push_state(PPSKIP);
+            break;
+        }
+      } else {
+        if(search(ctx->defines, defname)) {
+          *rids = IFANDFALSE;
+          yy_push_state(PPSKIP);
+        } else {
+          *rids = IFANDTRUE;
+        }
+      }
+      dapush(ds, rids);
+    }
+    }
   . {printf("IFNDEF: I made a stupid: %c\n", *yytext);}
 }
 
