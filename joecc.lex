@@ -28,6 +28,7 @@ INTSIZE (u|U|l|L)*
 
 extern struct lexctx* ctx;
 int check_type(void** garbage, char* symb);
+char stmtover;
 %}
 %option yylineno
 %option noyywrap
@@ -61,7 +62,7 @@ int check_type(void** garbage, char* symb);
   \n {yy_pop_state(); unput('\n');}
 }
 
-^[[:blank:]]*# {BEGIN(PREPROCESSOR);}
+^[[:blank:]]*# {BEGIN(PREPROCESSOR); stmtover = 0;}
 <PREPROCESSOR>{
   [[:blank:]]+ {}
   include[[:blank:]]+ {yy_push_state(INCLUDE);}
@@ -75,9 +76,36 @@ int check_type(void** garbage, char* symb);
 }
 
 <INCLUDE>{
-  "<"[^>\n]*">"[[:space:]]*\n {yy_pop_state(); BEGIN(INITIAL); }
-  \"[^\"\n]*\"[[:space:]]*\n {yy_pop_state(); BEGIN(INITIAL);/*"*/}
-  [[:blank:]]+ {}
+  "<"[^>\n]*">" {
+    if(stmtover) REJECT;
+    stmtover = 1;
+    yytext[yyleng - 1] = '\0'; //ignore closing >
+    char pathbuf[2048];
+    snprintf(pathbuf, 2048, "/usr/include/%s", yytext + 1); //ignore opening <
+    FILE* newbuf;
+    if((newbuf = fopen(pathbuf, "r")) != NULL) {
+      //YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
+      //yy_push_state(INITIAL);
+      //yypush_buffer_state(ybs);
+    } else {
+      printf("Invalid system file %s included!\n", yytext + 1);
+    }
+  }
+  \"[^\"\n]*\" {/*"*/
+  	if(stmtover) REJECT;
+    stmtover = 1;
+    yytext[yyleng - 1] = '\0'; //ignore closing "
+    FILE* newbuf;
+    if((newbuf = fopen(yytext + 1, "r")) != NULL) { //ignore opening "
+      YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
+      yy_push_state(INITIAL);
+      yypush_buffer_state(ybs);
+    } else {
+      printf("Invalid local file %s included!\n", yytext + 1);
+    }
+  }
+  [[:space:]]+[<\"] {if(stmtover) REJECT;/*"*/yyless(1);}
+  [[:space:]]*\n {yy_pop_state(); BEGIN(INITIAL); }
   \n {yy_pop_state();BEGIN(INITIAL);/*maybe error?*/}
   . {printf("INCLUDE: I made a stupid: %c\n", *yytext);}
 }
@@ -239,9 +267,15 @@ int check_type(void** garbage, char* symb);
 [[:space:]]+ {/*Whitespace, ignored*/}
 . {/*Other char, ignored*/}
 
-<<EOF>>  {
+<<EOF>> {
   fprintf(stderr, "I want for death\n");
-  yyterminate();
+  yypop_buffer_state();
+  if ( !YY_CURRENT_BUFFER ) {
+    yyterminate();
+  } else {
+    yy_pop_state();
+    stmtover = 1;
+  }
 }
 %%
 int check_type(void** garbage, char* symb) {
