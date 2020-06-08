@@ -47,6 +47,7 @@
   EXPRESSION* exprvariant;
   IDTYPE* idvariant;
   INITIALIZER* initvariant;
+  EOI* firforvariant;
   STATEMENT* stmtvariant;
   DYNARR* arrvariant;
   UNION* unionvariant;
@@ -66,6 +67,7 @@
 %type<enumvariant> enum
 %type<declvariant> declarator declname param_decl sdecl
 %type<funcvariant> function
+%type<firforvariant> dee
 
 %%
 program:
@@ -275,6 +277,7 @@ esca:
 | '~' esm {$$ = ct_unary_expr(B_NOT, $2);}
 | '*' esm {$$ = ct_unary_expr(DEREF, $2);}
 | '&' esm {$$ = ct_unary_expr(ADDR, $2);}
+| "sizeof" '(' type abstract_ptr ')' {$$ = ct_uintconst_expr(sizeof(uintptr_t));}
 | "sizeof" '(' type ')' {$$ = ct_sztype($3);}
 | "sizeof" esca {$$ = ct_unary_expr(SZOFEXPR,$2);}
 | esp {$$ = $1;};
@@ -289,22 +292,34 @@ esp:
 | esu {$$ = $1;};
 esu:
   '(' expression ')' {$$ = $2;}
-| STRING_LITERAL {$$ = ct_strconst_expr($1/*.str*/);}
+| STRING_LITERAL {$$ = ct_strconst_expr($1);}
 | INTEGER_LITERAL {$$ = $1.sign ? ct_intconst_expr($1.num) : ct_uintconst_expr($1.num);}
 | ENUM_CONST {$$ = $1;}
-| FLOAT_LITERAL {$$ = ct_floatconst_expr($1/*.dbl*/);}
-| IDENTIFIER {$$ = ct_ident_expr($1/*.str*/);}
+| FLOAT_LITERAL {$$ = ct_floatconst_expr($1);}
+| IDENTIFIER {$$ = ct_ident_expr($1);}
 | error {$$ = ct_nop_expr(); 
-  fprintf (stderr, "%d.%d-%d.%d: error encountered\n",
+  extern DYNARR* file2compile;
+  fprintf (stderr, "%d.%d-%d.%d in %s: error encountered\n",
            @1.first_line, @1.first_column,
-           @1.last_line, @1.last_column);
-			/*TODO: print error, location, etc.*/};
+           @1.last_line, @1.last_column,
+           dapeek(file2compile));
+           /*TODO: print error, location, etc.*/};
 escl:
   esc {$$ = dactor(32); dapush($$, $1);}
 | escl ',' esc {$$ = $1; dapush($$, $3); };
 
 function:
-  type/*bs*/ declname compound_statement {struct declarator_part* dp = dapop($2->type->pointerstack); $1->pointerstack = damerge($1->pointerstack, $2->type->pointerstack);/*TODO: have this extract only pointers and arrays and not params, add params to scope*/ $$ = ct_function($2->varname, $3, dp->params, $1); free($2);/*check that it is in fact a param spec*/};
+  type/*bs*/ declarator compound_statement {
+    struct declarator_part* dp = dapop($2->type->pointerstack);
+    if($1->pointerstack)
+      $1->pointerstack = damerge($1->pointerstack, $2->type->pointerstack);
+    else
+      $1->pointerstack = $2->type->pointerstack;
+    /*TODO: have this extract only pointers and arrays and not params, add params to scope*/ 
+    $$ = ct_function($2->varname, $3, dp->params, $1);
+    free($2);
+    /*check that it is in fact a param spec*/
+  };
 statement:
   compound_statement {$$ = $1;}
 |  IDENTIFIER ':' /*statement*/ {$$ = mklblstmt($1/*, $3*/); /* not sure if necessary*/ add2scope(scopepeek(ctx), $1, M_LABEL, NULL);}
@@ -315,7 +330,7 @@ statement:
 | "switch" '(' expression ')' compound_statement {$$ = mklsstmt(SWITCH, $3, $5);}
 | "while" '(' expression ')' statement {$$ = mklsstmt(WHILEL, $3, $5);}
 | "do" statement "while" '(' expression ')' ';' {$$ = mklsstmt(DOWHILEL, $5, $2);}
-| "for" '(' ee ';' ee ';' ee ')' statement {$$ = mkforstmt($3, $5, $7, $9);}
+| "for" '(' dee  ee ';' ee ')' statement {$$ = mkforstmt($3, $4, $6, $8);}
 | "goto" IDENTIFIER ';' {$$ = mkgotostmt($2/*.yytext*/);/*find label within scopes at some point, probably not now though*/}
 | "break" ';' {$$ = mkexprstmt(LBREAK,NULL);}
 | "continue" ';' {$$ = mkexprstmt(LCONT,NULL);}
@@ -326,12 +341,16 @@ statement:
 ee: 
   expression {$$ = $1;}
 | %empty {$$ = NULL;};
+dee:
+  initializer {$$ = malloc(sizeof(EOI)); $$->isE = 0; $$->I = $1;}
+| ee ';' {$$ = malloc(sizeof(EOI)); $$->isE = 1; $$->E = $1;};
 compound_statement:/*add new scope to scope stack, remove when done*/
   '{' '}' {$$ = mkcmpndstmt(NULL);}
 | '{' statements_and_initializers '}' {scopepush(ctx); $$ = mkcmpndstmt($2); scopepop(ctx);};
 statements_and_initializers:
-  initializer {$$ = dactor(256); dapush($$,soii($1));}
-| statement {$$ = dactor(256); dapush($$,sois($1));}
+  initializer {$$ = dactor(4096); dapush($$,soii($1));}
+| statement {$$ = dactor(4096); dapush($$,sois($1));}
+| statements_and_initializers initializer {$$ = $1; dapush($$,soii($2));}
 | statements_and_initializers statement {$$ = $1; dapush($$,sois($2));};
 
 union:

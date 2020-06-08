@@ -145,6 +145,14 @@ typedef struct expr {
   };
 } EXPRESSION;
 
+typedef struct {
+  char isE;
+  union {
+    DYNARR* I;
+    EXPRESSION* E;
+  };
+} EOI;
+
 typedef struct stmt {
   enum stmttype type;
   union {
@@ -159,7 +167,7 @@ typedef struct stmt {
       struct stmt* body;
     };
     struct { //for
-      EXPRESSION* init;
+      EOI* init;
       EXPRESSION* forcond;
       EXPRESSION* increment;
       struct stmt* forbody;
@@ -275,7 +283,7 @@ SOI* sois(struct stmt* state);
 SOI* soii(DYNARR* init);
 STATEMENT* mkexprstmt(enum stmttype type, EXPRESSION* express);
 STATEMENT* mkgotostmt(char* gotoloc);
-STATEMENT* mkforstmt(EXPRESSION* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy);
+STATEMENT* mkforstmt(EOI* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy);
 STATEMENT* mklsstmt(enum stmttype type, EXPRESSION* condition, STATEMENT* bdy);
 STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy);
 STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits);

@@ -3,7 +3,8 @@
 #include "dynarr.h"
 
 DYNARR* dactor(int initiallen){
-  if(initiallen < 2) return NULL;
+  if(initiallen < 2) 
+    return NULL;
   DYNARR* retval = malloc(sizeof(DYNARR));
   retval->length = 0;
   retval->maxlength = initiallen;

@@ -161,7 +161,7 @@ STATEMENT* mkgotostmt(char* gotoloc) {
   return retval;
 }
 
-STATEMENT* mkforstmt(EXPRESSION* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy) {
+STATEMENT* mkforstmt(EOI* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = FORL;
   retval->init = e1;

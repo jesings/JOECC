@@ -30,6 +30,8 @@ char stmtover, skipping;
 char* defname, * strconst;
 int strconstlen, strconstindex;
 char charconst;
+extern DYNARR* locs;
+extern DYNARR* file2compile;
 void nc(char c) {
   if(strconstindex + 1 >= strconstlen) {
     strconst = realloc(strconst, strconstlen *= 1.5);
@@ -158,6 +160,11 @@ void nc(char c) {
     yytext[yyleng - 1] = '\0'; //ignore closing "
     FILE* newbuf;
     if((newbuf = fopen(yytext + 1, "r")) != NULL) { //ignore opening "
+      YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
+      *ylt = yylloc;
+      dapush(locs, ylt);
+      yylloc.first_line = yylloc.last_line = yylloc.first_column = yylloc.last_column = 1;
+      dapush(file2compile, strdup(yytext + 1));
       YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
       yy_push_state(INITIAL);
       yypush_buffer_state(ybs);
@@ -173,14 +180,14 @@ void nc(char c) {
 
 <DEFINE>{
   {IDENT} {yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLSPACE); defname = yytext;}
-  {IDENT}"(" {yy_pop_state(); yy_push_state(DEFARG); yy_push_state(KILLSPACE); yytext[yyleng - 1] = '\0'; defname = yytext;}
+  {IDENT}\( {yy_pop_state(); yy_push_state(DEFARG); yy_push_state(KILLSPACE); yytext[yyleng - 1] = '\0'; defname = yytext;}
   \n {yy_pop_state();BEGIN(INITIAL);/*error state*/}
   . {fprintf(stderr, "DEFINE: I made a stupid: %c\n", *yytext);}
 }
 
 <DEFARG>{
-  {IDENT}[[:blank:]]*"," {/*new arg encountered*/yy_push_state(KILLSPACE);}
-  {IDENT}[[:blank:]]*")" {/*last arg encountered*/yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLSPACE);}
+  {IDENT}[[:blank:]]*\, {/*new arg encountered*/yy_push_state(KILLSPACE);}
+  {IDENT}[[:blank:]]*\) {/*last arg encountered*/yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLSPACE);}
   \n {yy_pop_state();BEGIN(INITIAL);/*error state*/}
   . {fprintf(stderr, "DEFINE: I made a stupid: %c\n", *yytext);}
 }
@@ -505,6 +512,8 @@ void nc(char c) {
   } else {
     yy_pop_state();
     stmtover = 1;
+    yylloc = *(YYLTYPE*) dapop(locs);
+    dapop(file2compile);
   }
 }
 %%
