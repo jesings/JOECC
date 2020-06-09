@@ -4,6 +4,7 @@
 #include <string.h>
 #include "hash.h"
 #include "dynarr.h"
+#include "dynstr.h"
 
 typedef enum {
   FLOATNUM    = 0x10,
@@ -259,6 +260,11 @@ typedef struct {
 
 enum ifdefstate {
   IFDEFDUMMY, IFANDTRUE, IFANDFALSE, ELSEANDTRUE, ELSEANDFALSE
+};
+
+struct macrodef {
+  char* text;//will be a format string if function like
+  DYNARR* args;//NULL if not function like
 };
 
 STRUCT* structor(char* name, DYNARR* fields);

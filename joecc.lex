@@ -7,6 +7,7 @@ INTSIZE (u|U|l|L)*
 %{
 
 #include <math.h>
+#include <stdarg.h>
 #include "joecc.tab.h"
 #include "compintern.h"
 
@@ -30,6 +31,11 @@ char stmtover, skipping;
 char* defname, * strconst;
 int strconstlen, strconstindex;
 char charconst;
+struct macrodef* md;
+char argeaten;
+DYNARR* parg;
+HASHTABLE* defargs = NULL;
+DYNSTR* dstrdly;
 extern DYNARR* locs;
 extern DYNARR* file2compile;
 void nc(char c) {
@@ -54,19 +60,27 @@ void nc(char c) {
 %x PREPROCESSOR
 %x INCLUDE
 %x DEFINE
+%x UNDEF
 %x DEFARG
 %x DEFINE2
 %x IFNDEF
 %x IFDEF
+%x KILLBLANK
 %x KILLSPACE
 %x PPSKIP
 %x STRINGLIT
 %x CHARLIT
+%x CALLMACRO
+%x FINDREPLACE
 
 %%
-<KILLSPACE>{
+<KILLBLANK>{
   [[:blank:]]+ {}
   [^[:blank:]] {yy_pop_state(); unput(*yytext);}
+}
+<KILLSPACE>{
+  [[:space:]]+ {}
+  [^[:space:]] {yy_pop_state(); unput(*yytext);}
 }
 
 <INITIAL,PREPROCESSOR,INCLUDE,DEFINE,DEFARG,DEFINE2,IFDEF,IFNDEF>{
@@ -96,7 +110,8 @@ void nc(char c) {
 ^[[:blank:]]*#[[:blank:]]* {yy_push_state(PREPROCESSOR); stmtover = 0; skipping = 0;}
 <PREPROCESSOR>{
   include[[:blank:]]+ {if(!skipping) yy_push_state(INCLUDE); else yy_pop_state();}
-  define[[:blank:]]+ {if(!skipping) yy_push_state(DEFINE); else yy_pop_state();}
+  define[[:blank:]]+ {if(!skipping) yy_push_state(DEFINE); else yy_pop_state(); md = calloc(1, sizeof(struct macrodef));}
+  undef[[:blank:]]+ {if(!skipping) yy_push_state(UNDEF); else yy_pop_state();}
   ifdef[[:blank:]]+ {yy_push_state(IFDEF);}
   ifndef[[:blank:]]+ {yy_push_state(IFNDEF);}
   else[[:blank:]]* {
@@ -179,15 +194,16 @@ void nc(char c) {
 }
 
 <DEFINE>{
-  {IDENT} {yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLSPACE); defname = yytext;}
-  {IDENT}\( {yy_pop_state(); yy_push_state(DEFARG); yy_push_state(KILLSPACE); yytext[yyleng - 1] = '\0'; defname = yytext;}
+  {IDENT} {yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLBLANK); defname = yytext;}
+  {IDENT}\( {yy_pop_state(); yy_push_state(DEFARG); yy_push_state(KILLBLANK); yytext[yyleng - 1] = '\0'; defname = yytext; md->args = dactor(8); argeaten = 0;}
   \n {yy_pop_state();BEGIN(INITIAL);/*error state*/}
   . {fprintf(stderr, "DEFINE: I made a stupid: %c\n", *yytext);}
 }
 
 <DEFARG>{
-  {IDENT}[[:blank:]]*\, {/*new arg encountered*/yy_push_state(KILLSPACE);}
-  {IDENT}[[:blank:]]*\) {/*last arg encountered*/yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLSPACE);}
+  {IDENT} {argeaten = 1;/*new arg encountered*/ yy_push_state(KILLBLANK); dapush(md->args, strdup(yytext));/*probably should confirm no 2 args have the same name*/}
+  \, {if(argeaten) argeaten = 0; else /*error*/; yy_push_state(KILLBLANK);}
+  \) {if(!argeaten && md->args->length != 0) /*error*/; /*last arg encountered*/yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLBLANK);}
   \n {yy_pop_state();BEGIN(INITIAL);/*error state*/}
   . {fprintf(stderr, "DEFINE: I made a stupid: %c\n", *yytext);}
 }
@@ -196,11 +212,18 @@ void nc(char c) {
   [^\\/\n]+ {yymore();}
   "/" {yymore();}
   \\ {yymore();}
-  \n {yy_pop_state(); yy_pop_state(); yytext[yyleng - 1] = '\0'; insert(ctx->defines, strdup(defname), strdup(yytext));}
+  \n {yy_pop_state(); yy_pop_state(); yytext[yyleng - 1] = '\0'; md->text = strdup(yytext); insert(ctx->defines, strdup(defname), md);}
 }
 
+<UNDEF>{
+  {IDENT} {yy_pop_state(); rmpairfr(ctx->defines, yytext); yy_push_state(KILLBLANK);}
+  \n {yy_pop_state();BEGIN(INITIAL);/*error state*/}
+  . {fprintf(stderr, "UNDEF: I made a stupid: %c\n", *yytext);}
+}
+
+
 <IFDEF>{
-  [[:alpha:]_][[:alnum:]_]* {stmtover = 1; defname = yytext; yy_push_state(KILLSPACE);}
+  [[:alpha:]_][[:alnum:]_]* {stmtover = 1; defname = yytext; yy_push_state(KILLBLANK);}
   \n {
     yy_pop_state();
     yy_pop_state(); 
@@ -239,7 +262,7 @@ void nc(char c) {
   . {fprintf(stderr, "IFDEF: I made a stupid: %c\n", *yytext);}
 }
 <IFNDEF>{
-  [[:alpha:]_][[:alnum:]_]* {stmtover = 1; defname = yytext; yy_push_state(KILLSPACE);}
+  [[:alpha:]_][[:alnum:]_]* {stmtover = 1; defname = yytext; yy_push_state(KILLBLANK);}
   \n {
     yy_pop_state();
     yy_pop_state(); 
@@ -278,7 +301,78 @@ void nc(char c) {
   . {fprintf(stderr, "IFNDEF: I made a stupid: %c\n", *yytext);}
 }
 
-<INITIAL,SINGLELINE_COMMENT,PREPROCESSOR,INCLUDE,DEFINE,DEFINE2,IFDEF,IFNDEF,STRINGLIT>\\+[[:blank:]]*\n {/*the newline is ignored*/}
+<CALLMACRO>{
+  \( {if(parg) {REJECT;} else {parg = dactor(64);}}
+  \) {
+    if(!parg) {
+      //big error
+    } else if(argeaten) {
+      //error state
+    } else {
+      struct macrodef* md;
+
+      if(!(md = search(ctx->defines, defname))) {
+        //error state
+      } else if(parg->length != md->args->length) {
+        //error state
+      } else {
+        DYNARR* argn = md->args;
+        //make hash table with keys as param names, values as arguments, make 
+        //special lexer mode to parse this into string literal, use this as new buffer
+        //at the end of this mode, switch to string literal, parse in parent mode then
+        defargs = htctor();
+        char** prma = (char**) argn->arr;
+        char** arga = (char**) parg->arr;
+        for(int i = 0; i < parg->length; i++) {
+          insert(defargs, prma[i], arga[i]);
+        }
+        dstrdly = strctor(malloc(2048), 0, 2048);
+        yy_push_state(FINDREPLACE);
+        YY_BUFFER_STATE ybs = yy_scan_string(md->text);
+        yypush_buffer_state(ybs);
+      }
+    }
+    }
+  {IDENT} {if(argeaten) /*error state*/; else {argeaten = 1; dapush(parg, strdup(yytext));}}
+  \, {if(!argeaten) /*error state*/; else {argeaten = 0;}}
+}
+
+<FINDREPLACE>{
+  {IDENT} {
+    char* argy = search(defargs, yytext);
+    if(argy) {
+      int sl = strlen(argy); //TODO:find more efficient way to get length
+      dscat(dstrdly, argy, sl);
+    } else {
+      dscat(dstrdly, yytext, yyleng);
+    }
+    }
+  \"[^\"]*[^\\\"]\" {/*"*/
+    dscat(dstrdly, yytext, yyleng);
+    }
+  \'[^\']*[^\\\']\' {
+    dscat(dstrdly, yytext, yyleng);
+    }
+  [^[:alnum:]_\'\"]+ {/*cntrl/delim expr*/
+    dscat(dstrdly, yytext, yyleng);
+    }
+  [.\n] {
+    dscat(dstrdly, yytext, yyleng);
+    }
+  <<EOF>> {
+    yypop_buffer_state();
+    yy_pop_state();
+    YY_BUFFER_STATE ybs = yy_scan_bytes(dstrdly->strptr, dstrdly->lenstr);
+    free(dstrdly);
+    yypush_buffer_state(ybs);
+    char buf[256];
+    snprintf(buf, 256, "call to macro %s", defname);
+    dapush(file2compile, strdup(buf));
+    }
+}
+
+
+<INITIAL,SINGLELINE_COMMENT,PREPROCESSOR,INCLUDE,DEFINE,DEFINE2,IFDEF,IFNDEF,STRINGLIT,KILLBLANK,KILLSPACE>\\+[[:blank:]]*\n {/*the newline is ignored*/}
 "->" {return ARROWTK;}
 "++" {return INC;}
 "--" {return DEC;}
@@ -368,6 +462,7 @@ void nc(char c) {
 {IDENT} {
   char* ylstr = strdup(yytext);
   void* v;
+  //TODO: Switch buffer to string if define const
   int mt = check_type(&v, ylstr);
   switch(mt) {
     case TYPE_NAME:
@@ -379,8 +474,9 @@ void nc(char c) {
     case LABEL:
     default:
       return YYUNDEF;
+    case -1: ;
   } 
-  return mt;
+  //return mt;
   }
 0[bB]{BIN}+{INTSIZE}? {yylval.ii.num = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
                        yylval.ii.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
@@ -518,6 +614,25 @@ void nc(char c) {
 }
 %%
 int check_type(void** garbage, char* symb) {
+  struct macrodef* macdef = search(ctx->defines, symb);
+  if(macdef) {
+    defname = symb;
+    if(macdef->args) {
+      //handle function like macro
+      BEGIN(CALLMACRO);
+      argeaten = 0;
+      defname = macdef->text;
+      parg = NULL;
+    } else {
+      YY_BUFFER_STATE yms = yy_scan_string(macdef->text);
+      yy_push_state(yy_top_state());
+      char buf[256];
+      snprintf(buf, 256, "Macro %s", symb);
+      dapush(file2compile, symb);
+      yypush_buffer_state(yms);
+    }
+    return -1;
+  }
   SCOPEMEMBER* symtab_ent = search(scopepeek(ctx)->members,symb);
   if(!symtab_ent) {
     *garbage = symb;

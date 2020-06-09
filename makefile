@@ -1,8 +1,8 @@
 CC = gcc
 LDFLAGS = 
 CFLAGS = -g 
-compiler: joecc.tab.o lex.yy.o hash.o dynarr.o compintern.o compmain.o 
-	$(CC) joecc.tab.o lex.yy.o hash.o dynarr.o compintern.o compmain.o -o compiler $(LDFLAGS)
+compiler: joecc.tab.o lex.yy.o hash.o dynarr.o compintern.o compmain.o dynstr.o  
+	$(CC) joecc.tab.o lex.yy.o hash.o dynarr.o compintern.o compmain.o dynstr.o -o compiler $(LDFLAGS)
 gotest: compiler
 	./compiler < dynarr.c
 lex.yy.c: joecc.lex
@@ -13,8 +13,8 @@ hash.o: hash.c
 	$(CC) hash.c -c $(CFLAGS)
 dynarr.o: dynarr.c
 	$(CC) dynarr.c -c $(CFLAGS)
-conv.o: conv.c
-	$(CC) conv.c -c $(CFLAGS)
+dynstr.o: dynstr.c
+	$(CC) dynstr.c -c $(CFLAGS)
 lex.yy.o: lex.yy.c
 	$(CC) lex.yy.c -c $(CFLAGS)
 joecc.tab.o: joecc.tab.c
@@ -23,8 +23,6 @@ compintern.o: compintern.c
 	$(CC) compintern.c -c $(CFLAGS)
 compmain.o: compmain.c
 	$(CC) compmain.c -c $(CFLAGS)
-preparse.o: preparse.c
-	$(CC) preparse.c -c $(CFLAGS)
 
 clean:
 	-rm *.o
