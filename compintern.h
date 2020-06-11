@@ -256,6 +256,9 @@ typedef struct {
   //one for typedef
   //one for labels
   HASHTABLE* members;//SCOPEMEMBER argument
+  HASHTABLE* structs;
+  HASHTABLE* enums;
+  HASHTABLE* unions;
 } SCOPE;
 
 enum ifdefstate {

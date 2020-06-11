@@ -16,6 +16,9 @@ int main(int argc, char** argv) {
   ctx->scopes = dactor(64);
   SCOPE* rootscope = malloc(sizeof(SCOPE));
   rootscope->members = htctor();
+  rootscope->unions = htctor();
+  rootscope->structs = htctor();
+  rootscope->enums = htctor();
   dapush(ctx->scopes, rootscope);
   ctx->symtab = htctor();
   locs = dactor(128);

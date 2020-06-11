@@ -265,6 +265,9 @@ FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, IDTYPE* retrn) {
 SCOPE* mkscope(SCOPE* parent) {
   SCOPE* child = malloc(sizeof(SCOPE));
   child->members = htclone(parent->members);
+  child->structs = htclone(parent->structs);
+  child->enums = htclone(parent->enums);
+  child->unions= htclone(parent->unions);
   return child;
 }
 
@@ -286,13 +289,35 @@ void add2scope(SCOPE* scope, char* memname, enum membertype mtype, void* memberv
   static long numvars = 0;
   SCOPEMEMBER* sm = malloc(sizeof(SCOPEMEMBER));
   sm->mtype = mtype;
+  switch(mtype) {
+    case M_STRUCT:
+      sm->structmemb = memberval;
+      insert(scope->structs, memname, sm);
+      break;
+    case M_UNION:
+      sm->unionmemb = memberval;
+      insert(scope->unions, memname, sm);
+      break;
+    case M_ENUM:
+      sm->enummemb= memberval;
+      insert(scope->enums, memname, sm);
+      break;
+    case M_VARIABLE:
+      sm->vartype = memberval;
+      sm->varcount = numvars++;
+      insert(scope->members, memname, sm);
+      break;
+     default:
+      sm->garbage = memberval;
+      insert(scope->members, memname, sm);
+      break;
+  }
   if(mtype != M_VARIABLE) {
     sm->garbage = memberval;
   } else {
     sm->vartype = memberval;
     sm->varcount = numvars++;
   }
-  insert(scope->members, memname, sm);
 }
 
 TOPBLOCK* gtb(char isfunc, void* assign) {

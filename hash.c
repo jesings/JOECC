@@ -35,7 +35,7 @@ HASHTABLE* htclone(HASHTABLE* ht) {
   return retval;
 }
 
-void hpdtor(HASHPAIR * hp) {
+void hpdtor(HASHPAIR* hp) {
   if(hp->next) {
     free(hp->key);
     hpdtor(hp->next);

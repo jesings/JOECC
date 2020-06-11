@@ -44,6 +44,7 @@
 
 %union {
   struct intinfo ii;
+  int integert;
   char* str;
   double dbl;
   TYPEBITS typevariant;
@@ -60,9 +61,9 @@
   FUNC* funcvariant;
 }
 
-%type<str> structoi unionoi enumoi
+%type<integert> typemsign
 %type<typevariant> types1 types2 types1o
-%type<idvariant> typem typews1 /*typebs*/ type
+%type<idvariant> typem typews1 /*typebs*/ type typemintkw inttypem
 %type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee
 %type<stmtvariant> statement compound_statement
 %type<arrvariant> statements_and_initializers struct_decls struct_decl cs_decls enums escl abstract_ptr params cs_inits cs_minutes initializer program
@@ -170,21 +171,27 @@ param_decl:
     free($2->type); 
     $2->type = $1;
     };
-typem:
+typemsign:
+  "signed" {$$ = 0;}
+| "unsigned" {$$ = UNSIGNEDNUM;}
+typemintkw:
   "char" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 1;}
 | "int8" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 1;}
 | "int16" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 2;}
 | "int32" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 4;}
 | "int64" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 8;}
+inttypem:
+  typemintkw {$$ = $1;}
+| typemsign typemintkw {$$ = $2; $$->tb |= $1;}
+typem:
+  inttypem {$$ = $1;}
 | "byte"  {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 1 | UNSIGNEDNUM;}
 | "dbyte" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 2 | UNSIGNEDNUM;}
 | "qbyte" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 4 | UNSIGNEDNUM;}
 | "obyte" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 8 | UNSIGNEDNUM;}
+| "void" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = VOIDNUM;}
 | "single" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 4 | FLOATNUM;}
 | "double" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 8 | FLOATNUM;}
-| "void" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = VOIDNUM;}
-| "signed" {$$ = calloc(1,sizeof(IDTYPE)); $$->tb = 0;}
-| "unsigned" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = UNSIGNEDNUM;}
 | struct {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = STRUCTVAL; $$->structtype = $1;}
 | union {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = UNIONVAL; $$->uniontype = $1;}
 | enum {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = ENUMVAL; $$->enumtype = $1;};
@@ -360,26 +367,15 @@ statements_and_initializers:
 | statements_and_initializers initializer {$$ = $1; dapush($$,soii($2));}
 | statements_and_initializers statement {$$ = $1; dapush($$,sois($2));};
 
-/*For each of the following 3, if not identifier, confirm it hasn't been defined yet*/
-unionoi:
-  UNION_NAME {$$ = $1;}
-| IDENTIFIER {$$ = $1;};
-structoi:
-  STRUCT_NAME {$$ = $1;}
-| IDENTIFIER {$$ = $1;};
-enumoi:
-  ENUM_NAME {$$ = $1;}
-| IDENTIFIER {$$ = $1;};
-
 /*for struct enum union make sure no redefinitions are happening*/
 union:
-  "union" unionoi '{' struct_decls '}' {$$ = unionctor($2, $4); add2scope(scopepeek(ctx), $2, M_UNION, $$);}
+  "union" IDENTIFIER '{' struct_decls '}' {$$ = unionctor($2, $4); add2scope(scopepeek(ctx), $2, M_UNION, $$);}
 | "union" '{' struct_decls '}' {$$ = unionctor(NULL, $3);}
-| "union" UNION_NAME {$$ = (UNION*) search(scopepeek(ctx)->members, $2);};
+| "union" IDENTIFIER {$$ = (UNION*) search(scopepeek(ctx)->unions, $2);};
 struct:
-  "struct" structoi '{' struct_decls '}' {$$ = structor($2, $4); add2scope(scopepeek(ctx), $2, M_STRUCT, $$);}
+  "struct" IDENTIFIER '{' struct_decls '}' {$$ = structor($2, $4); add2scope(scopepeek(ctx), $2, M_STRUCT, $$);}
 | "struct" '{' struct_decls '}' {$$ = structor(NULL, $3);}
-| "struct" STRUCT_NAME {$$ = (STRUCT*) search(scopepeek(ctx)->members, $2);};
+| "struct" IDENTIFIER {$$ = (STRUCT*) search(scopepeek(ctx)->structs, $2);};
 struct_decls:
   struct_decl {$$ = $1;}
 | struct_decls struct_decl {$$ = damerge($1, $2);};
@@ -399,9 +395,9 @@ sdecl:
 | declarator ':' esc {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $3));}
 | ':' esc {$$ = mkdeclaration(NULL); dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $2));};
 enum:
-  "enum" enumoi '{' enums '}' {$$ = enumctor($2, $4); add2scope(scopepeek(ctx), $2, M_ENUM, $$);}
+  "enum" IDENTIFIER '{' enums '}' {$$ = enumctor($2, $4); add2scope(scopepeek(ctx), $2, M_ENUM, $$);}
 | "enum" '{' enums '}' {$$ = enumctor(NULL, $3);}
-| "enum" ENUM_NAME {$$ = (ENUM*) search(scopepeek(ctx)->members, $2);};
+| "enum" IDENTIFIER {$$ = (ENUM*) search(scopepeek(ctx)->enums, $2);};
 enums:
   IDENTIFIER {$$ = dactor(256);dapush($$, genenumfield($1,ct_intconst_expr(0))); add2scope(scopepeek(ctx), $1, M_ENUM_CONST, dapeek($$));}
 | IDENTIFIER '=' esc {$$ = dactor(256); dapush($$, genenumfield($1,$3)); add2scope(scopepeek(ctx), $1, M_ENUM_CONST, $3);}

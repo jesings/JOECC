@@ -59,7 +59,7 @@ void nc(char c) {
 %x DEFINE UNDEF DEFARG DEFINE2
 %x IFNDEF IFDEF PPSKIP
 %x KILLBLANK KILLSPACE
-%x STRINGLIT CHARLIT
+%x STRINGLIT CHARLIT ARRAYLIT
 %x CALLMACRO FINDREPLACE
 
 %%
@@ -212,7 +212,7 @@ void nc(char c) {
 
 
 <IFDEF>{
-  [[:alpha:]_][[:alnum:]_]* {stmtover = 1; defname = yytext; yy_push_state(KILLBLANK);}
+  {IDENT} {stmtover = 1; defname = strdup(yytext); yy_push_state(KILLBLANK);}
   \n {
     yy_pop_state();
     yy_pop_state(); 
@@ -243,7 +243,7 @@ void nc(char c) {
   . {fprintf(stderr, "IFDEF: I made a stupid: %c\n", *yytext);}
 }
 <IFNDEF>{
-  [[:alpha:]_][[:alnum:]_]* {stmtover = 1; defname = yytext; yy_push_state(KILLBLANK);}
+  {IDENT} {stmtover = 1; defname = strdup(yytext); yy_push_state(KILLBLANK);}
   \n {
     yy_pop_state();
     yy_pop_state(); 
@@ -452,7 +452,7 @@ void nc(char c) {
     case ENUM_CONST:
       yylval.exprvariant = v;
       return mt;
-    case IDENTIFIER: case UNION_NAME: case STRUCT_NAME: case ENUM_NAME:
+    case IDENTIFIER:
       yylval.str = v;
       return mt;
     case LABEL:
@@ -631,22 +631,12 @@ int check_type(void** garbage, char* symb) {
     case M_ENUM_CONST:
       *garbage = (void*) symtab_ent->enumnum;
       return ENUM_CONST;
+    default:
     case M_VARIABLE: 
       *garbage = symb;
       return IDENTIFIER;
-    case M_UNION: 
-      *garbage = symb;
-      return UNION_NAME;
-    case M_STRUCT: 
-      *garbage = symb;
-      return STRUCT_NAME;
-    case M_ENUM:
-      *garbage = symb;
-      return ENUM_NAME;
     case M_LABEL:
       return LABEL;
-    default:
-      return 0;
   }
 }
 
