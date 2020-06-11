@@ -29,7 +29,7 @@ extern struct lexctx* ctx;
 int check_type(void** garbage, char* symb);
 char stmtover, skipping;
 char* defname, * strconst;
-int strconstlen, strconstindex;
+int strconstlen = 2048, strconstindex;
 char charconst;
 struct macrodef* md;
 char argeaten;
@@ -54,23 +54,13 @@ void nc(char c) {
 %option nodefault
 %option warn
 
-%x MULTILINE_COMMENT
-%x SINGLELINE_COMMENT
-%x PREPROCESSOR
-%x INCLUDE
-%x DEFINE
-%x UNDEF
-%x DEFARG
-%x DEFINE2
-%x IFNDEF
-%x IFDEF
-%x KILLBLANK
-%x KILLSPACE
-%x PPSKIP
-%x STRINGLIT
-%x CHARLIT
-%x CALLMACRO
-%x FINDREPLACE
+%x MULTILINE_COMMENT SINGLELINE_COMMENT
+%x PREPROCESSOR INCLUDE 
+%x DEFINE UNDEF DEFARG DEFINE2
+%x IFNDEF IFDEF PPSKIP
+%x KILLBLANK KILLSPACE
+%x STRINGLIT CHARLIT
+%x CALLMACRO FINDREPLACE
 
 %%
 <KILLBLANK>{
@@ -82,7 +72,7 @@ void nc(char c) {
   [^[:space:]] {yy_pop_state(); unput(*yytext);}
 }
 
-<INITIAL,PREPROCESSOR,INCLUDE,DEFINE,DEFARG,DEFINE2,IFDEF,IFNDEF>{
+<INITIAL,PREPROCESSOR,INCLUDE,DEFINE,DEFARG,DEFINE2,IFDEF,IFNDEF,CALLMACRO>{
   "/*" {yy_push_state(MULTILINE_COMMENT);}
   "//" {yy_push_state(SINGLELINE_COMMENT);}
 }
@@ -187,15 +177,15 @@ void nc(char c) {
     }
   }
   [[:space:]]+[<\"] {if(stmtover) REJECT;/*"*/yyless(1);}
-  [[:space:]]*\n {yy_pop_state(); BEGIN(INITIAL); }
-  \n {yy_pop_state();BEGIN(INITIAL);if(!stmtover) fprintf(stderr, "Error: incomplete include\n");}
+  [[:space:]]*\n {yy_pop_state(); yy_pop_state(); }
+  \n {yy_pop_state(); yy_pop_state();if(!stmtover) fprintf(stderr, "Error: incomplete include\n");}
   . {fprintf(stderr, "INCLUDE: I made a stupid: %c\n", *yytext);}
 }
 
 <DEFINE>{
   {IDENT} {yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLBLANK); defname = strdup(yytext);}
   {IDENT}\( {yy_pop_state(); yy_push_state(DEFARG); yy_push_state(KILLBLANK); yytext[yyleng - 1] = '\0'; defname = strdup(yytext); md->args = dactor(8); argeaten = 0;}
-  \n {yy_pop_state();BEGIN(INITIAL);/*error state*/}
+  \n {yy_pop_state(); yy_pop_state();/*error state*/}
   . {fprintf(stderr, "DEFINE: I made a stupid: %c\n", *yytext);}
 }
 
@@ -203,7 +193,7 @@ void nc(char c) {
   {IDENT} {if(argeaten) fprintf(stderr, "Error: unexpected macro argument\n"); argeaten = 1;/*new arg encountered*/ yy_push_state(KILLBLANK); dapush(md->args, strdup(yytext));/*probably should confirm no 2 args have the same name*/}
   \, {if(argeaten) argeaten = 0; else fprintf(stderr, "Error: unexpected macro argument\n"); yy_push_state(KILLBLANK);}
   \) {if(!argeaten && md->args->length != 0) fprintf(stderr, "Error: unexpected macro argument\n"); /*last arg encountered*/yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLBLANK);}
-  \n {yy_pop_state();BEGIN(INITIAL);/*error state*/}
+  \n {yy_pop_state(); yy_pop_state();/*error state*/}
   . {fprintf(stderr, "DEFINE: I made a stupid: %c\n", *yytext);}
 }
 
@@ -211,12 +201,12 @@ void nc(char c) {
   [^\\/\n]+ {yymore();}
   "/" {yymore();}
   \\ {yymore();}
-  \n {yy_pop_state(); yy_pop_state(); yytext[yyleng - 1] = '\0'; md->text = strdup(yytext); insert(ctx->defines, defname, md);}
+  \n {yy_pop_state(); yy_pop_state();  md->text = malloc(yyleng); memcpy(md->text, yytext, yyleng - 1); md->text[yyleng - 1] = '\0';  insert(ctx->defines, defname, md);}
 }
 
 <UNDEF>{
-  {IDENT} {yy_pop_state(); rmpairfr(ctx->defines, yytext); yy_push_state(KILLBLANK);}
-  \n {yy_pop_state();BEGIN(INITIAL);/*error state*/}
+  {IDENT} {rmpairfr(ctx->defines, yytext); yy_push_state(KILLBLANK);}
+  \n {yy_pop_state(); yy_pop_state();/*error state if expr not over?*/}
   . {fprintf(stderr, "UNDEF: I made a stupid: %c\n", *yytext);}
 }
 
@@ -311,13 +301,13 @@ void nc(char c) {
         }
         dstrdly = strctor(malloc(2048), 0, 2048);
         puts("AAAAAAAAAAA");
-        yydebug = 1;
+        //yydebug = 1;
         yy_push_state(FINDREPLACE);
         YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
         *ylt = yylloc;
         dapush(locs, ylt);
         yylloc.first_line = yylloc.last_line = yylloc.first_column = yylloc.last_column = 1;
-        YY_BUFFER_STATE ybs = yy_scan_string(md->text);
+        YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(md->text, strlen(md->text), "r"), YY_BUF_SIZE);//strlen inefficient
         yypush_buffer_state(ybs);
       }
     }
@@ -351,14 +341,14 @@ void nc(char c) {
   <<EOF>> {
     yypop_buffer_state();
     yy_pop_state();
-    YY_BUFFER_STATE ybs = yy_scan_bytes(dstrdly->strptr, dstrdly->lenstr);
+    YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(dstrdly->strptr, dstrdly->lenstr, "r"), YY_BUF_SIZE);
     free(dstrdly);
     yypush_buffer_state(ybs);
     char buf[256];
     snprintf(buf, 256, "call to macro %s", defname);
     yylloc.first_line = yylloc.last_line = yylloc.first_column = yylloc.last_column = 1;
     dapush(file2compile, strdup(buf));
-    yy_push_state(yy_top_state());
+    yy_push_state(INITIAL);
     }
 }
 
@@ -466,9 +456,7 @@ void nc(char c) {
       yylval.str = v;
       return mt;
     case LABEL:
-    default:
       return YYUNDEF;
-    case -1: ;
   } 
   }
 
@@ -491,7 +479,7 @@ void nc(char c) {
     fprintf(stderr, "Error: 0 length character literal %s\n", yytext);
     GOC('?');
   	}
-  \n {
+  [\n\v] {
     fputs("ERROR: character literal terminated with newline unexpectedly", stderr);
     yy_pop_state();
     }
@@ -524,13 +512,8 @@ void nc(char c) {
     fprintf(stderr, "Warning: Unknown escape sequence %s in string literal\n", yytext);
     GOC(yytext[1]);
   }
-  [^\\\'] {
-    int previndex = strconstindex;
-    strconstindex += yyleng;
-    while(strconstindex >= strconstlen) {
-      strconst = realloc(strconst, strconstlen *= 1.5);
-    }
-    strcpy(strconst + previndex, yytext);
+  [^\\\'\n\v]\' {
+    GOC(yytext[0]);
   }
   [^\']{2,}\' {
     fprintf(stderr, "Error: character literal too long %s\n", yytext);
@@ -538,7 +521,7 @@ void nc(char c) {
   }
 }
 
-\" {/*"*/yy_push_state(STRINGLIT); strconst = malloc(2048);}
+\" {/*"*/yy_push_state(STRINGLIT); strconst = malloc(2048); strconstindex = 0; strconstlen = 2048;}
 <STRINGLIT>{
   \" {/*"*/
   	yylval.str = strconst; 
@@ -547,7 +530,7 @@ void nc(char c) {
   	puts(strconst);
   	return STRING_LITERAL;
   	}
-  \n {
+  [\n\v] {
     free(strconst); 
     fputs("ERROR: String terminated with newline unexpectedly", stderr);
     yy_pop_state();
@@ -581,7 +564,7 @@ void nc(char c) {
     fprintf(stderr, "Warning: Unknown escape sequence %s in string literal\n", yytext);
     nc(yytext[1]);
   }
-  [^\\]+ {
+  [^\\\"\v]+ {/*"*/
     int previndex = strconstindex;
     strconstindex += yyleng;
     while(strconstindex >= strconstlen) {
@@ -619,7 +602,8 @@ int check_type(void** garbage, char* symb) {
       argeaten = 0;
       parg = NULL;
     } else {
-      yy_push_state(yy_top_state());
+      //yy_push_state(yy_top_state());
+      yy_push_state(INITIAL);
       char* buf = malloc(256);
       snprintf(buf, 256, "Macro %s", symb);
       dapush(file2compile, buf);
@@ -627,9 +611,11 @@ int check_type(void** garbage, char* symb) {
       *ylt = yylloc;
       dapush(locs, ylt);
       yylloc.first_line = yylloc.last_line = yylloc.first_column = yylloc.last_column = 1;
-      YY_BUFFER_STATE yms = yy_scan_string(macdef->text);
+      //YY_BUFFER_STATE yms = yy_scan_string(macdef->text);
+      YY_BUFFER_STATE yms = yy_create_buffer(fmemopen(macdef->text, 
+      	strlen(macdef->text), "r"), YY_BUF_SIZE);// strlen is inefficient
       yypush_buffer_state(yms);
-      yydebug = 1;
+      //yydebug = 1;
     }
     return -1;
   }
