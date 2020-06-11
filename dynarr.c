@@ -3,17 +3,23 @@
 #include "dynarr.h"
 
 DYNARR* dactor(int initiallen){
-  if(initiallen < 2) 
-    return NULL;
   DYNARR* retval = malloc(sizeof(DYNARR));
   retval->length = 0;
   retval->maxlength = initiallen;
-  retval->arr = malloc(sizeof(void*)*initiallen);
+  if(initiallen)
+    retval->arr = malloc(sizeof(void*)*initiallen);
   return retval;
 }
 
 DYNARR* damerge(DYNARR* arr1, DYNARR* arr2){
   DYNARR* retval = malloc(sizeof(DYNARR));
+  if(!arr1->length) {
+    free(arr1);
+    return arr2;
+  } else if(!arr2->length) {
+    free(arr2);
+    return arr1;
+  }
   retval->maxlength = arr1->maxlength + arr2->maxlength;
   retval->arr = realloc(arr1->arr, retval->maxlength * sizeof(void*));
   retval->length = arr1->length + arr2->length;

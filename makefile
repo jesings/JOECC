@@ -4,11 +4,11 @@ CFLAGS = -g
 compiler: joecc.tab.o lex.yy.o hash.o dynarr.o compintern.o compmain.o dynstr.o  
 	$(CC) joecc.tab.o lex.yy.o hash.o dynarr.o compintern.o compmain.o dynstr.o -o compiler $(LDFLAGS)
 gotest: compiler
-	./compiler < dynarr.c
+	./compiler dynarr.c
 lex.yy.c: joecc.lex
 	flex --header-file=lex.h joecc.lex
 joecc.tab.c: joecc.y
-	bison -d joecc.y
+	bison -d joecc.y --report=all
 hash.o: hash.c
 	$(CC) hash.c -c $(CFLAGS)
 dynarr.o: dynarr.c

@@ -32,6 +32,9 @@ int main(int argc, char** argv) {
   } else {
     dapush(file2compile, "stdin");
   }
+  extern int yydebug;
+  //yydebug = 1;
+
   yyparse();
   if(argc > 1) {
     close(compilefile);

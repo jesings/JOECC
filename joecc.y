@@ -14,12 +14,14 @@
 
 %right THEN "else"
 %start program
+%define parse.trace
 %define parse.assert
 %define parse.error verbose
 
 %token<ii> INTEGER_LITERAL;
 %token<dbl> FLOAT_LITERAL;
 %token<str> IDENTIFIER STRING_LITERAL;
+%token<str> STRUCT_NAME ENUM_NAME UNION_NAME;
 %token<idvariant> TYPE_NAME;
 %token<exprvariant> ENUM_CONST;
 
@@ -31,6 +33,7 @@
 
   #define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
   #define dget(param, index) ((DECLARATION*) (param)->arr[(index)])
+  #define YYDEBUG 1
 }
 
 %{
@@ -57,6 +60,7 @@
   FUNC* funcvariant;
 }
 
+%type<str> structoi unionoi enumoi
 %type<typevariant> types1 types2 types1o
 %type<idvariant> typem typews1 /*typebs*/ type
 %type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee
@@ -117,10 +121,10 @@ initializer:
     if($2->pointerstack) 
       $2->pointerstack = damerge($2->pointerstack, dget($3, i)->type->pointerstack);
     add2scope(current, dget($3, i)->varname, M_TYPEDEF, $2);
-    free(dget($3, i));
     free(dget($3, i)->type);
+    free(dget($3, i));
   }
-  $$ = dactor(8);
+  $$ = dactor(0);
   }
 | type/*bs*/ cs_inits ';' {
   SCOPE* current = scopepeek(ctx);
@@ -131,7 +135,10 @@ initializer:
       aget($$, i)->decl->type->pointerstack = damerge($1->pointerstack, aget($$, i)->decl->type->pointerstack);
     add2scope(current, aget($$, i)->decl->varname, M_VARIABLE, aget($$, i)->decl->type);
   }
-};
+}
+| "struct" IDENTIFIER ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_STRUCT, NULL);}
+| "enum" IDENTIFIER ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_ENUM, NULL);}
+| "union" IDENTIFIER ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_UNION, NULL);};
 cs_inits:
   cs_inits ',' declarator '=' esc {$$ = $1; dapush($$, geninit($3, $5));}
 | declarator '=' esc {$$ = dactor(8); dapush($$, geninit($1, $3));}
@@ -331,7 +338,7 @@ statement:
 | "while" '(' expression ')' statement {$$ = mklsstmt(WHILEL, $3, $5);}
 | "do" statement "while" '(' expression ')' ';' {$$ = mklsstmt(DOWHILEL, $5, $2);}
 | "for" '(' dee  ee ';' ee ')' statement {$$ = mkforstmt($3, $4, $6, $8);}
-| "goto" IDENTIFIER ';' {$$ = mkgotostmt($2/*.yytext*/);/*find label within scopes at some point, probably not now though*/}
+| "goto" IDENTIFIER ';' {$$ = mkgotostmt($2);/*find label within scopes at some point, probably not now though*/}
 | "break" ';' {$$ = mkexprstmt(LBREAK,NULL);}
 | "continue" ';' {$$ = mkexprstmt(LCONT,NULL);}
 | "return" ';' {$$ = mkexprstmt(FRET,NULL);}
@@ -353,14 +360,26 @@ statements_and_initializers:
 | statements_and_initializers initializer {$$ = $1; dapush($$,soii($2));}
 | statements_and_initializers statement {$$ = $1; dapush($$,sois($2));};
 
+/*For each of the following 3, if not identifier, confirm it hasn't been defined yet*/
+unionoi:
+  UNION_NAME {$$ = $1;}
+| IDENTIFIER {$$ = $1;};
+structoi:
+  STRUCT_NAME {$$ = $1;}
+| IDENTIFIER {$$ = $1;};
+enumoi:
+  ENUM_NAME {$$ = $1;}
+| IDENTIFIER {$$ = $1;};
+
+/*for struct enum union make sure no redefinitions are happening*/
 union:
-  "union" IDENTIFIER '{' struct_decls '}' {$$ = unionctor($2/*.yytext*/, $4); add2scope(scopepeek(ctx), $2, M_UNION, $$);}
+  "union" unionoi '{' struct_decls '}' {$$ = unionctor($2, $4); add2scope(scopepeek(ctx), $2, M_UNION, $$);}
 | "union" '{' struct_decls '}' {$$ = unionctor(NULL, $3);}
-| "union" IDENTIFIER {$$ = unionctor($2/*.yytext*/, NULL); add2scope(scopepeek(ctx), $2, M_UNION, NULL);}
+| "union" UNION_NAME {$$ = (UNION*) search(scopepeek(ctx)->members, $2);};
 struct:
-  "struct" IDENTIFIER '{' struct_decls '}' {$$ = structor($2/*.yytext*/, $4); add2scope(scopepeek(ctx), $2, M_STRUCT, $$);}
+  "struct" structoi '{' struct_decls '}' {$$ = structor($2, $4); add2scope(scopepeek(ctx), $2, M_STRUCT, $$);}
 | "struct" '{' struct_decls '}' {$$ = structor(NULL, $3);}
-| "struct" IDENTIFIER {$$ = structor($2/*.yytext*/, NULL); add2scope(scopepeek(ctx), $2, M_STRUCT, NULL);};
+| "struct" STRUCT_NAME {$$ = (STRUCT*) search(scopepeek(ctx)->members, $2);};
 struct_decls:
   struct_decl {$$ = $1;}
 | struct_decls struct_decl {$$ = damerge($1, $2);};
@@ -380,14 +399,14 @@ sdecl:
 | declarator ':' esc {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $3));}
 | ':' esc {$$ = mkdeclaration(NULL); dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $2));};
 enum:
-  "enum" IDENTIFIER '{' enums '}' {$$ = enumctor($2/*.yytext*/, $4); add2scope(scopepeek(ctx), $2, M_ENUM, $$);}
+  "enum" enumoi '{' enums '}' {$$ = enumctor($2, $4); add2scope(scopepeek(ctx), $2, M_ENUM, $$);}
 | "enum" '{' enums '}' {$$ = enumctor(NULL, $3);}
-| "enum" IDENTIFIER {$$ = enumctor($2/*.yytext*/, NULL); add2scope(scopepeek(ctx), $2, M_ENUM, NULL);};
+| "enum" ENUM_NAME {$$ = (ENUM*) search(scopepeek(ctx)->members, $2);};
 enums:
-  IDENTIFIER {$$ = dactor(256);dapush($$, genenumfield($1/*.yytext*/,ct_intconst_expr(0))); add2scope(scopepeek(ctx), $1, M_ENUM_CONST, dapeek($$));}
-| IDENTIFIER '=' esc {$$ = dactor(256); dapush($$, genenumfield($1/*.yytext*/,$3)); add2scope(scopepeek(ctx), $1, M_ENUM_CONST, $3);}
-| enums ',' IDENTIFIER {$$ = $1; dapush($$, genenumfield($3/*.yytext*/,ct_binary_expr(ADD,ct_intconst_expr(1),dapeek($$)))); add2scope(scopepeek(ctx), $3, M_ENUM_CONST, dapeek($$));}
-| enums ',' IDENTIFIER '=' esc {$$ = $1; dapush($$, genenumfield($3/*.yytext*/,$5)); add2scope(scopepeek(ctx), $3, M_ENUM_CONST, $5);/*somehow confirm no collisions*/};
+  IDENTIFIER {$$ = dactor(256);dapush($$, genenumfield($1,ct_intconst_expr(0))); add2scope(scopepeek(ctx), $1, M_ENUM_CONST, dapeek($$));}
+| IDENTIFIER '=' esc {$$ = dactor(256); dapush($$, genenumfield($1,$3)); add2scope(scopepeek(ctx), $1, M_ENUM_CONST, $3);}
+| enums ',' IDENTIFIER {$$ = $1; dapush($$, genenumfield($3,ct_binary_expr(ADD,ct_intconst_expr(1),dapeek($$)))); add2scope(scopepeek(ctx), $3, M_ENUM_CONST, dapeek($$));}
+| enums ',' IDENTIFIER '=' esc {$$ = $1; dapush($$, genenumfield($3,$5)); add2scope(scopepeek(ctx), $3, M_ENUM_CONST, $5);/*somehow confirm no collisions*/};
 %%
 #include <stdio.h>
 int yyerror(char* s){

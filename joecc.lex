@@ -45,7 +45,6 @@ void nc(char c) {
   strconst[strconstindex++] = c;
 }
 #define GOC(c) yylval.ii.num = c, yy_pop_state(); return INTEGER_LITERAL
-
 %}
 %option yylineno
 %option noyywrap
@@ -194,16 +193,16 @@ void nc(char c) {
 }
 
 <DEFINE>{
-  {IDENT} {yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLBLANK); defname = yytext;}
-  {IDENT}\( {yy_pop_state(); yy_push_state(DEFARG); yy_push_state(KILLBLANK); yytext[yyleng - 1] = '\0'; defname = yytext; md->args = dactor(8); argeaten = 0;}
+  {IDENT} {yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLBLANK); defname = strdup(yytext);}
+  {IDENT}\( {yy_pop_state(); yy_push_state(DEFARG); yy_push_state(KILLBLANK); yytext[yyleng - 1] = '\0'; defname = strdup(yytext); md->args = dactor(8); argeaten = 0;}
   \n {yy_pop_state();BEGIN(INITIAL);/*error state*/}
   . {fprintf(stderr, "DEFINE: I made a stupid: %c\n", *yytext);}
 }
 
 <DEFARG>{
-  {IDENT} {argeaten = 1;/*new arg encountered*/ yy_push_state(KILLBLANK); dapush(md->args, strdup(yytext));/*probably should confirm no 2 args have the same name*/}
-  \, {if(argeaten) argeaten = 0; else /*error*/; yy_push_state(KILLBLANK);}
-  \) {if(!argeaten && md->args->length != 0) /*error*/; /*last arg encountered*/yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLBLANK);}
+  {IDENT} {if(argeaten) fprintf(stderr, "Error: unexpected macro argument\n"); argeaten = 1;/*new arg encountered*/ yy_push_state(KILLBLANK); dapush(md->args, strdup(yytext));/*probably should confirm no 2 args have the same name*/}
+  \, {if(argeaten) argeaten = 0; else fprintf(stderr, "Error: unexpected macro argument\n"); yy_push_state(KILLBLANK);}
+  \) {if(!argeaten && md->args->length != 0) fprintf(stderr, "Error: unexpected macro argument\n"); /*last arg encountered*/yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLBLANK);}
   \n {yy_pop_state();BEGIN(INITIAL);/*error state*/}
   . {fprintf(stderr, "DEFINE: I made a stupid: %c\n", *yytext);}
 }
@@ -212,7 +211,7 @@ void nc(char c) {
   [^\\/\n]+ {yymore();}
   "/" {yymore();}
   \\ {yymore();}
-  \n {yy_pop_state(); yy_pop_state(); yytext[yyleng - 1] = '\0'; md->text = strdup(yytext); insert(ctx->defines, strdup(defname), md);}
+  \n {yy_pop_state(); yy_pop_state(); yytext[yyleng - 1] = '\0'; md->text = strdup(yytext); insert(ctx->defines, defname, md);}
 }
 
 <UNDEF>{
@@ -233,28 +232,20 @@ void nc(char c) {
     } else {
       DYNARR* ds = ctx->definestack;
       enum ifdefstate* rids = malloc(sizeof(enum ifdefstate));
-      if(ds->length > 0) {
-        switch(*(enum ifdefstate*) dapeek(ds)) {
-          case IFANDTRUE: case ELSEANDFALSE:
-            if(search(ctx->defines, defname)) {
-              *rids = IFANDTRUE;
-            } else {
-              *rids = IFANDFALSE;
-              yy_push_state(PPSKIP);
-            }
-            break;
-          default:
-            *rids= IFDEFDUMMY;
+      enum ifdefstate contval = ds->length <= 0 ? IFANDTRUE : *(enum ifdefstate*) dapeek(ds);
+      switch(contval) {
+        case IFANDTRUE: case ELSEANDFALSE:
+          if(search(ctx->defines, defname)) {
+            *rids = IFANDTRUE;
+          } else {
+            *rids = IFANDFALSE;
             yy_push_state(PPSKIP);
-            break;
-        }
-      } else {
-        if(search(ctx->defines, defname)) {
-          *rids = IFANDTRUE;
-        } else {
-          *rids = IFANDFALSE;
+          }
+          break;
+        default:
+          *rids= IFDEFDUMMY;
           yy_push_state(PPSKIP);
-        }
+          break;
       }
       dapush(ds, rids);
     }
@@ -272,28 +263,20 @@ void nc(char c) {
     } else {
       DYNARR* ds = ctx->definestack;
       enum ifdefstate* rids = malloc(sizeof(enum ifdefstate));
-      if(ds->length > 0) {
-        switch(*(enum ifdefstate*) dapeek(ds)) {
-          case IFANDTRUE: case ELSEANDFALSE:
-            if(search(ctx->defines, defname)) {
-              *rids = IFANDFALSE;
-              yy_push_state(PPSKIP);
-            } else {
-              *rids = IFANDTRUE;
-            }
-            break;
-          default:
-            *rids= IFDEFDUMMY;
+      enum ifdefstate contval = ds->length <= 0 ? IFANDTRUE : *(enum ifdefstate*) dapeek(ds);
+      switch(contval) {
+        case IFANDTRUE: case ELSEANDFALSE:
+          if(search(ctx->defines, defname)) {
+            *rids = IFANDFALSE;
             yy_push_state(PPSKIP);
-            break;
-        }
-      } else {
-        if(search(ctx->defines, defname)) {
-          *rids = IFANDFALSE;
+          } else {
+            *rids = IFANDTRUE;
+          }
+          break;
+        default:
+          *rids= IFDEFDUMMY;
           yy_push_state(PPSKIP);
-        } else {
-          *rids = IFANDTRUE;
-        }
+          break;
       }
       dapush(ds, rids);
     }
@@ -327,7 +310,13 @@ void nc(char c) {
           insert(defargs, prma[i], arga[i]);
         }
         dstrdly = strctor(malloc(2048), 0, 2048);
+        puts("AAAAAAAAAAA");
+        yydebug = 1;
         yy_push_state(FINDREPLACE);
+        YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
+        *ylt = yylloc;
+        dapush(locs, ylt);
+        yylloc.first_line = yylloc.last_line = yylloc.first_column = yylloc.last_column = 1;
         YY_BUFFER_STATE ybs = yy_scan_string(md->text);
         yypush_buffer_state(ybs);
       }
@@ -367,7 +356,9 @@ void nc(char c) {
     yypush_buffer_state(ybs);
     char buf[256];
     snprintf(buf, 256, "call to macro %s", defname);
+    yylloc.first_line = yylloc.last_line = yylloc.first_column = yylloc.last_column = 1;
     dapush(file2compile, strdup(buf));
+    yy_push_state(yy_top_state());
     }
 }
 
@@ -466,18 +457,21 @@ void nc(char c) {
   int mt = check_type(&v, ylstr);
   switch(mt) {
     case TYPE_NAME:
-      yylval.idvariant = v; break;
+      yylval.idvariant = v;
+      return mt;
     case ENUM_CONST:
-      yylval.exprvariant = v; break;
-    case IDENTIFIER:
-      yylval.str = v; break;
+      yylval.exprvariant = v;
+      return mt;
+    case IDENTIFIER: case UNION_NAME: case STRUCT_NAME: case ENUM_NAME:
+      yylval.str = v;
+      return mt;
     case LABEL:
     default:
       return YYUNDEF;
     case -1: ;
   } 
-  //return mt;
   }
+
 0[bB]{BIN}+{INTSIZE}? {yylval.ii.num = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
                        yylval.ii.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
 0{OCT}+{INTSIZE}? {yylval.ii.num = strtoul(yytext,NULL,8);//every intconst is 8 bytes
@@ -608,7 +602,9 @@ void nc(char c) {
   } else {
     yy_pop_state();
     stmtover = 1;
-    yylloc = *(YYLTYPE*) dapop(locs);
+    YYLTYPE* yl = dapop(locs);
+    yylloc = *yl;
+    free(yl);
     dapop(file2compile);
   }
 }
@@ -619,17 +615,21 @@ int check_type(void** garbage, char* symb) {
     defname = symb;
     if(macdef->args) {
       //handle function like macro
-      BEGIN(CALLMACRO);
+      yy_push_state(CALLMACRO);
       argeaten = 0;
-      defname = macdef->text;
       parg = NULL;
     } else {
-      YY_BUFFER_STATE yms = yy_scan_string(macdef->text);
       yy_push_state(yy_top_state());
-      char buf[256];
+      char* buf = malloc(256);
       snprintf(buf, 256, "Macro %s", symb);
-      dapush(file2compile, symb);
+      dapush(file2compile, buf);
+      YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
+      *ylt = yylloc;
+      dapush(locs, ylt);
+      yylloc.first_line = yylloc.last_line = yylloc.first_column = yylloc.last_column = 1;
+      YY_BUFFER_STATE yms = yy_scan_string(macdef->text);
       yypush_buffer_state(yms);
+      yydebug = 1;
     }
     return -1;
   }
@@ -645,9 +645,18 @@ int check_type(void** garbage, char* symb) {
     case M_ENUM_CONST:
       *garbage = (void*) symtab_ent->enumnum;
       return ENUM_CONST;
-    case M_VARIABLE:
+    case M_VARIABLE: 
       *garbage = symb;
       return IDENTIFIER;
+    case M_UNION: 
+      *garbage = symb;
+      return UNION_NAME;
+    case M_STRUCT: 
+      *garbage = symb;
+      return STRUCT_NAME;
+    case M_ENUM:
+      *garbage = symb;
+      return ENUM_NAME;
     case M_LABEL:
       return LABEL;
     default:
