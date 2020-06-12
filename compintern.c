@@ -110,10 +110,33 @@ EXPRESSION* ct_floatconst_expr(double num) {
   return retval;
 }
 
+EXPRESSION* ct_array_lit(DYNARR* da) {
+  EXPRESSION* retval = malloc(sizeof(EXPRESSION));\
+  retval->type = ARRAY_LIT;
+  retval->dynvals = da;
+  return retval;
+}
+
 EXPRESSION* ct_ident_expr(/*IDENTIFIERINFO* id*/ char* ident) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = IDENT;
   retval->ident = ident;
+  return retval;
+}
+
+void e2dynarr2(EXPRESSION* expr, DYNARR* da) {
+  if(expr->type == COMMA) {
+    e2dynarr2(expr->param1, da);
+    dapush(da, expr->param2);
+    free(expr);
+  } else {
+    dapush(da, expr);
+  }
+}
+
+DYNARR* e2dynarr(EXPRESSION* expr) {
+  DYNARR* retval = dactor(4096);
+  e2dynarr2(expr, retval);
   return retval;
 }
 

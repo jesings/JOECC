@@ -527,7 +527,6 @@ void nc(char c) {
   	yylval.str = strconst; 
   	strconst[strconstindex < strconstlen ? strconstindex: strconstlen - 1] = 0; 
   	yy_pop_state(); 
-  	puts(strconst);
   	return STRING_LITERAL;
   	}
   [\n\v] {

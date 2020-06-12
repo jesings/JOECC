@@ -30,7 +30,7 @@ enum ident_type {
 };
 
 typedef enum {
-  NOP, STRING, WSTRING, INT, UINT, FLOAT, IDENT,
+  NOP, STRING, INT, UINT, FLOAT, IDENT, ARRAY_LIT,
   ADD, NEG, SUB, EQ, NEQ, GT, LT, GTE, LTE, MULT, DIVI, MOD,
   PREINC, POSTINC, PREDEC, POSTDEC,
   L_AND, L_OR, L_NOT, B_AND, B_OR, B_XOR, B_NOT, SHL, SHR,
@@ -285,7 +285,9 @@ EXPRESSION* ct_strconst_expr(char* str);
 EXPRESSION* ct_intconst_expr(long num); 
 EXPRESSION* ct_uintconst_expr(unsigned long num);
 EXPRESSION* ct_floatconst_expr(double num);
+EXPRESSION* ct_array_lit(DYNARR* da);
 EXPRESSION* ct_ident_expr(/*IDENTIFIERINFO* id*/ char* ident);
+DYNARR* e2dynarr(EXPRESSION* expr);
 DECLARATION* mkdeclaration(char* name);
 INITIALIZER* geninit(DECLARATION* decl, EXPRESSION* expr);
 SOI* sois(struct stmt* state);

@@ -21,7 +21,6 @@
 %token<ii> INTEGER_LITERAL;
 %token<dbl> FLOAT_LITERAL;
 %token<str> IDENTIFIER STRING_LITERAL;
-%token<str> STRUCT_NAME ENUM_NAME UNION_NAME;
 %token<idvariant> TYPE_NAME;
 %token<exprvariant> ENUM_CONST;
 
@@ -66,7 +65,7 @@
 %type<idvariant> typem typews1 /*typebs*/ type typemintkw inttypem
 %type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee
 %type<stmtvariant> statement compound_statement
-%type<arrvariant> statements_and_initializers struct_decls struct_decl cs_decls enums escl abstract_ptr params cs_inits cs_minutes initializer program
+%type<arrvariant> statements_and_initializers struct_decls struct_decl cs_decls enums escl abstract_ptr params cs_inits cs_minutes initializer program array_literal
 %type<unionvariant> union
 %type<structvariant> struct
 %type<enumvariant> enum
@@ -281,6 +280,12 @@ esas:
 | esm {$$ = $1;};
 esm:
   '(' type ')' esm {$$ = ct_cast_expr($2, $4);}
+| '(' type abstract_ptr ')' esm {
+  if($2->pointerstack)
+    $2->pointerstack = damerge($2->pointerstack, $3);
+  else
+    $2->pointerstack = $3;
+  $$ = ct_cast_expr($2, $5);}
 | esca {$$ = $1;};
 esca:
   "++" esca {$$ = ct_unary_expr(PREINC, $2);}
@@ -311,6 +316,7 @@ esu:
 | ENUM_CONST {$$ = $1;}
 | FLOAT_LITERAL {$$ = ct_floatconst_expr($1);}
 | IDENTIFIER {$$ = ct_ident_expr($1);}
+| array_literal {$$ = ct_array_lit($1);}
 | error {$$ = ct_nop_expr(); 
   extern DYNARR* file2compile;
   fprintf (stderr, "%d.%d-%d.%d in %s: error encountered\n",
@@ -321,6 +327,9 @@ esu:
 escl:
   esc {$$ = dactor(32); dapush($$, $1);}
 | escl ',' esc {$$ = $1; dapush($$, $3); };
+
+array_literal:
+  '{' expression '}' {$$ = e2dynarr($2);};
 
 function:
   type/*bs*/ declarator compound_statement {
