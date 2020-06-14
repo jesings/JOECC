@@ -26,5 +26,11 @@ void dsmodsize(DYNSTR* ds, int len) {
 void dscat(DYNSTR* ds, char* txt, int len) {
   int lp = ds->lenstr;
   dsmodsize(ds, len);
-  memcpy(ds->strptr + len, txt, len);
+  memcpy(ds->strptr + lp, txt, len);
+}
+
+void dsccat(DYNSTR* ds, char txt) {
+  int lp = ds->lenstr;
+  dsmodsize(ds, 1);
+  ds->strptr[lp] = txt;
 }

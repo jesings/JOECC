@@ -30,6 +30,7 @@ int check_type(void** garbage, char* symb);
 char stmtover, skipping;
 char* defname, * strconst;
 int strconstlen = 2048, strconstindex;
+int paren_depth;
 char charconst;
 struct macrodef* md;
 char argeaten;
@@ -51,15 +52,15 @@ void nc(char c) {
 %option stack
 
 %option debug
-%option nodefault
 %option warn
+%option nodefault
 
 %x MULTILINE_COMMENT SINGLELINE_COMMENT
 %x PREPROCESSOR INCLUDE 
 %x DEFINE UNDEF DEFARG DEFINE2
 %x IFNDEF IFDEF PPSKIP
 %x KILLBLANK KILLSPACE
-%x STRINGLIT CHARLIT ARRAYLIT
+%x STRINGLIT CHARLIT
 %x CALLMACRO FINDREPLACE
 
 %%
@@ -275,45 +276,108 @@ void nc(char c) {
 }
 
 <CALLMACRO>{
-  \( {if(parg) {REJECT;} else {parg = dactor(64);}}
-  \) {
-    if(!parg) {
-      //big error
-    } else if(argeaten) {
-      //error state
+  /*we are not going to handle stringizing or concatenation in macros*/
+  \( {
+    ++paren_depth;
+    dsccat(dstrdly, '(');
+    }
+  [[:space:]]*\) {
+    /*if 0 arguments, don't add new argument here*/
+    if(paren_depth) {
+      --paren_depth;
+      dsccat(dstrdly, ')');
     } else {
-      struct macrodef* md;
-
-      if(!(md = search(ctx->defines, defname))) {
-        //error state
-      } else if(parg->length != md->args->length) {
-        //error state
+      dsccat(dstrdly, 0);
+      dapush(parg, dstrdly->strptr);
+      free(dstrdly);
+      if(!parg) {
+        fprintf(stderr, "Error: Malformed function-like macro call, arguments not accessible\n");
+        //big error
       } else {
-        DYNARR* argn = md->args;
-        //make hash table with keys as param names, values as arguments, make 
-        //special lexer mode to parse this into string literal, use this as new buffer
-        //at the end of this mode, switch to string literal, parse in parent mode then
-        defargs = htctor();
-        char** prma = (char**) argn->arr;
-        char** arga = (char**) parg->arr;
-        for(int i = 0; i < parg->length; i++) {
-          insert(defargs, prma[i], arga[i]);
+        struct macrodef* md;
+
+        if(!(md = search(ctx->defines, defname))) {
+          fprintf(stderr, "Error: Malformed function-like macro call\n");
+          //error state
+        } else if(parg->length != md->args->length) {
+          if(md->args->length == 0 && parg->length == 1) {
+            if(*(char*) (parg->arr[0]) == 0) {
+              free(parg->arr[0]);
+              free(parg);
+              yy_pop_state();
+              YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(defname, strlen(defname), "r"), YY_BUF_SIZE);//strlen inefficient
+              yypush_buffer_state(ybs);
+              char buf[256];
+              snprintf(buf, 256, "call to macro %s", defname);
+              yylloc.first_line = yylloc.last_line = yylloc.first_column = yylloc.last_column = 1;
+              dapush(file2compile, strdup(buf));
+              yy_push_state(INITIAL);
+            }
+          } else {
+            fprintf(stderr, "Error: the number of arguments passed to function-like macro is different than the number of parameters\n");
+            //error state
+          }
+        } else {
+          DYNARR* argn = md->args;
+          //make hash table with keys as param names, values as arguments, make 
+          //special lexer mode to parse this into string literal, use this as new buffer
+          //at the end of this mode, switch to string literal, parse in parent mode then
+          defargs = htctor();
+          char** prma = (char**) argn->arr;
+          char** arga = (char**) parg->arr;
+          for(int i = 0; i < parg->length; i++) {
+            insert(defargs, prma[i], arga[i]);
+          }
+          dstrdly = strctor(malloc(2048), 0, 2048);
+          //yydebug = 1;
+          yy_pop_state();
+          yy_push_state(FINDREPLACE);
+          YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
+          *ylt = yylloc;
+          dapush(locs, ylt);
+          yylloc.first_line = yylloc.last_line = yylloc.first_column = yylloc.last_column = 1;
+          YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(md->text, strlen(md->text), "r"), YY_BUF_SIZE);//strlen inefficient
+          yypush_buffer_state(ybs);
         }
-        dstrdly = strctor(malloc(2048), 0, 2048);
-        puts("AAAAAAAAAAA");
-        //yydebug = 1;
-        yy_push_state(FINDREPLACE);
-        YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
-        *ylt = yylloc;
-        dapush(locs, ylt);
-        yylloc.first_line = yylloc.last_line = yylloc.first_column = yylloc.last_column = 1;
-        YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(md->text, strlen(md->text), "r"), YY_BUF_SIZE);//strlen inefficient
-        yypush_buffer_state(ybs);
       }
     }
     }
-  {IDENT} {if(argeaten) /*error state*/; else {argeaten = 1; dapush(parg, strdup(yytext));}}
-  \, {if(!argeaten) /*error state*/; else {argeaten = 0;}}
+  [^\(\)\",]*[^[:space:]\(\)\",] {/*"*/
+    dscat(dstrdly, yytext, yyleng);
+    }
+  \"(\\.|[^\\"]|\/[[:space:]]*\n)*\" {/*"*/
+  	//this is here to make sure that parenthesis depth isn't changed within strings
+    dscat(dstrdly, yytext, yyleng);
+    }
+  [[:space:]]+ {
+    dsccat(dstrdly, ' ');
+  }
+  [[:space:]]*,[[:space:]]* {
+    if(paren_depth) {
+      char tmpstr[3], tmpstrl = 0;
+      if(yytext[0] == ' ')
+        tmpstr[tmpstrl++] = ' ';
+      tmpstr[tmpstrl++] = ',';
+      if(yytext[yyleng - 1] == ' ')
+        tmpstr[tmpstrl++] = ' ';
+      dscat(dstrdly, tmpstr, tmpstrl);
+    } else {
+      dsccat(dstrdly, 0);
+      dapush(parg, dstrdly->strptr);
+      free(dstrdly);
+      dstrdly = strctor(malloc(4096), 0, 4096);
+    }
+    }
+  , {
+    if(paren_depth) {
+      dscat(dstrdly, ",", 2);
+    } else {
+      dapush(parg, dstrdly->strptr);
+      free(dstrdly);
+      dstrdly = strctor(malloc(4096), 0, 4096);
+    }
+    }
+  . {fprintf(stderr, "Error: unexpected character in function macro call\n");}
 }
 
 <FINDREPLACE>{
@@ -326,17 +390,20 @@ void nc(char c) {
       dscat(dstrdly, yytext, yyleng);
     }
     }
-  \"[^\"]*[^\\\"]\" {/*"*/
+  \"(\\.|[^\\"]|\/[[:blank:]]*\n)*\" {/*"*/
     dscat(dstrdly, yytext, yyleng);
     }
-  \'[^\']*[^\\\']\' {
+  '(\\.|[^\\'\n])+' {
     dscat(dstrdly, yytext, yyleng);
     }
-  [^[:alnum:]_\'\"]+ {/*cntrl/delim expr*/
+  [^[:alnum:]_\'\"\n]+ {/*cntrl/delim expr*/
     dscat(dstrdly, yytext, yyleng);
     }
   [.\n] {
-    dscat(dstrdly, yytext, yyleng);
+    dsccat(dstrdly, *yytext);
+    }
+  [[:digit:]] {
+    dsccat(dstrdly, *yytext);
     }
   <<EOF>> {
     yypop_buffer_state();
@@ -597,9 +664,29 @@ int check_type(void** garbage, char* symb) {
     defname = symb;
     if(macdef->args) {
       //handle function like macro
+      //TODO: also confirm that is followed by parentheses
+      char c;
+      while(1) {
+        c = input();
+        switch(c) {
+          case 0:
+            //super duper mega error
+            yyterminate();
+          case ' ': case '\t': case '\n': case '\v':
+          	break;
+          case '(':
+          	goto whiledone;
+          default:
+            unput(c);
+            goto nofcall;
+
+        }
+      }
+      whiledone:
       yy_push_state(CALLMACRO);
-      argeaten = 0;
-      parg = NULL;
+      paren_depth = 0;
+      dstrdly = strctor(malloc(4096), 0, 4096);
+      parg = dactor(64); 
     } else {
       //yy_push_state(yy_top_state());
       yy_push_state(INITIAL);
@@ -618,6 +705,7 @@ int check_type(void** garbage, char* symb) {
     }
     return -1;
   }
+  nofcall: ;
   SCOPEMEMBER* symtab_ent = search(scopepeek(ctx)->members,symb);
   if(!symtab_ent) {
     *garbage = symb;
