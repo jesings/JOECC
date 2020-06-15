@@ -73,12 +73,11 @@ EXPRESSION* ct_ternary_expr(EXPRESSION* param1, EXPRESSION* param2, EXPRESSION* 
   return retval;
 }
 
-EXPRESSION* ct_fcall_expr(EXPRESSION* func, int num, EXPRESSION* params) {
+EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = FCALL;
   retval->ftocall = func;
-  retval->numparams = num;
-  retval->params = params;
+  retval->params= params;
   return retval;
 }
 

@@ -40,11 +40,6 @@ typedef enum {
   EXPRTYPELIST
 } EXPRTYPE;
 #undef X
-#define X(name) #name
-char* name_EXPRTYPE[] = {
-  EXPRTYPELIST
-};
-#undef X
 
 #define STMTTYPE_LIST \
   X(FRET), X(LBREAK), X(JGOTO), X(LCONT), \
@@ -60,20 +55,10 @@ enum stmttype {
   STMTTYPE_LIST
 };
 #undef X
-#define X(name) #name
-char* name_STMTTYPE[] = {
-  STMTTYPE_LIST
-};
-#undef X
 
 #define DECLPART_TYPE X(POINTERSPEC), X(ARRAYSPEC), X(PARAMSSPEC), X(BITFIELDSPEC)
 #define X(name) name
 enum declpart_info {
-  DECLPART_TYPE
-};
-#undef X
-#define X(name) #name
-char* name_DECLPART_TYPE[] = {
   DECLPART_TYPE
 };
 #undef X
@@ -132,8 +117,7 @@ typedef struct expr {
   EXPRTYPE type;
   union {
     struct {
-      int numparams;
-      struct expr* params;
+      DYNARR* params;
       struct expr* ftocall;
     };
     struct {
@@ -250,11 +234,6 @@ enum membertype {
   MEMBERTYPELIST
 };
 #undef X
-#define X(name) #name
-char* name_MEMBERTYPE[] = {
-  MEMBERTYPELIST
-};
-#undef X
 
 typedef struct {
   enum membertype mtype;
@@ -304,7 +283,7 @@ EXPRESSION* ct_sztype(IDTYPE* whichtype);
 EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2);
 EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr );
 EXPRESSION* ct_ternary_expr(EXPRESSION* param1, EXPRESSION* param2, EXPRESSION* param3);
-EXPRESSION* ct_fcall_expr(EXPRESSION* func, int num, EXPRESSION* params);
+EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params);
 EXPRESSION* ct_strconst_expr(char* str);
 EXPRESSION* ct_intconst_expr(long num); 
 EXPRESSION* ct_uintconst_expr(unsigned long num);

@@ -303,8 +303,8 @@ esca:
 esp:
   esp "++" {$$ = ct_unary_expr(POSTINC, $1);}
 | esp "--" {$$ = ct_unary_expr(POSTDEC, $1);}
-| esp '(' ')' {$$ = ct_fcall_expr($1,0,NULL);}
-| esp '(' escl ')' {$$ = ct_fcall_expr($1,$3->length,(EXPRESSION*)*$3->arr); free($3);}
+| esp '(' ')' {$$ = ct_fcall_expr($1, dactor(0));}
+| esp '(' escl ')' {$$ = ct_fcall_expr($1, $3); free($3);}
 | esp '[' expression ']' {$$ = ct_unary_expr(DEREF, ct_binary_expr(ADD, $1, $3));}
 | esp '.' IDENTIFIER {$$ = ct_binary_expr(DOTOP, $1, ct_ident_expr($3));}
 | esp  "->" IDENTIFIER {$$ = ct_binary_expr(ARROW, $1, ct_ident_expr($3));}
