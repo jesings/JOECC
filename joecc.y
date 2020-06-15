@@ -342,6 +342,13 @@ function:
     $$ = ct_function($2->varname, $3, dp->params, $1);
     free($2);
     /*check that it is in fact a param spec*/
+  }
+| error compound_statement {
+  extern DYNARR* file2compile;
+  fprintf (stderr, "%d.%d-%d.%d in %s: error encountered in function definition\n",
+           @1.first_line, @1.first_column,
+           @1.last_line, @1.last_column,
+           dapeek(file2compile));
   };
 statement:
   compound_statement {$$ = $1;}

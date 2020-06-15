@@ -73,7 +73,7 @@ void nc(char c) {
   [^[:space:]] {yy_pop_state(); unput(*yytext);}
 }
 
-<INITIAL,PREPROCESSOR,INCLUDE,DEFINE,DEFARG,DEFINE2,IFDEF,IFNDEF,CALLMACRO>{
+<INITIAL,PREPROCESSOR,INCLUDE,DEFINE,UNDEF,DEFARG,DEFINE2,IFDEF,IFNDEF,CALLMACRO,PPSKIP>{
   "/*" {yy_push_state(MULTILINE_COMMENT);}
   "//" {yy_push_state(SINGLELINE_COMMENT);}
 }
@@ -91,9 +91,8 @@ void nc(char c) {
 }
 
 <PPSKIP>{
-  [^\n#]+ {}
-  # {}
-  \n {}
+  [^\n#\/]+ {}
+  [\/\n#] {}
   ^[[:blank:]]*#[[:blank:]]* {yy_push_state(PREPROCESSOR); stmtover = 0; skipping = 1;}
 }
 
@@ -368,14 +367,6 @@ void nc(char c) {
       dstrdly = strctor(malloc(4096), 0, 4096);
     }
     }
-  , {
-    if(paren_depth) {
-      dscat(dstrdly, ",", 2);
-    } else {
-      dapush(parg, dstrdly->strptr);
-      free(dstrdly);
-      dstrdly = strctor(malloc(4096), 0, 4096);
-    }
     }
   . {fprintf(stderr, "Error: unexpected character in function macro call\n");}
 }
@@ -399,10 +390,7 @@ void nc(char c) {
   [^[:alnum:]_\'\"\n]+ {/*cntrl/delim expr*/
     dscat(dstrdly, yytext, yyleng);
     }
-  [.\n] {
-    dsccat(dstrdly, *yytext);
-    }
-  [[:digit:]] {
+  [[:cntrl:][:print:]] {
     dsccat(dstrdly, *yytext);
     }
   <<EOF>> {
@@ -669,9 +657,6 @@ int check_type(void** garbage, char* symb) {
       while(1) {
         c = input();
         switch(c) {
-          case 0:
-            //super duper mega error
-            yyterminate();
           case ' ': case '\t': case '\n': case '\v':
           	break;
           case '(':
