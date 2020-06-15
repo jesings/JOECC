@@ -20,47 +20,63 @@ typedef enum {
   UNIONVAL    = 0x4000,
 } TYPEBITS;
 
-enum ident_type {
-  UNDEFINED,
-  FUNCTION,
-  PARAMETER,
-  LOCAL_VAR,
-  GLOBAL_VAR,
-  TYPE_DEFN
-};
-
+#define EXPRTYPELIST  \
+  X(NOP), X(STRING), X(INT), X(UINT), X(FLOAT), X(IDENT), X(ARRAY_LIT), \
+  X(ADD), X(NEG), X(SUB), X(EQ), X(NEQ), X(GT), X(LT), X(GTE), X(LTE), X(MULT), X(DIVI), X(MOD), \
+  X(PREINC), X(POSTINC), X(PREDEC), X(POSTDEC), \
+  X(L_AND), X(L_OR), X(L_NOT), X(B_AND), X(B_OR), X(B_XOR), X(B_NOT), X(SHL), X(SHR), \
+  X(DOTOP), X(ARROW), \
+  X(SZOF), X(SZOFEXPR), \
+  X(ASSIGN), \
+  X(ADDASSIGN), X(SUBASSIGN), X(SHLASSIGN), X(SHRASSIGN), X(ANDASSIGN),  \
+  X(XORASSIGN), X(ORASSIGN), X(DIVASSIGN), X(MULTASSIGN), X(MODASSIGN), \
+  X(CAST), \
+  X(COMMA), \
+  X(ADDR), X(DEREF), \
+  X(FCALL), \
+  X(TERNARY) 
+#define X(name) name
 typedef enum {
-  NOP, STRING, INT, UINT, FLOAT, IDENT, ARRAY_LIT,
-  ADD, NEG, SUB, EQ, NEQ, GT, LT, GTE, LTE, MULT, DIVI, MOD,
-  PREINC, POSTINC, PREDEC, POSTDEC,
-  L_AND, L_OR, L_NOT, B_AND, B_OR, B_XOR, B_NOT, SHL, SHR,
-  DOTOP, ARROW,
-  SZOF, SZOFEXPR,
-  ASSIGN,
-  ADDASSIGN, SUBASSIGN, SHLASSIGN, SHRASSIGN, ANDASSIGN, 
-  XORASSIGN, ORASSIGN, DIVASSIGN, MULTASSIGN, MODASSIGN,
-  /*CASES,*/
-  CAST,
-  COMMA,
-  ADDR, DEREF,
-  FCALL, /*FCOPY,*/
-  TERNARY
+  EXPRTYPELIST
 } EXPRTYPE;
+#undef X
+#define X(name) #name
+char* name_EXPRTYPE[] = {
+  EXPRTYPELIST
+};
+#undef X
 
+#define STMTTYPE_LIST \
+  X(FRET), X(LBREAK), X(JGOTO), X(LCONT), \
+  X(FORL), X(WHILEL), X(DOWHILEL), \
+  X(IFS), X(IFELSES), \
+  X(SWITCH), \
+  X(CASE), X(LABEL), \
+  X(CMPND), \
+  X(EXPR), X(NOPSTMT), \
+  X(DEFAULT)
+#define X(name) name
 enum stmttype {
-  FRET, LBREAK, JGOTO, LCONT,
-  FORL, WHILEL, DOWHILEL,
-  IFS, IFELSES,
-  SWITCH,
-  CASE, LABEL,
-  CMPND,
-  EXPR, NOPSTMT,
-  DEFAULT
+  STMTTYPE_LIST
 };
+#undef X
+#define X(name) #name
+char* name_STMTTYPE[] = {
+  STMTTYPE_LIST
+};
+#undef X
 
+#define DECLPART_TYPE X(POINTERSPEC), X(ARRAYSPEC), X(PARAMSSPEC), X(BITFIELDSPEC)
+#define X(name) name
 enum declpart_info {
-  POINTERSPEC, ARRAYSPEC, PARAMSSPEC, BITFIELDSPEC
+  DECLPART_TYPE
 };
+#undef X
+#define X(name) #name
+char* name_DECLPART_TYPE[] = {
+  DECLPART_TYPE
+};
+#undef X
 
 struct stmt;
 
@@ -228,9 +244,17 @@ typedef struct {
   };
 } TOPBLOCK;
 
+#define MEMBERTYPELIST X(M_LABEL), X(M_TYPEDEF), X(M_VARIABLE), X(M_STRUCT), X(M_UNION), X(M_ENUM), X(M_ENUM_CONST), X(M_CASE)
+#define X(name) name
 enum membertype {
-  M_LABEL, M_TYPEDEF, M_VARIABLE, M_STRUCT, M_UNION, M_ENUM, M_ENUM_CONST, M_CASE
+  MEMBERTYPELIST
 };
+#undef X
+#define X(name) #name
+char* name_MEMBERTYPE[] = {
+  MEMBERTYPELIST
+};
+#undef X
 
 typedef struct {
   enum membertype mtype;

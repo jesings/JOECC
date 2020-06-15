@@ -367,7 +367,6 @@ void nc(char c) {
       dstrdly = strctor(malloc(4096), 0, 4096);
     }
     }
-    }
   . {fprintf(stderr, "Error: unexpected character in function macro call\n");}
 }
 
