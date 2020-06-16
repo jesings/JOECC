@@ -51,12 +51,39 @@ char* name_TYPEBITS(TYPEBITS tb) {
   return vals;
 }
 
-char* treeid(IDENTIFIERINFO* id) {
-  //TODO
+char* treetype(IDTYPE* type) {
+  DYNSTR* dstrdly = strctor(malloc(512), 0, 512);
+  if(type->pointerstack)
+    for(int i = 0; i < type->pointerstack->length; i++)
+      dscat(dstrdly, "POINTER TO ", 11);
+  if(type->tb & ENUMVAL) {
+    dscat(dstrdly, "ENUM ", 5);
+    dscat(dstrdly, type->enumtype->name, strlen(type->enumtype->name));
+  } else if(type->tb & STRUCTVAL) {
+    dscat(dstrdly, "STRUCT ", 7);
+    dscat(dstrdly, type->structtype->name, strlen(type->structtype->name));
+  } else if(type->tb & UNIONVAL){ 
+    dscat(dstrdly, "UNION ", 6);
+    dscat(dstrdly, type->uniontype->name, strlen(type->uniontype->name));
+  } else {
+    char* istb = name_TYPEBITS(type->tb);
+    dscat(dstrdly, istb, strlen(istb));
+  }
+  char* rv = dstrdly->strptr;
+  free(dstrdly);
+  return rv;
 }
 
-char* treetype(IDTYPE* type) {
-  //TODO
+char* treeid(IDENTIFIERINFO* id) {
+  DYNSTR* dstrdly = strctor(malloc(2048), 0, 2048);
+  char* typespec = treetype(id->type);
+  dscat(dstrdly, typespec, strlen(typespec));
+  char* whitecolor = COLOR(30, 30, 30);
+  dscat(dstrdly, whitecolor, strlen(whitecolor));
+  dscat(dstrdly, id->name, strlen(id->name));
+  char* strptr = dstrdly->strptr;
+  free(dstrdly);
+  return strptr;
 }
 
 char* treexpr(EXPRESSION* expr) {
@@ -162,9 +189,70 @@ char* treexpr(EXPRESSION* expr) {
 
 }
 
+//TODO: handle initializers
+
+char* statemeant(STATEMENT* stmt) {
+  struct color ecolor = rainbow[rainbowpos = (rainbowpos + 1) % 7];
+  char* docolor = COLOR(ecolor->r, ecolor->g, ecolor->b);
+  DYNSTR* dstrdly = strctor(malloc(2048), 0, 2048);
+  dscat(dstrdly, docolor, strlen(docolor));
+  dscat(dstrdly, name_STMTTYPE[stmt->type], strlen(name_STMTTYPE[stmt->type]));
+  dsccat(dstrdly, ' ');
+  switch(stmt->type) {
+    case FORL:
+      dscat(dstrdly, "\n→ ", 3);
+      //compound statement
+      break;
+    case JGOTO: case LABEL:
+      dscat(dstrdly, stmt->glabel, strlen(stmt->glabel));
+      break;
+    case IFS: case IFELSES:
+      //print if
+      dscat(dstrdly, docolor, strlen(docolor));
+      dscat(dstrdly, "\nTHEN\n", 6);
+      //print then
+      dscat(dstrdly, docolor, strlen(docolor));
+      dscat(dstrdly, "\nELSE\n", 6);
+      //if else is not NULL, print else
+      break;
+    case WHILEL: case DOWHILEL: case SWITCH:
+      //print condition
+      dscat(dstrdly, docolor, strlen(docolor));
+      dscat(dstrdly, "\nBODY\n", 6);
+      //print body
+      break;
+    case LBREAK: case LCONT: case DEFAULT:
+      break;
+    case FRET: case EXPR: case CASE:
+      dscat(dstrdly, "ON ", 3);
+      char* expor = treexpr(stmt->expression);
+      break;
+    case CMPND:
+      for(int i = 0; i < stmt->stmtsandinits->length; i++) {
+        dscat(dstrdly, "\n\0xCC ", 3);
+        SOI* soi = daget(stmt->stmtsandinits, i);
+        char* lineptr;
+        if(soi->isstmt) {
+          lineptr = statemeant(soi->state);
+        } else {
+          //handle initializer
+        }
+        dscat(dstrdly, lineptr, strlen(lineptr));
+        dscat(dstrdly, docolor, strlen(docolor));
+      }
+      break;
+    case NOPSTMT:
+      break;
+  }
+  char* rv = dstrdly->strptr;
+  free(dstrdly);
+  return rv;
+}
+
 void treefunc(FUNC* func) {
-  printf("%s %s (", func->name);
+  printf("%s %s (", treetype(func->retrn), func->name);
   for(int i = 0; i < func->params->length; i++) {
   }
-
+  puts("FUNCEND");
+  puts("------------------------------------------------------------------------------");
 }
