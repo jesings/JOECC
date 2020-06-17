@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include "compintern.h"
+#include "printree.h"
 struct lexctx* ctx;
 int yylex();
 int yyparse();
@@ -48,5 +49,6 @@ int main(int argc, char** argv) {
   for(int i = 0; i < funcky->length; i++) {
     HASHPAIR* pairthere = daget(funcky, i);
     puts(pairthere->key);
+    treefunc(pairthere->value);
   }
 }

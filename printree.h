@@ -2,6 +2,6 @@
 #define PRINTREE_H
 #include "compintern.h"
 
-void treefunc(FUNCTION* func);
+void treefunc(FUNC* func);
 #endif 
 

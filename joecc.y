@@ -304,7 +304,7 @@ esp:
   esp "++" {$$ = ct_unary_expr(POSTINC, $1);}
 | esp "--" {$$ = ct_unary_expr(POSTDEC, $1);}
 | esp '(' ')' {$$ = ct_fcall_expr($1, dactor(0));}
-| esp '(' escl ')' {$$ = ct_fcall_expr($1, $3); free($3);}
+| esp '(' escl ')' {$$ = ct_fcall_expr($1, $3);}
 | esp '[' expression ']' {$$ = ct_unary_expr(DEREF, ct_binary_expr(ADD, $1, $3));}
 | esp '.' IDENTIFIER {$$ = ct_binary_expr(DOTOP, $1, ct_ident_expr($3));}
 | esp  "->" IDENTIFIER {$$ = ct_binary_expr(ARROW, $1, ct_ident_expr($3));}
@@ -333,13 +333,17 @@ array_literal:
 
 function:
   type/*bs*/ declarator compound_statement {
+    DYNARR* parammemb;
     struct declarator_part* dp = dapop($2->type->pointerstack);
     if($1->pointerstack)
       $1->pointerstack = damerge($1->pointerstack, $2->type->pointerstack);
     else
       $1->pointerstack = $2->type->pointerstack;
-    /*TODO: have this extract only pointers and arrays and not params, add params to scope*/ 
-    $$ = ct_function($2->varname, $3, dp->params, $1);
+    if(dp->params)
+      parammemb = dp->params;
+    else
+      parammemb = dactor(0);
+    $$ = ct_function($2->varname, $3, parammemb, $1);
     free($2);
     /*check that it is in fact a param spec*/
   }

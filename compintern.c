@@ -49,7 +49,6 @@ EXPRESSION* ct_sztype(IDTYPE* whichtype) {
 
 EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-
   retval->type = t;
   retval->param1 = param1;
   retval->param2 = param2;
@@ -285,7 +284,7 @@ FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, IDTYPE* retrn) {
 }
 
 SCOPE* mkscope(SCOPE* parent) {
-  SCOPE* child = malloc(sizeof(SCOPE));
+SCOPE* child = malloc(sizeof(SCOPE));
   child->members = htclone(parent->members);
   child->structs = htclone(parent->structs);
   child->enums = htclone(parent->enums);

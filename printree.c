@@ -18,10 +18,7 @@ char* name_MEMBERTYPE[] = {
 
 #define COLOR(r, g, b) "\e[ 38;2;" #r ";" #g ";" #b "m"
 #define HCOLOR(hex) COLOR((hex & 0xff0000) >> 16, (hex & 0xff00) >> 8,  hex & 0xff)
-struct color {
-  char r, g, b;
-};
-struct color rainbow[] = {{148, 0, 211}, {75, 0, 130}, {0, 0, 255}, {0, 255, 0}, {255, 255, 0}, {255, 127, 0}, {255, 0 , 0}};
+char* rainbow[] = {COLOR(148, 0, 211), COLOR(75, 0, 130), COLOR(0, 0, 255), COLOR(0, 255, 0), COLOR(255, 255, 0), COLOR(255, 127, 0), COLOR(255, 0 , 0)};
 char rainbowpos = 0;
 
 char* name_TYPEBITS(TYPEBITS tb) {
@@ -58,17 +55,27 @@ char* treetype(IDTYPE* type) {
       dscat(dstrdly, "POINTER TO ", 11);
   if(type->tb & ENUMVAL) {
     dscat(dstrdly, "ENUM ", 5);
-    dscat(dstrdly, type->enumtype->name, strlen(type->enumtype->name));
+    if(type->enumtype && type->enumtype->name)
+      dscat(dstrdly, type->enumtype->name, strlen(type->enumtype->name));
+    else
+      dscat(dstrdly, "ANONYMOUS ", 10);
   } else if(type->tb & STRUCTVAL) {
     dscat(dstrdly, "STRUCT ", 7);
-    dscat(dstrdly, type->structtype->name, strlen(type->structtype->name));
+    if(type->structtype && type->structtype->name)
+      dscat(dstrdly, type->structtype->name, strlen(type->structtype->name));
+    else
+      dscat(dstrdly, "ANONYMOUS ", 10);
   } else if(type->tb & UNIONVAL){ 
     dscat(dstrdly, "UNION ", 6);
-    dscat(dstrdly, type->uniontype->name, strlen(type->uniontype->name));
+    if(type->uniontype && type->uniontype->name)
+      dscat(dstrdly, type->uniontype->name, strlen(type->uniontype->name));
+    else
+      dscat(dstrdly, "ANONYMOUS ", 10);
   } else {
     char* istb = name_TYPEBITS(type->tb);
     dscat(dstrdly, istb, strlen(istb));
   }
+  dsccat(dstrdly, 0);
   char* rv = dstrdly->strptr;
   free(dstrdly);
   return rv;
@@ -78,9 +85,11 @@ char* treeid(IDENTIFIERINFO* id) {
   DYNSTR* dstrdly = strctor(malloc(2048), 0, 2048);
   char* typespec = treetype(id->type);
   dscat(dstrdly, typespec, strlen(typespec));
+  free(typespec);
   char* whitecolor = COLOR(30, 30, 30);
   dscat(dstrdly, whitecolor, strlen(whitecolor));
   dscat(dstrdly, id->name, strlen(id->name));
+  dsccat(dstrdly, 0);
   char* strptr = dstrdly->strptr;
   free(dstrdly);
   return strptr;
@@ -88,8 +97,7 @@ char* treeid(IDENTIFIERINFO* id) {
 
 char* treexpr(EXPRESSION* expr) {
   DYNSTR* dstrdly = strctor(malloc(2048), 0, 2048);
-  struct color ecolor = rainbow[rainbowpos = (rainbowpos + 1) % 7];
-  char* docolor = COLOR(ecolor->r, ecolor->g, ecolor->b);
+  char* docolor = rainbow[rainbowpos = (rainbowpos + 1) % 7];
   dscat(dstrdly, docolor, strlen(docolor));
   dsccat(dstrdly, '(');
   dscat(dstrdly, name_EXPRTYPE[expr->type], strlen(name_EXPRTYPE[expr->type]));
@@ -115,59 +123,64 @@ char* treexpr(EXPRESSION* expr) {
       dscat(dstrdly, buf, strlen(buf));
       break;
     case IDENT: ;
-      char* oofstr = treeid(expr->id);
-      dscat(dstrdly, oofstr, strlen(oofstr));
+      //char* oofstr = treeid(expr->id);
+      //dscat(dstrdly, oofstr, strlen(oofstr));
+      dscat(dstrdly, expr->ident, strlen(expr->ident));
+      //free(oofstr);
       break;
     case ARRAY_LIT:
-      //TODO: make this better
+      //TODO: perhaps we want more complicated array handling
       for(int i = 0; i < expr->dynvals->length; i++) {
-        long* longman = daget(expr->dynvals, i);
-        sprintf(buf, "%lu", *longman);
+        EXPRESSION* longman = daget(expr->dynvals, i);
+        sprintf(buf, "%lu,", longman->intconst);
         dscat(dstrdly, buf, strlen(buf));
       }
       break;
     case ADD: case SUB: case EQ: case NEQ: case GT: case LT: case GTE: case LTE:
-    case MULT: case DIVI: case MOD: case L_AND: case L_OR: case L_NOT: case B_AND:
+    case MULT: case DIVI: case MOD: case L_AND: case L_OR: case B_AND: case COMMA:
     case B_OR: case B_XOR: case SHL: case SHR: case DOTOP: case ARROW: case ASSIGN:
     case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
     case XORASSIGN: case ORASSIGN: case DIVASSIGN: case MULTASSIGN: case MODASSIGN:
-    case COMMA: ;
+      ;
       char* e1 = treexpr(expr->param1);
       char* e2 = treexpr(expr->param2);
       dscat(dstrdly, e1, strlen(e1));
       dscat(dstrdly, docolor, strlen(docolor));
       dsccat(dstrdly, '$');
       dscat(dstrdly, e2, strlen(e2));
-      dscat(dstrdly, docolor, strlen(docolor));
+      free(e1);
+      free(e2);
       break;
     case NEG: case PREINC: case POSTINC: case PREDEC: case POSTDEC: case ADDR: 
-    case DEREF: case SZOFEXPR: ;
+    case DEREF: case SZOFEXPR: case L_NOT: ;
       char* e = treexpr(expr->unaryparam);
       dscat(dstrdly, e, strlen(e));
-      dscat(dstrdly, docolor, strlen(docolor));
+      free(e);
       break;
     case SZOF: ;
       char* c = treetype(expr->typesz);
       dscat(dstrdly, c, strlen(c));
-      dscat(dstrdly, docolor, strlen(docolor));
+      free(c);
       break;
     case CAST: ;
       char* cte = treexpr(expr->castexpr);
       dscat(dstrdly, cte, strlen(cte));
       dscat(dstrdly, docolor, strlen(docolor));
-      dscat(dstrdly, " TO ", 5);
+      dscat(dstrdly, " TO ", 4);
+      free(cte);
       char* ctt = treetype(expr->typesz);
       dscat(dstrdly, ctt, strlen(ctt));
-      dscat(dstrdly, docolor, strlen(docolor));
+      free(ctt);
       break;
     case FCALL:
-      dscat(dstrdly, expr->ftocall->id->name, strlen(expr->ftocall->id->name));
-      dscat(dstrdly, " PARAMS ", 9);
+      dscat(dstrdly, expr->ftocall->ident, strlen(expr->ftocall->ident));
+      dscat(dstrdly, " PARAMS ", 8);
       for(int i = 0; i < expr->params->length; i++) {
         char* toapp = treexpr(daget(expr->params, i));
         dscat(dstrdly, toapp, strlen(toapp));
         dscat(dstrdly, docolor, strlen(docolor));
         dsccat(dstrdly, '$');
+        free(toapp);
       }
       dscat(dstrdly, docolor, strlen(docolor));
       break;
@@ -175,84 +188,178 @@ char* treexpr(EXPRESSION* expr) {
       char* tern = treexpr(expr->ifexpr);
       dscat(dstrdly, tern, strlen(tern));
       dscat(dstrdly, docolor, strlen(docolor));
-      dscat(dstrdly, " THEN ", 7);
+      free(tern);
+      dscat(dstrdly, " THEN ", 6);
       tern = treexpr(expr->thenexpr);
       dscat(dstrdly, tern, strlen(tern));
       dscat(dstrdly, docolor, strlen(docolor));
+      free(tern);
+      dscat(dstrdly, " ELSE ", 6);
       tern = treexpr(expr->elseexpr);
       dscat(dstrdly, tern, strlen(tern));
-      dscat(dstrdly, " ELSE ", 7);
-      dscat(dstrdly, docolor, strlen(docolor));
+      free(tern);
       break;
   }
+  dscat(dstrdly, docolor, strlen(docolor));
   dsccat(dstrdly, ')');
-
+  dsccat(dstrdly, 0);
+  char* strptr = dstrdly->strptr;
+  free(dstrdly);
+  return strptr;
 }
 
-//TODO: handle initializers
+char* pdecl(DECLARATION* decl) {
+  DYNSTR* dstrdly = strctor(malloc(2048), 0, 2048);
+  char* docolor = COLOR(0, 0, 0);
+  dscat(dstrdly, docolor, strlen(docolor));
+  char* tt = treetype(decl->type);
+  dscat(dstrdly, tt, strlen(tt));
+  free(tt);
+  dscat(dstrdly, docolor, strlen(docolor));
+  dscat(dstrdly, decl->varname, strlen(decl->varname));
+  dsccat(dstrdly, 0);
+  char* rv = dstrdly->strptr;
+  free(dstrdly);
+  return rv;
+}
+
+char* prinit(DYNARR* dinit) {
+  DYNSTR* dstrdly = strctor(malloc(2048), 0, 2048);
+  dsccat(dstrdly, '\n');
+  for(int i = 0; i < dinit->length; i++) {
+    INITIALIZER* init = daget(dinit, i);
+    char* docolor = COLOR(0, 0, 0);
+    dscat(dstrdly, docolor, strlen(docolor));
+    char* decl = pdecl(init->decl);
+    dscat(dstrdly, decl, strlen(decl));
+    free(decl);
+    dscat(dstrdly, docolor, strlen(docolor));
+    if(init->expr) {
+      dscat(dstrdly, docolor, strlen(docolor));
+      dscat(dstrdly, " ASSIGNS ", 9);
+      char* expr = treexpr(init->expr);
+      dscat(dstrdly, expr, strlen(expr));
+      free(expr);
+    }
+  }
+  dsccat(dstrdly, 0);
+  char* rv = dstrdly->strptr;
+  free(dstrdly);
+  return rv;
+}
 
 char* statemeant(STATEMENT* stmt) {
-  struct color ecolor = rainbow[rainbowpos = (rainbowpos + 1) % 7];
-  char* docolor = COLOR(ecolor->r, ecolor->g, ecolor->b);
+  char* docolor = rainbow[rainbowpos = (rainbowpos + 1) % 7];
   DYNSTR* dstrdly = strctor(malloc(2048), 0, 2048);
   dscat(dstrdly, docolor, strlen(docolor));
   dscat(dstrdly, name_STMTTYPE[stmt->type], strlen(name_STMTTYPE[stmt->type]));
   dsccat(dstrdly, ' ');
   switch(stmt->type) {
     case FORL:
-      dscat(dstrdly, "\n→ ", 3);
-      //compound statement
+      dscat(dstrdly, "=> ", 3);
+      char* eoistr;
+      if(stmt->init->isE)
+        eoistr = treexpr(stmt->init->E);
+      else
+        eoistr = prinit(stmt->init->I);
+      dscat(dstrdly, eoistr, strlen(eoistr));
+      dscat(dstrdly, docolor, strlen(docolor));
+      free(eoistr);
+      dscat(dstrdly, "\nCOND=> ", 8);
+      eoistr = treexpr(stmt->forcond);
+      dscat(dstrdly, eoistr, strlen(eoistr));
+      dscat(dstrdly, docolor, strlen(docolor));
+      free(eoistr);
+      dscat(dstrdly, "\nAFTER=> ", 9);
+      eoistr = treexpr(stmt->increment);
+      dscat(dstrdly, eoistr, strlen(eoistr));
+      dscat(dstrdly, docolor, strlen(docolor));
+      free(eoistr);
+      dscat(dstrdly, "\nOVER=> ", 8);
+      char* forbodystr = statemeant(stmt->forbody);
+      dscat(dstrdly, forbodystr, strlen(forbodystr));
+      free(forbodystr);
       break;
     case JGOTO: case LABEL:
       dscat(dstrdly, stmt->glabel, strlen(stmt->glabel));
       break;
     case IFS: case IFELSES:
-      //print if
+      dscat(dstrdly, "\nCOND=> ", 8);
+      char* ifcondstr = treexpr(stmt->ifcond);
+      dscat(dstrdly, ifcondstr, strlen(ifcondstr));
       dscat(dstrdly, docolor, strlen(docolor));
-      dscat(dstrdly, "\nTHEN\n", 6);
-      //print then
+      free(ifcondstr);
+      dscat(dstrdly, "\nTHEN ", 6);
+      char* ifbodystr = statemeant(stmt->thencond);
+      dscat(dstrdly, ifbodystr, strlen(ifbodystr));
       dscat(dstrdly, docolor, strlen(docolor));
-      dscat(dstrdly, "\nELSE\n", 6);
-      //if else is not NULL, print else
+      free(ifbodystr);
+      if(stmt->elsecond) {
+        dscat(dstrdly, "\nELSE ", 6);
+        ifbodystr = statemeant(stmt->elsecond);
+        dscat(dstrdly, ifbodystr, strlen(ifbodystr));
+        free(ifbodystr);
+      }
       break;
     case WHILEL: case DOWHILEL: case SWITCH:
-      //print condition
+      dscat(dstrdly, "\nCOND=> ", 8);
+      char* condstr = treexpr(stmt->cond);
+      dscat(dstrdly, condstr, strlen(condstr));
       dscat(dstrdly, docolor, strlen(docolor));
-      dscat(dstrdly, "\nBODY\n", 6);
-      //print body
+      free(condstr);
+      dscat(dstrdly, "\nOVER=> ", 8);
+      char* bodystr = statemeant(stmt->body);
+      dscat(dstrdly, bodystr, strlen(bodystr));
+      free(bodystr);
       break;
     case LBREAK: case LCONT: case DEFAULT:
       break;
     case FRET: case EXPR: case CASE:
       dscat(dstrdly, "ON ", 3);
       char* expor = treexpr(stmt->expression);
+      dscat(dstrdly, expor, strlen(expor));
+      free(expor);
       break;
     case CMPND:
+      dsccat(dstrdly, '{');
       for(int i = 0; i < stmt->stmtsandinits->length; i++) {
-        dscat(dstrdly, "\n\0xCC ", 3);
+        dscat(dstrdly, "\n=> ", 4);
         SOI* soi = daget(stmt->stmtsandinits, i);
         char* lineptr;
         if(soi->isstmt) {
           lineptr = statemeant(soi->state);
         } else {
-          //handle initializer
+          lineptr = prinit(soi->init);
         }
         dscat(dstrdly, lineptr, strlen(lineptr));
+        free(lineptr);
         dscat(dstrdly, docolor, strlen(docolor));
       }
+      dsccat(dstrdly, '}');
       break;
     case NOPSTMT:
       break;
   }
+  dsccat(dstrdly, 0);
   char* rv = dstrdly->strptr;
   free(dstrdly);
   return rv;
 }
 
 void treefunc(FUNC* func) {
-  printf("%s %s (", treetype(func->retrn), func->name);
+  printf("%s %s (\n", treetype(func->retrn), func->name);
   for(int i = 0; i < func->params->length; i++) {
+    char* strecl = pdecl(daget(func->params, i));
+    puts(strecl);
+    free(strecl);
+    printf("$F$");
   }
+  puts("\nPARAMS OVER");
+  puts("{");
+  char* internbody = statemeant(func->body);
+  puts(internbody);
+  free(internbody);
+  puts("}");
   puts("FUNCEND");
   puts("------------------------------------------------------------------------------");
 }
