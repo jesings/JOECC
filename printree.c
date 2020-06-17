@@ -16,10 +16,14 @@ char* name_MEMBERTYPE[] = {
 };
 #undef X
 
-#define COLOR(r, g, b) "\e[ 38;2;" #r ";" #g ";" #b "m"
+#define COLOR(r, g, b) "\033[38;2;" #r ";" #g ";" #b "m"
 #define HCOLOR(hex) COLOR((hex & 0xff0000) >> 16, (hex & 0xff00) >> 8,  hex & 0xff)
-char* rainbow[] = {COLOR(148, 0, 211), COLOR(75, 0, 130), COLOR(0, 0, 255), COLOR(0, 255, 0), COLOR(255, 255, 0), COLOR(255, 127, 0), COLOR(255, 0 , 0)};
+char* rainbow[] = {COLOR(148, 0, 211), COLOR(180, 0, 180), COLOR(0, 0, 255), COLOR(0, 255, 0), COLOR(255, 255, 0), COLOR(255, 127, 0), COLOR(255, 0 , 0)};
 char rainbowpos = 0;
+
+char* structree(STRUCT* container) {
+  //DYNSTR* dstrdly = 
+}
 
 char* name_TYPEBITS(TYPEBITS tb) {
   char* vals = malloc(1024);
@@ -210,7 +214,7 @@ char* treexpr(EXPRESSION* expr) {
 
 char* pdecl(DECLARATION* decl) {
   DYNSTR* dstrdly = strctor(malloc(2048), 0, 2048);
-  char* docolor = COLOR(0, 0, 0);
+  char* docolor = COLOR(255, 255, 255);
   dscat(dstrdly, docolor, strlen(docolor));
   char* tt = treetype(decl->type);
   dscat(dstrdly, tt, strlen(tt));
@@ -228,7 +232,7 @@ char* prinit(DYNARR* dinit) {
   dsccat(dstrdly, '\n');
   for(int i = 0; i < dinit->length; i++) {
     INITIALIZER* init = daget(dinit, i);
-    char* docolor = COLOR(0, 0, 0);
+    char* docolor = COLOR(255, 255, 255);
     dscat(dstrdly, docolor, strlen(docolor));
     char* decl = pdecl(init->decl);
     dscat(dstrdly, decl, strlen(decl));
@@ -347,18 +351,21 @@ char* statemeant(STATEMENT* stmt) {
 }
 
 void treefunc(FUNC* func) {
-  printf("%s %s (\n", treetype(func->retrn), func->name);
+  char* docolor = COLOR(100, 255, 100);
+  printf("%s%s %s (\n", docolor, treetype(func->retrn), func->name);
   for(int i = 0; i < func->params->length; i++) {
     char* strecl = pdecl(daget(func->params, i));
     puts(strecl);
     free(strecl);
     printf("$F$");
   }
+  printf("%s", docolor);
   puts("\nPARAMS OVER");
   puts("{");
   char* internbody = statemeant(func->body);
   puts(internbody);
   free(internbody);
+  printf("%s", docolor);
   puts("}");
   puts("FUNCEND");
   puts("------------------------------------------------------------------------------");
