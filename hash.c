@@ -2,11 +2,11 @@
 #include <string.h>
 #include "hash.h"
 
-unsigned long hash(unsigned char* str) {	/*courtesy of http://www.cse.yorku.ca/~oz/hash.html */
+unsigned long hash(unsigned char* str) {    /*courtesy of http://www.cse.yorku.ca/~oz/hash.html */
   unsigned long hash = 5381;
   int c;
   while(c = *str++)
-    hash = ((hash << 5) + hash) ^ c;	/* hash* 33 + c */
+    hash = ((hash << 5) + hash) ^ c;    /* hash* 33 + c */
   return hash % HASHSIZE;
 }
 
@@ -24,10 +24,10 @@ HASHTABLE* htclone(HASHTABLE* ht) {
     parpar->key = strdup(curpair->key);
     if(curpair->next) {
       for(curpair = curpair->next; curpair->next; curpair = curpair->next) {
-	clonepair = malloc(sizeof(HASHPAIR));
-	clonepair->value = curpair->value;
-	clonepair->key = strdup(curpair->key);
-	parpar = parpar->next = clonepair;
+    clonepair = malloc(sizeof(HASHPAIR));
+    clonepair->value = curpair->value;
+    clonepair->key = strdup(curpair->key);
+    parpar = parpar->next = clonepair;
       }
     }
     parpar->next = NULL;
@@ -81,9 +81,8 @@ void insert(HASHTABLE* ht, char* key, void* value) {
   } else {
     for(; hp->next; hp = hp->next) {
       if(!strcmp(hp->key, key)) {
-	//free(hp->value);
-	hp->value = value;
-	return;
+        hp->value = value;
+        return;
       }
     }
     if(!strcmp(hp->key, key)) {
@@ -107,9 +106,9 @@ void insertfr(HASHTABLE* ht, char* key, void* value) {
   } else {
     for(; hp->next; hp = hp->next) {
       if(!strcmp(hp->key, key)) {
-	free(hp->value);
-	hp->value = value;
-	return;
+        free(hp->value);
+        hp->value = value;
+        return;
       }
     }
     if(!strcmp(hp->key, key)) {
@@ -132,13 +131,13 @@ void rmpair(HASHTABLE* ht, char* key) {
   for(; hp; hp = hp->next) {
     if(!strcmp(hp->key, key)) {
       if(hp->next) {
-	HASHPAIR* temp = hp->next;
-	free(hp->key);
-	memcpy(hp, hp->next, sizeof(HASHPAIR));
-	free(temp);
+    HASHPAIR* temp = hp->next;
+    free(hp->key);
+    memcpy(hp, hp->next, sizeof(HASHPAIR));
+    free(temp);
       } else {
-	free(hp->key);
-	hp->key = NULL;
+    free(hp->key);
+    hp->key = NULL;
       }
       return;
     }
@@ -153,15 +152,15 @@ void rmpairfr(HASHTABLE* ht, char* key) {
   for(; hp; hp = hp->next) {
     if(!strcmp(hp->key, key)) {
       if(hp->next) {
-	HASHPAIR* temp = hp->next;
-	free(hp->key);
-	free(hp->value);
-	memcpy(hp, hp->next, sizeof(HASHPAIR));
-	free(temp);
+    HASHPAIR* temp = hp->next;
+    free(hp->key);
+    free(hp->value);
+    memcpy(hp, hp->next, sizeof(HASHPAIR));
+    free(temp);
       } else {
-	free(hp->key);
-	hp->key = NULL;
-	free(hp->value);
+    free(hp->key);
+    hp->key = NULL;
+    free(hp->value);
       }
       return;
     }

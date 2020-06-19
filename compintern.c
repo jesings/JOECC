@@ -29,7 +29,7 @@ EXPRESSION* cloneexpr(EXPRESSION* orig) {
 
 EXPRESSION* ct_nop_expr() {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = NOPSTMT;
+  retval->type = NOP;
   return retval;
 }
 

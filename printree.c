@@ -129,7 +129,7 @@ char* treexpr(EXPRESSION* expr) {
   char buf[128];
   switch(expr->type) {
     case NOP:
-      dscat(dstrdly, "NOTHING", 8);
+      dscat(dstrdly, "NOTHING", 7);
       break;
     case STRING:
       dscat(dstrdly, expr->strconst, strlen(expr->strconst)); //don't care abt performance
@@ -338,7 +338,10 @@ char* statemeant(STATEMENT* stmt) {
       break;
     case LBREAK: case LCONT: case DEFAULT:
       break;
-    case FRET: case EXPR: case CASE:
+    case FRET: 
+      if(!stmt->expression)
+        break;
+    case EXPR: case CASE:
       dscat(dstrdly, "ON ", 3);
       char* expor = treexpr(stmt->expression);
       dscat(dstrdly, expor, strlen(expor));

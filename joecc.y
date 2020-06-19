@@ -180,11 +180,11 @@ param_decl:
   type/*bs*/ declarator {
     $$ = $2; 
     if($1->pointerstack) 
-      $1->pointerstack = damerge($1->pointerstack, $2->type->pointerstack); 
+      $1->pointerstack = damerge($1->pointerstack, $$->type->pointerstack); 
     else 
-      $1->pointerstack = $2->type->pointerstack;
-    free($2->type); 
-    $2->type = $1;
+      $1->pointerstack = $$->type->pointerstack;
+    free($$->type); 
+    $$->type = $1;
     };
 typemsign:
   "signed" {$$ = 0;}
@@ -390,7 +390,7 @@ statement:
 | ';' {$$ = mkexprstmt(NOPSTMT, NULL);};
 ee: 
   expression {$$ = $1;}
-| %empty {$$ = NULL;};
+| %empty {$$ = ct_nop_expr();};
 dee:
   initializer {$$ = malloc(sizeof(EOI)); $$->isE = 0; $$->I = $1;}
 | ee ';' {$$ = malloc(sizeof(EOI)); $$->isE = 1; $$->E = $1;};
@@ -424,6 +424,8 @@ struct_decl:
         DYNARR* nptr = daclone($1->pointerstack);
         dget($$, i)->type->pointerstack = damerge(nptr, dget($$, 0)->type->pointerstack);
       }
+      if($1->tb & (ENUMVAL | STRUCTVAL | UNIONVAL))
+         dget($$, 0)->type->structtype = $1->structtype;
     }
     };
 cs_decls:
