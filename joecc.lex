@@ -492,7 +492,6 @@ DYNSTR* strcur;
 {IDENT} {
   char* ylstr = strdup(yytext);
   void* v;
-  //TODO: Switch buffer to string if define const
   int mt = check_type(&v, ylstr);
   switch(mt) {
     case TYPE_NAME:
@@ -681,15 +680,17 @@ int check_type(void** garbage, char* symb) {
     return -1;
   }
   nofcall: ;
-  SCOPEMEMBER* symtab_ent = search(scopepeek(ctx)->members,symb);
+  SCOPEMEMBER* defntype = search(scopepeek(ctx)->typesdef, symb);
+  if(defntype) {
+    *garbage = defntype->typememb;
+    return TYPE_NAME;
+  }
+  SCOPEMEMBER* symtab_ent = search(scopepeek(ctx)->members, symb);
   if(!symtab_ent) {
     *garbage = symb;
     return IDENTIFIER;
   }
   switch(symtab_ent->mtype) {
-    case M_TYPEDEF:
-      *garbage = symtab_ent->typememb;
-      return TYPE_NAME;
     case M_ENUM_CONST:
       *garbage = (void*) symtab_ent->enumnum;
       return ENUM_CONST;

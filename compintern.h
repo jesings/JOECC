@@ -74,8 +74,8 @@ typedef struct {
   char* name;
 } UNION;
 typedef struct {
-  char* name;
   DYNARR* fields;
+  char* name;
 } ENUM;
 
 typedef struct {
@@ -258,6 +258,7 @@ typedef struct {
   //one for struct enum and union
   //one for typedef
   //one for labels
+  HASHTABLE* typesdef;//SCOPEMEMBER argument
   HASHTABLE* members;//SCOPEMEMBER argument
   HASHTABLE* structs;
   HASHTABLE* enums;

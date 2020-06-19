@@ -131,6 +131,8 @@ initializer:
     free(dget($3, i)->type);
     free(dget($3, i));
   }
+  free($2->pointerstack);
+  free($2);
   $$ = dactor(0);
   }
 | type/*bs*/ cs_inits ';' {
@@ -142,8 +144,13 @@ initializer:
       DYNARR* nptrst = daclone($1->pointerstack);
       aget($$, i)->decl->type->pointerstack = damerge(nptrst, aget($$, i)->decl->type->pointerstack);
     }
+    if($1->tb & (STRUCTVAL | ENUMVAL | UNIONVAL)) {
+      aget($$, i)->decl->type->structtype = $1->structtype;
+    }
     add2scope(current, aget($$, i)->decl->varname, M_VARIABLE, aget($$, i)->decl->type);
   }
+  free($1->pointerstack);
+  free($1);
 }
 | "struct" IDENTIFIER ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_STRUCT, NULL);}
 | "enum" IDENTIFIER ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_ENUM, NULL);}
@@ -210,16 +217,12 @@ types2:
   "extern" {$$ = EXTERNNUM;}
 | "static" {$$ = STATICNUM;};
 typews1:
-  TYPE_NAME {$$ = malloc(sizeof(IDTYPE)); memcpy($$, $1, sizeof(IDTYPE));/*TODO: extract, and duplicate*/ }
+  TYPE_NAME {$$ = malloc(sizeof(IDTYPE)); memcpy($$, $1, sizeof(IDTYPE));}
 | typem {$$ = $1;}
 | types1 typem {$$ = $2; $$->tb |= $1;}
 | types1 TYPE_NAME {$$ = malloc(sizeof(IDTYPE)); memcpy($$, $2, sizeof(IDTYPE)); $$->tb |= $1;/*TODO: extract, and duplicate*/ }
 | types2 typem {$$ = $2; $$->tb |= $1;}
 | types2 TYPE_NAME {$$ = malloc(sizeof(IDTYPE)); memcpy($$, $2, sizeof(IDTYPE)); $$->tb |= $1;/*TODO: extract, and duplicate*/ };
-/* typebs: */
-/*   typem {$$ = $1;} */
-/* | types1 typebs {$$ = $2; $$->tb |= $1;} */
-/* | types2 typebs {$$ = $2; $$->tb |= $1;}; */
 type:
   typews1 {$$ = $1;};
 types1o:
@@ -416,11 +419,12 @@ struct_decl:
   type cs_decls ';' {
     $$ = $2; 
     for(int i = 0; i < $2->length; i++) {
-      TYPEBITS tb = $1->tb;
       dget($$, i)->type->tb |= $1->tb; 
+      if($1->pointerstack) {
+        DYNARR* nptr = daclone($1->pointerstack);
+        dget($$, i)->type->pointerstack = damerge(nptr, dget($$, 0)->type->pointerstack);
+      }
     }
-    if($1->pointerstack && $1->pointerstack->length) 
-      dget($$, 0)->type->pointerstack = damerge($1->pointerstack, dget($$, 0)->type->pointerstack);
     };
 cs_decls:
   cs_decls ',' sdecl {$$ = $1; dapush($$, $3);}

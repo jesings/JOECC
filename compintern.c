@@ -284,11 +284,12 @@ FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, IDTYPE* retrn) {
 }
 
 SCOPE* mkscope(SCOPE* parent) {
-SCOPE* child = malloc(sizeof(SCOPE));
+  SCOPE* child = malloc(sizeof(SCOPE));
   child->members = htclone(parent->members);
   child->structs = htclone(parent->structs);
   child->enums = htclone(parent->enums);
-  child->unions= htclone(parent->unions);
+  child->unions = htclone(parent->unions);
+  child->typesdef = htclone(parent->typesdef);
   return child;
 }
 
@@ -320,8 +321,12 @@ void add2scope(SCOPE* scope, char* memname, enum membertype mtype, void* memberv
       insert(scope->unions, memname, sm);
       break;
     case M_ENUM:
-      sm->enummemb= memberval;
+      sm->enummemb = memberval;
       insert(scope->enums, memname, sm);
+      break;
+    case M_TYPEDEF:
+      sm->typememb = memberval;
+      insert(scope->typesdef, memname, sm);
       break;
     case M_VARIABLE:
       sm->vartype = memberval;
@@ -332,12 +337,6 @@ void add2scope(SCOPE* scope, char* memname, enum membertype mtype, void* memberv
       sm->garbage = memberval;
       insert(scope->members, memname, sm);
       break;
-  }
-  if(mtype != M_VARIABLE) {
-    sm->garbage = memberval;
-  } else {
-    sm->vartype = memberval;
-    sm->varcount = numvars++;
   }
 }
 

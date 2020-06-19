@@ -30,10 +30,13 @@ char* structree(STRUCT* container) {
     DECLARATION* field = daget(container->fields, i);
     char* fieldstr = pdecl(field);
     dscat(dstrdly, fieldstr, strlen(fieldstr));
-    dscat(dstrdly, "$F$", 3);
+    dscat(dstrdly, " $F$ ", 5);
   }
   dscat(dstrdly, "$FIELDSOVER$", 12);
   dsccat(dstrdly, 0);
+  char* rv = dstrdly->strptr;
+  free(dstrdly);
+  return rv;
 }
 
 char* name_TYPEBITS(TYPEBITS tb) {
@@ -80,14 +83,18 @@ char* treetype(IDTYPE* type) {
       dscat(dstrdly, type->structtype->name, strlen(type->structtype->name));
     else {
       dscat(dstrdly, "ANONYMOUS ", 10);
-      structree(type->structtype);
+      char* isc = structree(type->structtype);
+      dscat(dstrdly, isc, strlen(isc));
     }
   } else if(type->tb & UNIONVAL){ 
     dscat(dstrdly, "UNION ", 6);
     if(type->uniontype && type->uniontype->name)
       dscat(dstrdly, type->uniontype->name, strlen(type->uniontype->name));
-    else
+    else {
       dscat(dstrdly, "ANONYMOUS ", 10);
+      char* isc = structree(type->structtype);
+      dscat(dstrdly, isc, strlen(isc));
+    }
   } else {
     char* istb = name_TYPEBITS(type->tb);
     dscat(dstrdly, istb, strlen(istb));

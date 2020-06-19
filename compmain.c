@@ -20,6 +20,7 @@ int main(int argc, char** argv) {
   rootscope->unions = htctor();
   rootscope->structs = htctor();
   rootscope->enums = htctor();
+  rootscope->typesdef = htctor();
   dapush(ctx->scopes, rootscope);
   ctx->symtab = htctor();
   locs = dactor(128);
