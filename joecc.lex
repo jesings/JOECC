@@ -29,7 +29,6 @@ extern struct lexctx* ctx;
 int check_type(void** garbage, char* symb);
 char stmtover, skipping;
 char* defname, * strconst;
-int strconstlen = 2048, strconstindex;
 int paren_depth;
 char charconst;
 struct macrodef* md;
@@ -39,12 +38,8 @@ HASHTABLE* defargs = NULL;
 DYNSTR* dstrdly;
 extern DYNARR* locs;
 extern DYNARR* file2compile;
-void nc(char c) {
-  if(strconstindex + 1 >= strconstlen) {
-    strconst = realloc(strconst, strconstlen *= 1.5);
-  }
-  strconst[strconstindex++] = c;
-}
+DYNSTR* strcur;
+
 #define GOC(c) yylval.ii.num = c, yy_pop_state(); return INTEGER_LITERAL
 %}
 %option yylineno
@@ -575,55 +570,51 @@ void nc(char c) {
   }
 }
 
-\" {/*"*/yy_push_state(STRINGLIT); strconst = malloc(2048); strconstindex = 0; strconstlen = 2048;}
+\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
 <STRINGLIT>{
   \" {/*"*/
-  	yylval.str = strconst; 
-  	strconst[strconstindex < strconstlen ? strconstindex: strconstlen - 1] = 0; 
+    dsccat(strcur, 0);
+  	yylval.dstr = strcur; 
   	yy_pop_state(); 
   	return STRING_LITERAL;
   	}
   [\n\v] {
+    strdtor(strcur);
     free(strconst); 
     fputs("ERROR: String terminated with newline unexpectedly", stderr);
     yy_pop_state();
     }
-  \\a {nc('\a');}
-  \\b {nc('\b');}
-  \\e {nc('\e');}
-  \\f {nc('\f');}
-  \\n {nc('\n');}
-  \\r {nc('\r');}
-  \\t {nc('\t');}
-  \\v {nc('\v');}
-  \\\' {nc('\'');}
-  \\\" {nc('\"');/*"*/}
-  \\\\ {nc('\\');}
-  \\\? {nc('\?');}
+  \\a {dsccat(strcur, '\a');}
+  \\b {dsccat(strcur, '\b');}
+  \\e {dsccat(strcur, '\e');}
+  \\f {dsccat(strcur, '\f');}
+  \\n {dsccat(strcur, '\n');}
+  \\r {dsccat(strcur, '\r');}
+  \\t {dsccat(strcur, '\t');}
+  \\v {dsccat(strcur, '\v');}
+  \\\' {dsccat(strcur, '\'');}
+  \\\" {dsccat(strcur, '\"');/*"*/}
+  \\\\ {dsccat(strcur, '\\');}
+  \\\? {dsccat(strcur, '\?');}
   \\[0-7]{1,3} {
     int result;
     sscanf(yytext + 1, "%o", &result);
     if(result >= 1 << 8) {
       fprintf(stderr, "Warning: octal character %s in string literal out of bounds\n", yytext);
     }
-    nc((char) result);
+    dsccat(strcur, result);
     }
   \\0x[[:xdigit:]]{1,2} {
     int result;
     sscanf(yytext + 3, "%x", &result);
-    nc((char) result);
+    dsccat(strcur, result);
     }
   \\. {
     fprintf(stderr, "Warning: Unknown escape sequence %s in string literal\n", yytext);
-    nc(yytext[1]);
+    dsccat(strcur, yytext[1]);
   }
   [^\\\"\v]+ {/*"*/
-    int previndex = strconstindex;
-    strconstindex += yyleng;
-    while(strconstindex >= strconstlen) {
-      strconst = realloc(strconst, strconstlen *= 1.5);
-    }
-    strcpy(strconst + previndex, yytext);
+    dscat(strcur, yytext, yyleng);
   }
 }
 

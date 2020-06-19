@@ -2,17 +2,16 @@
 #include <string.h>
 #include "dynarr.h"
 
-DYNARR* dactor(int initiallen){
+DYNARR* dactor(int initiallen) {
   DYNARR* retval = malloc(sizeof(DYNARR));
   retval->length = 0;
   retval->maxlength = initiallen;
   if(initiallen)
-    retval->arr = malloc(sizeof(void*)*initiallen);
+    retval->arr = malloc(sizeof(void*) * initiallen);
   return retval;
 }
 
-DYNARR* damerge(DYNARR* arr1, DYNARR* arr2){
-  DYNARR* retval = malloc(sizeof(DYNARR));
+DYNARR* damerge(DYNARR* arr1, DYNARR* arr2) {
   if(!arr1->length) {
     free(arr1);
     return arr2;
@@ -20,6 +19,7 @@ DYNARR* damerge(DYNARR* arr1, DYNARR* arr2){
     free(arr2);
     return arr1;
   }
+  DYNARR* retval = malloc(sizeof(DYNARR));
   retval->maxlength = arr1->maxlength + arr2->maxlength;
   retval->arr = realloc(arr1->arr, retval->maxlength * sizeof(void*));
   retval->length = arr1->length + arr2->length;
@@ -30,25 +30,34 @@ DYNARR* damerge(DYNARR* arr1, DYNARR* arr2){
   return retval;
 }
 
-void dadtor(DYNARR* da){
+DYNARR* daclone(DYNARR* orig) {
+  DYNARR* retval = malloc(sizeof(DYNARR));
+  retval->length = orig->length;
+  retval->maxlength = orig->maxlength;
+  retval->arr = malloc(sizeof(void*) * orig->maxlength);
+  memcpy(retval->arr, orig->arr, orig->length * sizeof(void*));
+  return retval;
+}
+
+void dadtor(DYNARR* da) {
   //for(int i = 0; i<da->length; i++)
   //  free((da->arr)[i]);
   free(da->arr);
   free(da);
 }
-void dadtorfr(DYNARR* da){
+void dadtorfr(DYNARR* da) {
   for(int i = 0; i<da->length; i++)
     free((da->arr)[i]);
   free(da->arr);
   free(da);
 }
 
-void dainsert(DYNARR* da, void* val){
+void dainsert(DYNARR* da, void* val) {
   if(da->length == da->maxlength)
     da->arr = reallocarray(da->arr, da->maxlength *= 1.5, sizeof(void*));
   da->arr[(da->length)++] = val;
 }
 
-void* dapop(DYNARR* da){
+void* dapop(DYNARR* da) {
   return da->arr[--(da->length)];
 }

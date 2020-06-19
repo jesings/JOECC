@@ -21,8 +21,19 @@ char* name_MEMBERTYPE[] = {
 char* rainbow[] = {COLOR(148, 0, 211), COLOR(180, 0, 180), COLOR(0, 0, 255), COLOR(0, 255, 0), COLOR(255, 255, 0), COLOR(255, 127, 0), COLOR(255, 0 , 0)};
 char rainbowpos = 0;
 
+char* pdecl(DECLARATION* decl);
+
 char* structree(STRUCT* container) {
-  //DYNSTR* dstrdly = 
+  DYNSTR* dstrdly = strctor(malloc(1024), 0, 1024);
+  dscat(dstrdly, "FIELDS: ", 8);
+  for(int i = 0; i < container->fields->length; i++) {
+    DECLARATION* field = daget(container->fields, i);
+    char* fieldstr = pdecl(field);
+    dscat(dstrdly, fieldstr, strlen(fieldstr));
+    dscat(dstrdly, "$F$", 3);
+  }
+  dscat(dstrdly, "$FIELDSOVER$", 12);
+  dsccat(dstrdly, 0);
 }
 
 char* name_TYPEBITS(TYPEBITS tb) {
@@ -67,8 +78,10 @@ char* treetype(IDTYPE* type) {
     dscat(dstrdly, "STRUCT ", 7);
     if(type->structtype && type->structtype->name)
       dscat(dstrdly, type->structtype->name, strlen(type->structtype->name));
-    else
+    else {
       dscat(dstrdly, "ANONYMOUS ", 10);
+      structree(type->structtype);
+    }
   } else if(type->tb & UNIONVAL){ 
     dscat(dstrdly, "UNION ", 6);
     if(type->uniontype && type->uniontype->name)

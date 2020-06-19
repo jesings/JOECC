@@ -83,7 +83,7 @@ EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params) {
 EXPRESSION* ct_strconst_expr(char* str) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = STRING;
-  retval->strconst = strdup(str);//may or may not need to duplicate
+  retval->strconst = str;
   return retval;
 }
 

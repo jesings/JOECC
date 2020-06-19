@@ -20,7 +20,8 @@
 
 %token<ii> INTEGER_LITERAL;
 %token<dbl> FLOAT_LITERAL;
-%token<str> IDENTIFIER STRING_LITERAL;
+%token<str> IDENTIFIER 
+%token<dstr> STRING_LITERAL;
 %token<idvariant> TYPE_NAME;
 %token<exprvariant> ENUM_CONST;
 
@@ -45,6 +46,7 @@
   struct intinfo ii;
   int integert;
   char* str;
+  DYNSTR* dstr;
   double dbl;
   TYPEBITS typevariant;
   EXPRESSION* exprvariant;
@@ -60,6 +62,7 @@
   FUNC* funcvariant;
 }
 
+%type<dstr> multistring
 %type<integert> typemsign
 %type<typevariant> types1 types2 types1o
 %type<idvariant> typem typews1 /*typebs*/ type typemintkw inttypem
@@ -118,9 +121,13 @@ initializer:
   SCOPE* current = scopepeek(ctx);
   for(int i = 0; i < $3->length; i++) {
     dget($3, i)->type->tb |= $2->tb; 
-    if($2->pointerstack) 
-      $2->pointerstack = damerge($2->pointerstack, dget($3, i)->type->pointerstack);
-    add2scope(current, dget($3, i)->varname, M_TYPEDEF, $2);
+    IDTYPE* idt = malloc(sizeof(IDTYPE));
+    memcpy(idt, $2, sizeof(IDTYPE));
+    if(idt->pointerstack) {
+      idt->pointerstack = daclone($2->pointerstack);
+      idt->pointerstack = damerge(idt->pointerstack, dget($3, i)->type->pointerstack);
+    }
+    add2scope(current, dget($3, i)->varname, M_TYPEDEF, idt);
     free(dget($3, i)->type);
     free(dget($3, i));
   }
@@ -131,8 +138,10 @@ initializer:
   $$ = $2;
   for(int i = 0; i < $$->length; i++) {
     aget($$, i)->decl->type->tb |= $1->tb; 
-    if($1->pointerstack) 
-      aget($$, i)->decl->type->pointerstack = damerge($1->pointerstack, aget($$, i)->decl->type->pointerstack);
+    if($1->pointerstack) {
+      DYNARR* nptrst = daclone($1->pointerstack);
+      aget($$, i)->decl->type->pointerstack = damerge(nptrst, aget($$, i)->decl->type->pointerstack);
+    }
     add2scope(current, aget($$, i)->decl->varname, M_VARIABLE, aget($$, i)->decl->type);
   }
 }
@@ -311,7 +320,7 @@ esp:
 | esu {$$ = $1;};
 esu:
   '(' expression ')' {$$ = $2;}
-| STRING_LITERAL {$$ = ct_strconst_expr($1);}
+| multistring {$$ = ct_strconst_expr($1->strptr); free($1);}
 | INTEGER_LITERAL {$$ = $1.sign ? ct_intconst_expr($1.num) : ct_uintconst_expr($1.num);}
 | ENUM_CONST {$$ = $1;}
 | FLOAT_LITERAL {$$ = ct_floatconst_expr($1);}
@@ -330,6 +339,10 @@ escl:
 
 array_literal:
   '{' expression '}' {$$ = e2dynarr($2);};
+
+multistring:
+  STRING_LITERAL {$$ = $1;}
+| STRING_LITERAL STRING_LITERAL {$$ = $1; dscat($1, $2->strptr, $2->lenstr); free($2->strptr); free($2);}
 
 function:
   type/*bs*/ declarator compound_statement {
@@ -402,8 +415,10 @@ struct_decls:
 struct_decl:
   type cs_decls ';' {
     $$ = $2; 
-    for(int i = 0; i < $2->length; i++) 
-      dget($2, i)->type->tb |= $1->tb; 
+    for(int i = 0; i < $2->length; i++) {
+      TYPEBITS tb = $1->tb;
+      dget($$, i)->type->tb |= $1->tb; 
+    }
     if($1->pointerstack && $1->pointerstack->length) 
       dget($$, 0)->type->pointerstack = damerge($1->pointerstack, dget($$, 0)->type->pointerstack);
     };
