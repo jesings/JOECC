@@ -35,7 +35,7 @@ struct macrodef* md;
 char argeaten;
 DYNARR* parg;
 HASHTABLE* defargs = NULL;
-DYNSTR* dstrdly;
+DYNSTR* dstrdly,* mdstrdly;
 extern DYNARR* locs;
 extern DYNARR* file2compile;
 DYNSTR* strcur;
@@ -60,7 +60,7 @@ DYNSTR* strcur;
 
 %%
 <KILLBLANK>{
-  ([[:blank:]]+|\\[[:blank:]]+\n)* {yy_pop_state();}
+  ([[:blank:]]+|\\[[:blank:]]*\n)+ {yy_pop_state();}
 }
 
 <INITIAL,PREPROCESSOR,INCLUDE,DEFINE,UNDEF,DEFARG,DEFINE2,IFDEF,IFNDEF,CALLMACRO,PPSKIP,KILLBLANK>{
@@ -175,8 +175,8 @@ DYNSTR* strcur;
 }
 
 <DEFINE>{
-  {IDENT} {yy_pop_state(); yy_push_state(DEFINE2); defname = strdup(yytext);}
-  {IDENT}/[[:blank:]] {yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLBLANK); defname = strdup(yytext);}
+  {IDENT} {yy_pop_state(); yy_push_state(DEFINE2); mdstrdly = strctor(malloc(2048), 0, 2048); defname = strdup(yytext);}
+  {IDENT}/[[:blank:]] {yy_pop_state(); yy_push_state(DEFINE2); mdstrdly = strctor(malloc(2048), 0, 2048); yy_push_state(KILLBLANK); defname = strdup(yytext);}
   {IDENT}\( {yy_pop_state(); yy_push_state(DEFARG); yytext[yyleng - 1] = '\0'; defname = strdup(yytext); md->args = dactor(8); argeaten = 0;}
   {IDENT}\(/[[:blank:]] {yy_pop_state(); yy_push_state(DEFARG); yy_push_state(KILLBLANK); yytext[yyleng - 1] = '\0'; defname = strdup(yytext); md->args = dactor(8); argeaten = 0;}
   \n {yy_pop_state(); yy_pop_state();/*error state*/}
@@ -188,18 +188,17 @@ DYNSTR* strcur;
   {IDENT}/[[:blank:]] {if(argeaten) fprintf(stderr, "Error: unexpected macro argument\n"); argeaten = 1;/*new arg encountered*/ yy_push_state(KILLBLANK); dapush(md->args, strdup(yytext));/*probably should confirm no 2 args have the same name*/}
   \, {if(argeaten) argeaten = 0; else fprintf(stderr, "Error: unexpected macro argument\n");}
   \,/[[:blank:]] {if(argeaten) argeaten = 0; else fprintf(stderr, "Error: unexpected macro argument\n"); yy_push_state(KILLBLANK);}
-  \) {if(!argeaten && md->args->length != 0) fprintf(stderr, "Error: unexpected macro argument\n"); /*last arg encountered*/yy_pop_state(); yy_push_state(DEFINE2);}
-  \)/[[:blank:]] {if(!argeaten && md->args->length != 0) fprintf(stderr, "Error: unexpected macro argument\n"); /*last arg encountered*/yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLBLANK);}
+  \) {if(!argeaten && md->args->length != 0) fprintf(stderr, "Error: unexpected macro argument\n"); /*last arg encountered*/yy_pop_state(); yy_push_state(DEFINE2); mdstrdly = strctor(malloc(2048), 0, 2048);}
+  \)/[[:blank:]] {if(!argeaten && md->args->length != 0) fprintf(stderr, "Error: unexpected macro argument\n"); /*last arg encountered*/yy_pop_state(); yy_push_state(DEFINE2); mdstrdly = strctor(malloc(2048), 0, 2048); yy_push_state(KILLBLANK);}
   \n {yy_pop_state(); yy_pop_state();/*error state*/}
   . {fprintf(stderr, "DEFINE: I made a stupid: %c\n", *yytext);}
 }
 
 <DEFINE2>{
-  [^\\/\n]+ {yymore(); yylloc.last_column = yylloc.first_column; yylloc.last_line = yylloc.first_line;}
-  "/" {yymore(); yylloc.last_column = yylloc.first_column; yylloc.last_line = yylloc.first_line;}
-  \\ {yymore(); yylloc.last_column = yylloc.first_column; yylloc.last_line = yylloc.first_line;}
-  \\+[[:blank:]]*\n {yymore(); yylloc.last_column = yylloc.first_column; yylloc.last_line = yylloc.first_line;}
-  \n {yy_pop_state(); yy_pop_state();  md->text = malloc(yyleng); memcpy(md->text, yytext, yyleng - 1); md->text[yyleng - 1] = '\0';  insert(ctx->defines, defname, md);}
+  [^\\/\n]+ {dscat(mdstrdly, yytext, yyleng);}
+  "/" {dsccat(mdstrdly, '/');}
+  \\ {dsccat(mdstrdly, '\\');}
+  \n {yy_pop_state(); yy_pop_state(); dsccat(mdstrdly, 0); md->text = mdstrdly->strptr; free(mdstrdly); insert(ctx->defines, defname, md);}
 }
 
 <UNDEF>{
@@ -287,60 +286,52 @@ DYNSTR* strcur;
       --paren_depth;
       dsccat(dstrdly, ')');
     } else {
-      dsccat(dstrdly, 0);
-      dapush(parg, dstrdly->strptr);
-      free(dstrdly);
-      if(!parg) {
-        fprintf(stderr, "Error: Malformed function-like macro call, arguments not accessible\n");
-        //big error
-      } else {
-        struct macrodef* md;
+      dapush(parg, dstrdly);
 
-        if(!(md = search(ctx->defines, defname))) {
-          fprintf(stderr, "Error: Malformed function-like macro call\n");
-          //error state
-        } else if(parg->length != md->args->length) {
-          if(md->args->length == 0 && parg->length == 1) {
-            if(*(char*) (parg->arr[0]) == 0) {
-              free(parg->arr[0]);
-              free(parg);
-              yy_pop_state();
-              YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(defname, strlen(defname), "r"), YY_BUF_SIZE);//strlen inefficient
-              yypush_buffer_state(ybs);
-              char buf[256];
-              snprintf(buf, 256, "call to macro %s", defname);
-              yylloc.first_line = yylloc.last_line = 1;
-              yylloc.first_column = yylloc.last_column = 0;
-              dapush(file2compile, strdup(buf));
-              yy_push_state(INITIAL);
-            }
-          } else {
-            fprintf(stderr, "Error: the number of arguments passed to function-like macro is different than the number of parameters\n");
-            //error state
-          }
-        } else {
-          DYNARR* argn = md->args;
-          //make hash table with keys as param names, values as arguments, make 
-          //special lexer mode to parse this into string literal, use this as new buffer
-          //at the end of this mode, switch to string literal, parse in parent mode then
-          defargs = htctor();
-          char** prma = (char**) argn->arr;
-          char** arga = (char**) parg->arr;
-          for(int i = 0; i < parg->length; i++) {
-            insert(defargs, prma[i], arga[i]);
-          }
-          dstrdly = strctor(malloc(2048), 0, 2048);
-          //yydebug = 1;
+      struct macrodef* md;
+      if(!(md = search(ctx->defines, defname))) {
+        fprintf(stderr, "Error: Malformed function-like macro call\n");
+        //error state
+      } else if(parg->length != md->args->length) {
+        if(md->args->length == 0 && parg->length == 1
+           && *(((DYNSTR*) (parg->arr[0]))->strptr) == 0) {
+          free(((DYNSTR*) (parg->arr[0]))->strptr);
+          free(parg->arr[0]);
+          free(parg);
           yy_pop_state();
-          yy_push_state(FINDREPLACE);
-          YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
-          *ylt = yylloc;
-          dapush(locs, ylt);
+          YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(defname, strlen(defname), "r"), YY_BUF_SIZE);//strlen inefficient
+          yypush_buffer_state(ybs);
+          char buf[256];
+          snprintf(buf, 256, "call to macro %s", defname);
           yylloc.first_line = yylloc.last_line = 1;
           yylloc.first_column = yylloc.last_column = 0;
-          YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(md->text, strlen(md->text), "r"), YY_BUF_SIZE);//strlen inefficient
-          yypush_buffer_state(ybs);
+          dapush(file2compile, strdup(buf));
+          yy_push_state(INITIAL);
+        } else {
+          fprintf(stderr, "Error: the number of arguments passed to function-like macro is different than the number of parameters\n");
+          //error state
         }
+      } else {
+        DYNARR* argn = md->args;
+        //make hash table with keys as param names, values as arguments, make 
+        //special lexer mode to parse this into string literal, use this as new buffer
+        //at the end of this mode, switch to string literal, parse in parent mode then
+        defargs = htctor();
+        char** prma = (char**) argn->arr;
+        DYNSTR** arga = (DYNSTR**) parg->arr;
+        for(int i = 0; i < parg->length; i++) {
+          insert(defargs, prma[i], arga[i]);
+        }
+        dstrdly = strctor(malloc(2048), 0, 2048);
+        yy_pop_state();
+        yy_push_state(FINDREPLACE);
+        YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
+        *ylt = yylloc;
+        dapush(locs, ylt);
+        yylloc.first_line = yylloc.last_line = 1;
+        yylloc.first_column = yylloc.last_column = 0;
+        YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(md->text, strlen(md->text), "r"), YY_BUF_SIZE);//strlen inefficient
+        yypush_buffer_state(ybs);
       }
     }
     }
@@ -364,10 +355,8 @@ DYNSTR* strcur;
         tmpstr[tmpstrl++] = ' ';
       dscat(dstrdly, tmpstr, tmpstrl);
     } else {
-      dsccat(dstrdly, 0);
-      dapush(parg, dstrdly->strptr);
-      free(dstrdly);
-      dstrdly = strctor(malloc(4096), 0, 4096);
+      dapush(parg, dstrdly);
+      dstrdly = strctor(malloc(2048), 0, 2048);
     }
     }
   . {fprintf(stderr, "Error: unexpected character in function macro call\n");}
@@ -375,10 +364,9 @@ DYNSTR* strcur;
 
 <FINDREPLACE>{
   {IDENT} {
-    char* argy = search(defargs, yytext);
+    DYNSTR* argy = search(defargs, yytext);
     if(argy) {
-      int sl = strlen(argy); //TODO:find more efficient way to get length
-      dscat(dstrdly, argy, sl);
+      dscat(dstrdly, argy->strptr, argy->lenstr);
     } else {
       dscat(dstrdly, yytext, yyleng);
     }
@@ -396,6 +384,7 @@ DYNSTR* strcur;
     dsccat(dstrdly, *yytext);
     }
   <<EOF>> {
+    //TODO:free hashtable and stuff?
     yypop_buffer_state();
     yy_pop_state();
     YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(dstrdly->strptr, dstrdly->lenstr, "r"), YY_BUF_SIZE);
@@ -411,7 +400,7 @@ DYNSTR* strcur;
 }
 
 
-<INITIAL,SINGLELINE_COMMENT,PREPROCESSOR,INCLUDE,DEFINE,IFDEF,IFNDEF,STRINGLIT>\\+[[:blank:]]*\n {/*the newline is ignored*/}
+<INITIAL,SINGLELINE_COMMENT,PREPROCESSOR,INCLUDE,DEFINE,DEFINE2,IFDEF,IFNDEF,STRINGLIT>\\+[[:blank:]]*\n {/*the newline is ignored*/}
 "->" {return ARROWTK;}
 "++" {return INC;}
 "--" {return DEC;}
@@ -627,7 +616,6 @@ DYNSTR* strcur;
 }
 
 [[:space:]]+ {/*Whitespace, ignored*/}
-. {fprintf(stderr, "Unexpected character encountered: %c\n", *yytext);}
 
 <<EOF>> {
   //fprintf(stderr, "I want for death\n");
@@ -643,6 +631,23 @@ DYNSTR* strcur;
     dapop(file2compile);
   }
 }
+
+"\0" {//same as EOF
+  //fprintf(stderr, "I want for death\n");
+  yypop_buffer_state();
+  if ( !YY_CURRENT_BUFFER ) {
+    yyterminate();
+  } else {
+    yy_pop_state();
+    stmtover = 1;
+    YYLTYPE* yl = dapop(locs);
+    yylloc = *yl;
+    free(yl);
+    dapop(file2compile);
+  }
+}
+
+. {fprintf(stderr, "Unexpected character encountered: %c %d %s\n", *yytext, *yytext, dapeek(file2compile));}
 %%
 int check_type(void** garbage, char* symb) {
   struct macrodef* macdef = search(ctx->defines, symb);
@@ -673,7 +678,7 @@ int check_type(void** garbage, char* symb) {
       whiledone:
       yy_push_state(CALLMACRO);
       paren_depth = 0;
-      dstrdly = strctor(malloc(4096), 0, 4096);
+      dstrdly = strctor(malloc(2048), 0, 2048);
       parg = dactor(64); 
     } else {
       //yy_push_state(yy_top_state());
