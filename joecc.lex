@@ -22,8 +22,7 @@ INTSIZE (u|U|l|L)*
         else { \
             yylloc.last_column++; \
         } \
-    } \
-    printf("token \"%s\", at location %d.%d-%d.%d of %s\n", yytext, yylloc.first_line, yylloc.first_column, yylloc.last_line, yylloc.last_column, dapeek(file2compile));
+    }
 #define SIGNEDCHAR 0
 
 extern struct lexctx* ctx;
@@ -47,6 +46,7 @@ DYNSTR* strcur;
 %option noyywrap
 %option stack
 
+%option debug
 %option warn
 %option nodefault
 

@@ -241,7 +241,6 @@ STATEMENT* mkdefaultstmt(STATEMENT* stmt) {
 ENUMFIELD* genenumfield(char* name, EXPRESSION* value) {
   ENUMFIELD* retval = malloc(sizeof(ENUMFIELD));
   retval->name = name;
-  //confirm is expression statement
   //confirm is expr that will resolve into something uintconstifiable that is known at compile time
   retval->value = value;//this is worthless TODO: FIX
   return retval;

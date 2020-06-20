@@ -154,7 +154,10 @@ initializer:
 }
 | "struct" IDENTIFIER ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_STRUCT, NULL);}
 | "enum" IDENTIFIER ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_ENUM, NULL);}
-| "union" IDENTIFIER ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_UNION, NULL);};
+| "union" IDENTIFIER ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_UNION, NULL);}
+| "struct" IDENTIFIER '{' struct_decls '}' ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_STRUCT, structor($2, $4));}
+| "enum" IDENTIFIER '{' enums '}' ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_ENUM, enumctor($2, $4));}
+| "union" IDENTIFIER '{' struct_decls '}' ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_UNION, unionctor($2, $4));}
 cs_inits:
   cs_inits ',' declarator '=' esc {$$ = $1; dapush($$, geninit($3, $5));}
 | declarator '=' esc {$$ = dactor(8); dapush($$, geninit($1, $3));}
@@ -438,12 +441,25 @@ sdecl:
 enum:
   "enum" IDENTIFIER '{' enums '}' {$$ = enumctor($2, $4); add2scope(scopepeek(ctx), $2, M_ENUM, $$);}
 | "enum" '{' enums '}' {$$ = enumctor(NULL, $3);}
-| "enum" IDENTIFIER {$$ = (ENUM*) search(scopepeek(ctx)->enums, $2);};
+| "enum" IDENTIFIER {$$ = (ENUM*) search(scopepeek(ctx)->enums, $2);/*TODO: check validity*/};
 enums:
-  IDENTIFIER {$$ = dactor(256);dapush($$, genenumfield($1,ct_intconst_expr(0))); add2scope(scopepeek(ctx), $1, M_ENUM_CONST, dapeek($$));}
-| IDENTIFIER '=' esc {$$ = dactor(256); dapush($$, genenumfield($1,$3)); add2scope(scopepeek(ctx), $1, M_ENUM_CONST, $3);}
-| enums ',' IDENTIFIER {$$ = $1; dapush($$, genenumfield($3,ct_binary_expr(ADD,ct_intconst_expr(1),dapeek($$)))); add2scope(scopepeek(ctx), $3, M_ENUM_CONST, dapeek($$));}
-| enums ',' IDENTIFIER '=' esc {$$ = $1; dapush($$, genenumfield($3,$5)); add2scope(scopepeek(ctx), $3, M_ENUM_CONST, $5);/*somehow confirm no collisions*/};
+  IDENTIFIER {$$ = dactor(256);
+    dapush($$, genenumfield($1,ct_intconst_expr(0))); 
+    add2scope(scopepeek(ctx), $1, M_ENUM_CONST, dapeek($$));
+    }
+| IDENTIFIER '=' esc {$$ = dactor(256); 
+    dapush($$, genenumfield($1,$3)); 
+    add2scope(scopepeek(ctx), $1, M_ENUM_CONST, $3);
+    }
+| enums ',' IDENTIFIER {$$ = $1; 
+    dapush($$, genenumfield($3,ct_binary_expr(ADD,ct_intconst_expr(1),dapeek($$)))); 
+    add2scope(scopepeek(ctx), $3, M_ENUM_CONST, dapeek($$));
+    }
+| enums ',' IDENTIFIER '=' esc {$$ = $1; 
+    dapush($$, genenumfield($3,$5)); 
+    add2scope(scopepeek(ctx), $3, M_ENUM_CONST, $5);
+    /*TODO: somehow confirm no collisions*/
+    };
 %%
 #include <stdio.h>
 int yyerror(char* s){
