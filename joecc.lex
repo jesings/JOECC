@@ -75,10 +75,9 @@ DYNSTR* strcur;
 }
 
 <SINGLELINE_COMMENT>{
-  [^\\\n]* {/*The single line comment is not terminated*/}
+  [^\\\n]+ {/*The single line comment is not terminated*/}
   \\+ {/*The single line comment is not terminated*/}
-  [^\\\n]*$ {yy_pop_state();}
-  \\+ {yy_pop_state();}
+  [^\\\n]+$ {yy_pop_state();}
 }
 
 <PPSKIP>{
@@ -135,42 +134,47 @@ DYNSTR* strcur;
 
 <INCLUDE>{
   "<"[^>\n]*">" {
-    if(stmtover) REJECT;
-    stmtover = 1;
-    yytext[yyleng - 1] = '\0'; //ignore closing >
-    char pathbuf[2048];
-    snprintf(pathbuf, 2048, "/usr/include/%s", yytext + 1); //ignore opening <
-    FILE* newbuf;
-    if((newbuf = fopen(pathbuf, "r")) != NULL) {
-      //YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
-      //yy_push_state(INITIAL);
-      //yypush_buffer_state(ybs);
+    if(stmtover){
+      fprintf(stderr, "Error: tried to include multiple files with single directive on line %d!\n", yylloc.last_line);
     } else {
-      fprintf(stderr, "Invalid system file %s included!\n", yytext + 1);
+      stmtover = 1;
+      yytext[yyleng - 1] = '\0'; //ignore closing >
+      char pathbuf[2048];
+      snprintf(pathbuf, 2048, "/usr/include/%s", yytext + 1); //ignore opening <
+      FILE* newbuf;
+      if((newbuf = fopen(pathbuf, "r")) != NULL) {
+        //YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
+        //yy_push_state(INITIAL);
+        //yypush_buffer_state(ybs);
+      } else {
+        fprintf(stderr, "Invalid system file %s included!\n", yytext + 1);
+      }
     }
-  }
+    }
   \"[^\"\n]*\" {/*"*/
-  	if(stmtover) REJECT;
-    stmtover = 1;
-    yytext[yyleng - 1] = '\0'; //ignore closing "
-    FILE* newbuf;
-    if((newbuf = fopen(yytext + 1, "r")) != NULL) { //ignore opening "
-      YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
-      *ylt = yylloc;
-      dapush(locs, ylt);
-      yylloc.first_line = yylloc.last_line = 1;
-      yylloc.first_column = yylloc.last_column = 0;
-      dapush(file2compile, strdup(yytext + 1));
-      YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
-      yy_push_state(INITIAL);
-      yypush_buffer_state(ybs);
+    if(stmtover) {
+      fprintf(stderr, "Error: tried to include multiple files with single directive on line %d!\n", yylloc.last_line);
     } else {
-      fprintf(stderr, "Invalid local file %s included!\n", yytext + 1);
+      stmtover = 1;
+      yytext[yyleng - 1] = '\0'; //ignore closing "
+      FILE* newbuf;
+      if((newbuf = fopen(yytext + 1, "r")) != NULL) { //ignore opening "
+        YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
+        *ylt = yylloc;
+        dapush(locs, ylt);
+        yylloc.first_line = yylloc.last_line = 1;
+        yylloc.first_column = yylloc.last_column = 0;
+        dapush(file2compile, strdup(yytext + 1));
+        YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
+        yy_push_state(INITIAL);
+        yypush_buffer_state(ybs);
+      } else {
+        fprintf(stderr, "Invalid local file %s included!\n", yytext + 1);
+      }
     }
-  }
-  [[:space:]]+[<\"] {if(stmtover) REJECT;/*"*/yyless(1);}
-  [[:space:]]*\n {yy_pop_state(); yy_pop_state(); }
-  \n {yy_pop_state(); yy_pop_state();if(!stmtover) fprintf(stderr, "Error: incomplete include\n");}
+    }
+  [[:space:]]+[<\"] {/*"*/yyless(1);}
+  [[:space:]]*\n {yy_pop_state(); yy_pop_state();if(!stmtover) fprintf(stderr, "Error: incomplete include\n");}
   . {fprintf(stderr, "INCLUDE: I made a stupid: %c\n", *yytext);}
 }
 
@@ -647,7 +651,8 @@ DYNSTR* strcur;
   }
 }
 
-. {fprintf(stderr, "Unexpected character encountered: %c %d %s\n", *yytext, *yytext, dapeek(file2compile));}
+<*>. {fprintf(stderr, "Unexpected character encountered: %c %d %s\n", *yytext, *yytext, dapeek(file2compile));}
+<*>\n {fprintf(stderr, "Unexpected newline encountered: %s\n", dapeek(file2compile));}
 %%
 int check_type(void** garbage, char* symb) {
   struct macrodef* macdef = search(ctx->defines, symb);
@@ -681,7 +686,6 @@ int check_type(void** garbage, char* symb) {
       dstrdly = strctor(malloc(2048), 0, 2048);
       parg = dactor(64); 
     } else {
-      //yy_push_state(yy_top_state());
       yy_push_state(INITIAL);
       char* buf = malloc(256);
       snprintf(buf, 256, "Macro %s", symb);

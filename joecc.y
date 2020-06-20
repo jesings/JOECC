@@ -443,19 +443,19 @@ enum:
 | "enum" '{' enums '}' {$$ = enumctor(NULL, $3);}
 | "enum" IDENTIFIER {$$ = (ENUM*) search(scopepeek(ctx)->enums, $2);/*TODO: check validity*/};
 enums:
-  IDENTIFIER {$$ = dactor(256);
+  IDENTIFIER {$$ = dactor(256); puts($1);
     dapush($$, genenumfield($1,ct_intconst_expr(0))); 
     add2scope(scopepeek(ctx), $1, M_ENUM_CONST, dapeek($$));
     }
-| IDENTIFIER '=' esc {$$ = dactor(256); 
+| IDENTIFIER '=' esc {$$ = dactor(256);  puts($1);
     dapush($$, genenumfield($1,$3)); 
     add2scope(scopepeek(ctx), $1, M_ENUM_CONST, $3);
     }
-| enums ',' IDENTIFIER {$$ = $1; 
+| enums ',' IDENTIFIER {$$ = $1;  puts($3);
     dapush($$, genenumfield($3,ct_binary_expr(ADD,ct_intconst_expr(1),dapeek($$)))); 
     add2scope(scopepeek(ctx), $3, M_ENUM_CONST, dapeek($$));
     }
-| enums ',' IDENTIFIER '=' esc {$$ = $1; 
+| enums ',' IDENTIFIER '=' esc {$$ = $1; puts($3);
     dapush($$, genenumfield($3,$5)); 
     add2scope(scopepeek(ctx), $3, M_ENUM_CONST, $5);
     /*TODO: somehow confirm no collisions*/
