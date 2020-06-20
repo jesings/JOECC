@@ -14,7 +14,7 @@ INTSIZE (u|U|l|L)*
 #define YY_USER_ACTION \
     yylloc.first_line = yylloc.last_line; \
     yylloc.first_column = yylloc.last_column; \
-    for(int i = 0; yytext[i] != '\0'; i++) { \
+    for(int i = 0; i < yyleng; i++) { \
         if(yytext[i] == '\n') { \
             yylloc.last_line++; \
             yylloc.last_column = 0; \
@@ -22,7 +22,8 @@ INTSIZE (u|U|l|L)*
         else { \
             yylloc.last_column++; \
         } \
-    }
+    } \
+    printf("token \"%s\", at location %d.%d-%d.%d of %s\n", yytext, yylloc.first_line, yylloc.first_column, yylloc.last_line, yylloc.last_column, dapeek(file2compile));
 #define SIGNEDCHAR 0
 
 extern struct lexctx* ctx;
@@ -46,7 +47,6 @@ DYNSTR* strcur;
 %option noyywrap
 %option stack
 
-%option debug
 %option warn
 %option nodefault
 
@@ -54,21 +54,16 @@ DYNSTR* strcur;
 %x PREPROCESSOR INCLUDE 
 %x DEFINE UNDEF DEFARG DEFINE2
 %x IFNDEF IFDEF PPSKIP
-%x KILLBLANK KILLSPACE
+%x KILLBLANK
 %x STRINGLIT CHARLIT
 %x CALLMACRO FINDREPLACE
 
 %%
 <KILLBLANK>{
-  [[:blank:]]+ {}
-  [^[:blank:]] {yy_pop_state(); unput(*yytext);}
-}
-<KILLSPACE>{
-  [[:space:]]+ {}
-  [^[:space:]] {yy_pop_state(); unput(*yytext);}
+  ([[:blank:]]+|\\[[:blank:]]+\n)* {yy_pop_state();}
 }
 
-<INITIAL,PREPROCESSOR,INCLUDE,DEFINE,UNDEF,DEFARG,DEFINE2,IFDEF,IFNDEF,CALLMACRO,PPSKIP>{
+<INITIAL,PREPROCESSOR,INCLUDE,DEFINE,UNDEF,DEFARG,DEFINE2,IFDEF,IFNDEF,CALLMACRO,PPSKIP,KILLBLANK>{
   "/*" {yy_push_state(MULTILINE_COMMENT);}
   "//" {yy_push_state(SINGLELINE_COMMENT);}
 }
@@ -82,7 +77,8 @@ DYNSTR* strcur;
 <SINGLELINE_COMMENT>{
   [^\\\n]* {/*The single line comment is not terminated*/}
   \\+ {/*The single line comment is not terminated*/}
-  \n {yy_pop_state(); unput('\n');}
+  [^\\\n]*$ {yy_pop_state();}
+  \\+ {yy_pop_state();}
 }
 
 <PPSKIP>{
@@ -162,7 +158,8 @@ DYNSTR* strcur;
       YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
       *ylt = yylloc;
       dapush(locs, ylt);
-      yylloc.first_line = yylloc.last_line = yylloc.first_column = yylloc.last_column = 1;
+      yylloc.first_line = yylloc.last_line = 1;
+      yylloc.first_column = yylloc.last_column = 0;
       dapush(file2compile, strdup(yytext + 1));
       YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
       yy_push_state(INITIAL);
@@ -178,36 +175,44 @@ DYNSTR* strcur;
 }
 
 <DEFINE>{
-  {IDENT} {yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLBLANK); defname = strdup(yytext);}
-  {IDENT}\( {yy_pop_state(); yy_push_state(DEFARG); yy_push_state(KILLBLANK); yytext[yyleng - 1] = '\0'; defname = strdup(yytext); md->args = dactor(8); argeaten = 0;}
+  {IDENT} {yy_pop_state(); yy_push_state(DEFINE2); defname = strdup(yytext);}
+  {IDENT}/[[:blank:]] {yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLBLANK); defname = strdup(yytext);}
+  {IDENT}\( {yy_pop_state(); yy_push_state(DEFARG); yytext[yyleng - 1] = '\0'; defname = strdup(yytext); md->args = dactor(8); argeaten = 0;}
+  {IDENT}\(/[[:blank:]] {yy_pop_state(); yy_push_state(DEFARG); yy_push_state(KILLBLANK); yytext[yyleng - 1] = '\0'; defname = strdup(yytext); md->args = dactor(8); argeaten = 0;}
   \n {yy_pop_state(); yy_pop_state();/*error state*/}
   . {fprintf(stderr, "DEFINE: I made a stupid: %c\n", *yytext);}
 }
 
 <DEFARG>{
-  {IDENT} {if(argeaten) fprintf(stderr, "Error: unexpected macro argument\n"); argeaten = 1;/*new arg encountered*/ yy_push_state(KILLBLANK); dapush(md->args, strdup(yytext));/*probably should confirm no 2 args have the same name*/}
-  \, {if(argeaten) argeaten = 0; else fprintf(stderr, "Error: unexpected macro argument\n"); yy_push_state(KILLBLANK);}
-  \) {if(!argeaten && md->args->length != 0) fprintf(stderr, "Error: unexpected macro argument\n"); /*last arg encountered*/yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLBLANK);}
+  {IDENT} {if(argeaten) fprintf(stderr, "Error: unexpected macro argument\n"); argeaten = 1;/*new arg encountered*/ dapush(md->args, strdup(yytext));/*probably should confirm no 2 args have the same name*/}
+  {IDENT}/[[:blank:]] {if(argeaten) fprintf(stderr, "Error: unexpected macro argument\n"); argeaten = 1;/*new arg encountered*/ yy_push_state(KILLBLANK); dapush(md->args, strdup(yytext));/*probably should confirm no 2 args have the same name*/}
+  \, {if(argeaten) argeaten = 0; else fprintf(stderr, "Error: unexpected macro argument\n");}
+  \,/[[:blank:]] {if(argeaten) argeaten = 0; else fprintf(stderr, "Error: unexpected macro argument\n"); yy_push_state(KILLBLANK);}
+  \) {if(!argeaten && md->args->length != 0) fprintf(stderr, "Error: unexpected macro argument\n"); /*last arg encountered*/yy_pop_state(); yy_push_state(DEFINE2);}
+  \)/[[:blank:]] {if(!argeaten && md->args->length != 0) fprintf(stderr, "Error: unexpected macro argument\n"); /*last arg encountered*/yy_pop_state(); yy_push_state(DEFINE2); yy_push_state(KILLBLANK);}
   \n {yy_pop_state(); yy_pop_state();/*error state*/}
   . {fprintf(stderr, "DEFINE: I made a stupid: %c\n", *yytext);}
 }
 
 <DEFINE2>{
-  [^\\/\n]+ {yymore();}
-  "/" {yymore();}
-  \\ {yymore();}
+  [^\\/\n]+ {yymore(); yylloc.last_column = yylloc.first_column; yylloc.last_line = yylloc.first_line;}
+  "/" {yymore(); yylloc.last_column = yylloc.first_column; yylloc.last_line = yylloc.first_line;}
+  \\ {yymore(); yylloc.last_column = yylloc.first_column; yylloc.last_line = yylloc.first_line;}
+  \\+[[:blank:]]*\n {yymore(); yylloc.last_column = yylloc.first_column; yylloc.last_line = yylloc.first_line;}
   \n {yy_pop_state(); yy_pop_state();  md->text = malloc(yyleng); memcpy(md->text, yytext, yyleng - 1); md->text[yyleng - 1] = '\0';  insert(ctx->defines, defname, md);}
 }
 
 <UNDEF>{
-  {IDENT} {rmpairfr(ctx->defines, yytext); yy_push_state(KILLBLANK);}
+  {IDENT} {rmpairfr(ctx->defines, yytext);}
+  {IDENT}/[[:blank:]] {rmpairfr(ctx->defines, yytext); yy_push_state(KILLBLANK);}
   \n {yy_pop_state(); yy_pop_state();/*error state if expr not over?*/}
   . {fprintf(stderr, "UNDEF: I made a stupid: %c\n", *yytext);}
 }
 
 
 <IFDEF>{
-  {IDENT} {stmtover = 1; defname = strdup(yytext); yy_push_state(KILLBLANK);}
+  {IDENT} {stmtover = 1; defname = strdup(yytext);}
+  {IDENT}/[[:blank:]] {stmtover = 1; defname = strdup(yytext); yy_push_state(KILLBLANK);}
   \n {
     yy_pop_state();
     yy_pop_state(); 
@@ -238,7 +243,8 @@ DYNSTR* strcur;
   . {fprintf(stderr, "IFDEF: I made a stupid: %c\n", *yytext);}
 }
 <IFNDEF>{
-  {IDENT} {stmtover = 1; defname = strdup(yytext); yy_push_state(KILLBLANK);}
+  {IDENT} {stmtover = 1; defname = strdup(yytext);}
+  {IDENT}/[[:blank:]] {stmtover = 1; defname = strdup(yytext); yy_push_state(KILLBLANK);}
   \n {
     yy_pop_state();
     yy_pop_state(); 
@@ -303,7 +309,8 @@ DYNSTR* strcur;
               yypush_buffer_state(ybs);
               char buf[256];
               snprintf(buf, 256, "call to macro %s", defname);
-              yylloc.first_line = yylloc.last_line = yylloc.first_column = yylloc.last_column = 1;
+              yylloc.first_line = yylloc.last_line = 1;
+              yylloc.first_column = yylloc.last_column = 0;
               dapush(file2compile, strdup(buf));
               yy_push_state(INITIAL);
             }
@@ -329,7 +336,8 @@ DYNSTR* strcur;
           YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
           *ylt = yylloc;
           dapush(locs, ylt);
-          yylloc.first_line = yylloc.last_line = yylloc.first_column = yylloc.last_column = 1;
+          yylloc.first_line = yylloc.last_line = 1;
+          yylloc.first_column = yylloc.last_column = 0;
           YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(md->text, strlen(md->text), "r"), YY_BUF_SIZE);//strlen inefficient
           yypush_buffer_state(ybs);
         }
@@ -395,14 +403,15 @@ DYNSTR* strcur;
     yypush_buffer_state(ybs);
     char buf[256];
     snprintf(buf, 256, "call to macro %s", defname);
-    yylloc.first_line = yylloc.last_line = yylloc.first_column = yylloc.last_column = 1;
+    yylloc.first_line = yylloc.last_line = 1;
+    yylloc.first_column = yylloc.last_column = 0;
     dapush(file2compile, strdup(buf));
     yy_push_state(INITIAL);
     }
 }
 
 
-<INITIAL,SINGLELINE_COMMENT,PREPROCESSOR,INCLUDE,DEFINE,DEFINE2,IFDEF,IFNDEF,STRINGLIT,KILLBLANK,KILLSPACE>\\+[[:blank:]]*\n {/*the newline is ignored*/}
+<INITIAL,SINGLELINE_COMMENT,PREPROCESSOR,INCLUDE,DEFINE,IFDEF,IFNDEF,STRINGLIT>\\+[[:blank:]]*\n {/*the newline is ignored*/}
 "->" {return ARROWTK;}
 "++" {return INC;}
 "--" {return DEC;}
@@ -645,12 +654,17 @@ int check_type(void** garbage, char* symb) {
       char c;
       while(1) {
         c = input();
+        ++yylloc.last_column;
         switch(c) {
-          case ' ': case '\t': case '\n': case '\v':
+          case '\n': 
+            yylloc.last_column = 0;
+            ++yylloc.last_line;
+          case ' ': case '\t': case '\v':
           	break;
           case '(':
           	goto whiledone;
           default:
+            --yylloc.last_column;
             unput(c);
             goto nofcall;
 
@@ -670,7 +684,8 @@ int check_type(void** garbage, char* symb) {
       YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
       *ylt = yylloc;
       dapush(locs, ylt);
-      yylloc.first_line = yylloc.last_line = yylloc.first_column = yylloc.last_column = 1;
+      yylloc.first_line = yylloc.last_line = 1;
+      yylloc.first_column = yylloc.last_column = 0;
       //YY_BUFFER_STATE yms = yy_scan_string(macdef->text);
       YY_BUFFER_STATE yms = yy_create_buffer(fmemopen(macdef->text, 
       	strlen(macdef->text), "r"), YY_BUF_SIZE);// strlen is inefficient
