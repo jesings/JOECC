@@ -65,10 +65,10 @@
 %type<dstr> multistring
 %type<integert> typemsign
 %type<typevariant> types1 types2 types1o
-%type<idvariant> typem typews1 /*typebs*/ type typemintkw inttypem
+%type<idvariant> typem typews1 type typemintkw inttypem
 %type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee
 %type<stmtvariant> statement compound_statement
-%type<arrvariant> statements_and_initializers struct_decls struct_decl cs_decls enums escl abstract_ptr params cs_inits cs_minutes initializer program array_literal
+%type<arrvariant> statements_and_initializers struct_decls struct_decl cs_decls enums escl abstract_ptr params cs_inits cs_minutes initializer program array_literal structbody enumbody
 %type<unionvariant> union
 %type<structvariant> struct
 %type<enumvariant> enum
@@ -344,7 +344,8 @@ escl:
 | escl ',' esc {$$ = $1; dapush($$, $3); };
 
 array_literal:
-  '{' expression '}' {$$ = e2dynarr($2);};
+  '{' expression '}' {$$ = e2dynarr($2);}
+| '{' expression ',' '}' {$$ = e2dynarr($2);};
 
 multistring:
   STRING_LITERAL {$$ = $1;}
@@ -408,13 +409,16 @@ statements_and_initializers:
 
 /*for struct enum union make sure no redefinitions are happening*/
 union:
-  "union" IDENTIFIER '{' struct_decls '}' {$$ = unionctor($2, $4); add2scope(scopepeek(ctx), $2, M_UNION, $$);}
-| "union" '{' struct_decls '}' {$$ = unionctor(NULL, $3);}
+  "union" IDENTIFIER structbody {$$ = unionctor($2, $3); add2scope(scopepeek(ctx), $2, M_UNION, $$);}
+| "union" structbody  {$$ = unionctor(NULL, $2);}
 | "union" IDENTIFIER {$$ = (UNION*) search(scopepeek(ctx)->unions, $2);};
 struct:
-  "struct" IDENTIFIER '{' struct_decls '}' {$$ = structor($2, $4); add2scope(scopepeek(ctx), $2, M_STRUCT, $$);}
-| "struct" '{' struct_decls '}' {$$ = structor(NULL, $3);}
+  "struct" IDENTIFIER structbody {$$ = structor($2, $3); add2scope(scopepeek(ctx), $2, M_STRUCT, $$);}
+| "struct" structbody {$$ = structor(NULL, $2);}
 | "struct" IDENTIFIER {$$ = (STRUCT*) search(scopepeek(ctx)->structs, $2);};
+structbody:
+  '{' struct_decls '}' {$$ = $2;}
+| '{' struct_decls ',' '}' {$$ = $2;};
 struct_decls:
   struct_decl {$$ = $1;}
 | struct_decls struct_decl {$$ = damerge($1, $2);};
@@ -439,23 +443,26 @@ sdecl:
 | declarator ':' esc {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $3));}
 | ':' esc {$$ = mkdeclaration(NULL); dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $2));};
 enum:
-  "enum" IDENTIFIER '{' enums '}' {$$ = enumctor($2, $4); add2scope(scopepeek(ctx), $2, M_ENUM, $$);}
-| "enum" '{' enums '}' {$$ = enumctor(NULL, $3);}
+  "enum" IDENTIFIER enumbody {$$ = enumctor($2, $3); add2scope(scopepeek(ctx), $2, M_ENUM, $$);}
+| "enum" enumbody {$$ = enumctor(NULL, $2);}
 | "enum" IDENTIFIER {$$ = (ENUM*) search(scopepeek(ctx)->enums, $2);/*TODO: check validity*/};
+enumbody:
+  '{' enums '}' {$$ = $2;}
+| '{' enums ',' '}' {$$ = $2;};
 enums:
-  IDENTIFIER {$$ = dactor(256); puts($1);
+  IDENTIFIER {$$ = dactor(256);
     dapush($$, genenumfield($1,ct_intconst_expr(0))); 
     add2scope(scopepeek(ctx), $1, M_ENUM_CONST, dapeek($$));
     }
-| IDENTIFIER '=' esc {$$ = dactor(256);  puts($1);
+| IDENTIFIER '=' esc {$$ = dactor(256); 
     dapush($$, genenumfield($1,$3)); 
     add2scope(scopepeek(ctx), $1, M_ENUM_CONST, $3);
     }
-| enums ',' IDENTIFIER {$$ = $1;  puts($3);
+| enums ',' IDENTIFIER {$$ = $1; 
     dapush($$, genenumfield($3,ct_binary_expr(ADD,ct_intconst_expr(1),dapeek($$)))); 
     add2scope(scopepeek(ctx), $3, M_ENUM_CONST, dapeek($$));
     }
-| enums ',' IDENTIFIER '=' esc {$$ = $1; puts($3);
+| enums ',' IDENTIFIER '=' esc {$$ = $1;
     dapush($$, genenumfield($3,$5)); 
     add2scope(scopepeek(ctx), $3, M_ENUM_CONST, $5);
     /*TODO: somehow confirm no collisions*/
