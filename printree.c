@@ -22,13 +22,85 @@ char* rainbow[] = {COLOR(148, 0, 211), COLOR(180, 0, 180), COLOR(0, 0, 255), COL
 char rainbowpos = 0;
 
 char* pdecl(DECLARATION* decl);
+char* treexpr(EXPRESSION* expr);
+char* structree(STRUCT* container);
+char* enumtree(ENUM* container);
+char* uniontree(UNION* container);
 
 char* structree(STRUCT* container) {
   DYNSTR* dstrdly = strctor(malloc(1024), 0, 1024);
   dscat(dstrdly, "FIELDS: ", 8);
   for(int i = 0; i < container->fields->length; i++) {
     DECLARATION* field = daget(container->fields, i);
-    char* fieldstr = pdecl(field);
+    char* fieldstr;
+    if(field->varname) {
+      fieldstr = pdecl(field);
+    } else if(field->type->tb & ANONMEMB) {
+      fieldstr = malloc(2048);
+      char* (*memptr) (void*);
+      if(field->type->tb & STRUCTVAL) {
+        memptr = (char* (*) (void*)) structree;
+      } else if(field->type->tb & ENUMVAL) {
+        memptr = (char* (*) (void*)) enumtree;
+      } else if(field->type->tb & UNIONVAL) {
+        memptr = (char* (*) (void*)) uniontree;
+      } else {
+        exit(255);
+      }
+
+      snprintf(fieldstr, 2048, "anonymous structmember [[[%s]]]", memptr(field->type->structtype));
+    } else  {
+    }
+    dscat(dstrdly, fieldstr, strlen(fieldstr));
+    dscat(dstrdly, " $F$ ", 5);
+  }
+  dscat(dstrdly, "$FIELDSOVER$", 12);
+  dsccat(dstrdly, 0);
+  char* rv = dstrdly->strptr;
+  free(dstrdly);
+  return rv;
+}
+char* enumtree(ENUM* container) {
+  DYNSTR* dstrdly = strctor(malloc(1024), 0, 1024);
+  dscat(dstrdly, "FIELDS: ", 8);
+  for(int i = 0; i < container->fields->length; i++) {
+    ENUMFIELD* field = daget(container->fields, i);
+    dscat(dstrdly, field->name, strlen(field->name));
+    dscat(dstrdly, " IS ASSIGNED ", 13);
+    char* fieldstr = treexpr(field->value);
+    dscat(dstrdly, fieldstr, strlen(fieldstr));
+    dscat(dstrdly, " $F$ ", 5);
+  }
+  dscat(dstrdly, "$FIELDSOVER$", 12);
+  dsccat(dstrdly, 0);
+  char* rv = dstrdly->strptr;
+  free(dstrdly);
+  return rv;
+}
+char* uniontree(UNION* container) {
+  DYNSTR* dstrdly = strctor(malloc(1024), 0, 1024);
+  dscat(dstrdly, "FIELDS: ", 8);
+  for(int i = 0; i < container->fields->length; i++) {
+    DECLARATION* field = daget(container->fields, i);
+    char* fieldstr;
+    if(field->varname) {
+      fieldstr = pdecl(field);
+    } else if(field->type->tb & ANONMEMB) {
+      fieldstr = malloc(2048);
+      char* (*memptr) (void* garbageptr);
+      if(field->type->tb & STRUCTVAL) {
+        memptr = (char* (*) (void*)) structree;
+      } else if(field->type->tb & ENUMVAL) {
+        memptr = (char* (*) (void*)) enumtree;
+      } else if(field->type->tb & UNIONVAL) {
+        memptr = (char* (*) (void*)) uniontree;
+      } else {
+        exit(255);
+      }
+
+      snprintf(fieldstr, 2048, "anonymous structmember %s", memptr(field->type->structtype));
+    } else  {
+    }
     dscat(dstrdly, fieldstr, strlen(fieldstr));
     dscat(dstrdly, " $F$ ", 5);
   }
@@ -99,6 +171,7 @@ char* treetype(IDTYPE* type) {
     char* istb = name_TYPEBITS(type->tb);
     dscat(dstrdly, istb, strlen(istb));
   }
+  dsccat(dstrdly, ' ');
   dsccat(dstrdly, 0);
   char* rv = dstrdly->strptr;
   free(dstrdly);

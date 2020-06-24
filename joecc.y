@@ -38,6 +38,7 @@
 
 %{
   extern struct lexctx* ctx;
+  extern int caseindex;
   int yylex();
   int yyerror();
 %}
@@ -376,7 +377,12 @@ function:
 statement:
   compound_statement {$$ = $1;}
 |  IDENTIFIER ':' /*statement*/ {$$ = mklblstmt($1/*, $3*/); /* not sure if necessary*/ add2scope(scopepeek(ctx), $1, M_LABEL, NULL);}
-| "case" esc ':' /*statement*/ {$$ = mkcasestmt($2/*, $4*/); add2scope(scopepeek(ctx), NULL/*no clue what this should be*/, M_CASE/*?*/, NULL);}
+| "case" esc ':' /*statement*/ { 
+    char* caselbl = malloc(128);
+    snprintf(caselbl, 128, "__joecc__%d", caseindex++);
+    $$ = mkcasestmt($2, caselbl);
+    add2scope(scopepeek(ctx), caselbl/*no clue what this should be*/, M_CASE/*?*/, NULL);
+    }
 | "default" ':' statement {$$ = mkdefaultstmt($3);add2scope(scopepeek(ctx), "default", M_CASE/*?*/, NULL);}/*case labels are scoped and regular labels arent?? This will be difficult*/
 | "if" '(' expression ')' statement %prec THEN {$$ = mkifstmt($3, $5, NULL);}
 | "if" '(' expression ')' statement "else" statement {$$ = mkifstmt($3, $5, $7);}
@@ -415,8 +421,7 @@ struct:
   "struct" IDENTIFIER structbody {$$ = structor($2, $3); add2scope(scopepeek(ctx), $2, M_STRUCT, $$);}
 | "struct" structbody {$$ = structor(NULL, $2);}
 | "struct" IDENTIFIER {$$ = (STRUCT*) search(scopepeek(ctx)->structs, $2);};
-structbody:
-  '{' struct_decls '}' {$$ = $2;};
+structbody: '{' struct_decls '}' {$$ = $2;};
 struct_decls:
   struct_decl {$$ = $1;}
 | struct_decls struct_decl {$$ = damerge($1, $2);};
@@ -432,6 +437,28 @@ struct_decl:
       if($1->tb & (ENUMVAL | STRUCTVAL | UNIONVAL))
          dget($$, 0)->type->structtype = $1->structtype;
     }
+    }
+| "struct" structbody ';' {
+    $$ = dactor(8);
+    IDTYPE* tt = malloc(sizeof(IDTYPE));
+    tt->structtype = structor(NULL, $2);
+    tt->pointerstack = NULL;
+    tt->tb= STRUCTVAL | ANONMEMB;
+    DECLARATION* dec = malloc(sizeof(DECLARATION));
+    dec->type = tt;
+    dec->varname = NULL;
+    dapush($$, dec);
+    }
+| "union" structbody ';' {
+    $$ = dactor(8);
+    IDTYPE* tt = malloc(sizeof(IDTYPE));
+    tt->uniontype= unionctor(NULL, $2);
+    tt->pointerstack = NULL;
+    tt->tb= UNIONVAL | ANONMEMB;
+    DECLARATION* dec = malloc(sizeof(DECLARATION));
+    dec->type = tt;
+    dec->varname = NULL;
+    dapush($$, dec);
     };
 cs_decls:
   cs_decls ',' sdecl {$$ = $1; dapush($$, $3);}
@@ -448,16 +475,18 @@ enumbody:
   '{' enums commaopt '}' {$$ = $2;};
 enums:
   IDENTIFIER {$$ = dactor(256);
-    dapush($$, genenumfield($1,ct_intconst_expr(0))); 
-    add2scope(scopepeek(ctx), $1, M_ENUM_CONST, dapeek($$));
+    EXPRESSION* const0 = ct_intconst_expr(0);
+    dapush($$, genenumfield($1,const0)); 
+    add2scope(scopepeek(ctx), $1, M_ENUM_CONST, const0);
     }
 | IDENTIFIER '=' esc {$$ = dactor(256); yydebug = 1;
     dapush($$, genenumfield($1,$3)); 
     add2scope(scopepeek(ctx), $1, M_ENUM_CONST, $3);
     }
 | enums ',' IDENTIFIER {$$ = $1; 
-    dapush($$, genenumfield($3,ct_binary_expr(ADD,ct_intconst_expr(1),dapeek($$)))); 
-    add2scope(scopepeek(ctx), $3, M_ENUM_CONST, dapeek($$));
+    EXPRESSION* incprevexpr = ct_binary_expr(ADD, ct_intconst_expr(1), ((ENUMFIELD*) dapeek($$))->value);
+    dapush($$, genenumfield($3,incprevexpr)); 
+    add2scope(scopepeek(ctx), $3, M_ENUM_CONST, incprevexpr);
     }
 | enums ',' IDENTIFIER '=' esc {$$ = $1;
     dapush($$, genenumfield($3,$5)); 

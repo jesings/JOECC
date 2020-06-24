@@ -18,6 +18,7 @@ typedef enum {
   ENUMVAL     = 0x1000,
   STRUCTVAL   = 0x2000,
   UNIONVAL    = 0x4000,
+  ANONMEMB    = 0x8000,
 } TYPEBITS;
 
 #define EXPRTYPELIST  \
@@ -173,6 +174,10 @@ typedef struct stmt {
       EXPRESSION* increment;
       struct stmt* forbody;
     };
+    struct { //case
+      EXPRESSION* casecond;
+      char* caselabel;
+    };
     //IDENTIFIERINFO* label; //case or label, maybe also goto?
     char* glabel; //for label and goto
     DYNARR* stmtsandinits; //compound
@@ -303,7 +308,7 @@ STATEMENT* mklsstmt(enum stmttype type, EXPRESSION* condition, STATEMENT* bdy);
 STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy);
 STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits);
 STATEMENT* mklblstmt(char* identifier);
-STATEMENT* mkcasestmt(EXPRESSION* casexpr/*, STATEMENT* stmt*/);
+STATEMENT* mkcasestmt(EXPRESSION* casexpr, char* label);
 STATEMENT* mkdefaultstmt(STATEMENT* stmt);
 ENUMFIELD* genenumfield(char* name, EXPRESSION* value);
 struct declarator_part* mkdeclpart(enum declpart_info typ, void* d);

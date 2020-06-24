@@ -8,6 +8,7 @@ int yylex();
 int yyparse();
 DYNARR* locs;
 DYNARR* file2compile;
+int caseindex;
 int main(int argc, char** argv) {
   ctx = malloc(sizeof(struct lexctx));
   //ctx->layer = 0;
@@ -39,7 +40,7 @@ int main(int argc, char** argv) {
   }
   extern int yydebug;
   //yydebug = 1;
-
+  caseindex = 0;
   yyparse();
   if(argc > 1) {
     close(compilefile);

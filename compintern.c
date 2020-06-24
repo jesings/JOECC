@@ -223,11 +223,11 @@ STATEMENT* mklblstmt(char* identifier) {
   return retval;
 }
 
-STATEMENT* mkcasestmt(EXPRESSION* casexpr/*, STATEMENT* stmt*/) {
+STATEMENT* mkcasestmt(EXPRESSION* casexpr, char* label) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = CASE;
-  retval->cond = casexpr;
-  //retval->body = stmt;
+  retval->casecond = casexpr;
+  retval->caselabel = label;
   return retval;
 }
 
