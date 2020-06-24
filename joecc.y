@@ -155,9 +155,9 @@ initializer:
 | "struct" IDENTIFIER ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_STRUCT, NULL);}
 | "enum" IDENTIFIER ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_ENUM, NULL);}
 | "union" IDENTIFIER ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_UNION, NULL);}
-| "struct" IDENTIFIER '{' struct_decls '}' ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_STRUCT, structor($2, $4));}
-| "enum" IDENTIFIER '{' enums '}' ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_ENUM, enumctor($2, $4));}
-| "union" IDENTIFIER '{' struct_decls '}' ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_UNION, unionctor($2, $4));}
+| "struct" IDENTIFIER structbody ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_STRUCT, structor($2, $3));}
+| "enum" IDENTIFIER enumbody ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_ENUM, enumctor($2, $3));}
+| "union" IDENTIFIER structbody ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_UNION, unionctor($2, $3));}
 cs_inits:
   cs_inits ',' declarator '=' esc {$$ = $1; dapush($$, geninit($3, $5));}
 | declarator '=' esc {$$ = dactor(8); dapush($$, geninit($1, $3));}
@@ -344,8 +344,7 @@ escl:
 | escl ',' esc {$$ = $1; dapush($$, $3); };
 
 array_literal:
-  '{' expression '}' {$$ = e2dynarr($2);}
-| '{' expression ',' '}' {$$ = e2dynarr($2);};
+  '{' expression commaopt '}' {$$ = e2dynarr($2);};
 
 multistring:
   STRING_LITERAL {$$ = $1;}
@@ -417,8 +416,7 @@ struct:
 | "struct" structbody {$$ = structor(NULL, $2);}
 | "struct" IDENTIFIER {$$ = (STRUCT*) search(scopepeek(ctx)->structs, $2);};
 structbody:
-  '{' struct_decls '}' {$$ = $2;}
-| '{' struct_decls ',' '}' {$$ = $2;};
+  '{' struct_decls '}' {$$ = $2;};
 struct_decls:
   struct_decl {$$ = $1;}
 | struct_decls struct_decl {$$ = damerge($1, $2);};
@@ -444,17 +442,16 @@ sdecl:
 | ':' esc {$$ = mkdeclaration(NULL); dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $2));};
 enum:
   "enum" IDENTIFIER enumbody {$$ = enumctor($2, $3); add2scope(scopepeek(ctx), $2, M_ENUM, $$);}
-| "enum" enumbody {$$ = enumctor(NULL, $2);}
+| "enum" enumbody {$$ = enumctor(NULL, $2); yydebug = 0;}
 | "enum" IDENTIFIER {$$ = (ENUM*) search(scopepeek(ctx)->enums, $2);/*TODO: check validity*/};
 enumbody:
-  '{' enums '}' {$$ = $2;}
-| '{' enums ',' '}' {$$ = $2;};
+  '{' enums commaopt '}' {$$ = $2;};
 enums:
   IDENTIFIER {$$ = dactor(256);
     dapush($$, genenumfield($1,ct_intconst_expr(0))); 
     add2scope(scopepeek(ctx), $1, M_ENUM_CONST, dapeek($$));
     }
-| IDENTIFIER '=' esc {$$ = dactor(256); 
+| IDENTIFIER '=' esc {$$ = dactor(256); yydebug = 1;
     dapush($$, genenumfield($1,$3)); 
     add2scope(scopepeek(ctx), $1, M_ENUM_CONST, $3);
     }
@@ -467,6 +464,7 @@ enums:
     add2scope(scopepeek(ctx), $3, M_ENUM_CONST, $5);
     /*TODO: somehow confirm no collisions*/
     };
+commaopt: ',' | %empty;
 %%
 #include <stdio.h>
 int yyerror(char* s){
