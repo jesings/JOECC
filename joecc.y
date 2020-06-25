@@ -484,9 +484,24 @@ enums:
     add2scope(scopepeek(ctx), $1, M_ENUM_CONST, $3);
     }
 | enums ',' IDENTIFIER {$$ = $1; 
-    EXPRESSION* incprevexpr = ct_binary_expr(ADD, ct_intconst_expr(1), ((ENUMFIELD*) dapeek($$))->value);
-    dapush($$, genenumfield($3,incprevexpr)); 
-    add2scope(scopepeek(ctx), $3, M_ENUM_CONST, incprevexpr);
+    EXPRESSION* prevexpr = ((ENUMFIELD*) dapeek($$))->value;
+    switch(prevexpr->type) {
+      case INT:
+        ++(prevexpr->intconst);
+        break;
+      case UINT:
+        ++(prevexpr->uintconst);
+        break;
+      case ADD:
+        if(prevexpr->param1->type == INT) {
+          ++(prevexpr->param1->intconst);
+          break;
+        }
+      default: ;
+        prevexpr = ct_binary_expr(ADD, ct_intconst_expr(1), prevexpr);
+        dapush($$, genenumfield($3, prevexpr)); 
+    }
+    add2scope(scopepeek(ctx), $3, M_ENUM_CONST, prevexpr);
     }
 | enums ',' IDENTIFIER '=' esc {$$ = $1;
     dapush($$, genenumfield($3,$5)); 
