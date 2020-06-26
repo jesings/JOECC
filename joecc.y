@@ -33,7 +33,6 @@
 
   #define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
   #define dget(param, index) ((DECLARATION*) (param)->arr[(index)])
-  #define YYDEBUG 1
 }
 
 %{
@@ -126,12 +125,10 @@ initializer:
     memcpy(idt, $2, sizeof(IDTYPE));
     if(idt->pointerstack) {
       idt->pointerstack = daclone($2->pointerstack);
-      idt->pointerstack = damerge(idt->pointerstack, dget($3, i)->type->pointerstack);
+      if(dget($3, i)->type->pointerstack)
+        idt->pointerstack = damerge(idt->pointerstack, dget($3, i)->type->pointerstack);
     }
     add2scope(current, dget($3, i)->varname, M_TYPEDEF, idt);
-    if(!strcmp(dget($3, i)->varname, "STATEMENT")) {
-      printf("%p\n", idt->structtype->fields);
-    }
     free(dget($3, i)->type);
     free(dget($3, i));
   }
@@ -146,7 +143,10 @@ initializer:
     aget($$, i)->decl->type->tb |= $1->tb; 
     if($1->pointerstack) {
       DYNARR* nptrst = daclone($1->pointerstack);
-      aget($$, i)->decl->type->pointerstack = damerge(nptrst, aget($$, i)->decl->type->pointerstack);
+      if(aget($$, i)->decl->type->pointerstack)
+        aget($$, i)->decl->type->pointerstack = damerge(nptrst, aget($$, i)->decl->type->pointerstack);
+      else 
+        aget($$, i)->decl->type->pointerstack = nptrst;
     }
     if($1->tb & (STRUCTVAL | ENUMVAL | UNIONVAL)) {
       aget($$, i)->decl->type->structtype = $1->structtype;
@@ -185,13 +185,14 @@ params:
 | params ',' param_decl {$$ = $1; dapush($$, $3);};
 param_decl:
   type/*bs*/ declarator {
-    $$ = $2; 
     if($1->pointerstack) 
-      $1->pointerstack = damerge($1->pointerstack, $$->type->pointerstack); 
+      if($2->type->pointerstack)
+        $1->pointerstack = damerge($1->pointerstack, $2->type->pointerstack); 
     else 
-      $1->pointerstack = $$->type->pointerstack;
-    free($$->type); 
-    $$->type = $1;
+      $1->pointerstack = $2->type->pointerstack;
+    free($2->type); 
+    $2->type = $1;
+    $$ = $2; 
     };
 typemsign:
   "signed" {$$ = 0;}
@@ -359,7 +360,8 @@ function:
     DYNARR* parammemb;
     struct declarator_part* dp = dapop($2->type->pointerstack);
     if($1->pointerstack)
-      $1->pointerstack = damerge($1->pointerstack, $2->type->pointerstack);
+      if($2->type->pointerstack)
+        $1->pointerstack = damerge($1->pointerstack, $2->type->pointerstack);
     else
       $1->pointerstack = $2->type->pointerstack;
     if(dp->params)
@@ -435,29 +437,30 @@ struct_decl:
       dget($$, i)->type->tb |= $1->tb; 
       if($1->pointerstack) {
         DYNARR* nptr = daclone($1->pointerstack);
-        dget($$, i)->type->pointerstack = damerge(nptr, dget($$, 0)->type->pointerstack);
+        if(dget($$, 0)->type->pointerstack)
+          dget($$, i)->type->pointerstack = damerge(nptr, dget($$, 0)->type->pointerstack);
       }
       if($1->tb & (ENUMVAL | STRUCTVAL | UNIONVAL))
          dget($$, 0)->type->structtype = $1->structtype;
     }
     }
 | "struct" structbody ';' {
-    $$ = dactor(8);
+    $$ = dactor(1);
     IDTYPE* tt = malloc(sizeof(IDTYPE));
     tt->structtype = structor(NULL, $2);
     tt->pointerstack = NULL;
-    tt->tb= STRUCTVAL | ANONMEMB;
+    tt->tb = STRUCTVAL | ANONMEMB;
     DECLARATION* dec = malloc(sizeof(DECLARATION));
     dec->type = tt;
     dec->varname = NULL;
     dapush($$, dec);
     }
 | "union" structbody ';' {
-    $$ = dactor(8);
+    $$ = dactor(1);
     IDTYPE* tt = malloc(sizeof(IDTYPE));
     tt->uniontype= unionctor(NULL, $2);
     tt->pointerstack = NULL;
-    tt->tb= UNIONVAL | ANONMEMB;
+    tt->tb = UNIONVAL | ANONMEMB;
     DECLARATION* dec = malloc(sizeof(DECLARATION));
     dec->type = tt;
     dec->varname = NULL;
