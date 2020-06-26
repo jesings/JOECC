@@ -46,7 +46,7 @@ DYNSTR* strcur;
 %option noyywrap
 %option stack
 
-%option debug
+/*%option debug*/
 %option warn
 %option nodefault
 
@@ -89,11 +89,11 @@ DYNSTR* strcur;
 ^[[:blank:]]*#[[:blank:]]* {yy_push_state(PREPROCESSOR); stmtover = 0; skipping = 0;}
 <PREPROCESSOR>{
   include[[:blank:]]+ {if(!skipping) yy_push_state(INCLUDE); else yy_pop_state();}
-  define[[:blank:]]+ {if(!skipping) yy_push_state(DEFINE); else yy_pop_state(); md = calloc(1, sizeof(struct macrodef));}
+  define[[:blank:]]+ {if(!skipping) {yy_push_state(DEFINE); md = calloc(1, sizeof(struct macrodef));} else yy_pop_state();}
   undef[[:blank:]]+ {if(!skipping) yy_push_state(UNDEF); else yy_pop_state();}
   ifdef[[:blank:]]+ {yy_push_state(IFDEF);}
   ifndef[[:blank:]]+ {yy_push_state(IFNDEF);}
-  else[[:blank:]]* {
+  else[[:blank:]]*\n {
     yy_pop_state();
     DYNARR* ds = ctx->definestack;
     enum ifdefstate ids = ds->length > 0 ? *(enum ifdefstate*) dapeek(ds) : ELSEANDFALSE;
@@ -112,7 +112,7 @@ DYNSTR* strcur;
         break;
     }
     }
-  endif[[:blank:]]* {/*handle endif case*/
+  endif[[:blank:]]*\n {/*handle endif case*/
     yy_pop_state();
     DYNARR* ds = ctx->definestack;
     if(ds->length > 0) {
@@ -128,7 +128,7 @@ DYNSTR* strcur;
       fputs("Error: Unexpected #endif", stderr);
     }
     }
-  \n {yy_pop_state();/*error state*/}
+  \n {yy_pop_state();fprintf(stderr, "PREPROCESSOR: Incorrect line end %d\n", yylloc.first_line);}
   . {fprintf(stderr, "PREPROCESSOR: I made a stupid: %c\n", *yytext);}
 }
 
@@ -146,8 +146,12 @@ DYNSTR* strcur;
         //YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
         //yy_push_state(INITIAL);
         //yypush_buffer_state(ybs);
+        yy_pop_state();
+        yy_pop_state();
       } else {
         fprintf(stderr, "Invalid system file %s included!\n", yytext + 1);
+        yy_pop_state();
+        yy_pop_state();
       }
     }
     }
@@ -166,15 +170,19 @@ DYNSTR* strcur;
         yylloc.first_column = yylloc.last_column = 0;
         dapush(file2compile, strdup(yytext + 1));
         YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
+        yy_pop_state();
+        yy_pop_state();
         yy_push_state(INITIAL);
         yypush_buffer_state(ybs);
       } else {
         fprintf(stderr, "Invalid local file %s included!\n", yytext + 1);
+        yy_pop_state();
+        yy_pop_state();
       }
     }
     }
   [[:space:]]+[<\"] {/*"*/yyless(1);}
-  [[:space:]]*\n {yy_pop_state(); yy_pop_state();if(!stmtover) fprintf(stderr, "Error: incomplete include\n");}
+  [[:space:]]*\n {yy_pop_state(); yy_pop_state();if(!stmtover) fprintf(stderr, "Error: incomplete include %d.%d-%d.%d %s\n", yylloc.first_line, yylloc.first_column, yylloc.last_line, yylloc.last_column, dapeek(file2compile));}
   . {fprintf(stderr, "INCLUDE: I made a stupid: %c\n", *yytext);}
 }
 

@@ -129,6 +129,9 @@ initializer:
       idt->pointerstack = damerge(idt->pointerstack, dget($3, i)->type->pointerstack);
     }
     add2scope(current, dget($3, i)->varname, M_TYPEDEF, idt);
+    if(!strcmp(dget($3, i)->varname, "STATEMENT")) {
+      printf("%p\n", idt->structtype->fields);
+    }
     free(dget($3, i)->type);
     free(dget($3, i));
   }
@@ -469,7 +472,7 @@ sdecl:
 | ':' esc {$$ = mkdeclaration(NULL); dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $2));};
 enum:
   "enum" IDENTIFIER enumbody {$$ = enumctor($2, $3); add2scope(scopepeek(ctx), $2, M_ENUM, $$);}
-| "enum" enumbody {$$ = enumctor(NULL, $2); yydebug = 0;}
+| "enum" enumbody {$$ = enumctor(NULL, $2);}
 | "enum" IDENTIFIER {$$ = (ENUM*) search(scopepeek(ctx)->enums, $2);/*TODO: check validity*/};
 enumbody:
   '{' enums commaopt '}' {$$ = $2;};
@@ -479,7 +482,7 @@ enums:
     dapush($$, genenumfield($1,const0)); 
     add2scope(scopepeek(ctx), $1, M_ENUM_CONST, const0);
     }
-| IDENTIFIER '=' esc {$$ = dactor(256); yydebug = 1;
+| IDENTIFIER '=' esc {$$ = dactor(256);
     dapush($$, genenumfield($1,$3)); 
     add2scope(scopepeek(ctx), $1, M_ENUM_CONST, $3);
     }

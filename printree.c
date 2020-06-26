@@ -422,18 +422,20 @@ char* statemeant(STATEMENT* stmt) {
       break;
     case CMPND:
       dsccat(dstrdly, '{');
-      for(int i = 0; i < stmt->stmtsandinits->length; i++) {
-        dscat(dstrdly, "\n=> ", 4);
-        SOI* soi = daget(stmt->stmtsandinits, i);
-        char* lineptr;
-        if(soi->isstmt) {
-          lineptr = statemeant(soi->state);
-        } else {
-          lineptr = prinit(soi->init);
+      if(stmt->stmtsandinits) {
+        for(int i = 0; i < stmt->stmtsandinits->length; i++) {
+          dscat(dstrdly, "\n=> ", 4);
+          SOI* soi = daget(stmt->stmtsandinits, i);
+          char* lineptr;
+          if(soi->isstmt) {
+            lineptr = statemeant(soi->state);
+          } else {
+            lineptr = prinit(soi->init);
+          }
+          dscat(dstrdly, lineptr, strlen(lineptr));
+          free(lineptr);
+          dscat(dstrdly, docolor, strlen(docolor));
         }
-        dscat(dstrdly, lineptr, strlen(lineptr));
-        free(lineptr);
-        dscat(dstrdly, docolor, strlen(docolor));
       }
       dsccat(dstrdly, '}');
       break;
