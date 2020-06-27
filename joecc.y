@@ -117,7 +117,7 @@ program:
     free($2);
   };
 initializer:
-"typedef" type/*bs*/ cs_minutes ';' {
+"typedef" type cs_minutes ';' {
   SCOPE* current = scopepeek(ctx);
   for(int i = 0; i < $3->length; i++) {
     dget($3, i)->type->tb |= $2->tb; 
@@ -155,13 +155,59 @@ initializer:
   }
   free($1->pointerstack);
   free($1);
-}
-| "struct" IDENTIFIER ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_STRUCT, NULL);}
-| "enum" IDENTIFIER ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_ENUM, NULL);}
-| "union" IDENTIFIER ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_UNION, NULL);}
-| "struct" IDENTIFIER structbody ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_STRUCT, structor($2, $3));}
-| "enum" IDENTIFIER enumbody ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_ENUM, enumctor($2, $3));}
-| "union" IDENTIFIER structbody ';' {$$ = dactor(0); add2scope(scopepeek(ctx), $2, M_UNION, unionctor($2, $3));}
+  }
+| "struct" IDENTIFIER ';' {
+  $$ = dactor(0);
+  char extant;
+  searchval(scopepeek(ctx)->structs, $2, &extant);
+  if(!extant) 
+    add2scope(scopepeek(ctx), $2, M_STRUCT, NULL);
+  else 
+    fprintf(stderr, "Error: redefinition of struct %s at %d.%d-%d.%d\n", $2, @$.first_line, @$.first_column, @$.last_line, @$.last_column);
+  }
+| "enum" IDENTIFIER ';' {
+  $$ = dactor(0);
+  char extant;
+  searchval(scopepeek(ctx)->enums, $2, &extant);
+  if(!extant) 
+    add2scope(scopepeek(ctx), $2, M_ENUM, NULL);
+  else 
+    fprintf(stderr, "Error: redefinition of enum %s at %d.%d-%d.%d\n", $2, @$.first_line, @$.first_column, @$.last_line, @$.last_column);
+  }
+| "union" IDENTIFIER ';' {
+  $$ = dactor(0);
+  char extant;
+  searchval(scopepeek(ctx)->unions, $2, &extant);
+  if(!extant) 
+    add2scope(scopepeek(ctx), $2, M_UNION, NULL);
+  else 
+    fprintf(stderr, "Error: redefinition of union %s at %d.%d-%d.%d\n", $2, @$.first_line, @$.first_column, @$.last_line, @$.last_column);
+  }
+| "struct" IDENTIFIER structbody ';' {
+  $$ = dactor(0);
+  char extant;
+  if(!searchval(scopepeek(ctx)->structs, $2, &extant)) 
+    add2scope(scopepeek(ctx), $2, M_STRUCT, structor($2, $3));
+  else 
+    fprintf(stderr, "Error: redefinition of struct %s at %d.%d-%d.%d\n", $2, @$.first_line, @$.first_column, @$.last_line, @$.last_column);
+  }
+| "enum" IDENTIFIER enumbody ';' {
+  $$ = dactor(0);
+  char extant;
+  if(!searchval(scopepeek(ctx)->enums, $2, &extant)) 
+    add2scope(scopepeek(ctx), $2, M_ENUM, enumctor($2, $3));
+  else 
+    fprintf(stderr, "Error: redefinition of enum %s at %d.%d-%d.%d\n", $2, @$.first_line, @$.first_column, @$.last_line, @$.last_column);
+  }
+| "union" IDENTIFIER structbody ';' {
+  $$ = dactor(0);
+  char extant;
+  if(!searchval(scopepeek(ctx)->unions, $2, &extant)) 
+    add2scope(scopepeek(ctx), $2, M_UNION, unionctor($2, $3));
+  else 
+    fprintf(stderr, "Error: redefinition of union %s at %d.%d-%d.%d\n", $2, @$.first_line, @$.first_column, @$.last_line, @$.last_column);
+  }
+/*some garbage with checking whether already defined must be done*/
 cs_inits:
   cs_inits ',' declarator '=' esc {$$ = $1; dapush($$, geninit($3, $5));}
 | declarator '=' esc {$$ = dactor(8); dapush($$, geninit($1, $3));}
@@ -184,7 +230,7 @@ params:
   param_decl {$$ = dactor(8); dapush($$, $1);}
 | params ',' param_decl {$$ = $1; dapush($$, $3);};
 param_decl:
-  type/*bs*/ declarator {
+  type declarator {
     if($1->pointerstack) 
       if($2->type->pointerstack)
         $1->pointerstack = damerge($1->pointerstack, $2->type->pointerstack); 
@@ -356,7 +402,7 @@ multistring:
 | STRING_LITERAL STRING_LITERAL {$$ = $1; dscat($1, $2->strptr, $2->lenstr); free($2->strptr); free($2);}
 
 function:
-  type/*bs*/ declarator compound_statement {
+  type declarator compound_statement {
     DYNARR* parammemb;
     struct declarator_part* dp = dapop($2->type->pointerstack);
     if($1->pointerstack)
@@ -381,8 +427,8 @@ function:
   };
 statement:
   compound_statement {$$ = $1;}
-|  IDENTIFIER ':' /*statement*/ {$$ = mklblstmt($1/*, $3*/); /* not sure if necessary*/ add2scope(scopepeek(ctx), $1, M_LABEL, NULL);}
-| "case" esc ':' /*statement*/ { 
+|  IDENTIFIER ':' {$$ = mklblstmt($1); add2scope(scopepeek(ctx), $1, M_LABEL, NULL);}
+| "case" esc ':' { 
     char* caselbl = malloc(128);
     snprintf(caselbl, 128, "__joecc__%d", caseindex++);
     $$ = mkcasestmt($2, caselbl);

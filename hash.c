@@ -179,6 +179,21 @@ void* search(HASHTABLE* ht, char* key) {
   return NULL;
 }
 
+void* searchval(HASHTABLE* ht, char* key, char* vallocate) {
+  unsigned long i = hash(key);
+  *vallocate = 0;
+  HASHPAIR* hp = &(ht->pairs[i]);
+  if(!(hp->key))
+    return NULL;
+  for(; hp; hp = hp->next) {
+    if(!strcmp(hp->key, key)) {
+      *vallocate = 1;
+      return hp->value;
+    }
+  }
+  return NULL;
+}
+
 DYNARR* htpairs(HASHTABLE* ht) {
   DYNARR* da = dactor(4096);
   for(int i = 0; i < HASHSIZE; i++) {

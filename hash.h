@@ -20,6 +20,7 @@ void htdtorfr(HASHTABLE* ht);
 void insert(HASHTABLE* ht, char* key, void* value);
 void insertfr(HASHTABLE* ht, char* key, void* value);
 void* search(HASHTABLE* ht, char* key);
+void* searchval(HASHTABLE* ht, char* key, char* vallocate);
 void rmpair(HASHTABLE* ht, char* key);
 void rmpairfr(HASHTABLE* ht, char* key);
 DYNARR* htpairs(HASHTABLE* ht);
