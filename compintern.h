@@ -101,16 +101,15 @@ typedef struct {
   struct stmt* body; //compound statement
   DYNARR* params;
   IDTYPE* retrn;
+  HASHTABLE* lbls;
 } FUNC;
 
 struct lexctx {//TODO: FIX
   HASHTABLE* funcs;
   //unsigned int fllast, fllen;
   DYNARR* scopes;
-  //unsigned int layer;//Necessary?
-  HASHTABLE* symtab;
-  HASHTABLE* defines;
   DYNARR* definestack;
+  HASHTABLE* defines;
 };
 
 
@@ -315,7 +314,8 @@ struct declarator_part* mkdeclpart(enum declpart_info typ, void* d);
 struct declarator_part* mkdeclptr(TYPEBITS d);
 EXPRESSION* exprfromdecl(char* name, IDTYPE* id);
 FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, IDTYPE* retrn);
-SCOPE* mkscope(SCOPE* parent);
+struct lexctx* ctxinit();
+SCOPE* mkscope();
 void scopepush(struct lexctx* ctx);
 void scopepop(struct lexctx* ctx);
 SCOPE* scopepeek(struct lexctx* ctx);

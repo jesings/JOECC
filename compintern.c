@@ -282,19 +282,27 @@ FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, IDTYPE* retrn) {
   return func;
 }
 
-SCOPE* mkscope(SCOPE* parent) {
+SCOPE* mkscope() {
   SCOPE* child = malloc(sizeof(SCOPE));
-  child->members = htclone(parent->members);
-  child->structs = htclone(parent->structs);
-  child->enums = htclone(parent->enums);
-  child->unions = htclone(parent->unions);
-  child->typesdef = htclone(parent->typesdef);
+  child->members = htctor();
+  child->structs = htctor();
+  child->enums = htctor();
+  child->unions = htctor();
+  child->typesdef = htctor();
   return child;
 }
 
+struct lexctx* ctxinit() {
+  struct lexctx* lct =  malloc(sizeof(struct lexctx));
+  lct->funcs = htctor();
+  lct->defines = htctor();
+  lct->definestack = dactor(64);
+  lct->scopes = dactor(64);
+  dapush(lct->scopes, mkscope());
+}
+
 void scopepush(struct lexctx* ctx) {
-  SCOPE* child = mkscope(dapeek(ctx->scopes));
-  dapush(ctx->scopes, child);
+  dapush(ctx->scopes, mkscope());
 }
 
 void scopepop(struct lexctx* ctx) {

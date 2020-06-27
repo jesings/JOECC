@@ -33,6 +33,8 @@
 
   #define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
   #define dget(param, index) ((DECLARATION*) (param)->arr[(index)])
+  //TODO: Compound literals?
+  //TODO: Consider designated initializers?
 }
 
 %{
@@ -66,9 +68,9 @@
 %type<integert> typemsign
 %type<typevariant> types1 types2 types1o
 %type<idvariant> typem typews1 type typemintkw inttypem
-%type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee
+%type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee escoa
 %type<stmtvariant> statement compound_statement
-%type<arrvariant> statements_and_initializers struct_decls struct_decl cs_decls enums escl abstract_ptr params cs_inits cs_minutes initializer program array_literal structbody enumbody
+%type<arrvariant> statements_and_initializers struct_decls struct_decl cs_decls enums escl escoal abstract_ptr params cs_inits cs_minutes initializer program array_literal structbody enumbody
 %type<unionvariant> union
 %type<structvariant> struct
 %type<enumvariant> enum
@@ -209,10 +211,13 @@ initializer:
   }
 /*some garbage with checking whether already defined must be done*/
 cs_inits:
-  cs_inits ',' declarator '=' esc {$$ = $1; dapush($$, geninit($3, $5));}
-| declarator '=' esc {$$ = dactor(8); dapush($$, geninit($1, $3));}
+  cs_inits ',' declarator '=' escoa {$$ = $1; dapush($$, geninit($3, $5));}
+| declarator '=' escoa {$$ = dactor(8); dapush($$, geninit($1, $3));}
 | cs_inits ',' declarator {$$ = $1; dapush($$, geninit($3, NULL));}
 | declarator {$$ = dactor(8); dapush($$, geninit($1, NULL));};
+escoa:
+  esc {$$ = $1;}
+| array_literal {$$ = ct_array_lit($1);};
 cs_minutes:
   cs_minutes ',' declarator {$$ = $1; dapush($1, $3);}
 | declarator {$$ = dactor(8); dapush($$, $1);};
@@ -382,7 +387,6 @@ esu:
 | ENUM_CONST {$$ = $1;}
 | FLOAT_LITERAL {$$ = ct_floatconst_expr($1);}
 | IDENTIFIER {$$ = ct_ident_expr($1);}
-| array_literal {$$ = ct_array_lit($1);}
 | error {$$ = ct_nop_expr(); 
   extern DYNARR* file2compile;
   fprintf (stderr, "%d.%d-%d.%d in %s: error encountered\n",
@@ -394,8 +398,11 @@ escl:
   esc {$$ = dactor(32); dapush($$, $1);}
 | escl ',' esc {$$ = $1; dapush($$, $3); };
 
+escoal:
+  escoa {$$ = dactor(32); dapush($$, $1);}
+| escoal ',' escoa {$$ = $1; dapush($$, $3); };
 array_literal:
-  '{' expression commaopt '}' {$$ = e2dynarr($2);};
+  '{' escoal commaopt '}' {$$ = $2;};
 
 multistring:
   STRING_LITERAL {$$ = $1;}
@@ -434,14 +441,14 @@ statement:
     $$ = mkcasestmt($2, caselbl);
     add2scope(scopepeek(ctx), caselbl/*no clue what this should be*/, M_CASE/*?*/, NULL);
     }
-| "default" ':' statement {$$ = mkdefaultstmt($3);add2scope(scopepeek(ctx), "default", M_CASE/*?*/, NULL);}/*case labels are scoped and regular labels arent?? This will be difficult*/
+| "default" ':' statement {$$ = mkdefaultstmt($3);add2scope(scopepeek(ctx), "default", M_CASE/*?*/, NULL);}/*case labels are scoped and regular labels arent?? This will be difficult--no perhaps not*/
 | "if" '(' expression ')' statement %prec THEN {$$ = mkifstmt($3, $5, NULL);}
 | "if" '(' expression ')' statement "else" statement {$$ = mkifstmt($3, $5, $7);}
 | "switch" '(' expression ')' compound_statement {$$ = mklsstmt(SWITCH, $3, $5);}
 | "while" '(' expression ')' statement {$$ = mklsstmt(WHILEL, $3, $5);}
 | "do" statement "while" '(' expression ')' ';' {$$ = mklsstmt(DOWHILEL, $5, $2);}
 | "for" '(' dee  ee ';' ee ')' statement {$$ = mkforstmt($3, $4, $6, $8);}
-| "goto" IDENTIFIER ';' {$$ = mkgotostmt($2);/*find label within scopes at some point, probably not now though*/}
+| "goto" IDENTIFIER ';' {$$ = mkgotostmt($2);/*find label within function at some point, probably not now though*/}
 | "break" ';' {$$ = mkexprstmt(LBREAK,NULL);}
 | "continue" ';' {$$ = mkexprstmt(LCONT,NULL);}
 | "return" ';' {$$ = mkexprstmt(FRET,NULL);}
@@ -456,7 +463,8 @@ dee:
 | ee ';' {$$ = malloc(sizeof(EOI)); $$->isE = 1; $$->E = $1;};
 compound_statement:/*add new scope to scope stack, remove when done*/
   '{' '}' {$$ = mkcmpndstmt(NULL);}
-| '{' statements_and_initializers '}' {scopepush(ctx); $$ = mkcmpndstmt($2); scopepop(ctx);};
+| '{' {scopepush(ctx);} statements_and_initializers '}' {$$ = mkcmpndstmt($3); scopepop(ctx);}
+  ;
 statements_and_initializers:
   initializer {$$ = dactor(4096); dapush($$,soii($1));}
 | statement {$$ = dactor(4096); dapush($$,sois($1));}
