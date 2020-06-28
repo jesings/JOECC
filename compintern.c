@@ -310,6 +310,9 @@ void* scopesearch(struct lexctx* lct, enum membertype mt, char* key){
       case M_UNION:
         ht = htp->unions;
         break;
+      case M_TYPEDEF:
+        ht = htp->typesdef;
+        break;
     }
     void* rv = searchval(ht, key, &vnum);
     if(vnum)

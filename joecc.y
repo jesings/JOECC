@@ -466,8 +466,8 @@ dee:
 | ee ';' {$$ = malloc(sizeof(EOI)); $$->isE = 1; $$->E = $1;};
 compound_statement:/*add new scope to scope stack, remove when done*/
   '{' '}' {$$ = mkcmpndstmt(NULL);}
-| '{' {scopepush(ctx);} statements_and_initializers '}' {$$ = mkcmpndstmt($3); scopepop(ctx);}
-  ;
+| '{' compound_midrule statements_and_initializers '}' {$$ = mkcmpndstmt($3); scopepop(ctx);};
+compound_midrule: %empty {scopepush(ctx);};
 statements_and_initializers:
   initializer {$$ = dactor(4096); dapush($$,soii($1));}
 | statement {$$ = dactor(4096); dapush($$,sois($1));}

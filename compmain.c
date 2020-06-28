@@ -26,7 +26,7 @@ int main(int argc, char** argv) {
     dapush(file2compile, "stdin");
   }
   extern int yydebug;
-  yydebug = 1;
+  yydebug = 0;
   caseindex = 0;
   yyparse();
   if(argc > 1) {
