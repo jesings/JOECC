@@ -7,7 +7,6 @@ INTSIZE (u|U|l|L)*
 %{
 
 #include <math.h>
-#include <stdarg.h>
 #include "joecc.tab.h"
 #include "compintern.h"
 
@@ -46,7 +45,7 @@ DYNSTR* strcur;
 %option noyywrap
 %option stack
 
-/*%option debug*/
+%option debug
 %option warn
 %option nodefault
 
@@ -712,12 +711,12 @@ int check_type(void** garbage, char* symb) {
     return -1;
   }
   nofcall: ;
-  SCOPEMEMBER* defntype = search(scopepeek(ctx)->typesdef, symb);
+  SCOPEMEMBER* defntype = scopesearch(ctx, M_TYPEDEF, symb);
   if(defntype) {
     *garbage = defntype->typememb;
     return TYPE_NAME;
   }
-  SCOPEMEMBER* symtab_ent = search(scopepeek(ctx)->members, symb);
+  SCOPEMEMBER* symtab_ent = scopesearch(ctx, M_VARIABLE, symb);
   if(!symtab_ent) {
     *garbage = symb;
     return IDENTIFIER;

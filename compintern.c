@@ -231,10 +231,9 @@ STATEMENT* mkcasestmt(EXPRESSION* casexpr, char* label) {
   return retval;
 }
 
-STATEMENT* mkdefaultstmt(STATEMENT* stmt) {
+STATEMENT* mkdefaultstmt() {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = DEFAULT;
-  retval->substatement = stmt;
   return retval;
 }
 
@@ -292,6 +291,60 @@ SCOPE* mkscope() {
   return child;
 }
 
+void* scopesearch(struct lexctx* lct, enum membertype mt, char* key){
+  for(int i = lct->scopes->length - 1; i >= 0; i--) {
+    char vnum;
+    SCOPE* htp = daget(lct->scopes, i);
+    HASHTABLE* ht;
+    switch(mt) {
+      default:
+      case M_VARIABLE:
+        ht = htp->members;
+        break;
+      case M_STRUCT:
+        ht = htp->structs;
+        break;
+      case M_ENUM:
+        ht = htp->enums;
+        break;
+      case M_UNION:
+        ht = htp->unions;
+        break;
+    }
+    void* rv = searchval(ht, key, &vnum);
+    if(vnum)
+      return rv;
+  }
+  return NULL;
+}
+
+void* scopesearchval(struct lexctx* lct, enum membertype mt, char* key, char* valid){
+  for(int i = lct->scopes->length - 1; i >= 0; i--) {
+    SCOPE* htp = daget(lct->scopes, i);
+    HASHTABLE* ht;
+    switch(mt) {
+      default:
+      case M_VARIABLE:
+        ht = htp->members;
+        break;
+      case M_STRUCT:
+        ht = htp->structs;
+        break;
+      case M_ENUM:
+        ht = htp->enums;
+        break;
+      case M_UNION:
+        ht = htp->unions;
+        break;
+    }
+    void* rv = searchval(ht, key, valid);
+    if(valid)
+      return rv;
+  }
+  *valid = 0;
+  return NULL;
+}
+
 struct lexctx* ctxinit() {
   struct lexctx* lct =  malloc(sizeof(struct lexctx));
   lct->funcs = htctor();
@@ -299,6 +352,7 @@ struct lexctx* ctxinit() {
   lct->definestack = dactor(64);
   lct->scopes = dactor(64);
   dapush(lct->scopes, mkscope());
+  return lct;
 }
 
 void scopepush(struct lexctx* ctx) {

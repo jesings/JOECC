@@ -91,7 +91,8 @@ program:
 | initializer {
     $$ = dactor(4096);
     for(int i = 0; i < $1->length; i++) {
-      if(!search(scopepeek(ctx)->members, aget($1, i)->decl->varname)) {
+      //TODO: Validator to handle redefinitions, error case as well
+      if(!scopesearch(ctx, M_VARIABLE, aget($1, i)->decl->varname)) {
         add2scope(scopepeek(ctx), aget($1, i)->decl->varname, M_VARIABLE, aget($1, i)->expr);
       }
       else {}
@@ -101,6 +102,7 @@ program:
   }
 | program function {
     $$ = $1;
+    char* cs = $2->name;
     if(!search(ctx->funcs, $2->name)) {
       insert(ctx->funcs, $2->name, $2);
       dapush($$, gtb(1, $2));
@@ -110,7 +112,8 @@ program:
 | program initializer {
     $$ = $1;
     for(int i = 0; i < $2->length; i++) {
-      if(!search(scopepeek(ctx)->members, aget($2, i)->decl->varname)) {
+      //TODO: Validator to handle redefinitions, error case as well
+      if(!scopesearch(ctx, M_VARIABLE, aget($2, i)->decl->varname)) {
         add2scope(scopepeek(ctx), aget($2, i)->decl->varname, M_VARIABLE, aget($2, i)->expr);
       }
       else {}
@@ -161,7 +164,7 @@ initializer:
 | "struct" IDENTIFIER ';' {
   $$ = dactor(0);
   char extant;
-  searchval(scopepeek(ctx)->structs, $2, &extant);
+  scopesearchval(ctx, M_STRUCT, $2, &extant);
   if(!extant) 
     add2scope(scopepeek(ctx), $2, M_STRUCT, NULL);
   else 
@@ -170,7 +173,7 @@ initializer:
 | "enum" IDENTIFIER ';' {
   $$ = dactor(0);
   char extant;
-  searchval(scopepeek(ctx)->enums, $2, &extant);
+  scopesearchval(ctx, M_ENUM, $2, &extant);
   if(!extant) 
     add2scope(scopepeek(ctx), $2, M_ENUM, NULL);
   else 
@@ -179,7 +182,7 @@ initializer:
 | "union" IDENTIFIER ';' {
   $$ = dactor(0);
   char extant;
-  searchval(scopepeek(ctx)->unions, $2, &extant);
+  scopesearchval(ctx, M_UNION, $2, &extant);
   if(!extant) 
     add2scope(scopepeek(ctx), $2, M_UNION, NULL);
   else 
@@ -188,7 +191,7 @@ initializer:
 | "struct" IDENTIFIER structbody ';' {
   $$ = dactor(0);
   char extant;
-  if(!searchval(scopepeek(ctx)->structs, $2, &extant)) 
+  if(!scopesearchval(ctx, M_STRUCT, $2, &extant)) 
     add2scope(scopepeek(ctx), $2, M_STRUCT, structor($2, $3));
   else 
     fprintf(stderr, "Error: redefinition of struct %s at %d.%d-%d.%d\n", $2, @$.first_line, @$.first_column, @$.last_line, @$.last_column);
@@ -196,7 +199,7 @@ initializer:
 | "enum" IDENTIFIER enumbody ';' {
   $$ = dactor(0);
   char extant;
-  if(!searchval(scopepeek(ctx)->enums, $2, &extant)) 
+  if(!scopesearchval(ctx, M_ENUM, $2, &extant)) 
     add2scope(scopepeek(ctx), $2, M_ENUM, enumctor($2, $3));
   else 
     fprintf(stderr, "Error: redefinition of enum %s at %d.%d-%d.%d\n", $2, @$.first_line, @$.first_column, @$.last_line, @$.last_column);
@@ -204,7 +207,7 @@ initializer:
 | "union" IDENTIFIER structbody ';' {
   $$ = dactor(0);
   char extant;
-  if(!searchval(scopepeek(ctx)->unions, $2, &extant)) 
+  if(!scopesearchval(ctx, M_UNION, $2, &extant)) 
     add2scope(scopepeek(ctx), $2, M_UNION, unionctor($2, $3));
   else 
     fprintf(stderr, "Error: redefinition of union %s at %d.%d-%d.%d\n", $2, @$.first_line, @$.first_column, @$.last_line, @$.last_column);
@@ -441,7 +444,7 @@ statement:
     $$ = mkcasestmt($2, caselbl);
     add2scope(scopepeek(ctx), caselbl/*no clue what this should be*/, M_CASE/*?*/, NULL);
     }
-| "default" ':' statement {$$ = mkdefaultstmt($3);add2scope(scopepeek(ctx), "default", M_CASE/*?*/, NULL);}/*case labels are scoped and regular labels arent?? This will be difficult--no perhaps not*/
+| "default" ':' {$$ = mkdefaultstmt(); add2scope(scopepeek(ctx), "default", M_CASE/*?*/, NULL);}/*case labels are scoped and regular labels arent?? This will be difficult--no perhaps not*/
 | "if" '(' expression ')' statement %prec THEN {$$ = mkifstmt($3, $5, NULL);}
 | "if" '(' expression ')' statement "else" statement {$$ = mkifstmt($3, $5, $7);}
 | "switch" '(' expression ')' compound_statement {$$ = mklsstmt(SWITCH, $3, $5);}
@@ -475,11 +478,11 @@ statements_and_initializers:
 union:
   "union" IDENTIFIER structbody {$$ = unionctor($2, $3); add2scope(scopepeek(ctx), $2, M_UNION, $$);}
 | "union" structbody  {$$ = unionctor(NULL, $2);}
-| "union" IDENTIFIER {$$ = (UNION*) search(scopepeek(ctx)->unions, $2);};
+| "union" IDENTIFIER {$$ = (UNION*) scopesearch(ctx, M_UNION, $2);};
 struct:
   "struct" IDENTIFIER structbody {$$ = structor($2, $3); add2scope(scopepeek(ctx), $2, M_STRUCT, $$);}
 | "struct" structbody {$$ = structor(NULL, $2);}
-| "struct" IDENTIFIER {$$ = (STRUCT*) search(scopepeek(ctx)->structs, $2);};
+| "struct" IDENTIFIER {$$ = (STRUCT*) scopesearch(ctx, M_STRUCT, $2);};
 structbody: '{' struct_decls '}' {$$ = $2;};
 struct_decls:
   struct_decl {$$ = $1;}
@@ -530,7 +533,7 @@ sdecl:
 enum:
   "enum" IDENTIFIER enumbody {$$ = enumctor($2, $3); add2scope(scopepeek(ctx), $2, M_ENUM, $$);}
 | "enum" enumbody {$$ = enumctor(NULL, $2);}
-| "enum" IDENTIFIER {$$ = (ENUM*) search(scopepeek(ctx)->enums, $2);/*TODO: check validity*/};
+| "enum" IDENTIFIER {$$ = (ENUM*) scopesearch(ctx, M_ENUM, $2);/*TODO: check validity*/};
 enumbody:
   '{' enums commaopt '}' {$$ = $2;};
 enums:

@@ -1,6 +1,6 @@
 #ifndef DYNARR_H
 #define DYNARR_H
-typedef struct{
+typedef struct {
   void** arr;
   int length;
   int maxlength;

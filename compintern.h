@@ -308,7 +308,7 @@ STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy)
 STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits);
 STATEMENT* mklblstmt(char* identifier);
 STATEMENT* mkcasestmt(EXPRESSION* casexpr, char* label);
-STATEMENT* mkdefaultstmt(STATEMENT* stmt);
+STATEMENT* mkdefaultstmt();
 ENUMFIELD* genenumfield(char* name, EXPRESSION* value);
 struct declarator_part* mkdeclpart(enum declpart_info typ, void* d);
 struct declarator_part* mkdeclptr(TYPEBITS d);
@@ -319,6 +319,8 @@ SCOPE* mkscope();
 void scopepush(struct lexctx* ctx);
 void scopepop(struct lexctx* ctx);
 SCOPE* scopepeek(struct lexctx* ctx);
+void* scopesearch(struct lexctx* lct, enum membertype mt, char* key);
+void* scopesearchval(struct lexctx* lct, enum membertype mt, char* key, char* valid);
 void add2scope(SCOPE* scope, char* memname, enum membertype mtype, void* memberval);
 TOPBLOCK* gtb(char isfunc, void* assign);
 
