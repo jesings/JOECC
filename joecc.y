@@ -143,6 +143,8 @@ initializer:
           ht = scopepeek(ctx)->forwardstructs;
         } else if($2->tb & UNIONVAL) {
           ht = scopepeek(ctx)->forwardunions;
+        } else if($2->tb & ENUMVAL) {
+          ht = scopepeek(ctx)->forwardenums;
         } else {
           fprintf(stderr, "Error: forward definition of unknown type %s %d.%d-%d.%d\n", $2->structtype->name, locprint(@$));
           continue;
@@ -179,6 +181,8 @@ initializer:
           ht = scopepeek(ctx)->forwardstructs;
         } else if($1->tb & UNIONVAL) {
           ht = scopepeek(ctx)->forwardunions;
+        } else if($1->tb & ENUMVAL) {
+          ht = scopepeek(ctx)->forwardenums;
         } else {
           fprintf(stderr, "Error: forward definition of unknown type %s %d.%d-%d.%d\n", $1->structtype->name, locprint(@$));
           continue;
@@ -243,12 +247,29 @@ params:
 | params ',' param_decl {$$ = $1; dapush($$, $3);};
 param_decl:
   type declarator {
+    $2->type->tb |= $1->tb;
     if($1->pointerstack) {
       DYNARR* nptr = daclone($1->pointerstack);
       if($1->pointerstack)
         $2->type->pointerstack = damerge(nptr, $2->type->pointerstack); 
       else 
         $2->type->pointerstack = nptr;
+    }
+    if($1->tb & (STRUCTVAL | ENUMVAL | UNIONVAL)) {
+      if($1->structtype->fields) {
+        $2->type->structtype = $1->structtype;
+      } else {
+        HASHTABLE* ht;
+        if($1->tb & STRUCTVAL) {
+          ht = scopepeek(ctx)->forwardstructs;
+        } else if($1->tb & UNIONVAL) {
+          ht = scopepeek(ctx)->forwardunions;
+        } else if($1->tb & ENUMVAL) {
+          ht = scopepeek(ctx)->forwardenums;
+        }
+        DYNARR* da = search(ht, $1->structtype->name);
+        dapush(da, &($2->type->structtype));
+      }
     }
     $$ = $2; 
     };
@@ -452,12 +473,25 @@ function:
   type declarator compound_statement {
     DYNARR* parammemb;
     struct declarator_part* dp = dapop($2->type->pointerstack);
+    $2->type->tb |= $1->tb;
     if($1->pointerstack) {
-      DYNARR* nptr = daclone($1->pointerstack);
-      if($2->type->pointerstack)
-        $2->type->pointerstack = damerge(nptr, $2->type->pointerstack);
-      else
-        $2->type->pointerstack = nptr;
+      $2->type->pointerstack = damerge(daclone($1->pointerstack), $2->type->pointerstack);
+    }
+    if($1->tb & (STRUCTVAL | ENUMVAL | UNIONVAL)) {
+      if($1->structtype->fields) {
+        $2->type->structtype = $1->structtype;
+      } else {
+        HASHTABLE* ht;
+        if($1->tb & STRUCTVAL) {
+          ht = scopepeek(ctx)->forwardstructs;
+        } else if($1->tb & UNIONVAL) {
+          ht = scopepeek(ctx)->forwardunions;
+        } else if($1->tb & ENUMVAL) {
+          ht = scopepeek(ctx)->forwardenums;
+        }
+        DYNARR* da = search(ht, $1->structtype->name);
+        dapush(da, &($2->type->structtype));
+      }
     }
     if(dp->params)
       parammemb = dp->params;

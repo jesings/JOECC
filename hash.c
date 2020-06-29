@@ -54,7 +54,7 @@ void htdtor(HASHTABLE* ht) {
   free(ht);
 }
 
-void hpdtorfr(HASHPAIR * hp) {
+void hpdtorfr(HASHPAIR* hp) {
   if(hp->next) {
     free(hp->key);
     free(hp->value);

@@ -17,4 +17,5 @@ void dainsert(DYNARR* da, void* val);
 void* dapop(DYNARR* da);
 #define dapeek(A) ((A)->arr[(A)->length-1])
 #define daget(A,I) ((A)->arr[(I)])
+// vim: set ft=c:
 #endif
