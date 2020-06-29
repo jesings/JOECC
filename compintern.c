@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "compintern.h"
 
 STRUCT* structor(char* name, DYNARR* fields) {
@@ -119,22 +120,6 @@ EXPRESSION* ct_ident_expr(/*IDENTIFIERINFO* id*/ char* ident) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = IDENT;
   retval->ident = ident;
-  return retval;
-}
-
-void e2dynarr2(EXPRESSION* expr, DYNARR* da) {
-  if(expr->type == COMMA) {
-    e2dynarr2(expr->param1, da);
-    dapush(da, expr->param2);
-    free(expr);
-  } else {
-    dapush(da, expr);
-  }
-}
-
-DYNARR* e2dynarr(EXPRESSION* expr) {
-  DYNARR* retval = dactor(4096);
-  e2dynarr2(expr, retval);
   return retval;
 }
 
@@ -288,12 +273,39 @@ SCOPE* mkscope() {
   child->enums = htctor();
   child->unions = htctor();
   child->typesdef = htctor();
+  //the below have values consisting of dynarrs of pointers where the address of the STRUCT* should be placed
+  child->forwardstructs = htctor();
+  child->forwardenums = htctor();
+  child->forwardunions = htctor();
   return child;
+}
+
+void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, void* assignval) {
+  DYNARR* da;
+  switch(mt) {
+    case M_STRUCT:
+      da = (DYNARR*) search(scopepeek(lct)->forwardstructs, defnd);
+      break;
+    case M_ENUM:
+      da = (DYNARR*) search(scopepeek(lct)->forwardenums, defnd);
+      break;
+    case M_UNION:
+      da = (DYNARR*) search(scopepeek(lct)->forwardunions, defnd);
+      break;
+    default:
+      fprintf(stderr, "Error: attempt to backwards define symbol of wrong type: %s\n", defnd);
+      return;
+  }
+  if(da == NULL) {
+    return;
+  }
+  for(int i = 0; i < da->length; i++)
+    *(void**) daget(da, i) = assignval;
+  dadtor(da);
 }
 
 void* scopesearch(struct lexctx* lct, enum membertype mt, char* key){
   for(int i = lct->scopes->length - 1; i >= 0; i--) {
-    char vnum;
     SCOPE* htp = daget(lct->scopes, i);
     HASHTABLE* ht;
     switch(mt) {
@@ -314,14 +326,33 @@ void* scopesearch(struct lexctx* lct, enum membertype mt, char* key){
         ht = htp->typesdef;
         break;
     }
-    void* rv = searchval(ht, key, &vnum);
-    if(vnum)
-      return rv;
+    SCOPEMEMBER* rv = (SCOPEMEMBER*) search(ht, key);
+    if(rv) {
+      switch(rv->mtype) {
+        case M_ENUM_CONST:
+          return rv->enumnum;
+        case M_CASE:
+          return rv->caseval;
+        case M_VARIABLE:
+          return rv->vartype;
+        case M_STRUCT:
+          return rv->structmemb;
+        case M_ENUM:
+          return rv->enummemb;
+        case M_UNION:
+          return rv->unionmemb;
+        case M_TYPEDEF:
+          return rv->typememb;
+        case M_LABEL:
+          //not needed?
+          break;
+      }
+    }
   }
   return NULL;
 }
 
-void* scopesearchval(struct lexctx* lct, enum membertype mt, char* key, char* valid){
+SCOPEMEMBER* scopesearchmem(struct lexctx* lct, enum membertype mt, char* key) {
   for(int i = lct->scopes->length - 1; i >= 0; i--) {
     SCOPE* htp = daget(lct->scopes, i);
     HASHTABLE* ht;
@@ -339,13 +370,42 @@ void* scopesearchval(struct lexctx* lct, enum membertype mt, char* key, char* va
       case M_UNION:
         ht = htp->unions;
         break;
+      case M_TYPEDEF:
+        ht = htp->typesdef;
+        break;
     }
-    void* rv = searchval(ht, key, valid);
-    if(valid)
-      return rv;
+    SCOPEMEMBER* rv = (SCOPEMEMBER*) search(ht, key);
+    if(rv) return rv;
   }
-  *valid = 0;
   return NULL;
+}
+
+char scopequeryval(struct lexctx* lct, enum membertype mt, char* key) {
+  for(int i = lct->scopes->length - 1; i >= 0; i--) {
+    SCOPE* htp = daget(lct->scopes, i);
+    HASHTABLE* ht;
+    switch(mt) {
+      default:
+      case M_VARIABLE:
+        ht = htp->members;
+        break;
+      case M_STRUCT:
+        ht = htp->structs;
+        break;
+      case M_ENUM:
+        ht = htp->enums;
+        break;
+      case M_UNION:
+        ht = htp->unions;
+        break;
+      case M_TYPEDEF:
+        ht = htp->typesdef;
+        break;
+    }
+    void* rv = search(ht, key);//will return scope object
+    if(rv) return 1;
+  }
+  return 0;
 }
 
 struct lexctx* ctxinit() {
@@ -371,8 +431,8 @@ SCOPE* scopepeek(struct lexctx* ctx) {
   return dapeek(ctx->scopes);
 }
 
+static long numvars = 0;
 void add2scope(SCOPE* scope, char* memname, enum membertype mtype, void* memberval) {
-  static long numvars = 0;
   SCOPEMEMBER* sm = malloc(sizeof(SCOPEMEMBER));
   sm->mtype = mtype;
   switch(mtype) {

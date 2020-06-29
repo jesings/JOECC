@@ -11,6 +11,7 @@ typedef struct hp{
 } HASHPAIR;
 typedef struct{
   HASHPAIR pairs[HASHSIZE];
+  int keys;
 } HASHTABLE;
 
 HASHTABLE* htctor();
@@ -21,6 +22,7 @@ void insert(HASHTABLE* ht, char* key, void* value);
 void insertfr(HASHTABLE* ht, char* key, void* value);
 void* search(HASHTABLE* ht, char* key);
 void* searchval(HASHTABLE* ht, char* key, char* vallocate);
+char queryval(HASHTABLE* ht, char* key);
 void rmpair(HASHTABLE* ht, char* key);
 void rmpairfr(HASHTABLE* ht, char* key);
 DYNARR* htpairs(HASHTABLE* ht);

@@ -711,12 +711,12 @@ int check_type(void** garbage, char* symb) {
     return -1;
   }
   nofcall: ;
-  SCOPEMEMBER* defntype = scopesearch(ctx, M_TYPEDEF, symb);
+  IDTYPE* defntype = scopesearch(ctx, M_TYPEDEF, symb);
   if(defntype) {
-    *garbage = defntype->typememb;
+    *garbage = defntype;
     return TYPE_NAME;
   }
-  SCOPEMEMBER* symtab_ent = scopesearch(ctx, M_VARIABLE, symb);
+  SCOPEMEMBER* symtab_ent = scopesearchmem(ctx, M_VARIABLE, symb);
   if(!symtab_ent) {
     *garbage = symb;
     return IDENTIFIER;

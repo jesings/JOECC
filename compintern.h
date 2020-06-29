@@ -259,14 +259,15 @@ typedef struct {
 
 typedef struct {
   //one for vars
-  //one for struct enum and union
-  //one for typedef
-  //one for labels
+  //one for labels--in function type, ctx needs to track this
   HASHTABLE* typesdef;//SCOPEMEMBER argument
   HASHTABLE* members;//SCOPEMEMBER argument
   HASHTABLE* structs;
   HASHTABLE* enums;
   HASHTABLE* unions;
+  HASHTABLE* forwardstructs;
+  HASHTABLE* forwardenums;
+  HASHTABLE* forwardunions;
 } SCOPE;
 
 enum ifdefstate {
@@ -295,7 +296,6 @@ EXPRESSION* ct_uintconst_expr(unsigned long num);
 EXPRESSION* ct_floatconst_expr(double num);
 EXPRESSION* ct_array_lit(DYNARR* da);
 EXPRESSION* ct_ident_expr(/*IDENTIFIERINFO* id*/ char* ident);
-DYNARR* e2dynarr(EXPRESSION* expr);
 DECLARATION* mkdeclaration(char* name);
 INITIALIZER* geninit(DECLARATION* decl, EXPRESSION* expr);
 SOI* sois(struct stmt* state);
@@ -320,8 +320,11 @@ void scopepush(struct lexctx* ctx);
 void scopepop(struct lexctx* ctx);
 SCOPE* scopepeek(struct lexctx* ctx);
 void* scopesearch(struct lexctx* lct, enum membertype mt, char* key);
-void* scopesearchval(struct lexctx* lct, enum membertype mt, char* key, char* valid);
+SCOPEMEMBER* scopesearchmem(struct lexctx* lct, enum membertype mt, char* key);
+char scopequeryval(struct lexctx* lct, enum membertype mt, char* key);
+void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, void* assignval);
 void add2scope(SCOPE* scope, char* memname, enum membertype mtype, void* memberval);
 TOPBLOCK* gtb(char isfunc, void* assign);
 
+#define locprint(lv) lv.first_line, lv.first_column, lv.last_line, lv.last_column
 #endif
