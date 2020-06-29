@@ -123,43 +123,72 @@ program:
   };
 initializer:
 "typedef" type cs_minutes ';' {
+  DECLARATION* dc;
   for(int i = 0; i < $3->length; i++) {
-    dget($3, i)->type->tb |= $2->tb;
-    IDTYPE* idt = malloc(sizeof(IDTYPE));
-    memcpy(idt, $2, sizeof(IDTYPE));
-    if(idt->pointerstack) {
-      idt->pointerstack = daclone($2->pointerstack);
-      if(dget($3, i)->type->pointerstack)
-        idt->pointerstack = damerge(idt->pointerstack, dget($3, i)->type->pointerstack);
+    dc = dget($3, i);
+    dc->type->tb |= $2->tb;
+    if($2->pointerstack) {
+      DYNARR* nptr = daclone($2->pointerstack);
+      if(dc->type->pointerstack)
+        dc->type->pointerstack = damerge(nptr, dc->type->pointerstack);
+      else
+        dc->type->pointerstack = nptr;
     }
-    add2scope(scopepeek(ctx), dget($3, i)->varname, M_TYPEDEF, idt);
-    free(dget($3, i)->type);
-    free(dget($3, i));
+    if($2->tb & (ENUMVAL | STRUCTVAL | UNIONVAL)) {
+      if($2->structtype->fields) {
+         dc->type->structtype = $2->structtype;
+      } else {
+        HASHTABLE* ht;
+        if($2->tb & STRUCTVAL) {
+          ht = scopepeek(ctx)->forwardstructs;
+        } else if($2->tb & UNIONVAL) {
+          ht = scopepeek(ctx)->forwardunions;
+        } else {
+          fprintf(stderr, "Error: forward definition of unknown type %s %d.%d-%d.%d\n", $2->structtype->name, locprint(@$));
+          continue;
+        }
+        DYNARR* da = search(ht, $2->structtype->name);
+        dapush(da, &(dc->type->structtype));
+      }
+    }
+    add2scope(scopepeek(ctx), dc->varname, M_TYPEDEF, dc->type);
+    free(dc);
   }
-  free($2->pointerstack);
-  free($2);
   $$ = dactor(0);
   }
 | type cs_inits ';' {
   SCOPE* current = scopepeek(ctx);
   $$ = $2;
+  INITIALIZER* ac;
   for(int i = 0; i < $$->length; i++) {
-    aget($$, i)->decl->type->tb |= $1->tb; 
+    ac = aget($$, i);
+    ac->decl->type->tb |= $1->tb; 
     if($1->pointerstack) {
       DYNARR* nptrst = daclone($1->pointerstack);
-      if(aget($$, i)->decl->type->pointerstack)
-        aget($$, i)->decl->type->pointerstack = damerge(nptrst, aget($$, i)->decl->type->pointerstack);
+      if(ac->decl->type->pointerstack)
+        ac->decl->type->pointerstack = damerge(nptrst, ac->decl->type->pointerstack);
       else 
-        aget($$, i)->decl->type->pointerstack = nptrst;
+        ac->decl->type->pointerstack = nptrst;
     }
     if($1->tb & (STRUCTVAL | ENUMVAL | UNIONVAL)) {
-      aget($$, i)->decl->type->structtype = $1->structtype;
+      if($1->structtype->fields) {
+        ac->decl->type->structtype = $1->structtype;
+      } else {
+        HASHTABLE* ht;
+        if($1->tb & STRUCTVAL) {
+          ht = scopepeek(ctx)->forwardstructs;
+        } else if($1->tb & UNIONVAL) {
+          ht = scopepeek(ctx)->forwardunions;
+        } else {
+          fprintf(stderr, "Error: forward definition of unknown type %s %d.%d-%d.%d\n", $1->structtype->name, locprint(@$));
+          continue;
+        }
+        DYNARR* da = search(ht, $1->structtype->name);
+        dapush(da, &(ac->decl->type->structtype));
+      }
     }
-    add2scope(current, aget($$, i)->decl->varname, M_VARIABLE, aget($$, i)->decl->type);
-  }
-  free($1->pointerstack);
-  free($1);
-  }
+    add2scope(current, ac->decl->varname, M_VARIABLE, ac->decl->type);
+  }}
 | "struct" IDENTIFIER ';' {
   $$ = dactor(0);
   if(!scopequeryval(ctx, M_STRUCT, $2)) {
@@ -214,13 +243,13 @@ params:
 | params ',' param_decl {$$ = $1; dapush($$, $3);};
 param_decl:
   type declarator {
-    if($1->pointerstack) 
-      if($2->type->pointerstack)
-        $1->pointerstack = damerge($1->pointerstack, $2->type->pointerstack); 
-    else 
-      $1->pointerstack = $2->type->pointerstack;
-    free($2->type); 
-    $2->type = $1;
+    if($1->pointerstack) {
+      DYNARR* nptr = daclone($1->pointerstack);
+      if($1->pointerstack)
+        $2->type->pointerstack = damerge(nptr, $2->type->pointerstack); 
+      else 
+        $2->type->pointerstack = nptr;
+    }
     $$ = $2; 
     };
 typemsign:
@@ -246,39 +275,36 @@ typem:
 | "double" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 8 | FLOATNUM;}
 | struct {
     $$ = calloc(1, sizeof(IDTYPE)); 
+    $$->structtype = $1;
     $$->tb = STRUCTVAL;
     if($1->fields == NULL) {
       DYNARR* da = (DYNARR*) search(scopepeek(ctx)->forwardstructs, $1->name); 
       if(!da) 
-        fprintf(stderr, "Error: Incorrect forward declaration of struct %s %d.%d-%d.%d\n", $1->name, locprint(@$));
+        fprintf(stderr, "Error: struct %s undeclared %d.%d-%d.%d\n", $1->name, locprint(@$));
       else
         dapush(da, &($$->structtype));
-    } else {
-      $$->structtype = $1;
     }}
 | union {
     $$ = calloc(1, sizeof(IDTYPE)); 
+    $$->uniontype = $1;
     $$->tb = UNIONVAL;
     if($1->fields == NULL) {
       DYNARR* da = (DYNARR*) search(scopepeek(ctx)->forwardunions, $1->name); 
       if(!da) 
-        fprintf(stderr, "Error: Incorrect forward declaration of union %s %d.%d-%d.%d\n", $1->name, locprint(@$));
+        fprintf(stderr, "Error: union %s undeclared %d.%d-%d.%d\n", $1->name, locprint(@$));
       else
         dapush(da, &($$->uniontype));
-    } else {
-      $$->uniontype = $1;
     }}
 | enum {
     $$ = calloc(1, sizeof(IDTYPE)); 
+    $$->enumtype = $1;
     $$->tb = ENUMVAL; 
     if($1->fields == NULL) {
       DYNARR* da = (DYNARR*) search(scopepeek(ctx)->forwardenums, $1->name); 
       if(!da) 
-        fprintf(stderr, "Error: Incorrect forward declaration of enum %s %d.%d-%d.%d\n", $1->name, locprint(@$));
+        fprintf(stderr, "Error: enum %s undeclared %d.%d-%d.%d\n", $1->name, locprint(@$));
       else
         dapush(da, &($$->enumtype));
-    } else {
-      $$->enumtype = $1;
     }};
 types1:
   "const" {$$ = CONSTNUM;}
@@ -363,11 +389,14 @@ esas:
 esm:
   '(' type ')' esm {$$ = ct_cast_expr($2, $4);}
 | '(' type abstract_ptr ')' esm {
-  if($2->pointerstack)
-    $2->pointerstack = damerge($2->pointerstack, $3);
-  else
-    $2->pointerstack = $3;
-  $$ = ct_cast_expr($2, $5);}
+  IDTYPE* idt = malloc(sizeof(IDTYPE));
+  memcpy(idt, $2, sizeof(IDTYPE*));
+  if(idt->pointerstack) {
+    idt->pointerstack = damerge(daclone(idt->pointerstack), $3);
+  } else {
+    idt->pointerstack = $3;
+  }
+  $$ = ct_cast_expr(idt, $5);}
 | esca {$$ = $1;};
 esca:
   "++" esca {$$ = ct_unary_expr(PREINC, $2);}
@@ -423,16 +452,18 @@ function:
   type declarator compound_statement {
     DYNARR* parammemb;
     struct declarator_part* dp = dapop($2->type->pointerstack);
-    if($1->pointerstack)
+    if($1->pointerstack) {
+      DYNARR* nptr = daclone($1->pointerstack);
       if($2->type->pointerstack)
-        $1->pointerstack = damerge($1->pointerstack, $2->type->pointerstack);
-    else
-      $1->pointerstack = $2->type->pointerstack;
+        $2->type->pointerstack = damerge(nptr, $2->type->pointerstack);
+      else
+        $2->type->pointerstack = nptr;
+    }
     if(dp->params)
       parammemb = dp->params;
     else
       parammemb = dactor(0);
-    $$ = ct_function($2->varname, $3, parammemb, $1);
+    $$ = ct_function($2->varname, $3, parammemb, $2->type);
     free($2);
     /*check that it is in fact a param spec*/
   }
@@ -546,17 +577,35 @@ struct_decls:
 struct_decl:
   type cs_decls ';' {
     $$ = $2; 
+    DECLARATION* dc;
     for(int i = 0; i < $2->length; i++) {
-      dget($$, i)->type->tb |= $1->tb; 
+      dc = dget($$, i);
+      dc->type->tb |= $1->tb; 
       if($1->pointerstack) {
         DYNARR* nptr = daclone($1->pointerstack);
-        if(dget($$, 0)->type->pointerstack)
-          dget($$, i)->type->pointerstack = damerge(nptr, dget($$, 0)->type->pointerstack);
+        if(dc->type->pointerstack)
+          dc->type->pointerstack = damerge(nptr, dc->type->pointerstack);
+        else
+          dc->type->pointerstack = nptr;
       }
-      if($1->tb & (ENUMVAL | STRUCTVAL | UNIONVAL))
-         dget($$, 0)->type->structtype = $1->structtype;
-    }
-    }
+      if($1->tb & (ENUMVAL | STRUCTVAL | UNIONVAL)) {
+        if($1->structtype->fields) {
+           dc->type->structtype = $1->structtype;
+        } else {
+          HASHTABLE* ht;
+          if($1->tb & STRUCTVAL) {
+            ht = scopepeek(ctx)->forwardstructs;
+          } else if($1->tb & UNIONVAL) {
+            ht = scopepeek(ctx)->forwardunions;
+          } else {
+            fprintf(stderr, "Error: forward declaration of unknown type %s %d.%d-%d.%d\n", $1->structtype->name, locprint(@$));
+            continue;
+          }
+          DYNARR* da = search(ht, $1->structtype->name);
+          dapush(da, &(dc->type->structtype));
+        }
+      }
+    }}
 | "struct" structbody ';' {
     $$ = dactor(1);
     IDTYPE* tt = malloc(sizeof(IDTYPE));
@@ -654,7 +703,6 @@ enums:
     };
 commaopt: ',' | %empty;
 %%
-#include <stdio.h>
 int yyerror(char* s){
   //printf("\ncolumn: %d\n%s\n", yylloc->first_column, s);
   return 0;
