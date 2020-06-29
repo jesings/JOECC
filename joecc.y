@@ -485,8 +485,7 @@ statements_and_initializers:
 /*for struct enum union make sure no redefinitions are happening*/
 fullunion:
   "union" IDENTIFIER {
-    UNION* st = (UNION*) scopesearch(ctx, M_UNION, $2);
-    if(!st) {
+    if(!scopesearch(ctx, M_UNION, $2)) {
       if(!queryval(scopepeek(ctx)->forwardunions, $2)) {
         add2scope(scopepeek(ctx), $2, M_UNION, NULL);
         insert(scopepeek(ctx)->forwardunions, $2, dactor(16));
@@ -514,8 +513,7 @@ union:
     }};
 fullstruct:
   "struct" IDENTIFIER {
-    STRUCT* st = (STRUCT*) scopesearch(ctx, M_STRUCT, $2);
-    if(!st) {
+    if(!scopesearch(ctx, M_STRUCT, $2)) {
       if(!queryval(scopepeek(ctx)->forwardstructs, $2)) {
         add2scope(scopepeek(ctx), $2, M_STRUCT, NULL);
         insert(scopepeek(ctx)->forwardstructs, $2, dactor(16));
@@ -526,7 +524,7 @@ fullstruct:
     $$ = structor($2, $4); 
     add2scope(scopepeek(ctx), $2, M_STRUCT, $$);
     defbackward(ctx, M_STRUCT, $2, $$);
-    }
+    };
 struct:
   fullstruct {$$ = $1;}
 | "struct" structbody {$$ = structor(NULL, $2);}
@@ -590,8 +588,7 @@ sdecl:
 | ':' esc {$$ = mkdeclaration(NULL); dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $2));};
 fullenum:
   "enum" IDENTIFIER {
-    ENUM* en = (ENUM*) scopesearch(ctx, M_ENUM, $2);
-    if(!en) {
+    if(!scopesearch(ctx, M_ENUM, $2)) {
       if(!queryval(scopepeek(ctx)->forwardenums, $2)) {
         add2scope(scopepeek(ctx), $2, M_STRUCT, NULL);
         insert(scopepeek(ctx)->forwardenums, $2, dactor(16));
@@ -603,7 +600,7 @@ fullenum:
     $$ = enumctor($2, $4); 
     add2scope(scopepeek(ctx), $2, M_ENUM, $$);
     defbackward(ctx, M_ENUM, $2, $$);
-    }
+    };
 enum:
   fullenum {$$ = $1;}
 | "enum" enumbody {$$ = enumctor(NULL, $2);}

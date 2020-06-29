@@ -285,19 +285,19 @@ void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, void* assi
   switch(mt) {
     case M_STRUCT:
       da = (DYNARR*) search(scopepeek(lct)->forwardstructs, defnd);
+      rmpair(scopepeek(lct)->forwardstructs, defnd);
       break;
     case M_ENUM:
       da = (DYNARR*) search(scopepeek(lct)->forwardenums, defnd);
+      rmpair(scopepeek(lct)->forwardenums, defnd);
       break;
     case M_UNION:
       da = (DYNARR*) search(scopepeek(lct)->forwardunions, defnd);
+      rmpair(scopepeek(lct)->forwardunions, defnd);
       break;
     default:
       fprintf(stderr, "Error: attempt to backwards define symbol of wrong type: %s\n", defnd);
       return;
-  }
-  if(da == NULL) {
-    return;
   }
   for(int i = 0; i < da->length; i++)
     *(void**) daget(da, i) = assignval;
@@ -424,6 +424,10 @@ void scopepush(struct lexctx* ctx) {
 
 void scopepop(struct lexctx* ctx) {
   SCOPE* cleanup = dapop(ctx->scopes);
+  if(cleanup->forwardstructs->keys != 0 ||
+     cleanup->forwardunions->keys != 0 ||
+     cleanup->forwardenums->keys != 0)
+    fprintf(stderr, "Error: not all forward declarations processed by end of scope\n");
   free(cleanup);
 }
 

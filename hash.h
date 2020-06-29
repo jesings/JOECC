@@ -3,7 +3,6 @@
 #define HASHSIZE 4096
 #include "dynarr.h"
 
-struct hp;
 typedef struct hp{
   char* key;
   void* value;
