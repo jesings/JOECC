@@ -474,24 +474,3 @@ TOPBLOCK* gtb(char isfunc, void* assign) {
   retval->garbage = assign;
   return retval;
 }
-//char isconstexpr(EXPRESSION* cexpr) {
-//  switch(cexpr->type){
-//    case STRING: case WSTRING: case INT: case UINT: case FLOAT:
-//      return 1;
-//    case NEG: case L_NOT: case B_NOT: case COMMA: case CAST: case ADDR:
-//    case DEREF:
-//      return isconstexpr(cexpr->unaryparam);
-//    case ADD: case SUB: case EQ: case NEQ: case GT: case LT: case GTE:
-//    case LTE: case MULT: case DIVI: case MOD: case L_AND: case L_OR:
-//    case B_AND: case B_XOR: case SHL: case SHR: case DOTOP:
-//      return isconstexpr(cexpr->param1) && isconstexpr(cexpr->param2);
-//    case SZOFEXPR:
-//      return isconstexpr(cexpr->castexpr);
-//    case TERNARY:
-//      return isconstexpr(cexpr->ifexpr) ;//Ignore then or else depending on if
-//    case IDENT:
-//      return; 
-//    default:
-//      return 0;
-//  }
-//}

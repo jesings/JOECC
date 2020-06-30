@@ -242,7 +242,7 @@ declname:
 | declname '[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, $3));}
 | declname '(' ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, NULL));}
 | declname '(' params ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));};
-params:
+params: /*TODO: confirm no collisions*/
   param_decl {$$ = dactor(8); dapush($$, $1);}
 | params ',' param_decl {$$ = $1; dapush($$, $3);};
 param_decl:
@@ -469,7 +469,7 @@ multistring:
   STRING_LITERAL {$$ = $1;}
 | STRING_LITERAL STRING_LITERAL {$$ = $1; dscat($1, $2->strptr, $2->lenstr); free($2->strptr); free($2);}
 
-function:
+function: /*TODO: midrule action and getting parameters into local scope of compound statement*/
   type declarator compound_statement {
     DYNARR* parammemb;
     struct declarator_part* dp = dapop($2->type->pointerstack);
@@ -605,7 +605,7 @@ struct:
       }
     }};
 structbody: '{' struct_decls '}' {$$ = $2;};
-struct_decls:
+struct_decls: /*TODO: Confirm no collisions*/
   struct_decl {$$ = $1;}
 | struct_decls struct_decl {$$ = damerge($1, $2);};
 struct_decl:
@@ -697,7 +697,7 @@ enum:
       } else {
         fprintf(stderr, "Error: reference to undefined enum %s %d.%d-%d.%d\n", $2, locprint(@$));
       }
-    }/*TODO: check validity*/};
+    }};
 enumbody:
   '{' enums commaopt '}' {$$ = $2;};
 enums:
@@ -728,12 +728,11 @@ enums:
         prevexpr = ct_binary_expr(ADD, ct_intconst_expr(1), prevexpr);
         dapush($$, genenumfield($3, prevexpr)); 
     }
-    add2scope(scopepeek(ctx), $3, M_ENUM_CONST, prevexpr);
+    add2scope(scopepeek(ctx), $3, M_ENUM_CONST, prevexpr); //TODO: Confirm no collisions
     }
 | enums ',' IDENTIFIER '=' esc {$$ = $1;
     dapush($$, genenumfield($3,$5)); 
     add2scope(scopepeek(ctx), $3, M_ENUM_CONST, $5);
-    /*TODO: somehow confirm no collisions*/
     };
 commaopt: ',' | %empty;
 %%
