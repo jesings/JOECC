@@ -116,31 +116,15 @@ struct lexctx {//TODO: FIX
 
 typedef struct expr {
   EXPRTYPE type;
+  DYNARR* params; //arr of exprs
   union {
-    struct {
-      struct expr* ftocall;
-      DYNARR* params;
-    };
-    struct {
-      struct expr* param1;
-      struct expr* param2;
-    };
-    struct {
-      struct expr* ifexpr;
-      struct expr* thenexpr;
-      struct expr* elseexpr;
-    };
-    struct {
-      IDTYPE* casttype;
-      struct expr* castexpr;
-    };
-    struct expr* unaryparam;
+    IDTYPE* casttype;
     char* strconst;
     char* member;
     long intconst;
     unsigned long uintconst;
     double floatconst;
-    IDENTIFIERINFO* id;//for identifier expressions???????
+    IDENTIFIERINFO* id;//for identifier expressions?
     IDTYPE* typesz;//for sizeof
     DYNARR* dynvals;//?
     /*possible struct const for later struct initializations*/

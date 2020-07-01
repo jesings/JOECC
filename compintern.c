@@ -37,7 +37,8 @@ EXPRESSION* ct_nop_expr() {
 EXPRESSION* ct_unary_expr(EXPRTYPE t, EXPRESSION* param) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = t;
-  retval->unaryparam = param;
+  retval->params = dactor(1);
+  dapush(retval->params, param);
   return retval;
 }
 
@@ -51,15 +52,17 @@ EXPRESSION* ct_sztype(IDTYPE* whichtype) {
 EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = t;
-  retval->param1 = param1;
-  retval->param2 = param2;
+  retval->params = dactor(2);
+  dapush(retval->params, param1);
+  dapush(retval->params, param2);
   return retval;
 }
 
-EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr ) {
+EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = CAST;
-  retval->castexpr = expr;
+  retval->params = dactor(1);
+  dapush(retval->params, expr);
   retval->casttype = type;
   return retval;
 }
@@ -67,17 +70,19 @@ EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr ) {
 EXPRESSION* ct_ternary_expr(EXPRESSION* param1, EXPRESSION* param2, EXPRESSION* param3) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = TERNARY;
-  retval->ifexpr = param1;
-  retval->thenexpr = param2;
-  retval->elseexpr = param2;
+  retval->params = dactor(3);
+  dapush(retval->params, param1);
+  dapush(retval->params, param2);
+  dapush(retval->params, param3);
   return retval;
 }
 
 EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = FCALL;
-  retval->ftocall = func;
-  retval->params= params;
+  DYNARR* dd = dactor(1);
+  dapush(dd, func);
+  retval->params = damerge(dd, params);
   return retval;
 }
 

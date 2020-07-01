@@ -242,18 +242,19 @@ char* treexpr(EXPRESSION* expr) {
     case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
     case XORASSIGN: case ORASSIGN: case DIVASSIGN: case MULTASSIGN: case MODASSIGN:
       ;
-      char* e1 = treexpr(expr->param1);
-      char* e2 = treexpr(expr->param2);
-      dscat(dstrdly, e1, strlen(e1));
-      dscat(dstrdly, docolor, strlen(docolor));
-      dsccat(dstrdly, '$');
-      dscat(dstrdly, e2, strlen(e2));
-      free(e1);
-      free(e2);
+      for(int i = 0; i < expr->params->length; i++) {
+        if(i != 0) {
+          dscat(dstrdly, docolor, strlen(docolor));
+          dsccat(dstrdly, '$');
+        }
+        char* eexpr = treexpr(expr->params->arr[i]);
+        dscat(dstrdly, eexpr, strlen(eexpr));
+        free(eexpr);
+      }
       break;
     case NEG: case PREINC: case POSTINC: case PREDEC: case POSTDEC: case ADDR: 
     case DEREF: case SZOFEXPR: case L_NOT: ;
-      char* e = treexpr(expr->unaryparam);
+      char* e = treexpr(expr->params->arr[0]);
       dscat(dstrdly, e, strlen(e));
       free(e);
       break;
@@ -263,7 +264,7 @@ char* treexpr(EXPRESSION* expr) {
       free(c);
       break;
     case CAST: ;
-      char* cte = treexpr(expr->castexpr);
+      char* cte = treexpr(expr->params->arr[0]);
       dscat(dstrdly, cte, strlen(cte));
       dscat(dstrdly, docolor, strlen(docolor));
       dscat(dstrdly, " TO ", 4);
@@ -272,10 +273,11 @@ char* treexpr(EXPRESSION* expr) {
       dscat(dstrdly, ctt, strlen(ctt));
       free(ctt);
       break;
-    case FCALL:
-      dscat(dstrdly, expr->ftocall->id->name, strlen(expr->ftocall->id->name));
+    case FCALL: ;
+      char* fname = ((EXPRESSION*)expr->params->arr[0])->id->name;
+      dscat(dstrdly, fname, strlen(fname));
       dscat(dstrdly, " PARAMS ", 8);
-      for(int i = 0; i < expr->params->length; i++) {
+      for(int i = 1; i < expr->params->length; i++) {
         char* toapp = treexpr(daget(expr->params, i));
         dscat(dstrdly, toapp, strlen(toapp));
         dscat(dstrdly, docolor, strlen(docolor));
@@ -285,17 +287,17 @@ char* treexpr(EXPRESSION* expr) {
       dscat(dstrdly, docolor, strlen(docolor));
       break;
     case TERNARY: ;
-      char* tern = treexpr(expr->ifexpr);
+      char* tern = treexpr(expr->params->arr[0]);
       dscat(dstrdly, tern, strlen(tern));
       dscat(dstrdly, docolor, strlen(docolor));
       free(tern);
       dscat(dstrdly, " THEN ", 6);
-      tern = treexpr(expr->thenexpr);
+      tern = treexpr(expr->params->arr[1]);
       dscat(dstrdly, tern, strlen(tern));
       dscat(dstrdly, docolor, strlen(docolor));
       free(tern);
       dscat(dstrdly, " ELSE ", 6);
-      tern = treexpr(expr->elseexpr);
+      tern = treexpr(expr->params->arr[2]);
       dscat(dstrdly, tern, strlen(tern));
       free(tern);
       break;

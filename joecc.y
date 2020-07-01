@@ -719,12 +719,13 @@ enums:
       case UINT:
         ++(prevexpr->uintconst);
         break;
-      case ADD:
-        if(prevexpr->param1->type == INT) {
-          ++(prevexpr->param1->intconst);
+      case ADD: ;
+        EXPRESSION* epe = daget(prevexpr->params, 0);
+        if(epe->type == INT) {
+          ++(epe->intconst);
           break;
         }
-      default: ;
+      default:
         prevexpr = ct_binary_expr(ADD, ct_intconst_expr(1), prevexpr);
         dapush($$, genenumfield($3, prevexpr)); 
     }

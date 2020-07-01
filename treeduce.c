@@ -21,16 +21,16 @@ char puritree(EXPRESSION* cexpr) {
     case STRING: case INT: case UINT: case FLOAT: case NOP: case IDENT: case ARRAY_LIT: case SZOF: case MEMBER:
       return 1;
     case NEG: case L_NOT: case B_NOT: case ADDR: case DEREF:
-      return puritree(cexpr->unaryparam);
     case ADD: case SUB: case EQ: case NEQ: case GT: case LT: case GTE: case LTE: case MULT: case DIVI: 
     case MOD: case L_AND: case L_OR: case B_AND: case B_OR: case B_XOR: case SHL: case SHR: case COMMA:
-      return puritree(cexpr->param1) && puritree(cexpr->param2);
     case DOTOP: case ARROW:
-      return puritree(cexpr->param1);
     case SZOFEXPR: case CAST: 
-      return puritree(cexpr->castexpr);
     case TERNARY:
-      return puritree(cexpr->ifexpr) && puritree(cexpr->thenexpr) && puritree(cexpr->elseexpr);
+      for(int i = 0; i < cexpr->params->length; i++) {
+        if(!puritree(cexpr->params->arr[i]))
+          return 0;
+      }
+      return 1;
     case FCALL:
       return 0;//check function for purity
     case ASSIGN: case PREINC: case PREDEC: case POSTINC: case POSTDEC:
@@ -44,6 +44,8 @@ char puritree(EXPRESSION* cexpr) {
 //dereferencing of lvalue in assign or in inc/dec
 //arrow/dot op in lvalue
 //A more sophisticated version of the above is possible but I won't do that work
+//The above will not balk at initializers, as those aren't considered assignment ops
+//maybe confirm identifier is local and not a param?
 //calling other function that is impure (or indirect function)
 //lots of work will need to be done in order to ignore circular dependencies
 
@@ -70,28 +72,23 @@ char treequals(EXPRESSION* e1, EXPRESSION* e2) {
       return 1;
     case ARRAY_LIT:
       return 0;
-    case NEG: case L_NOT: case B_NOT: case ADDR: case DEREF:
-      return treequals(e1->unaryparam, e2->unaryparam);
-    case TERNARY:
-      return treequals(e1->ifexpr, e2->ifexpr) && treequals(e1->thenexpr, e2->thenexpr) && treequals(e1->elseexpr, e2->elseexpr);
-    case FCALL:
-      if(!treequals(e1->ftocall, e2->ftocall))
-        return 0;
-      if(e1->params->length != e2->params->length)//big problem here
-        return 0;
-      for(int i = 0; i < e1->params->length; i++) {
-        if(!treequals(daget(e1->params, i), daget(e2->params, i)))
-           return 0;
-      }
-      return 1;
     case CAST:  case SZOFEXPR:
-      return treequals(e1->castexpr, e2->castexpr);
+      //compare idtype as well
+    case NEG: case L_NOT: case B_NOT: case ADDR: case DEREF:
+    case TERNARY:
+    case FCALL:
     case ADD: case SUB: case EQ: case NEQ: case GT: case LT: case GTE: case LTE: case MULT: case DIVI: 
     case MOD: case L_AND: case L_OR: case B_AND: case B_OR: case B_XOR: case SHL: case SHR: case COMMA:
     case ASSIGN: case PREINC: case PREDEC: case POSTINC: case POSTDEC: case DOTOP: case ARROW:
     case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
     case XORASSIGN: case ORASSIGN: case DIVASSIGN: case MULTASSIGN: case MODASSIGN:
-      return treequals(e1->param1, e2->param1) && treequals(e1->param2, e2->param2);
+      if(e1->params->length != e2->params->length)//big problem here
+        return 0;
+      for(int i = 0; i < e1->params->length; i++) {
+        if(!treequals(e1->params->arr[i], e2->params->arr[i]))
+          return 0;
+      }
+      return 1;
   }
   //factor out params into loop for ease of use, probably use DYNARR
 }
