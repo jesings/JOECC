@@ -219,11 +219,14 @@ char* treexpr(EXPRESSION* expr) {
       sprintf(buf, "%lf", expr->floatconst);
       dscat(dstrdly, buf, strlen(buf));
       break;
-    case IDENT: ;
+    case IDENT:
       //char* oofstr = treeid(expr->id);
       //dscat(dstrdly, oofstr, strlen(oofstr));
-      dscat(dstrdly, expr->ident, strlen(expr->ident));
+      dscat(dstrdly, expr->id->name, strlen(expr->id->name));
       //free(oofstr);
+      break;
+    case MEMBER:
+      dscat(dstrdly, expr->member, strlen(expr->member));
       break;
     case ARRAY_LIT:
       //TODO: perhaps we want more complicated array handling
@@ -270,7 +273,7 @@ char* treexpr(EXPRESSION* expr) {
       free(ctt);
       break;
     case FCALL:
-      dscat(dstrdly, expr->ftocall->ident, strlen(expr->ftocall->ident));
+      dscat(dstrdly, expr->ftocall->id->name, strlen(expr->ftocall->id->name));
       dscat(dstrdly, " PARAMS ", 8);
       for(int i = 0; i < expr->params->length; i++) {
         char* toapp = treexpr(daget(expr->params, i));

@@ -1,3 +1,6 @@
+#include <string.h>
+#include <stdlib.h>
+#include "dynarr.h"
 #include "compintern.h"
 //  X(NOP), X(STRING), X(INT), X(UINT), X(FLOAT), X(IDENT), X(ARRAY_LIT), \
 //  X(ADD), X(NEG), X(SUB), X(EQ), X(NEQ), X(GT), X(LT), X(GTE), X(LTE), X(MULT), X(DIVI), X(MOD), \
@@ -13,130 +16,82 @@
 //  X(ADDR), X(DEREF), \
 //  X(FCALL), \
 //  X(TERNARY) 
-#define subswitch(TYUINT, TYINT, TYFLOAT) 
-#define CONSTOP(OP) do { \
-  char valflag = 1; \
-  int64_t valdeposit[1]; \
-  switch(expr->param1->type) { \
-    case UINT: \
-      switch(expr->param2->type) { \
-        case UINT: \
-          expr->type = UINT; \
-          *valdeposit = expr->param1->uintconst OP expr->param2->uintconst; \
-          break; \
-        case INT: \
-          expr->type = INT; \
-          *valdeposit = expr->param1->uintconst OP expr->param2->intconst; \
-          break; \
-        case FLOAT: \
-          expr->type = FLOAT; \
-          *(float*) valdeposit = expr->param1->uintconst OP expr->param2->floatconst; \
-          break; \
-        default: \
-          valflag = 0; \
-          break; \
-      } \
-      break; \
-    case INT: \
-      switch(expr->param2->type) { \
-        case UINT: \
-          expr->type = INT; \
-          *valdeposit = expr->param1->intconst OP expr->param2->uintconst; \
-          break; \
-        case INT: \
-          expr->type = INT; \
-          *valdeposit = expr->param1->intconst OP expr->param2->intconst; \
-          break; \
-        case FLOAT: \
-          expr->type = FLOAT; \
-          *(float*) valdeposit = expr->param1->intconst OP expr->param2->floatconst; \
-          break; \
-        default: \
-          valflag = 0; \
-          break; \
-      } \
-      break; \
-    case FLOAT: \
-      switch(expr->param2->type) { \
-        case UINT: \
-          expr->type = FLOAT; \
-          *(float*) valdeposit = expr->param1->uintconst OP expr->param2->floatconst; \
-          break; \
-        case INT: \
-          expr->type = FLOAT; \
-          *(float*) valdeposit = expr->param1->intconst OP expr->param2->floatconst; \
-          break; \
-        case FLOAT: \
-          expr->type = FLOAT; \
-          *(float*) valdeposit = expr->param1->floatconst OP expr->param2->floatconst; \
-          break; \
-        default: \
-          valflag = 0; \
-          break; \
-      } \
-      break; \
-    default: \
-      valflag = 0; \
-      break; \
-  } \
-  if(valflag) { \
-    free(expr->param1); \
-    free(expr->param2); \
-    expr->intconst = *valdeposit; \
-  } \
-  } while(0)
-char constree(EXPRESSION* expr) {
-  switch(expr->type){
-    case STRING: case INT: case UINT: case FLOAT:
+char puritree(EXPRESSION* cexpr) {
+  switch(cexpr->type){
+    case STRING: case INT: case UINT: case FLOAT: case NOP: case IDENT: case ARRAY_LIT: case SZOF: case MEMBER:
       return 1;
-    case NEG: case L_NOT: case B_NOT: case COMMA: case CAST: case ADDR:
-    case DEREF:
-      //
-    case ADD: 
-      CONSTOP(+);
-      break;
-    case SUB: 
-      CONSTOP(-);
-      break;
-    case MULT: 
-      CONSTOP(*);
-      break;
-    case DIVI: 
-      CONSTOP(/);
-      break;
-    case EQ: case NEQ: case GT: case LT: case GTE:
-    case LTE: case MOD: case L_AND: case L_OR:
-    case B_AND: case B_XOR: case SHL: case SHR: case DOTOP:
-      //
-    case SZOFEXPR:
-      //
+    case NEG: case L_NOT: case B_NOT: case ADDR: case DEREF:
+      return puritree(cexpr->unaryparam);
+    case ADD: case SUB: case EQ: case NEQ: case GT: case LT: case GTE: case LTE: case MULT: case DIVI: 
+    case MOD: case L_AND: case L_OR: case B_AND: case B_OR: case B_XOR: case SHL: case SHR: case COMMA:
+      return puritree(cexpr->param1) && puritree(cexpr->param2);
+    case DOTOP: case ARROW:
+      return puritree(cexpr->param1);
+    case SZOFEXPR: case CAST: 
+      return puritree(cexpr->castexpr);
     case TERNARY:
-      //Ignore then or else depending on if
-    case IDENT:
-      //do something with const?
-      return 0; 
-    default:
+      return puritree(cexpr->ifexpr) && puritree(cexpr->thenexpr) && puritree(cexpr->elseexpr);
+    case FCALL:
+      return 0;//check function for purity
+    case ASSIGN: case PREINC: case PREDEC: case POSTINC: case POSTDEC:
+    case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
+    case XORASSIGN: case ORASSIGN: case DIVASSIGN: case MULTASSIGN: case MODASSIGN:
       return 0;
   }
 }
-char isconstexpr(EXPRESSION* cexpr) {
-  switch(cexpr->type){
-    case STRING: case INT: case UINT: case FLOAT:
+//confirm function call is pure
+//Criteria: global var as lvalue of assign, or inc/dec
+//dereferencing of lvalue in assign or in inc/dec
+//arrow/dot op in lvalue
+//A more sophisticated version of the above is possible but I won't do that work
+//calling other function that is impure (or indirect function)
+//lots of work will need to be done in order to ignore circular dependencies
+
+//check 2 trees for equality
+char treequals(EXPRESSION* e1, EXPRESSION* e2) {
+  if(e1->type != e2->type)
+    return 0;
+  switch(e1->type) {
+    case IDENT: 
+      return (e1->id->index != -1) && (e1->id->index == e2->id->index);
+    case INT: 
+      return e1->intconst == e2->intconst;
+    case UINT: 
+      return e1->uintconst == e2->uintconst;
+    case FLOAT: 
+      return e1->floatconst == e2->floatconst;
+    case STRING: 
+      return !strcmp(e1->strconst, e2->strconst);
+    case MEMBER: 
+      return !strcmp(e1->member, e2->member);
+    case SZOF:
+      return e1->typesz == e2->typesz;//probably stupid, there're much better ways to do this, TODO: fix
+    case NOP:
       return 1;
-    case NEG: case L_NOT: case B_NOT: case COMMA: case CAST: case ADDR:
-    case DEREF:
-      return isconstexpr(cexpr->unaryparam);
-    case ADD: case SUB: case EQ: case NEQ: case GT: case LT: case GTE:
-    case LTE: case MULT: case DIVI: case MOD: case L_AND: case L_OR:
-    case B_AND: case B_XOR: case SHL: case SHR: case DOTOP:
-      return isconstexpr(cexpr->param1) && isconstexpr(cexpr->param2);
-    case SZOFEXPR:
-      return isconstexpr(cexpr->castexpr);
-    case TERNARY:
-      return isconstexpr(cexpr->ifexpr) ;
-    case IDENT:
-      return 1; 
-    default:
+    case ARRAY_LIT:
       return 0;
+    case NEG: case L_NOT: case B_NOT: case ADDR: case DEREF:
+      return treequals(e1->unaryparam, e2->unaryparam);
+    case TERNARY:
+      return treequals(e1->ifexpr, e2->ifexpr) && treequals(e1->thenexpr, e2->thenexpr) && treequals(e1->elseexpr, e2->elseexpr);
+    case FCALL:
+      if(!treequals(e1->ftocall, e2->ftocall))
+        return 0;
+      if(e1->params->length != e2->params->length)//big problem here
+        return 0;
+      for(int i = 0; i < e1->params->length; i++) {
+        if(!treequals(daget(e1->params, i), daget(e2->params, i)))
+           return 0;
+      }
+      return 1;
+    case CAST:  case SZOFEXPR:
+      return treequals(e1->castexpr, e2->castexpr);
+    case ADD: case SUB: case EQ: case NEQ: case GT: case LT: case GTE: case LTE: case MULT: case DIVI: 
+    case MOD: case L_AND: case L_OR: case B_AND: case B_OR: case B_XOR: case SHL: case SHR: case COMMA:
+    case ASSIGN: case PREINC: case PREDEC: case POSTINC: case POSTDEC: case DOTOP: case ARROW:
+    case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
+    case XORASSIGN: case ORASSIGN: case DIVASSIGN: case MULTASSIGN: case MODASSIGN:
+      return treequals(e1->param1, e2->param1) && treequals(e1->param2, e2->param2);
   }
+  //factor out params into loop for ease of use, probably use DYNARR
 }

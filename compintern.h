@@ -22,7 +22,7 @@ typedef enum {
 } TYPEBITS;
 
 #define EXPRTYPELIST  \
-  X(NOP), X(STRING), X(INT), X(UINT), X(FLOAT), X(IDENT), X(ARRAY_LIT), \
+  X(NOP), X(STRING), X(INT), X(UINT), X(FLOAT), X(MEMBER), X(IDENT), X(ARRAY_LIT), \
   X(ADD), X(NEG), X(SUB), X(EQ), X(NEQ), X(GT), X(LT), X(GTE), X(LTE), X(MULT), X(DIVI), X(MOD), \
   X(PREINC), X(POSTINC), X(PREDEC), X(POSTDEC), \
   X(L_AND), X(L_OR), X(L_NOT), X(B_AND), X(B_OR), X(B_XOR), X(B_NOT), X(SHL), X(SHR), \
@@ -94,6 +94,7 @@ typedef struct {
   //value perhaps?
   IDTYPE* type;
   char* name;
+  long index;
 } IDENTIFIERINFO;
 
 typedef struct {
@@ -117,8 +118,8 @@ typedef struct expr {
   EXPRTYPE type;
   union {
     struct {
-      DYNARR* params;
       struct expr* ftocall;
+      DYNARR* params;
     };
     struct {
       struct expr* param1;
@@ -135,7 +136,7 @@ typedef struct expr {
     };
     struct expr* unaryparam;
     char* strconst;
-    char* ident;
+    char* member;
     long intconst;
     unsigned long uintconst;
     double floatconst;
@@ -246,10 +247,7 @@ typedef struct {
     ENUM* enummemb;
     UNION* unionmemb;
     IDTYPE* typememb;
-    union {
-      IDTYPE* vartype;
-      long varcount;
-    };
+    IDENTIFIERINFO* idi;
     EXPRESSION* enumnum;
     EXPRESSION* caseval;
     //label needs nothing?
@@ -295,7 +293,8 @@ EXPRESSION* ct_intconst_expr(long num);
 EXPRESSION* ct_uintconst_expr(unsigned long num);
 EXPRESSION* ct_floatconst_expr(double num);
 EXPRESSION* ct_array_lit(DYNARR* da);
-EXPRESSION* ct_ident_expr(/*IDENTIFIERINFO* id*/ char* ident);
+EXPRESSION* ct_member_expr(char* member);
+EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident);
 DECLARATION* mkdeclaration(char* name);
 INITIALIZER* geninit(DECLARATION* decl, EXPRESSION* expr);
 SOI* sois(struct stmt* state);

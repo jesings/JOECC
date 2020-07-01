@@ -116,10 +116,23 @@ EXPRESSION* ct_array_lit(DYNARR* da) {
   return retval;
 }
 
-EXPRESSION* ct_ident_expr(/*IDENTIFIERINFO* id*/ char* ident) {
+EXPRESSION* ct_member_expr(char* member) {
+  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
+  retval->type = MEMBER;
+  retval->member = member;
+  return retval;
+}
+
+EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = IDENT;
-  retval->ident = ident;
+  retval->id = scopesearch(lct, M_VARIABLE, ident);
+  if(!retval->id) {
+    retval->id = malloc(sizeof(IDENTIFIERINFO));
+    retval->id->index = -1;
+    retval->id->name = ident;
+    retval->id->type = NULL;
+  }
   return retval;
 }
 
@@ -334,7 +347,7 @@ void* scopesearch(struct lexctx* lct, enum membertype mt, char* key){
         case M_CASE:
           return rv->caseval;
         case M_VARIABLE:
-          return rv->vartype;
+          return rv->idi;
         case M_STRUCT:
           return rv->structmemb;
         case M_ENUM:
@@ -435,7 +448,7 @@ SCOPE* scopepeek(struct lexctx* ctx) {
   return dapeek(ctx->scopes);
 }
 
-static long numvars = 0;
+static long numvars = 0;//maybe do something special with global variables
 void add2scope(SCOPE* scope, char* memname, enum membertype mtype, void* memberval) {
   SCOPEMEMBER* sm = malloc(sizeof(SCOPEMEMBER));
   sm->mtype = mtype;
@@ -457,8 +470,10 @@ void add2scope(SCOPE* scope, char* memname, enum membertype mtype, void* memberv
       insert(scope->typesdef, memname, sm);
       break;
     case M_VARIABLE:
-      sm->vartype = memberval;
-      sm->varcount = numvars++;
+      sm->idi = malloc(sizeof(IDENTIFIERINFO));
+      sm->idi->name = memname;
+      sm->idi->type = memberval;
+      sm->idi->index= numvars++;
       insert(scope->members, memname, sm);
       break;
      default:

@@ -438,8 +438,8 @@ esp:
 | esp '(' ')' {$$ = ct_fcall_expr($1, dactor(0));}
 | esp '(' escl ')' {$$ = ct_fcall_expr($1, $3);}
 | esp '[' expression ']' {$$ = ct_unary_expr(DEREF, ct_binary_expr(ADD, $1, $3));}
-| esp '.' IDENTIFIER {$$ = ct_binary_expr(DOTOP, $1, ct_ident_expr($3));}
-| esp  "->" IDENTIFIER {$$ = ct_binary_expr(ARROW, $1, ct_ident_expr($3));}
+| esp '.' IDENTIFIER {$$ = ct_binary_expr(DOTOP, $1, ct_member_expr($3));}
+| esp  "->" IDENTIFIER {$$ = ct_binary_expr(ARROW, $1, ct_member_expr($3));}
 | esu {$$ = $1;};
 esu:
   '(' expression ')' {$$ = $2;}
@@ -447,7 +447,7 @@ esu:
 | INTEGER_LITERAL {$$ = $1.sign ? ct_intconst_expr($1.num) : ct_uintconst_expr($1.num);}
 | ENUM_CONST {$$ = $1;}
 | FLOAT_LITERAL {$$ = ct_floatconst_expr($1);}
-| IDENTIFIER {$$ = ct_ident_expr($1);}
+| IDENTIFIER {$$ = ct_ident_expr(ctx, $1);}
 | error {$$ = ct_nop_expr(); 
   extern DYNARR* file2compile;
   fprintf (stderr, "%d.%d-%d.%d in %s: error encountered\n",
