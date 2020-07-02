@@ -1,0 +1,8 @@
+*.o
+compiler
+functions/*
+*.tab.c
+*.tab.h
+*.yy.c
+lex.h
+*.output

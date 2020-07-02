@@ -1,5 +1,9 @@
 #include <stdio.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include "compintern.h"
+int funcfile;
+int nodenumber;
 
 #define X(name) #name
 char* name_EXPRTYPE[] = {
@@ -16,99 +20,77 @@ char* name_MEMBERTYPE[] = {
 };
 #undef X
 
-#define COLOR(r, g, b) "\033[38;2;" #r ";" #g ";" #b "m"
-#define HCOLOR(hex) COLOR((hex & 0xff0000) >> 16, (hex & 0xff00) >> 8,  hex & 0xff)
-char* rainbow[] = {COLOR(148, 0, 211), COLOR(180, 0, 180), COLOR(0, 0, 255), COLOR(0, 255, 0), COLOR(255, 255, 0), COLOR(255, 127, 0), COLOR(255, 0 , 0)};
-char rainbowpos = 0;
+int pdecl(DECLARATION* decl);
+int treexpr(EXPRESSION* expr);
+int structree(STRUCT* container);
+int enumtree(ENUM* container);
+int uniontree(UNION* container);
 
-char* pdecl(DECLARATION* decl);
-char* treexpr(EXPRESSION* expr);
-char* structree(STRUCT* container);
-char* enumtree(ENUM* container);
-char* uniontree(UNION* container);
-
-char* structree(STRUCT* container) {
-  DYNSTR* dstrdly = strctor(malloc(1024), 0, 1024);
-  dscat(dstrdly, "FIELDS: ", 8);
+int structree(STRUCT* container) {
+  int structnode = nodenumber++;
+  dprintf(funcfile, "n%d [label=\"STRUCT %s\"];\n", structnode, container->name ? container->name : "ANONYMOUS");
   for(int i = 0; i < container->fields->length; i++) {
     DECLARATION* field = daget(container->fields, i);
-    char* fieldstr;
     if(field->varname) {
-      fieldstr = pdecl(field);
+      dprintf(funcfile, "n%d -> n%d;\n", structnode, pdecl(field));
     } else if(field->type->tb & ANONMEMB) {
-      fieldstr = malloc(2048);
-      char* (*memptr) (void*);
+      int (*memptr) (void*);
+      char* wmem;
       if(field->type->tb & STRUCTVAL) {
-        memptr = (char* (*) (void*)) structree;
-      } else if(field->type->tb & ENUMVAL) {
-        memptr = (char* (*) (void*)) enumtree;
+        memptr = (int (*) (void*)) structree;
+        wmem = "STRUCT";
       } else if(field->type->tb & UNIONVAL) {
-        memptr = (char* (*) (void*)) uniontree;
+        memptr = (int (*) (void*)) uniontree;
+        wmem = "UNION";
       } else {
-        exit(255);
+        exit(-1);
       }
-
-      snprintf(fieldstr, 2048, "anonymous structmember [[[%s]]]", memptr(field->type->structtype));
+      dprintf(funcfile, "n%d -> n%d [label=\"ANONYMOUS %s MEMBER\"];\n", structnode, memptr(field->type->structtype), wmem);
     } else  {
+      exit(-1);
     }
-    dscat(dstrdly, fieldstr, strlen(fieldstr));
-    dscat(dstrdly, " $F$ ", 5);
   }
-  dscat(dstrdly, "$FIELDSOVER$", 12);
-  dsccat(dstrdly, 0);
-  char* rv = dstrdly->strptr;
-  free(dstrdly);
-  return rv;
+  return structnode;
 }
-char* enumtree(ENUM* container) {
-  DYNSTR* dstrdly = strctor(malloc(1024), 0, 1024);
-  dscat(dstrdly, "FIELDS: ", 8);
+
+int enumtree(ENUM* container) {
+  int enumnode = nodenumber++;
+  dprintf(funcfile, "n%d [label=\"STRUCT %s\"];\n", enumnode, container->name ? container->name : "ANONYMOUS");
   for(int i = 0; i < container->fields->length; i++) {
     ENUMFIELD* field = daget(container->fields, i);
-    dscat(dstrdly, field->name, strlen(field->name));
-    dscat(dstrdly, " IS ASSIGNED ", 13);
-    char* fieldstr = treexpr(field->value);
-    dscat(dstrdly, fieldstr, strlen(fieldstr));
-    dscat(dstrdly, " $F$ ", 5);
+    int nnn = nodenumber++;
+    dprintf(funcfile, "n%d [label=\"%s\"];\n", nnn, field->name);
+    dprintf(funcfile, "n%d -> n%d [label=\"ENUM CONST\"];\n", enumnode, nnn);
+    dprintf(funcfile, "n%d -> n%d [label=\"OF VALUE\"];\n", enumnode, treexpr(field->value));
   }
-  dscat(dstrdly, "$FIELDSOVER$", 12);
-  dsccat(dstrdly, 0);
-  char* rv = dstrdly->strptr;
-  free(dstrdly);
-  return rv;
+  return enumnode;
 }
-char* uniontree(UNION* container) {
-  DYNSTR* dstrdly = strctor(malloc(1024), 0, 1024);
-  dscat(dstrdly, "FIELDS: ", 8);
+
+int uniontree(UNION* container) {
+  int unionnode = nodenumber++;
+  dprintf(funcfile, "n%d [label=\"UNION %s\"];\n", unionnode, container->name ? container->name : "ANONYMOUS");
   for(int i = 0; i < container->fields->length; i++) {
     DECLARATION* field = daget(container->fields, i);
-    char* fieldstr;
     if(field->varname) {
-      fieldstr = pdecl(field);
+      dprintf(funcfile, "n%d -> n%d;\n", unionnode, pdecl(field));
     } else if(field->type->tb & ANONMEMB) {
-      fieldstr = malloc(2048);
-      char* (*memptr) (void* garbageptr);
+      int (*memptr) (void*);
+      char* wmem;
       if(field->type->tb & STRUCTVAL) {
-        memptr = (char* (*) (void*)) structree;
-      } else if(field->type->tb & ENUMVAL) {
-        memptr = (char* (*) (void*)) enumtree;
+        memptr = (int (*) (void*)) structree;
+        wmem = "STRUCT";
       } else if(field->type->tb & UNIONVAL) {
-        memptr = (char* (*) (void*)) uniontree;
+        memptr = (int (*) (void*)) uniontree;
+        wmem = "UNION";
       } else {
-        exit(255);
+        exit(-1);
       }
-
-      snprintf(fieldstr, 2048, "anonymous structmember %s", memptr(field->type->structtype));
+      dprintf(funcfile, "n%d -> n%d [label=\"ANONYMOUS %s MEMBER\"];\n", unionnode, memptr(field->type->structtype), wmem);
     } else  {
+      exit(-1);
     }
-    dscat(dstrdly, fieldstr, strlen(fieldstr));
-    dscat(dstrdly, " $F$ ", 5);
   }
-  dscat(dstrdly, "$FIELDSOVER$", 12);
-  dsccat(dstrdly, 0);
-  char* rv = dstrdly->strptr;
-  free(dstrdly);
-  return rv;
+  return unionnode;
 }
 
 char* name_TYPEBITS(TYPEBITS tb) {
@@ -138,102 +120,82 @@ char* name_TYPEBITS(TYPEBITS tb) {
   return vals;
 }
 
-char* treetype(IDTYPE* type) {
-  DYNSTR* dstrdly = strctor(malloc(512), 0, 512);
-  if(type->pointerstack)
-    for(int i = 0; i < type->pointerstack->length; i++)
-      dscat(dstrdly, "POINTER TO ", 11);
+int treetype(IDTYPE* type) {
+  int typenode = nodenumber++;
+  dprintf(funcfile, "n%d [label=\"TYPE\"];\n", typenode);
+  int subtnode = nodenumber++;
   if(type->tb & ENUMVAL) {
-    dscat(dstrdly, "ENUM ", 5);
-    if(type->enumtype && type->enumtype->name)
-      dscat(dstrdly, type->enumtype->name, strlen(type->enumtype->name));
-    else
-      dscat(dstrdly, "ANONYMOUS ", 10);
+    dprintf(funcfile, "n%d [label=\"ENUM %s\"];\n", subtnode, type->enumtype->name ? type->enumtype->name : "ANONYMOUS");
+    dprintf(funcfile, "n%d -> n%d;\n", subtnode, enumtree(type->enumtype));
   } else if(type->tb & STRUCTVAL) {
-    dscat(dstrdly, "STRUCT ", 7);
-    if(type->structtype && type->structtype->name)
-      dscat(dstrdly, type->structtype->name, strlen(type->structtype->name));
-    else {
-      dscat(dstrdly, "ANONYMOUS ", 10);
-      char* isc = structree(type->structtype);
-      dscat(dstrdly, isc, strlen(isc));
-    }
+    dprintf(funcfile, "n%d [label=\"STRUCT %s\"];\n", subtnode, type->structtype->name ? type->structtype->name : "ANONYMOUS");
+    dprintf(funcfile, "n%d -> n%d;\n", subtnode, structree(type->structtype));
   } else if(type->tb & UNIONVAL){ 
-    dscat(dstrdly, "UNION ", 6);
-    if(type->uniontype && type->uniontype->name)
-      dscat(dstrdly, type->uniontype->name, strlen(type->uniontype->name));
-    else {
-      dscat(dstrdly, "ANONYMOUS ", 10);
-      char* isc = structree(type->structtype);
-      dscat(dstrdly, isc, strlen(isc));
-    }
+    dprintf(funcfile, "n%d [label=\"UNION %s\"];\n", subtnode, type->uniontype->name ? type->uniontype->name : "ANONYMOUS");
+    dprintf(funcfile, "n%d -> n%d;\n", subtnode, uniontree(type->uniontype));
   } else {
-    char* istb = name_TYPEBITS(type->tb);
-    dscat(dstrdly, istb, strlen(istb));
+    char* ntb =  name_TYPEBITS(type->tb);
+    dprintf(funcfile, "n%d [label=\"%s\"];\n", subtnode, ntb);
+    free(ntb);
   }
-  dsccat(dstrdly, ' ');
-  dsccat(dstrdly, 0);
-  char* rv = dstrdly->strptr;
-  free(dstrdly);
-  return rv;
+  if(type->pointerstack && type->pointerstack->length)
+    dprintf(funcfile, "n%d -> n%d [label=\"%dx POINTER TO\"];\n", typenode, subtnode, type->pointerstack->length);
+  else
+    dprintf(funcfile, "n%d -> n%d;\n", typenode, subtnode);
+  return typenode;
 }
 
-char* treeid(IDENTIFIERINFO* id) {
-  DYNSTR* dstrdly = strctor(malloc(2048), 0, 2048);
-  char* typespec = treetype(id->type);
-  dscat(dstrdly, typespec, strlen(typespec));
-  free(typespec);
-  char* whitecolor = COLOR(30, 30, 30);
-  dscat(dstrdly, whitecolor, strlen(whitecolor));
-  dscat(dstrdly, id->name, strlen(id->name));
-  dsccat(dstrdly, 0);
-  char* strptr = dstrdly->strptr;
-  free(dstrdly);
-  return strptr;
+int treeid(IDENTIFIERINFO* id) {
+  int idnode = nodenumber++;
+  dprintf(funcfile, "n%d [label=\"%s\"];\n", idnode, id->name);
+  dprintf(funcfile, "n%d -> n%d [label=\"OF TYPE\"];\n", idnode, treetype(id->type));
+  return idnode;
 }
 
-char* treexpr(EXPRESSION* expr) {
-  DYNSTR* dstrdly = strctor(malloc(2048), 0, 2048);
-  char* docolor = rainbow[rainbowpos = (rainbowpos + 1) % 7];
-  dscat(dstrdly, docolor, strlen(docolor));
-  dsccat(dstrdly, '(');
-  dscat(dstrdly, name_EXPRTYPE[expr->type], strlen(name_EXPRTYPE[expr->type]));
-  dsccat(dstrdly, ' ');
-  char buf[128];
+int treexpr(EXPRESSION* expr) {
+  int exnode = nodenumber++;
+  dprintf(funcfile, "n%d [label=\"%s\"];\n", exnode, name_EXPRTYPE[expr->type]);
+  int secondnodeary;
   switch(expr->type) {
     case NOP:
-      dscat(dstrdly, "NOTHING", 7);
       break;
     case STRING:
-      dscat(dstrdly, expr->strconst, strlen(expr->strconst)); //don't care abt performance
+      secondnodeary = nodenumber++;
+      dprintf(funcfile, "n%d [label=\"%s\"];\n", exnode, expr->strconst);
+      dprintf(funcfile, "n%d -> n%d;\n", exnode, secondnodeary);
       break;
     case INT:
-      sprintf(buf, "%ld", expr->intconst);
-      dscat(dstrdly, buf, strlen(buf));
+      secondnodeary = nodenumber++;
+      dprintf(funcfile, "n%d [label=\"%ld\"];\n", exnode, expr->intconst);
+      dprintf(funcfile, "n%d -> n%d;\n", exnode, secondnodeary);
       break;
     case UINT:
-      sprintf(buf, "%lu", expr->uintconst);
-      dscat(dstrdly, buf, strlen(buf));
+      secondnodeary = nodenumber++;
+      dprintf(funcfile, "n%d [label=\"%lu\"];\n", exnode, expr->uintconst);
+      dprintf(funcfile, "n%d -> n%d;\n", exnode, secondnodeary);
       break;
     case FLOAT:
-      sprintf(buf, "%lf", expr->floatconst);
-      dscat(dstrdly, buf, strlen(buf));
+      secondnodeary = nodenumber++;
+      dprintf(funcfile, "n%d [label=\"%lf\"];\n", exnode, expr->floatconst);
+      dprintf(funcfile, "n%d -> n%d;\n", exnode, secondnodeary);
       break;
+      //dprintf(funcfile, "n%d -> n%d [label=\"TYPE\"];\n", declnode, treetype(decl->type);
     case IDENT:
-      //char* oofstr = treeid(expr->id);
-      //dscat(dstrdly, oofstr, strlen(oofstr));
-      dscat(dstrdly, expr->id->name, strlen(expr->id->name));
-      //free(oofstr);
+      //int ooftype = treeid(expr->id);
+      secondnodeary = nodenumber++;
+      dprintf(funcfile, "n%d [label=\"%s\"];\n", exnode, expr->id->name);
+      dprintf(funcfile, "n%d -> n%d;\n", exnode, secondnodeary);
       break;
     case MEMBER:
-      dscat(dstrdly, expr->member, strlen(expr->member));
+      secondnodeary = nodenumber++;
+      dprintf(funcfile, "n%d [label=\"%s\"];\n", exnode, expr->member);
+      dprintf(funcfile, "n%d -> n%d;\n", exnode, secondnodeary);
       break;
     case ARRAY_LIT:
-      //TODO: perhaps we want more complicated array handling
+      //TODO: perhaps we want array handling
       for(int i = 0; i < expr->dynvals->length; i++) {
         EXPRESSION* longman = daget(expr->dynvals, i);
-        sprintf(buf, "%lu,", longman->intconst);
-        dscat(dstrdly, buf, strlen(buf));
+        dprintf(funcfile, "n%d -> n%d;\n", exnode, treexpr(longman));
       }
       break;
     case ADD: case SUB: case EQ: case NEQ: case GT: case LT: case GTE: case LTE:
@@ -241,178 +203,78 @@ char* treexpr(EXPRESSION* expr) {
     case B_OR: case B_XOR: case SHL: case SHR: case DOTOP: case ARROW: case ASSIGN:
     case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
     case XORASSIGN: case ORASSIGN: case DIVASSIGN: case MULTASSIGN: case MODASSIGN:
-      ;
-      for(int i = 0; i < expr->params->length; i++) {
-        if(i != 0) {
-          dscat(dstrdly, docolor, strlen(docolor));
-          dsccat(dstrdly, '$');
-        }
-        char* eexpr = treexpr(expr->params->arr[i]);
-        dscat(dstrdly, eexpr, strlen(eexpr));
-        free(eexpr);
-      }
+      for(int i = 0; i < expr->params->length; i++)
+        dprintf(funcfile, "n%d -> n%d;\n", exnode, treexpr(expr->params->arr[i]));
       break;
     case NEG: case PREINC: case POSTINC: case PREDEC: case POSTDEC: case ADDR: 
-    case DEREF: case SZOFEXPR: case L_NOT: ;
-      char* e = treexpr(expr->params->arr[0]);
-      dscat(dstrdly, e, strlen(e));
-      free(e);
+    case DEREF: case SZOFEXPR: case L_NOT:
+      dprintf(funcfile, "n%d -> n%d;\n", exnode, treexpr(expr->params->arr[0]));
       break;
-    case SZOF: ;
-      char* c = treetype(expr->typesz);
-      dscat(dstrdly, c, strlen(c));
-      free(c);
+    case SZOF:
+      dprintf(funcfile, "n%d -> n%d;\n", exnode, treetype(expr->typesz));
       break;
-    case CAST: ;
-      char* cte = treexpr(expr->params->arr[0]);
-      dscat(dstrdly, cte, strlen(cte));
-      dscat(dstrdly, docolor, strlen(docolor));
-      dscat(dstrdly, " TO ", 4);
-      free(cte);
-      char* ctt = treetype(expr->typesz);
-      dscat(dstrdly, ctt, strlen(ctt));
-      free(ctt);
+    case CAST:
+      dprintf(funcfile, "n%d -> n%d [label=\"EXPRESSION\"];\n", exnode, treexpr(expr->params->arr[0]));
+      dprintf(funcfile, "n%d -> n%d [label=\"TYPE\"];\n", exnode, treetype(expr->typesz));
       break;
-    case FCALL: ;
-      char* fname = ((EXPRESSION*)expr->params->arr[0])->id->name;
-      dscat(dstrdly, fname, strlen(fname));
-      dscat(dstrdly, " PARAMS ", 8);
+    case FCALL:
+      dprintf(funcfile, "n%d -> n%d [label=\"FUNCTION\"];\n", exnode, treexpr(expr->params->arr[0]));
       for(int i = 1; i < expr->params->length; i++) {
-        char* toapp = treexpr(daget(expr->params, i));
-        dscat(dstrdly, toapp, strlen(toapp));
-        dscat(dstrdly, docolor, strlen(docolor));
-        dsccat(dstrdly, '$');
-        free(toapp);
+        dprintf(funcfile, "n%d -> n%d [label=\"PARAM_%d\"];\n", exnode, treexpr(expr->params->arr[i]), i);
       }
-      dscat(dstrdly, docolor, strlen(docolor));
       break;
-    case TERNARY: ;
-      char* tern = treexpr(expr->params->arr[0]);
-      dscat(dstrdly, tern, strlen(tern));
-      dscat(dstrdly, docolor, strlen(docolor));
-      free(tern);
-      dscat(dstrdly, " THEN ", 6);
-      tern = treexpr(expr->params->arr[1]);
-      dscat(dstrdly, tern, strlen(tern));
-      dscat(dstrdly, docolor, strlen(docolor));
-      free(tern);
-      dscat(dstrdly, " ELSE ", 6);
-      tern = treexpr(expr->params->arr[2]);
-      dscat(dstrdly, tern, strlen(tern));
-      free(tern);
+    case TERNARY:
+      dprintf(funcfile, "n%d -> n%d [label=\"IF\"];\n", exnode, treexpr(expr->params->arr[0]));
+      dprintf(funcfile, "n%d -> n%d [label=\"THEN\"];\n", exnode, treexpr(expr->params->arr[1]));
+      dprintf(funcfile, "n%d -> n%d [label=\"ELSE\"];\n", exnode, treexpr(expr->params->arr[2]));
       break;
   }
-  dscat(dstrdly, docolor, strlen(docolor));
-  dsccat(dstrdly, ')');
-  dsccat(dstrdly, 0);
-  char* strptr = dstrdly->strptr;
-  free(dstrdly);
-  return strptr;
+  return exnode;
 }
 
-char* pdecl(DECLARATION* decl) {
-  DYNSTR* dstrdly = strctor(malloc(2048), 0, 2048);
-  char* docolor = COLOR(255, 255, 255);
-  dscat(dstrdly, docolor, strlen(docolor));
-  char* tt = treetype(decl->type);
-  dscat(dstrdly, tt, strlen(tt));
-  free(tt);
-  dscat(dstrdly, docolor, strlen(docolor));
-  dscat(dstrdly, decl->varname, strlen(decl->varname));
-  dsccat(dstrdly, 0);
-  char* rv = dstrdly->strptr;
-  free(dstrdly);
-  return rv;
+int pdecl(DECLARATION* decl) {
+  int declnode = nodenumber++;
+  dprintf(funcfile, "n%d [label=\"%s\"];\n", declnode, "DECLARATION"); 
+  int dnamenode = nodenumber++;
+  dprintf(funcfile, "n%d [label=\"%s\"];\n", dnamenode, decl->varname); 
+  dprintf(funcfile, "n%d -> n%d [label=\"TYPE\"];\n", declnode, treetype(decl->type));
+  dprintf(funcfile, "n%d -> n%d [label=\"VARNAME\"];\n", declnode, dnamenode); 
+  return declnode;
 }
 
-char* prinit(DYNARR* dinit) {
-  DYNSTR* dstrdly = strctor(malloc(2048), 0, 2048);
-  dsccat(dstrdly, '\n');
+int prinit(DYNARR* dinit) {
+  int printnode = nodenumber++;
+  dprintf(funcfile, "n%d [label=\"%s\"];\n", printnode, "INITIALIZER"); 
   for(int i = 0; i < dinit->length; i++) {
     INITIALIZER* init = daget(dinit, i);
-    char* docolor = COLOR(255, 255, 255);
-    dscat(dstrdly, docolor, strlen(docolor));
-    char* decl = pdecl(init->decl);
-    dscat(dstrdly, decl, strlen(decl));
-    free(decl);
-    dscat(dstrdly, docolor, strlen(docolor));
+    int decl = pdecl(init->decl);
+    dprintf(funcfile, "n%d -> n%d [label=\"DECLARE\"];\n", printnode, decl); 
     if(init->expr) {
-      dscat(dstrdly, docolor, strlen(docolor));
-      dscat(dstrdly, " ASSIGNS ", 9);
-      char* expr = treexpr(init->expr);
-      dscat(dstrdly, expr, strlen(expr));
-      free(expr);
+      int expr = treexpr(init->expr);
+      dprintf(funcfile, "n%d -> n%d [label=\"ASSIGN\"];\n", printnode, expr); 
     }
   }
-  dsccat(dstrdly, 0);
-  char* rv = dstrdly->strptr;
-  free(dstrdly);
-  return rv;
+  return printnode;
 }
 
-char* statemeant(STATEMENT* stmt) {
-  char* docolor = rainbow[rainbowpos = (rainbowpos + 1) % 7];
-  DYNSTR* dstrdly = strctor(malloc(2048), 0, 2048);
-  dscat(dstrdly, docolor, strlen(docolor));
-  dscat(dstrdly, name_STMTTYPE[stmt->type], strlen(name_STMTTYPE[stmt->type]));
-  dsccat(dstrdly, ' ');
+int statemeant(STATEMENT* stmt) {
+  int statenode = nodenumber++;
+  dprintf(funcfile, "n%d [label=\"%s\"];\n", statenode, name_STMTTYPE[stmt->type]); 
   switch(stmt->type) {
-    case FORL:
-      dscat(dstrdly, "=> ", 3);
-      char* eoistr;
-      if(stmt->init->isE)
-        eoistr = treexpr(stmt->init->E);
-      else
-        eoistr = prinit(stmt->init->I);
-      dscat(dstrdly, eoistr, strlen(eoistr));
-      dscat(dstrdly, docolor, strlen(docolor));
-      free(eoistr);
-      dscat(dstrdly, "\nCOND=> ", 8);
-      eoistr = treexpr(stmt->forcond);
-      dscat(dstrdly, eoistr, strlen(eoistr));
-      dscat(dstrdly, docolor, strlen(docolor));
-      free(eoistr);
-      dscat(dstrdly, "\nAFTER=> ", 9);
-      eoistr = treexpr(stmt->increment);
-      dscat(dstrdly, eoistr, strlen(eoistr));
-      dscat(dstrdly, docolor, strlen(docolor));
-      free(eoistr);
-      dscat(dstrdly, "\nOVER=> ", 8);
-      char* forbodystr = statemeant(stmt->forbody);
-      dscat(dstrdly, forbodystr, strlen(forbodystr));
-      free(forbodystr);
-      break;
-    case JGOTO: case LABEL:
-      dscat(dstrdly, stmt->glabel, strlen(stmt->glabel));
+    case JGOTO: case LABEL: ;
+      int lnn = nodenumber++;
+      dprintf(funcfile, "n%d[label=\"%s\"];\n", lnn, stmt->glabel); 
+      dprintf(funcfile, "n%d -> n%d;\n", statenode, lnn); 
       break;
     case IFS: case IFELSES:
-      dscat(dstrdly, "\nCOND=> ", 8);
-      char* ifcondstr = treexpr(stmt->ifcond);
-      dscat(dstrdly, ifcondstr, strlen(ifcondstr));
-      dscat(dstrdly, docolor, strlen(docolor));
-      free(ifcondstr);
-      dscat(dstrdly, "\nTHEN ", 6);
-      char* ifbodystr = statemeant(stmt->thencond);
-      dscat(dstrdly, ifbodystr, strlen(ifbodystr));
-      dscat(dstrdly, docolor, strlen(docolor));
-      free(ifbodystr);
-      if(stmt->elsecond) {
-        dscat(dstrdly, "\nELSE ", 6);
-        ifbodystr = statemeant(stmt->elsecond);
-        dscat(dstrdly, ifbodystr, strlen(ifbodystr));
-        free(ifbodystr);
-      }
+      dprintf(funcfile, "n%d -> n%d [label=\"CONDITION\"];\n", statenode, treexpr(stmt->ifcond)); 
+      dprintf(funcfile, "n%d -> n%d [label=\"THEN\"];\n", statenode, statemeant(stmt->thencond)); 
+      if(stmt->elsecond)
+        dprintf(funcfile, "n%d -> n%d [label=\"ELSE\"];\n", statenode, statemeant(stmt->elsecond)); 
       break;
     case WHILEL: case DOWHILEL: case SWITCH:
-      dscat(dstrdly, "\nCOND=> ", 8);
-      char* condstr = treexpr(stmt->cond);
-      dscat(dstrdly, condstr, strlen(condstr));
-      dscat(dstrdly, docolor, strlen(docolor));
-      free(condstr);
-      dscat(dstrdly, "\nOVER=> ", 8);
-      char* bodystr = statemeant(stmt->body);
-      dscat(dstrdly, bodystr, strlen(bodystr));
-      free(bodystr);
+      dprintf(funcfile, "n%d -> n%d [label=\"CONDITION\"];\n", statenode, treexpr(stmt->cond)); 
+      dprintf(funcfile, "n%d -> n%d [label=\"BODY\"];\n", statenode, statemeant(stmt->body)); 
       break;
     case LBREAK: case LCONT: case DEFAULT:
       break;
@@ -420,56 +282,43 @@ char* statemeant(STATEMENT* stmt) {
       if(!stmt->expression)
         break;
     case EXPR: case CASE:
-      dscat(dstrdly, "ON ", 3);
-      char* expor = treexpr(stmt->expression);
-      dscat(dstrdly, expor, strlen(expor));
-      free(expor);
+      dprintf(funcfile, "n%d -> n%d;\n", statenode, treexpr(stmt->expression)); 
       break;
     case CMPND:
-      dsccat(dstrdly, '{');
       if(stmt->stmtsandinits) {
         for(int i = 0; i < stmt->stmtsandinits->length; i++) {
-          dscat(dstrdly, "\n=> ", 4);
           SOI* soi = daget(stmt->stmtsandinits, i);
-          char* lineptr;
-          if(soi->isstmt) {
-            lineptr = statemeant(soi->state);
-          } else {
-            lineptr = prinit(soi->init);
-          }
-          dscat(dstrdly, lineptr, strlen(lineptr));
-          free(lineptr);
-          dscat(dstrdly, docolor, strlen(docolor));
+          int soiopt = soi->isstmt ? statemeant(soi->state) : prinit(soi->init);
+          dprintf(funcfile, "n%d -> n%d;\n", statenode, soiopt); 
         }
       }
-      dsccat(dstrdly, '}');
       break;
     case NOPSTMT:
       break;
+    default:
+      exit(-1);
   }
-  dsccat(dstrdly, 0);
-  char* rv = dstrdly->strptr;
-  free(dstrdly);
-  return rv;
+  return statenode;
 }
 
 void treefunc(FUNC* func) {
-  char* docolor = COLOR(100, 255, 100);
-  printf("%s%s %s (\n", docolor, treetype(func->retrn), func->name);
+  nodenumber = 0;
+  char filename[256];
+  sprintf(filename, "%s.dot", func->name);
+  funcfile = creat(filename, 0666);
+  int fnn = nodenumber++;
+  dprintf(funcfile, "digraph %s {\ngraph [rankdir=LR];\nnode [shape=record];\n", func->name);
+  dprintf(funcfile, "n%d [label=\"%s\"];\n", fnn, func->name); 
+  int typenoden = treetype(func->retrn);
+  dprintf(funcfile, "n%d -> n%d;\n", fnn, typenoden); //maybe do something to separate this from body of function
+
   for(int i = 0; i < func->params->length; i++) {
-    char* strecl = pdecl(daget(func->params, i));
-    puts(strecl);
-    free(strecl);
-    printf("$F$");
+    int parnum = pdecl(daget(func->params, i));
+    dprintf(funcfile, "n%d -> n%d;\n", fnn, parnum); //maybe do something to separate this from body of function
   }
-  printf("%s", docolor);
-  puts("\nPARAMS OVER");
-  puts("{");
-  char* internbody = statemeant(func->body);
-  puts(internbody);
-  free(internbody);
-  printf("%s", docolor);
-  puts("}");
-  puts("FUNCEND");
-  puts("------------------------------------------------------------------------------");
+  //params above, separate from body---by shape?
+  int internode = statemeant(func->body);
+  dprintf(funcfile, "n%d -> %d;\n", fnn, internode); //maybe do something to separate this from body of function
+  dprintf(funcfile, "}\n");
+  close(funcfile);
 }
