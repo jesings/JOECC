@@ -45,7 +45,7 @@ int structree(STRUCT* container) {
       } else {
         exit(-1);
       }
-      dprintf(funcfile, "n%d -> n%d [label=\"ANONYMOUS %s MEMBER\"];\n", structnode, memptr(field->type->structtype), wmem);
+      dprintf(funcfile, "n%d -> n%d;\n", structnode, memptr(field->type->structtype), wmem);
     } else  {
       exit(-1);
     }
@@ -60,8 +60,8 @@ int enumtree(ENUM* container) {
     ENUMFIELD* field = daget(container->fields, i);
     int nnn = nodenumber++;
     dprintf(funcfile, "n%d [label=\"%s\"];\n", nnn, field->name);
-    dprintf(funcfile, "n%d -> n%d [label=\"ENUM CONST\"];\n", enumnode, nnn);
-    dprintf(funcfile, "n%d -> n%d [label=\"OF VALUE\"];\n", enumnode, treexpr(field->value));
+    dprintf(funcfile, "n%d -> n%d [color=red];\n", enumnode, nnn);
+    dprintf(funcfile, "n%d -> n%d [color=green];\n", enumnode, treexpr(field->value));
   }
   return enumnode;
 }
@@ -85,7 +85,7 @@ int uniontree(UNION* container) {
       } else {
         exit(-1);
       }
-      dprintf(funcfile, "n%d -> n%d [label=\"ANONYMOUS %s MEMBER\"];\n", unionnode, memptr(field->type->structtype), wmem);
+      dprintf(funcfile, "n%d -> n%d;\n", unionnode, memptr(field->type->structtype), wmem);
     } else  {
       exit(-1);
     }
@@ -142,7 +142,7 @@ int treetype(IDTYPE* type) {
     free(ntb);
   }
   if(type->pointerstack && type->pointerstack->length)
-    dprintf(funcfile, "n%d -> n%d [label=\"%dx POINTER TO\"];\n", typenode, subtnode, type->pointerstack->length);
+    dprintf(funcfile, "n%d -> n%d [xlabel=\"%dx *\"];\n", typenode, subtnode, type->pointerstack->length);
   else
     dprintf(funcfile, "n%d -> n%d;\n", typenode, subtnode);
   return typenode;
@@ -151,7 +151,7 @@ int treetype(IDTYPE* type) {
 int treeid(IDENTIFIERINFO* id) {
   int idnode = nodenumber++;
   dprintf(funcfile, "n%d [label=\"%s\"];\n", idnode, id->name);
-  dprintf(funcfile, "n%d -> n%d [label=\"OF TYPE\"];\n", idnode, treetype(id->type));
+  dprintf(funcfile, "n%d -> n%d;\n", idnode, treetype(id->type));
   return idnode;
 }
 
@@ -164,34 +164,34 @@ int treexpr(EXPRESSION* expr) {
       break;
     case STRING:
       secondnodeary = nodenumber++;
-      dprintf(funcfile, "n%d [label=\"%s\"];\n", exnode, expr->strconst);
+      dprintf(funcfile, "n%d [label=\"%s\"];\n", secondnodeary, expr->strconst);
       dprintf(funcfile, "n%d -> n%d;\n", exnode, secondnodeary);
       break;
     case INT:
       secondnodeary = nodenumber++;
-      dprintf(funcfile, "n%d [label=\"%ld\"];\n", exnode, expr->intconst);
+      dprintf(funcfile, "n%d [label=\"%ld\"];\n", secondnodeary, expr->intconst);
       dprintf(funcfile, "n%d -> n%d;\n", exnode, secondnodeary);
       break;
     case UINT:
       secondnodeary = nodenumber++;
-      dprintf(funcfile, "n%d [label=\"%lu\"];\n", exnode, expr->uintconst);
+      dprintf(funcfile, "n%d [label=\"%lu\"];\n", secondnodeary, expr->uintconst);
       dprintf(funcfile, "n%d -> n%d;\n", exnode, secondnodeary);
       break;
     case FLOAT:
       secondnodeary = nodenumber++;
-      dprintf(funcfile, "n%d [label=\"%lf\"];\n", exnode, expr->floatconst);
+      dprintf(funcfile, "n%d [label=\"%lf\"];\n", secondnodeary, expr->floatconst);
       dprintf(funcfile, "n%d -> n%d;\n", exnode, secondnodeary);
       break;
-      //dprintf(funcfile, "n%d -> n%d [label=\"TYPE\"];\n", declnode, treetype(decl->type);
+      //dprintf(funcfile, "n%d -> n%d ;\n", declnode, treetype(decl->type);
     case IDENT:
       //int ooftype = treeid(expr->id);
       secondnodeary = nodenumber++;
-      dprintf(funcfile, "n%d [label=\"%s\"];\n", exnode, expr->id->name);
+      dprintf(funcfile, "n%d [label=\"%s\"];\n", secondnodeary, expr->id->name);
       dprintf(funcfile, "n%d -> n%d;\n", exnode, secondnodeary);
       break;
     case MEMBER:
       secondnodeary = nodenumber++;
-      dprintf(funcfile, "n%d [label=\"%s\"];\n", exnode, expr->member);
+      dprintf(funcfile, "n%d [label=\"%s\"];\n", secondnodeary, expr->member);
       dprintf(funcfile, "n%d -> n%d;\n", exnode, secondnodeary);
       break;
     case ARRAY_LIT:
@@ -217,19 +217,19 @@ int treexpr(EXPRESSION* expr) {
       dprintf(funcfile, "n%d -> n%d;\n", exnode, treetype(expr->typesz));
       break;
     case CAST:
-      dprintf(funcfile, "n%d -> n%d [label=\"EXPRESSION\"];\n", exnode, treexpr(expr->params->arr[0]));
-      dprintf(funcfile, "n%d -> n%d [label=\"TYPE\"];\n", exnode, treetype(expr->typesz));
+      dprintf(funcfile, "n%d -> n%d [color=red];\n", exnode, treexpr(expr->params->arr[0]));
+      dprintf(funcfile, "n%d -> n%d [color=green];\n", exnode, treetype(expr->typesz));
       break;
     case FCALL:
-      dprintf(funcfile, "n%d -> n%d [label=\"FUNCTION\"];\n", exnode, treexpr(expr->params->arr[0]));
+      dprintf(funcfile, "n%d -> n%d [color=red];\n", exnode, treexpr(expr->params->arr[0]));
       for(int i = 1; i < expr->params->length; i++) {
-        dprintf(funcfile, "n%d -> n%d [label=\"PARAM_%d\"];\n", exnode, treexpr(expr->params->arr[i]), i);
+        dprintf(funcfile, "n%d -> n%d [color=green];\n", exnode, treexpr(expr->params->arr[i]), i);
       }
       break;
     case TERNARY:
-      dprintf(funcfile, "n%d -> n%d [label=\"IF\"];\n", exnode, treexpr(expr->params->arr[0]));
-      dprintf(funcfile, "n%d -> n%d [label=\"THEN\"];\n", exnode, treexpr(expr->params->arr[1]));
-      dprintf(funcfile, "n%d -> n%d [label=\"ELSE\"];\n", exnode, treexpr(expr->params->arr[2]));
+      dprintf(funcfile, "n%d -> n%d [color=red];\n", exnode, treexpr(expr->params->arr[0]));
+      dprintf(funcfile, "n%d -> n%d [color=green];\n", exnode, treexpr(expr->params->arr[1]));
+      dprintf(funcfile, "n%d -> n%d [color=blue];\n", exnode, treexpr(expr->params->arr[2]));
       break;
   }
   return exnode;
@@ -240,8 +240,8 @@ int pdecl(DECLARATION* decl) {
   dprintf(funcfile, "n%d [label=\"%s\"];\n", declnode, "DECLARATION"); 
   int dnamenode = nodenumber++;
   dprintf(funcfile, "n%d [label=\"%s\"];\n", dnamenode, decl->varname); 
-  dprintf(funcfile, "n%d -> n%d [label=\"TYPE\"];\n", declnode, treetype(decl->type));
-  dprintf(funcfile, "n%d -> n%d [label=\"VARNAME\"];\n", declnode, dnamenode); 
+  dprintf(funcfile, "n%d -> n%d [color=red];\n", declnode, treetype(decl->type));
+  dprintf(funcfile, "n%d -> n%d [color=green];\n", declnode, dnamenode); 
   return declnode;
 }
 
@@ -251,10 +251,10 @@ int prinit(DYNARR* dinit) {
   for(int i = 0; i < dinit->length; i++) {
     INITIALIZER* init = daget(dinit, i);
     int decl = pdecl(init->decl);
-    dprintf(funcfile, "n%d -> n%d [label=\"DECLARE\"];\n", printnode, decl); 
+    dprintf(funcfile, "n%d -> n%d [color=red];\n", printnode, decl); 
     if(init->expr) {
       int expr = treexpr(init->expr);
-      dprintf(funcfile, "n%d -> n%d [label=\"ASSIGN\"];\n", printnode, expr); 
+      dprintf(funcfile, "n%d -> n%d [color=green];\n", printnode, expr); 
     }
   }
   return printnode;
@@ -270,14 +270,14 @@ int statemeant(STATEMENT* stmt) {
       dprintf(funcfile, "n%d -> n%d;\n", statenode, lnn); 
       break;
     case IFS: case IFELSES:
-      dprintf(funcfile, "n%d -> n%d [label=\"CONDITION\"];\n", statenode, treexpr(stmt->ifcond)); 
-      dprintf(funcfile, "n%d -> n%d [label=\"THEN\"];\n", statenode, statemeant(stmt->thencond)); 
+      dprintf(funcfile, "n%d -> n%d [color=red];\n", statenode, treexpr(stmt->ifcond)); 
+      dprintf(funcfile, "n%d -> n%d [color=blue];\n", statenode, statemeant(stmt->thencond)); 
       if(stmt->elsecond)
-        dprintf(funcfile, "n%d -> n%d [label=\"ELSE\"];\n", statenode, statemeant(stmt->elsecond)); 
+        dprintf(funcfile, "n%d -> n%d [color=blue];\n", statenode, statemeant(stmt->elsecond)); 
       break;
     case WHILEL: case DOWHILEL: case SWITCH:
-      dprintf(funcfile, "n%d -> n%d [label=\"CONDITION\"];\n", statenode, treexpr(stmt->cond)); 
-      dprintf(funcfile, "n%d -> n%d [label=\"BODY\"];\n", statenode, statemeant(stmt->body)); 
+      dprintf(funcfile, "n%d -> n%d [color=red];\n", statenode, treexpr(stmt->cond)); 
+      dprintf(funcfile, "n%d -> n%d [color=green];\n", statenode, statemeant(stmt->body)); 
       break;
     case LBREAK: case LCONT: case DEFAULT:
       break;
@@ -310,7 +310,7 @@ void treefunc(FUNC* func) {
   sprintf(filename, "%s.dot", func->name);
   funcfile = creat(filename, 0666);
   int fnn = nodenumber++;
-  dprintf(funcfile, "digraph %s {\ngraph [rankdir=LR];\nnode [shape=record];\n", func->name);
+  dprintf(funcfile, "digraph %s {\ngraph [rankdir=LR];\nnode [shape=box];\ngraph [splines=ortho, nodesep=1];", func->name);
   dprintf(funcfile, "n%d [label=\"%s\"];\n", fnn, func->name); 
   int typenoden = treetype(func->retrn);
   dprintf(funcfile, "n%d -> n%d;\n", fnn, typenoden); //maybe do something to separate this from body of function
