@@ -2,6 +2,7 @@ CC = gcc
 LDFLAGS = 
 CFLAGS = -g 
 compiler: joecc.tab.o lex.yy.o hash.o dynarr.o compintern.o compmain.o dynstr.o printree.o
+	mkdir -p functions
 	$(CC) joecc.tab.o lex.yy.o hash.o dynarr.o compintern.o compmain.o dynstr.o printree.o -o compiler $(LDFLAGS)
 gotest: compiler
 	./compiler dynarr.c

@@ -126,13 +126,16 @@ int treetype(IDTYPE* type) {
   int subtnode = nodenumber++;
   if(type->tb & ENUMVAL) {
     dprintf(funcfile, "n%d [label=\"ENUM %s\"];\n", subtnode, type->enumtype->name ? type->enumtype->name : "ANONYMOUS");
-    dprintf(funcfile, "n%d -> n%d;\n", subtnode, enumtree(type->enumtype));
+    if(!type->enumtype->name)
+      /*dprintf(funcfile, "n%d -> n%d;\n", subtnode, enumtree(type->enumtype))*/;
   } else if(type->tb & STRUCTVAL) {
     dprintf(funcfile, "n%d [label=\"STRUCT %s\"];\n", subtnode, type->structtype->name ? type->structtype->name : "ANONYMOUS");
-    dprintf(funcfile, "n%d -> n%d;\n", subtnode, structree(type->structtype));
+    if(!type->structtype->name)
+      /*dprintf(funcfile, "n%d -> n%d;\n", subtnode, structree(type->structtype))*/;
   } else if(type->tb & UNIONVAL){ 
     dprintf(funcfile, "n%d [label=\"UNION %s\"];\n", subtnode, type->uniontype->name ? type->uniontype->name : "ANONYMOUS");
-    dprintf(funcfile, "n%d -> n%d;\n", subtnode, uniontree(type->uniontype));
+    if(!type->uniontype->name)
+      /*dprintf(funcfile, "n%d -> n%d;\n", subtnode, uniontree(type->uniontype))*/;
   } else {
     char* ntb =  name_TYPEBITS(type->tb);
     dprintf(funcfile, "n%d [label=\"%s\"];\n", subtnode, ntb);
@@ -318,7 +321,7 @@ void treefunc(FUNC* func) {
   }
   //params above, separate from body---by shape?
   int internode = statemeant(func->body);
-  dprintf(funcfile, "n%d -> %d;\n", fnn, internode); //maybe do something to separate this from body of function
+  dprintf(funcfile, "n%d -> n%d;\n", fnn, internode); //maybe do something to separate this from body of function
   dprintf(funcfile, "}\n");
   close(funcfile);
 }
