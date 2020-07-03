@@ -182,7 +182,6 @@ int treexpr(EXPRESSION* expr) {
       dprintf(funcfile, "n%d [label=\"%lf\"];\n", secondnodeary, expr->floatconst);
       dprintf(funcfile, "n%d -> n%d;\n", exnode, secondnodeary);
       break;
-      //dprintf(funcfile, "n%d -> n%d ;\n", declnode, treetype(decl->type);
     case IDENT:
       //int ooftype = treeid(expr->id);
       secondnodeary = nodenumber++;
@@ -271,7 +270,7 @@ int statemeant(STATEMENT* stmt) {
       break;
     case IFS: case IFELSES:
       dprintf(funcfile, "n%d -> n%d [color=red];\n", statenode, treexpr(stmt->ifcond)); 
-      dprintf(funcfile, "n%d -> n%d [color=blue];\n", statenode, statemeant(stmt->thencond)); 
+      dprintf(funcfile, "n%d -> n%d [color=green];\n", statenode, statemeant(stmt->thencond)); 
       if(stmt->elsecond)
         dprintf(funcfile, "n%d -> n%d [color=blue];\n", statenode, statemeant(stmt->elsecond)); 
       break;

@@ -364,7 +364,7 @@ void* scopesearch(struct lexctx* lct, enum membertype mt, char* key){
         break;
     }
     SCOPEMEMBER* rv = (SCOPEMEMBER*) search(ht, key);
-    if(rv) {
+    if(rv && rv->mtype == mt) {
       switch(rv->mtype) {
         case M_ENUM_CONST:
           return rv->enumnum;

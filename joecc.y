@@ -20,15 +20,15 @@
 
 %token<ii> INTEGER_LITERAL;
 %token<dbl> FLOAT_LITERAL;
-%token<str> IDENTIFIER 
+%token<str> SYMBOL TYPE_NAME
 %token<dstr> STRING_LITERAL;
-%token<idvariant> TYPE_NAME;
-%token<exprvariant> ENUM_CONST;
 
 %code requires{
   #include <stdint.h>
   #include <stdio.h>
   #include "compintern.h"
+  #include "dynarr.h"
+  extern DYNARR* file2compile;
 
 
   #define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
@@ -146,7 +146,7 @@ initializer:
         } else if($2->tb & ENUMVAL) {
           ht = scopepeek(ctx)->forwardenums;
         } else {
-          fprintf(stderr, "Error: forward definition of unknown type %s %d.%d-%d.%d\n", $2->structtype->name, locprint(@$));
+          fprintf(stderr, "Error: forward definition of unknown type %s in %s %d.%d-%d.%d\n", $2->structtype->name, dapeek(file2compile), locprint(@$));
           continue;
         }
         DYNARR* da = search(ht, $2->structtype->name);
@@ -184,7 +184,7 @@ initializer:
         } else if($1->tb & ENUMVAL) {
           ht = scopepeek(ctx)->forwardenums;
         } else {
-          fprintf(stderr, "Error: forward definition of unknown type %s %d.%d-%d.%d\n", $1->structtype->name, locprint(@$));
+          fprintf(stderr, "Error: forward definition of unknown type %s in %s %d.%d-%d.%d\n", $1->structtype->name, dapeek(file2compile), locprint(@$));
           continue;
         }
         DYNARR* da = search(ht, $1->structtype->name);
@@ -193,29 +193,29 @@ initializer:
     }
     add2scope(current, ac->decl->varname, M_VARIABLE, ac->decl->type);
   }}
-| "struct" IDENTIFIER ';' {
+| "struct" SYMBOL ';' {
   $$ = dactor(0);
   if(!scopequeryval(ctx, M_STRUCT, $2)) {
     add2scope(scopepeek(ctx), $2, M_STRUCT, NULL);
     insert(scopepeek(ctx)->forwardstructs, $2, dactor(16));
   } else 
-    fprintf(stderr, "Error: redefinition of struct %s at %d.%d-%d.%d\n", $2, locprint(@$));
+    fprintf(stderr, "Error: redefinition of struct %s in %s %d.%d-%d.%d\n", $2, dapeek(file2compile),  locprint(@$));
   }
-| "enum" IDENTIFIER ';' {
+| "enum" SYMBOL ';' {
   $$ = dactor(0);
   if(!scopequeryval(ctx, M_ENUM, $2)) {
     add2scope(scopepeek(ctx), $2, M_ENUM, NULL);
     insert(scopepeek(ctx)->forwardenums, $2, dactor(16));
   } else 
-    fprintf(stderr, "Error: redefinition of enum %s at %d.%d-%d.%d\n", $2, locprint(@$));
+    fprintf(stderr, "Error: redefinition of enum %s in %s %d.%d-%d.%d\n", $2, dapeek(file2compile),  locprint(@$));
   }
-| "union" IDENTIFIER ';' {
+| "union" SYMBOL ';' {
   $$ = dactor(0);
   if(!scopequeryval(ctx, M_UNION, $2)) {
     add2scope(scopepeek(ctx), $2, M_UNION, NULL);
     insert(scopepeek(ctx)->forwardunions, $2, dactor(16));
   } else 
-    fprintf(stderr, "Error: redefinition of union %s at %d.%d-%d.%d\n", $2, locprint(@$));
+    fprintf(stderr, "Error: redefinition of union %s in %s %d.%d-%d.%d\n", $2, dapeek(file2compile),  locprint(@$));
   }
 | fullstruct';' {$$ = dactor(0);}
 | fullenum ';' {$$ = dactor(0);}
@@ -236,7 +236,7 @@ declarator:
   abstract_ptr declname {$$ = $2; $2->type->pointerstack = damerge($1, $2->type->pointerstack);}
 | declname {$$ = $1;};
 declname:
-  IDENTIFIER {$$ = mkdeclaration($1);}
+  SYMBOL {$$ = mkdeclaration($1);}
 | '(' declarator ')' {$$ = $2;}
 | declname '[' ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, NULL));}
 | declname '[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, $3));}
@@ -301,7 +301,7 @@ typem:
     if($1->fields == NULL) {
       DYNARR* da = (DYNARR*) search(scopepeek(ctx)->forwardstructs, $1->name); 
       if(!da) 
-        fprintf(stderr, "Error: struct %s undeclared %d.%d-%d.%d\n", $1->name, locprint(@$));
+        fprintf(stderr, "Error: struct %s undeclared in %s %d.%d-%d.%d\n", $1->name, dapeek(file2compile), locprint(@$));
       else
         dapush(da, &($$->structtype));
     }}
@@ -312,7 +312,7 @@ typem:
     if($1->fields == NULL) {
       DYNARR* da = (DYNARR*) search(scopepeek(ctx)->forwardunions, $1->name); 
       if(!da) 
-        fprintf(stderr, "Error: union %s undeclared %d.%d-%d.%d\n", $1->name, locprint(@$));
+        fprintf(stderr, "Error: union %s undeclared in %s %d.%d-%d.%d\n", $1->name, dapeek(file2compile), locprint(@$));
       else
         dapush(da, &($$->uniontype));
     }}
@@ -323,7 +323,7 @@ typem:
     if($1->fields == NULL) {
       DYNARR* da = (DYNARR*) search(scopepeek(ctx)->forwardenums, $1->name); 
       if(!da) 
-        fprintf(stderr, "Error: enum %s undeclared %d.%d-%d.%d\n", $1->name, locprint(@$));
+        fprintf(stderr, "Error: enum %s undeclared in %s %d.%d-%d.%d\n", $1->name, dapeek(file2compile), locprint(@$));
       else
         dapush(da, &($$->enumtype));
     }};
@@ -334,12 +334,38 @@ types2:
   "extern" {$$ = EXTERNNUM;}
 | "static" {$$ = STATICNUM;};
 typews1:
-  TYPE_NAME {$$ = malloc(sizeof(IDTYPE)); memcpy($$, $1, sizeof(IDTYPE));}
+  TYPE_NAME {
+    $$ = malloc(sizeof(IDTYPE));
+    IDTYPE* idt = scopesearch(ctx, M_TYPEDEF, $1);
+    if(idt) {
+      memcpy($$, idt, sizeof(IDTYPE));
+    } else {
+      fprintf(stderr, "Error: use of unknown type name %s in %s %d.%d-%d.%d\n", $1, dapeek(file2compile), locprint(@$));
+    }
+    }
 | typem {$$ = $1;}
 | types1 typem {$$ = $2; $$->tb |= $1;}
-| types1 TYPE_NAME {$$ = malloc(sizeof(IDTYPE)); memcpy($$, $2, sizeof(IDTYPE)); $$->tb |= $1;/*TODO: extract, and duplicate*/ }
+| types1 TYPE_NAME {
+    $$ = malloc(sizeof(IDTYPE));
+    IDTYPE* idt = scopesearch(ctx, M_TYPEDEF, $2);
+    if(idt) {
+      memcpy($$, idt, sizeof(IDTYPE));
+    } else {
+      fprintf(stderr, "Error: use of unknown type name %s in %s %d.%d-%d.%d\n", $2, dapeek(file2compile), locprint(@$));
+    }
+    $$->tb |= $1; 
+    }
 | types2 typem {$$ = $2; $$->tb |= $1;}
-| types2 TYPE_NAME {$$ = malloc(sizeof(IDTYPE)); memcpy($$, $2, sizeof(IDTYPE)); $$->tb |= $1;/*TODO: extract, and duplicate*/ };
+| types2 TYPE_NAME {
+    $$ = malloc(sizeof(IDTYPE));
+    IDTYPE* idt = scopesearch(ctx, M_TYPEDEF, $2);
+    if(idt) {
+      memcpy($$, idt, sizeof(IDTYPE));
+    } else {
+      fprintf(stderr, "Error: use of unknown type name %s in %s %d.%d-%d.%d\n", $2, dapeek(file2compile), locprint(@$));
+    }
+    $$->tb |= $1; 
+    };
 type:
   typews1 {$$ = $1;};
 types1o:
@@ -438,23 +464,30 @@ esp:
 | esp '(' ')' {$$ = ct_fcall_expr($1, dactor(0));}
 | esp '(' escl ')' {$$ = ct_fcall_expr($1, $3);}
 | esp '[' expression ']' {$$ = ct_unary_expr(DEREF, ct_binary_expr(ADD, $1, $3));}
-| esp '.' IDENTIFIER {$$ = ct_binary_expr(DOTOP, $1, ct_member_expr($3));}
-| esp  "->" IDENTIFIER {$$ = ct_binary_expr(ARROW, $1, ct_member_expr($3));}
+| esp '.' SYMBOL {
+  $$ = ct_binary_expr(DOTOP, $1, ct_member_expr($3));}
+| esp "->" SYMBOL {$$ = ct_binary_expr(ARROW, $1, ct_member_expr($3));}
 | esu {$$ = $1;};
 esu:
   '(' expression ')' {$$ = $2;}
 | multistring {$$ = ct_strconst_expr($1->strptr); free($1);}
 | INTEGER_LITERAL {$$ = $1.sign ? ct_intconst_expr($1.num) : ct_uintconst_expr($1.num);}
-| ENUM_CONST {$$ = $1;}
 | FLOAT_LITERAL {$$ = ct_floatconst_expr($1);}
-| IDENTIFIER {$$ = ct_ident_expr(ctx, $1);}
-| error {$$ = ct_nop_expr(); 
-  extern DYNARR* file2compile;
-  fprintf (stderr, "%d.%d-%d.%d in %s: error encountered\n",
-           @1.first_line, @1.first_column,
-           @1.last_line, @1.last_column,
-           dapeek(file2compile));
-           /*TODO: print error, location, etc.*/};
+| SYMBOL {
+    EXPRESSION* expr = scopesearch(ctx, M_ENUM_CONST, $1);
+    if(!expr) {
+      $$ = ct_ident_expr(ctx, $1);
+    } else {
+      $$ = expr;
+    }
+    }
+| error {
+    $$ = ct_nop_expr(); 
+    fprintf (stderr, "%d.%d-%d.%d in %s: error encountered\n",
+             @1.first_line, @1.first_column,
+             @1.last_line, @1.last_column,
+             dapeek(file2compile));
+    };
 escl:
   esc {$$ = dactor(32); dapush($$, $1);}
 | escl ',' esc {$$ = $1; dapush($$, $3); };
@@ -502,7 +535,6 @@ function: /*TODO: midrule action and getting parameters into local scope of comp
     /*check that it is in fact a param spec*/
   }
 | error compound_statement {
-  extern DYNARR* file2compile;
   fprintf (stderr, "%d.%d-%d.%d in %s: error encountered in function definition\n",
            @1.first_line, @1.first_column,
            @1.last_line, @1.last_column,
@@ -510,7 +542,7 @@ function: /*TODO: midrule action and getting parameters into local scope of comp
   };
 statement:
   compound_statement {$$ = $1;}
-|  IDENTIFIER ':' {$$ = mklblstmt($1); add2scope(scopepeek(ctx), $1, M_LABEL, NULL);}
+|  SYMBOL ':' {$$ = mklblstmt($1); add2scope(scopepeek(ctx), $1, M_LABEL, NULL);}
 | "case" esc ':' { 
     char* caselbl = malloc(128);
     snprintf(caselbl, 128, "__joecc__%d", caseindex++);
@@ -524,7 +556,7 @@ statement:
 | "while" '(' expression ')' statement {$$ = mklsstmt(WHILEL, $3, $5);}
 | "do" statement "while" '(' expression ')' ';' {$$ = mklsstmt(DOWHILEL, $5, $2);}
 | "for" '(' dee  ee ';' ee ')' statement {$$ = mkforstmt($3, $4, $6, $8);}
-| "goto" IDENTIFIER ';' {$$ = mkgotostmt($2);/*find label within function at some point, probably not now though*/}
+| "goto" SYMBOL ';' {$$ = mkgotostmt($2);/*find label within function at some point, probably not now though*/}
 | "break" ';' {$$ = mkexprstmt(LBREAK,NULL);}
 | "continue" ';' {$$ = mkexprstmt(LCONT,NULL);}
 | "return" ';' {$$ = mkexprstmt(FRET,NULL);}
@@ -549,7 +581,7 @@ statements_and_initializers:
 
 /*for struct enum union make sure no redefinitions are happening*/
 fullunion:
-  "union" IDENTIFIER {
+  "union" SYMBOL {
     if(!scopesearch(ctx, M_UNION, $2)) {
       if(!queryval(scopepeek(ctx)->forwardunions, $2)) {
         add2scope(scopepeek(ctx), $2, M_UNION, NULL);
@@ -565,7 +597,7 @@ fullunion:
 union:
   fullunion {$$ = $1;}
 | "union" structbody  {$$ = unionctor(NULL, $2);}
-| "union" IDENTIFIER {
+| "union" SYMBOL {
     $$ = (UNION*) scopesearch(ctx, M_UNION, $2);
     if(!$$) {
       if(queryval(scopepeek(ctx)->forwardunions, $2)) {
@@ -577,7 +609,7 @@ union:
       }
     }};
 fullstruct:
-  "struct" IDENTIFIER {
+  "struct" SYMBOL {
     if(!scopesearch(ctx, M_STRUCT, $2)) {
       if(!queryval(scopepeek(ctx)->forwardstructs, $2)) {
         add2scope(scopepeek(ctx), $2, M_STRUCT, NULL);
@@ -593,7 +625,7 @@ fullstruct:
 struct:
   fullstruct {$$ = $1;}
 | "struct" structbody {$$ = structor(NULL, $2);}
-| "struct" IDENTIFIER {
+| "struct" SYMBOL {
     $$ = (STRUCT*) scopesearch(ctx, M_STRUCT, $2);
     if(!$$) {
       if(queryval(scopepeek(ctx)->forwardstructs, $2)) {
@@ -670,7 +702,7 @@ sdecl:
 | declarator ':' esc {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $3));}
 | ':' esc {$$ = mkdeclaration(NULL); dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $2));};
 fullenum:
-  "enum" IDENTIFIER {
+  "enum" SYMBOL {
     if(!scopesearch(ctx, M_ENUM, $2)) {
       if(!queryval(scopepeek(ctx)->forwardenums, $2)) {
         add2scope(scopepeek(ctx), $2, M_STRUCT, NULL);
@@ -687,7 +719,7 @@ fullenum:
 enum:
   fullenum {$$ = $1;}
 | "enum" enumbody {$$ = enumctor(NULL, $2);}
-| "enum" IDENTIFIER {
+| "enum" SYMBOL {
     $$ = (ENUM*) scopesearch(ctx, M_ENUM, $2);
     if(!$$) {
       if(queryval(scopepeek(ctx)->forwardenums, $2)) {
@@ -701,16 +733,16 @@ enum:
 enumbody:
   '{' enums commaopt '}' {$$ = $2;};
 enums:
-  IDENTIFIER {$$ = dactor(256);
+  SYMBOL {$$ = dactor(256);
     EXPRESSION* const0 = ct_intconst_expr(0);
     dapush($$, genenumfield($1,const0)); 
     add2scope(scopepeek(ctx), $1, M_ENUM_CONST, const0);
     }
-| IDENTIFIER '=' esc {$$ = dactor(256);
+| SYMBOL '=' esc {$$ = dactor(256);
     dapush($$, genenumfield($1,$3)); 
     add2scope(scopepeek(ctx), $1, M_ENUM_CONST, $3);
     }
-| enums ',' IDENTIFIER {$$ = $1; 
+| enums ',' SYMBOL {$$ = $1; 
     EXPRESSION* prevexpr = ((ENUMFIELD*) dapeek($$))->value;
     switch(prevexpr->type) {
       case INT:
@@ -731,7 +763,7 @@ enums:
     }
     add2scope(scopepeek(ctx), $3, M_ENUM_CONST, prevexpr); //TODO: Confirm no collisions
     }
-| enums ',' IDENTIFIER '=' esc {$$ = $1;
+| enums ',' SYMBOL '=' esc {$$ = $1;
     dapush($$, genenumfield($3,$5)); 
     add2scope(scopepeek(ctx), $3, M_ENUM_CONST, $5);
     };

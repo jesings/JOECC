@@ -24,20 +24,17 @@ INTSIZE (u|U|l|L)*
     }
 #define SIGNEDCHAR 0
 
+int check_type(char* symb);
 extern struct lexctx* ctx;
-int check_type(void** garbage, char* symb);
 char stmtover, skipping;
 char* defname, * strconst;
 int paren_depth;
-char charconst;
 struct macrodef* md;
-char argeaten;
+char charconst, argeaten;
 DYNARR* parg;
 HASHTABLE* defargs = NULL;
-DYNSTR* dstrdly,* mdstrdly;
-extern DYNARR* locs;
-extern DYNARR* file2compile;
-DYNSTR* strcur;
+DYNSTR* dstrdly, * mdstrdly, * strcur;
+extern DYNARR* locs, * file2compile;
 
 #define GOC(c) yylval.ii.num = c, yy_pop_state(); return INTEGER_LITERAL
 %}
@@ -500,20 +497,14 @@ DYNSTR* strcur;
 
 {IDENT} {
   char* ylstr = strdup(yytext);
-  void* v;
-  int mt = check_type(&v, ylstr);
+  int mt = check_type(ylstr);
   switch(mt) {
-    case TYPE_NAME:
-      yylval.idvariant = v;
+    case SYMBOL: case TYPE_NAME:
+      yylval.str = ylstr;
       return mt;
-    case ENUM_CONST:
-      yylval.exprvariant = v;
-      return mt;
-    case IDENTIFIER:
-      yylval.str = v;
-      return mt;
-    case LABEL:
-      return YYUNDEF;
+    default:
+    case -1:
+      return YYEMPTY;
   } 
   }
 
@@ -661,7 +652,7 @@ DYNSTR* strcur;
 <*>. {fprintf(stderr, "Unexpected character encountered: %c %d %s\n", *yytext, *yytext, dapeek(file2compile));}
 <*>\n {fprintf(stderr, "Unexpected newline encountered: %s\n", dapeek(file2compile));}
 %%
-int check_type(void** garbage, char* symb) {
+int check_type(char* symb) {
   struct macrodef* macdef = search(ctx->defines, symb);
   if(macdef) {
     defname = symb;
@@ -710,27 +701,10 @@ int check_type(void** garbage, char* symb) {
     }
     return -1;
   }
-  nofcall: ;
-  IDTYPE* defntype = scopesearch(ctx, M_TYPEDEF, symb);
-  if(defntype) {
-    *garbage = defntype;
+  nofcall:
+  if(scopequeryval(ctx, M_TYPEDEF, symb)) {
     return TYPE_NAME;
   }
-  SCOPEMEMBER* symtab_ent = scopesearchmem(ctx, M_VARIABLE, symb);
-  if(!symtab_ent) {
-    *garbage = symb;
-    return IDENTIFIER;
-  }
-  switch(symtab_ent->mtype) {
-    case M_ENUM_CONST:
-      *garbage = (void*) symtab_ent->enumnum;
-      return ENUM_CONST;
-    default:
-    case M_VARIABLE: 
-      *garbage = symb;
-      return IDENTIFIER;
-    case M_LABEL:
-      return LABEL;
-  }
+  return SYMBOL;
 }
 
