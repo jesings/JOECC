@@ -103,6 +103,7 @@ typedef struct {
   DYNARR* params;
   IDTYPE* retrn;
   HASHTABLE* lbls;
+  DYNARR* switchstack;
 } FUNC;
 
 struct lexctx {//TODO: FIX
@@ -110,6 +111,7 @@ struct lexctx {//TODO: FIX
   //unsigned int fllast, fllen;
   DYNARR* scopes;
   DYNARR* definestack;
+  FUNC* func;
   HASHTABLE* defines;
 };
 

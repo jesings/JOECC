@@ -28,6 +28,7 @@
   #include <stdio.h>
   #include "compintern.h"
   #include "dynarr.h"
+  #include "parallel.h"
   extern DYNARR* file2compile;
 
 
@@ -503,7 +504,7 @@ multistring:
 | STRING_LITERAL STRING_LITERAL {$$ = $1; dscat($1, $2->strptr, $2->lenstr); free($2->strptr); free($2);}
 
 function: /*TODO: midrule action and getting parameters into local scope of compound statement*/
-  type declarator compound_statement {
+  type declarator <funcvariant>{
     DYNARR* parammemb;
     struct declarator_part* dp = dapop($2->type->pointerstack);
     $2->type->tb |= $1->tb;
@@ -530,10 +531,15 @@ function: /*TODO: midrule action and getting parameters into local scope of comp
       parammemb = dp->params;
     else
       parammemb = dactor(0);
-    $$ = ct_function($2->varname, $3, parammemb, $2->type);
+    $$ = ct_function($2->varname, NULL, parammemb, $2->type);
     free($2);
+    ctx->func = $$;
     /*check that it is in fact a param spec*/
-  }
+    } compound_statement {
+    $$ = $3;
+    $$->body = $4;
+    ctx->func = NULL;
+    }
 | error compound_statement {
   fprintf (stderr, "%d.%d-%d.%d in %s: error encountered in function definition\n",
            @1.first_line, @1.first_column,
@@ -552,7 +558,11 @@ statement:
 | "default" ':' {$$ = mkdefaultstmt(); add2scope(scopepeek(ctx), "default", M_CASE/*?*/, NULL);}/*case labels are scoped and regular labels arent?? This will be difficult--no perhaps not*/
 | "if" '(' expression ')' statement %prec THEN {$$ = mkifstmt($3, $5, NULL);}
 | "if" '(' expression ')' statement "else" statement {$$ = mkifstmt($3, $5, $7);}
-| "switch" '(' expression ')' compound_statement {$$ = mklsstmt(SWITCH, $3, $5);}
+| "switch" '(' expression ')' switch_midrule compound_statement {
+    $$ = mklsstmt(SWITCH, $3, $6);
+    //pop from switchstack, differentiate statement with case hashtable for ints
+    //PARALLEL* pll = dapop(ctx->func->switchstack);
+    }
 | "while" '(' expression ')' statement {$$ = mklsstmt(WHILEL, $3, $5);}
 | "do" statement "while" '(' expression ')' ';' {$$ = mklsstmt(DOWHILEL, $5, $2);}
 | "for" '(' dee  ee ';' ee ')' statement {$$ = mkforstmt($3, $4, $6, $8);}
@@ -579,6 +589,11 @@ statements_and_initializers:
 | statements_and_initializers initializer {$$ = $1; dapush($$,soii($2));}
 | statements_and_initializers statement {$$ = $1; dapush($$,sois($2));};
 
+switch_midrule:
+  %empty {
+    //dapush(ctx->func->switchstack, paralector());
+    //push to switchstack
+    };
 /*for struct enum union make sure no redefinitions are happening*/
 fullunion:
   "union" SYMBOL {

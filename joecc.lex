@@ -183,21 +183,86 @@ extern DYNARR* locs, * file2compile;
 }
 
 <DEFINE>{
-  {IDENT} {yy_pop_state(); yy_push_state(DEFINE2); mdstrdly = strctor(malloc(2048), 0, 2048); defname = strdup(yytext);}
-  {IDENT}/[[:blank:]] {yy_pop_state(); yy_push_state(DEFINE2); mdstrdly = strctor(malloc(2048), 0, 2048); yy_push_state(KILLBLANK); defname = strdup(yytext);}
-  {IDENT}\( {yy_pop_state(); yy_push_state(DEFARG); yytext[yyleng - 1] = '\0'; defname = strdup(yytext); md->args = dactor(8); argeaten = 0;}
-  {IDENT}\(/[[:blank:]] {yy_pop_state(); yy_push_state(DEFARG); yy_push_state(KILLBLANK); yytext[yyleng - 1] = '\0'; defname = strdup(yytext); md->args = dactor(8); argeaten = 0;}
+  {IDENT} {
+    yy_pop_state(); 
+    yy_push_state(DEFINE2); 
+    mdstrdly = strctor(malloc(2048), 0, 2048); 
+    defname = strdup(yytext);
+    }
+  {IDENT}/[[:blank:]] {
+    yy_pop_state(); 
+    yy_push_state(DEFINE2); 
+    mdstrdly = strctor(malloc(2048), 0, 2048); 
+    yy_push_state(KILLBLANK);
+    defname = strdup(yytext);
+    }
+  {IDENT}\( {
+    yy_pop_state(); 
+    yy_push_state(DEFARG); 
+    yytext[yyleng - 1] = '\0'; 
+    defname = strdup(yytext);
+    md->args = dactor(8); 
+    argeaten = 0;
+    }
+  {IDENT}\(/[[:blank:]] {
+    yy_pop_state(); 
+    yy_push_state(DEFARG); 
+    yy_push_state(KILLBLANK); 
+    yytext[yyleng - 1] = '\0';
+    defname = strdup(yytext); 
+    md->args = dactor(8); 
+    argeaten = 0;
+    }
   \n {yy_pop_state(); yy_pop_state();/*error state*/}
   . {fprintf(stderr, "DEFINE: I made a stupid: %c\n", *yytext);}
 }
 
 <DEFARG>{
-  {IDENT} {if(argeaten) fprintf(stderr, "Error: unexpected macro argument\n"); argeaten = 1;/*new arg encountered*/ dapush(md->args, strdup(yytext));/*probably should confirm no 2 args have the same name*/}
-  {IDENT}/[[:blank:]] {if(argeaten) fprintf(stderr, "Error: unexpected macro argument\n"); argeaten = 1;/*new arg encountered*/ yy_push_state(KILLBLANK); dapush(md->args, strdup(yytext));/*probably should confirm no 2 args have the same name*/}
-  \, {if(argeaten) argeaten = 0; else fprintf(stderr, "Error: unexpected macro argument\n");}
-  \,/[[:blank:]] {if(argeaten) argeaten = 0; else fprintf(stderr, "Error: unexpected macro argument\n"); yy_push_state(KILLBLANK);}
-  \) {if(!argeaten && md->args->length != 0) fprintf(stderr, "Error: unexpected macro argument\n"); /*last arg encountered*/yy_pop_state(); yy_push_state(DEFINE2); mdstrdly = strctor(malloc(2048), 0, 2048);}
-  \)/[[:blank:]] {if(!argeaten && md->args->length != 0) fprintf(stderr, "Error: unexpected macro argument\n"); /*last arg encountered*/yy_pop_state(); yy_push_state(DEFINE2); mdstrdly = strctor(malloc(2048), 0, 2048); yy_push_state(KILLBLANK);}
+  {IDENT} {
+    if(argeaten) 
+      fprintf(stderr, "Error: unexpected macro argument\n"); 
+    argeaten = 1; /*new arg encountered*/ 
+    dapush(md->args, strdup(yytext));
+    /*probably should confirm no 2 args have the same name*/
+    }
+  {IDENT}/[[:blank:]] {
+    if(argeaten) 
+      fprintf(stderr, "Error: unexpected macro argument\n"); 
+    argeaten = 1;
+    /*new arg encountered*/ yy_push_state(KILLBLANK); 
+    dapush(md->args, strdup(yytext));
+    /*probably should confirm no 2 args have the same name*/
+    }
+  \, {
+    if(argeaten) 
+      argeaten = 0; 
+    else 
+      fprintf(stderr, "Error: unexpected macro argument\n");
+    }
+  \,/[[:blank:]] {
+    if(argeaten) 
+      argeaten = 0; 
+    else 
+      fprintf(stderr, "Error: unexpected macro argument\n");
+    yy_push_state(KILLBLANK);
+    }
+  \) {
+    if(!argeaten && md->args->length != 0) 
+      fprintf(stderr, "Error: unexpected macro argument\n"); 
+    /*last arg encountered*/
+    yy_pop_state();
+    yy_push_state(DEFINE2); 
+    mdstrdly = strctor(malloc(2048), 0, 2048);
+    }
+  \)/[[:blank:]] {
+    if(!argeaten && md->args->length != 0) 
+      fprintf(stderr, "Error: unexpected macro argument\n"); 
+    /*last arg encountered*/
+    yy_pop_state();
+    yy_push_state(DEFINE2); 
+    mdstrdly = strctor(malloc(2048), 0, 2048); 
+    yy_push_state(KILLBLANK);
+    }
   \n {yy_pop_state(); yy_pop_state();/*error state*/}
   . {fprintf(stderr, "DEFINE: I made a stupid: %c\n", *yytext);}
 }
@@ -206,7 +271,14 @@ extern DYNARR* locs, * file2compile;
   [^\\/\n]+ {dscat(mdstrdly, yytext, yyleng);}
   "/" {dsccat(mdstrdly, '/');}
   \\ {dsccat(mdstrdly, '\\');}
-  \n {yy_pop_state(); yy_pop_state(); dsccat(mdstrdly, 0); md->text = mdstrdly->strptr; free(mdstrdly); insert(ctx->defines, defname, md);}
+  \n {
+    yy_pop_state();
+    yy_pop_state();
+    dsccat(mdstrdly, 0);
+    md->text = mdstrdly->strptr;
+    free(mdstrdly);
+    insert(ctx->defines, defname, md);
+    }
 }
 
 <UNDEF>{
@@ -232,7 +304,7 @@ extern DYNARR* locs, * file2compile;
       enum ifdefstate contval = ds->length <= 0 ? IFANDTRUE : *(enum ifdefstate*) dapeek(ds);
       switch(contval) {
         case IFANDTRUE: case ELSEANDFALSE:
-          if(search(ctx->defines, defname)) {
+          if(queryval(ctx->defines, defname)) {
             *rids = IFANDTRUE;
           } else {
             *rids = IFANDFALSE;
@@ -264,7 +336,7 @@ extern DYNARR* locs, * file2compile;
       enum ifdefstate contval = ds->length <= 0 ? IFANDTRUE : *(enum ifdefstate*) dapeek(ds);
       switch(contval) {
         case IFANDTRUE: case ELSEANDFALSE:
-          if(search(ctx->defines, defname)) {
+          if(queryval(ctx->defines, defname)) {
             *rids = IFANDFALSE;
             yy_push_state(PPSKIP);
           } else {
@@ -502,9 +574,6 @@ extern DYNARR* locs, * file2compile;
     case SYMBOL: case TYPE_NAME:
       yylval.str = ylstr;
       return mt;
-    default:
-    case -1:
-      return YYEMPTY;
   } 
   }
 

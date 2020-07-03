@@ -300,6 +300,8 @@ FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, IDTYPE* retrn) {
   func->body = body;
   func->params = params;
   func->retrn = retrn;
+  func->lbls = htctor();
+  func->switchstack = dactor(8);
   return func;
 }
 
@@ -451,6 +453,7 @@ struct lexctx* ctxinit() {
   lct->defines = htctor();
   lct->definestack = dactor(64);
   lct->scopes = dactor(64);
+  lct->func = NULL;
   dapush(lct->scopes, mkscope());
   return lct;
 }
