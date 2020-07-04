@@ -40,7 +40,6 @@
 
 %{
   extern struct lexctx* ctx;
-  extern int caseindex;
   int yylex();
   int yyerror();
 %}
@@ -479,6 +478,7 @@ esu:
     if(!expr) {
       $$ = ct_ident_expr(ctx, $1);
     } else {
+      char* foobar = $1;
       $$ = expr;
     }
     }
@@ -501,7 +501,12 @@ array_literal:
 
 multistring:
   STRING_LITERAL {$$ = $1;}
-| STRING_LITERAL STRING_LITERAL {$$ = $1; dscat($1, $2->strptr, $2->lenstr); free($2->strptr); free($2);}
+| STRING_LITERAL STRING_LITERAL {
+    $$ = $1;
+    dscat($1, $2->strptr, $2->lenstr);
+    free($2->strptr);
+    free($2);
+    }
 
 function: /*TODO: midrule action and getting parameters into local scope of compound statement*/
   type declarator <funcvariant>{
@@ -548,20 +553,23 @@ function: /*TODO: midrule action and getting parameters into local scope of comp
   };
 statement:
   compound_statement {$$ = $1;}
-|  SYMBOL ':' {$$ = mklblstmt($1); add2scope(scopepeek(ctx), $1, M_LABEL, NULL);}
+|  SYMBOL ':' {$$ = mklblstmt(ctx, $1);}
 | "case" esc ':' { 
     char* caselbl = malloc(128);
-    snprintf(caselbl, 128, "__joecc__%d", caseindex++);
-    $$ = mkcasestmt($2, caselbl);
-    add2scope(scopepeek(ctx), caselbl/*no clue what this should be*/, M_CASE/*?*/, NULL);
+    snprintf(caselbl, 128, "__joecc__%s__%d", ctx->func->name, (ctx->func->caseindex)++);
+    $$ = mkcasestmt(ctx, $2, caselbl);
     }
-| "default" ':' {$$ = mkdefaultstmt(); add2scope(scopepeek(ctx), "default", M_CASE/*?*/, NULL);}/*case labels are scoped and regular labels arent?? This will be difficult--no perhaps not*/
+| "default" ':' {
+    char* caselbl = malloc(128);
+    snprintf(caselbl, 128, "__joecc__%s__%d", ctx->func->name, (ctx->func->caseindex)++);
+    $$ = mkdefaultstmt(ctx, caselbl);
+    }
 | "if" '(' expression ')' statement %prec THEN {$$ = mkifstmt($3, $5, NULL);}
 | "if" '(' expression ')' statement "else" statement {$$ = mkifstmt($3, $5, $7);}
 | "switch" '(' expression ')' switch_midrule compound_statement {
-    $$ = mklsstmt(SWITCH, $3, $6);
+    PARALLEL* pll = dapop(ctx->func->switchstack);
+    $$ = mkswitchstmt($3, $6, pll);
     //pop from switchstack, differentiate statement with case hashtable for ints
-    //PARALLEL* pll = dapop(ctx->func->switchstack);
     }
 | "while" '(' expression ')' statement {$$ = mklsstmt(WHILEL, $3, $5);}
 | "do" statement "while" '(' expression ')' ';' {$$ = mklsstmt(DOWHILEL, $5, $2);}
@@ -581,18 +589,21 @@ dee:
 | ee ';' {$$ = malloc(sizeof(EOI)); $$->isE = 1; $$->E = $1;};
 compound_statement:/*add new scope to scope stack, remove when done*/
   '{' '}' {$$ = mkcmpndstmt(NULL);}
-| '{' compound_midrule statements_and_initializers '}' {$$ = mkcmpndstmt($3); scopepop(ctx);};
-compound_midrule: %empty {scopepush(ctx);};
+| '{' compound_midrule statements_and_initializers '}' {
+    $$ = mkcmpndstmt($3); 
+    scopepop(ctx);
+    };
+compound_midrule: %empty {
+    scopepush(ctx);
+    };
 statements_and_initializers:
   initializer {$$ = dactor(4096); dapush($$,soii($1));}
 | statement {$$ = dactor(4096); dapush($$,sois($1));}
 | statements_and_initializers initializer {$$ = $1; dapush($$,soii($2));}
 | statements_and_initializers statement {$$ = $1; dapush($$,sois($2));};
-
 switch_midrule:
   %empty {
-    //dapush(ctx->func->switchstack, paralector());
-    //push to switchstack
+    dapush(ctx->func->switchstack, paralector());
     };
 /*for struct enum union make sure no redefinitions are happening*/
 fullunion:
@@ -603,7 +614,7 @@ fullunion:
         insert(scopepeek(ctx)->forwardunions, $2, dactor(16));
       }
     } else {
-      fprintf(stderr, "Error: redefinition of union %s %d.%d-%d.%d\n", $2, locprint(@$));
+      fprintf(stderr, "Error: redefinition of union %s at %s %d.%d-%d.%d\n", $2, dapeek(file2compile), locprint(@$));
     }} structbody  {
     $$ = unionctor($2, $4); 
     add2scope(scopepeek(ctx), $2, M_UNION, $$); 
@@ -620,7 +631,7 @@ union:
         $$->name = $2;
         $$->fields = NULL;
       } else {
-        fprintf(stderr, "Error: reference to undefined union %s %d.%d-%d.%d\n", $2, locprint(@$));
+        fprintf(stderr, "Error: reference to undefined union %s at %s %d.%d-%d.%d\n", $2, dapeek(file2compile), locprint(@$));
       }
     }};
 fullstruct:
@@ -631,7 +642,7 @@ fullstruct:
         insert(scopepeek(ctx)->forwardstructs, $2, dactor(16));
       }
     } else {
-      fprintf(stderr, "Error: redefinition of struct %s %d.%d-%d.%d\n", $2, locprint(@$));
+      fprintf(stderr, "Error: redefinition of struct %s at %s %d.%d-%d.%d\n", $2, dapeek(file2compile), locprint(@$));
     }} structbody {
     $$ = structor($2, $4); 
     add2scope(scopepeek(ctx), $2, M_STRUCT, $$);
@@ -648,7 +659,7 @@ struct:
         $$->name = $2;
         $$->fields = NULL;
       } else {
-        fprintf(stderr, "Error: reference to undefined struct %s %d.%d-%d.%d\n", $2, locprint(@$));
+        fprintf(stderr, "Error: reference to undefined struct %s at %s %d.%d-%d.%d\n", $2, dapeek(file2compile), locprint(@$));
       }
     }};
 structbody: '{' struct_decls '}' {$$ = $2;};
@@ -679,7 +690,7 @@ struct_decl:
           } else if($1->tb & UNIONVAL) {
             ht = scopepeek(ctx)->forwardunions;
           } else {
-            fprintf(stderr, "Error: forward declaration of unknown type %s %d.%d-%d.%d\n", $1->structtype->name, locprint(@$));
+            fprintf(stderr, "Error: forward declaration of unknown type %s at %s %d.%d-%d.%d\n", $1->structtype->name, dapeek(file2compile), locprint(@$));
             continue;
           }
           DYNARR* da = search(ht, $1->structtype->name);
@@ -724,7 +735,7 @@ fullenum:
         insert(scopepeek(ctx)->forwardenums, $2, dactor(16));
       }
     } else {
-      fprintf(stderr, "Error: redefinition of enum %s %d.%d-%d.%d\n", $2, locprint(@$));
+      fprintf(stderr, "Error: redefinition of enum %s at %s %d.%d-%d.%d\n", $2, dapeek(file2compile), locprint(@$));
     }
     } enumbody {
     $$ = enumctor($2, $4); 
@@ -742,7 +753,7 @@ enum:
         $$->name = $2;
         $$->fields = NULL;
       } else {
-        fprintf(stderr, "Error: reference to undefined enum %s %d.%d-%d.%d\n", $2, locprint(@$));
+        fprintf(stderr, "Error: reference to undefined enum %s at %s %d.%d-%d.%d\n", $2, dapeek(file2compile), locprint(@$));
       }
     }};
 enumbody:
@@ -757,26 +768,32 @@ enums:
     dapush($$, genenumfield($1,$3)); 
     add2scope(scopepeek(ctx), $1, M_ENUM_CONST, $3);
     }
-| enums ',' SYMBOL {$$ = $1; 
+| enums ',' SYMBOL {
+    $$ = $1; 
     EXPRESSION* prevexpr = ((ENUMFIELD*) dapeek($$))->value;
+    EXPRESSION* newexpr = malloc(sizeof(EXPRESSION));
     switch(prevexpr->type) {
       case INT:
-        ++(prevexpr->intconst);
+        memcpy(newexpr, prevexpr, sizeof(EXPRESSION));
+        ++(newexpr->intconst);
         break;
       case UINT:
-        ++(prevexpr->uintconst);
+        memcpy(newexpr, prevexpr, sizeof(EXPRESSION));
+        ++(newexpr->uintconst);
         break;
       case ADD: ;
-        EXPRESSION* epe = daget(prevexpr->params, 0);
-        if(epe->type == INT) {
-          ++(epe->intconst);
+        memcpy(newexpr, daget(prevexpr->params, 0), sizeof(EXPRESSION));
+        if(newexpr->type == INT) {
+          ++(newexpr->intconst);
           break;
         }
-      default:
-        prevexpr = ct_binary_expr(ADD, ct_intconst_expr(1), prevexpr);
-        dapush($$, genenumfield($3, prevexpr)); 
+      default: //TODO: clone whole expression tree
+        newexpr->type = ADD;
+        dapush(newexpr->params, ct_intconst_expr(1));
+        dapush(newexpr->params, prevexpr);
     }
-    add2scope(scopepeek(ctx), $3, M_ENUM_CONST, prevexpr); //TODO: Confirm no collisions
+    dapush($$, genenumfield($3, newexpr));
+    add2scope(scopepeek(ctx), $3, M_ENUM_CONST, newexpr); //TODO: Confirm no collisions
     }
 | enums ',' SYMBOL '=' esc {$$ = $1;
     dapush($$, genenumfield($3,$5)); 

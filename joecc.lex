@@ -77,9 +77,13 @@ extern DYNARR* locs, * file2compile;
 }
 
 <PPSKIP>{
+  ^[[:blank:]]*#[[:blank:]]* {
+    yy_push_state(PREPROCESSOR);
+    stmtover = 0;
+    skipping = 1;
+    }
   [^\n#\/]+ {}
   [\/\n#] {}
-  ^[[:blank:]]*#[[:blank:]]* {yy_push_state(PREPROCESSOR); stmtover = 0; skipping = 1;}
 }
 
 ^[[:blank:]]*#[[:blank:]]* {yy_push_state(PREPROCESSOR); stmtover = 0; skipping = 0;}
@@ -291,7 +295,11 @@ extern DYNARR* locs, * file2compile;
 
 <IFDEF>{
   {IDENT} {stmtover = 1; defname = strdup(yytext);}
-  {IDENT}/[[:blank:]] {stmtover = 1; defname = strdup(yytext); yy_push_state(KILLBLANK);}
+  {IDENT}/[[:blank:]] {
+    stmtover = 1;
+    defname = strdup(yytext);
+    yy_push_state(KILLBLANK);
+    }
   \n {
     yy_pop_state();
     yy_pop_state(); 
@@ -323,7 +331,11 @@ extern DYNARR* locs, * file2compile;
 }
 <IFNDEF>{
   {IDENT} {stmtover = 1; defname = strdup(yytext);}
-  {IDENT}/[[:blank:]] {stmtover = 1; defname = strdup(yytext); yy_push_state(KILLBLANK);}
+  {IDENT}/[[:blank:]] {
+    stmtover = 1;
+    defname = strdup(yytext);
+    yy_push_state(KILLBLANK);
+    }
   \n {
     yy_pop_state();
     yy_pop_state(); 
@@ -726,8 +738,6 @@ int check_type(char* symb) {
   if(macdef) {
     defname = symb;
     if(macdef->args) {
-      //handle function like macro
-      //TODO: also confirm that is followed by parentheses
       char c;
       while(1) {
         c = input();

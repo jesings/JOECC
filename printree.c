@@ -267,14 +267,23 @@ int statemeant(STATEMENT* stmt) {
       int lnn = nodenumber++;
       dprintf(funcfile, "n%d[label=\"%s\"];\n", lnn, stmt->glabel); 
       dprintf(funcfile, "n%d -> n%d;\n", statenode, lnn); 
-      break;
-    case IFS: case IFELSES:
+      break; 
+    case IFELSES:
+        dprintf(funcfile, "n%d -> n%d [color=blue];\n", statenode, statemeant(stmt->elsecond)); 
+    case IFS:
       dprintf(funcfile, "n%d -> n%d [color=red];\n", statenode, treexpr(stmt->ifcond)); 
       dprintf(funcfile, "n%d -> n%d [color=green];\n", statenode, statemeant(stmt->thencond)); 
-      if(stmt->elsecond)
-        dprintf(funcfile, "n%d -> n%d [color=blue];\n", statenode, statemeant(stmt->elsecond)); 
       break;
-    case WHILEL: case DOWHILEL: case SWITCH:
+    case SWITCH: ;//not final, should be working better
+      PARALLEL* pl = stmt->labeltable;
+      for(int i = 0; i < pl->da->length; i++) {
+        int scnn = nodenumber++;
+        char* lname = pl->da->arr[i];
+        dprintf(funcfile, "n%d[label=\"%s\"];\n", scnn, lname);
+        dprintf(funcfile, "n%d -> n%d [color=blue];\n", statenode, scnn); 
+        dprintf(funcfile, "n%d -> n%d;\n", scnn, treexpr(psearch(pl, lname))); 
+      }
+    case WHILEL: case DOWHILEL: 
       dprintf(funcfile, "n%d -> n%d [color=red];\n", statenode, treexpr(stmt->cond)); 
       dprintf(funcfile, "n%d -> n%d [color=green];\n", statenode, statemeant(stmt->body)); 
       break;

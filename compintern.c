@@ -222,6 +222,15 @@ STATEMENT* mklsstmt(enum stmttype type, EXPRESSION* condition, STATEMENT* bdy) {
   return retval;
 }
 
+STATEMENT* mkswitchstmt(EXPRESSION* contingent, STATEMENT* bdy, PARALLEL* lbltbl) {
+  STATEMENT* retval = malloc(sizeof(STATEMENT));
+  retval->type = SWITCH;
+  retval->cond = contingent;
+  retval->body = bdy;
+  retval->labeltable = lbltbl;
+  return retval;
+}
+
 STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = IFS;
@@ -238,25 +247,25 @@ STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits) {
   return retval;
 }
 
-STATEMENT* mklblstmt(char* identifier) {
+STATEMENT* mklblstmt(struct lexctx* lct, char* lblval) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = LABEL;
-  retval->glabel = identifier;
+  retval->glabel = lblval;
+  insert(lct->func->lbls, lblval, NULL);
+  //confirm no collision
   return retval;
 }
 
-STATEMENT* mkcasestmt(EXPRESSION* casexpr, char* label) {
-  STATEMENT* retval = malloc(sizeof(STATEMENT));
-  retval->type = CASE;
-  retval->casecond = casexpr;
-  retval->caselabel = label;
-  return retval;
+STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label) {
+  PARALLEL* pl = dapeek(lct->func->switchstack);
+  pinsert(pl, label, casexpr);//TODO reverse the order of these--expr rectified to int should point to label
+  return mklblstmt(lct, label);
 }
 
-STATEMENT* mkdefaultstmt() {
-  STATEMENT* retval = malloc(sizeof(STATEMENT));
-  retval->type = DEFAULT;
-  return retval;
+STATEMENT* mkdefaultstmt(struct lexctx* lct, char* label) {
+  PARALLEL* pl = dapeek(lct->func->switchstack);
+  pinsert(pl, label, ct_strconst_expr("default"));//TODO reverse the order of these--expr rectified to int should point to label
+  return mklblstmt(lct, label);
 }
 
 ENUMFIELD* genenumfield(char* name, EXPRESSION* value) {
@@ -302,6 +311,7 @@ FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, IDTYPE* retrn) {
   func->retrn = retrn;
   func->lbls = htctor();
   func->switchstack = dactor(8);
+  func->caseindex = 0;
   return func;
 }
 
@@ -382,39 +392,8 @@ void* scopesearch(struct lexctx* lct, enum membertype mt, char* key){
           return rv->unionmemb;
         case M_TYPEDEF:
           return rv->typememb;
-        case M_LABEL:
-          //not needed?
-          break;
       }
     }
-  }
-  return NULL;
-}
-
-SCOPEMEMBER* scopesearchmem(struct lexctx* lct, enum membertype mt, char* key) {
-  for(int i = lct->scopes->length - 1; i >= 0; i--) {
-    SCOPE* htp = daget(lct->scopes, i);
-    HASHTABLE* ht;
-    switch(mt) {
-      default:
-      case M_VARIABLE:
-        ht = htp->members;
-        break;
-      case M_STRUCT:
-        ht = htp->structs;
-        break;
-      case M_ENUM:
-        ht = htp->enums;
-        break;
-      case M_UNION:
-        ht = htp->unions;
-        break;
-      case M_TYPEDEF:
-        ht = htp->typesdef;
-        break;
-    }
-    SCOPEMEMBER* rv = (SCOPEMEMBER*) search(ht, key);
-    if(rv) return rv;
   }
   return NULL;
 }
@@ -441,8 +420,9 @@ char scopequeryval(struct lexctx* lct, enum membertype mt, char* key) {
         ht = htp->typesdef;
         break;
     }
-    void* rv = search(ht, key);//will return scope object
-    if(rv) return 1;
+    SCOPEMEMBER* rv = search(ht, key);//will return scope object
+    if(rv && rv->mtype == mt) 
+      return 1;
   }
   return 0;
 }

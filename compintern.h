@@ -5,6 +5,7 @@
 #include "hash.h"
 #include "dynarr.h"
 #include "dynstr.h"
+#include "parallel.h"
 
 typedef enum {
   FLOATNUM    = 0x10,
@@ -104,6 +105,7 @@ typedef struct {
   IDTYPE* retrn;
   HASHTABLE* lbls;
   DYNARR* switchstack;
+  int caseindex;
 } FUNC;
 
 struct lexctx {//TODO: FIX
@@ -150,9 +152,10 @@ typedef struct stmt {
       struct stmt* thencond;
       struct stmt* elsecond;
     };
-    struct { //while or dowhile or switch(?)
+    struct { //while or dowhile (both w/o labeltable) or switch(?)
       EXPRESSION* cond;
       struct stmt* body;
+      PARALLEL* labeltable;
     };
     struct { //for
       EOI* init;
@@ -242,8 +245,7 @@ typedef struct {
 } SCOPEMEMBER;
 
 typedef struct {
-  //one for vars
-  //one for labels--in function type, ctx needs to track this
+  //one for vars ?
   HASHTABLE* typesdef;//SCOPEMEMBER argument
   HASHTABLE* members;//SCOPEMEMBER argument
   HASHTABLE* structs;
@@ -289,11 +291,12 @@ STATEMENT* mkexprstmt(enum stmttype type, EXPRESSION* express);
 STATEMENT* mkgotostmt(char* gotoloc);
 STATEMENT* mkforstmt(EOI* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy);
 STATEMENT* mklsstmt(enum stmttype type, EXPRESSION* condition, STATEMENT* bdy);
+STATEMENT* mkswitchstmt(EXPRESSION* contingent, STATEMENT* bdy, PARALLEL* lbltbl);
 STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy);
 STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits);
-STATEMENT* mklblstmt(char* identifier);
-STATEMENT* mkcasestmt(EXPRESSION* casexpr, char* label);
-STATEMENT* mkdefaultstmt();
+STATEMENT* mklblstmt(struct lexctx* lct, char* lblval);
+STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label);
+STATEMENT* mkdefaultstmt(struct lexctx* lct, char* label);
 ENUMFIELD* genenumfield(char* name, EXPRESSION* value);
 struct declarator_part* mkdeclpart(enum declpart_info typ, void* d);
 struct declarator_part* mkdeclptr(TYPEBITS d);
@@ -305,7 +308,6 @@ void scopepush(struct lexctx* ctx);
 void scopepop(struct lexctx* ctx);
 SCOPE* scopepeek(struct lexctx* ctx);
 void* scopesearch(struct lexctx* lct, enum membertype mt, char* key);
-SCOPEMEMBER* scopesearchmem(struct lexctx* lct, enum membertype mt, char* key);
 char scopequeryval(struct lexctx* lct, enum membertype mt, char* key);
 void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, void* assignval);
 void add2scope(SCOPE* scope, char* memname, enum membertype mtype, void* memberval);

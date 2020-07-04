@@ -8,7 +8,6 @@ int yylex();
 int yyparse();
 DYNARR* locs;
 DYNARR* file2compile;
-int caseindex;
 int main(int argc, char** argv) {
   ctx = ctxinit();
   locs = dactor(128);
@@ -27,7 +26,6 @@ int main(int argc, char** argv) {
   }
   extern int yydebug;
   yydebug = 0;
-  caseindex = 0;
   yyparse();
   if(argc > 1) {
     close(compilefile);
