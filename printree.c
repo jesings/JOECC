@@ -213,11 +213,11 @@ int treexpr(EXPRESSION* expr) {
       dprintf(funcfile, "n%d -> n%d;\n", exnode, treexpr(expr->params->arr[0]));
       break;
     case SZOF:
-      dprintf(funcfile, "n%d -> n%d;\n", exnode, treetype(expr->typesz));
+      dprintf(funcfile, "n%d -> n%d;\n", exnode, treetype(expr->vartype));
       break;
     case CAST:
       dprintf(funcfile, "n%d -> n%d [color=red];\n", exnode, treexpr(expr->params->arr[0]));
-      dprintf(funcfile, "n%d -> n%d [color=green];\n", exnode, treetype(expr->typesz));
+      dprintf(funcfile, "n%d -> n%d [color=green];\n", exnode, treetype(expr->vartype));
       break;
     case FCALL:
       dprintf(funcfile, "n%d -> n%d [color=red];\n", exnode, treexpr(expr->params->arr[0]));

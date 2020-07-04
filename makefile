@@ -1,9 +1,9 @@
 CC = gcc
 LDFLAGS = 
 CFLAGS = -g 
-compiler: joecc.tab.o lex.yy.o hash.o dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o
+compiler: joecc.tab.o lex.yy.o hash.o dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o
 	mkdir -p functions
-	$(CC) joecc.tab.o lex.yy.o hash.o dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o -o compiler $(LDFLAGS)
+	$(CC) joecc.tab.o lex.yy.o hash.o dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o -o compiler $(LDFLAGS)
 gotest: compiler
 	./compiler dynarr.c
 lex.yy.c: joecc.lex

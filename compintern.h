@@ -122,14 +122,13 @@ typedef struct expr {
   EXPRTYPE type;
   DYNARR* params; //arr of exprs
   union {
-    IDTYPE* casttype;
+    IDTYPE* vartype;
     char* strconst;
     char* member;
     long intconst;
     unsigned long uintconst;
     double floatconst;
     IDENTIFIERINFO* id;//for identifier expressions?
-    IDTYPE* typesz;//for sizeof
     DYNARR* dynvals;//?
     /*possible struct const for later struct initializations*/
   };

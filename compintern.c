@@ -45,7 +45,7 @@ EXPRESSION* ct_unary_expr(EXPRTYPE t, EXPRESSION* param) {
 EXPRESSION* ct_sztype(IDTYPE* whichtype) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = SZOF;
-  retval->typesz = whichtype;
+  retval->vartype = whichtype;
   return retval;
 }
 
@@ -63,7 +63,7 @@ EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr) {
   retval->type = CAST;
   retval->params = dactor(1);
   dapush(retval->params, expr);
-  retval->casttype = type;
+  retval->vartype = type;
   return retval;
 }
 
