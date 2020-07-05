@@ -437,7 +437,7 @@ esm:
   '(' type ')' esm {$$ = ct_cast_expr($2, $4);}
 | '(' type abstract_ptr ')' esm {
   IDTYPE* idt = malloc(sizeof(IDTYPE));
-  memcpy(idt, $2, sizeof(IDTYPE*));
+  memcpy(idt, $2, sizeof(IDTYPE));
   if(idt->pointerstack) {
     idt->pointerstack = damerge(daclone(idt->pointerstack), $3);
   } else {

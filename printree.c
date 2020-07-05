@@ -321,15 +321,14 @@ void treefunc(FUNC* func) {
   dprintf(funcfile, "digraph %s {\ngraph [rankdir=LR];\nnode [shape=box];\ngraph [splines=ortho, nodesep=1];", func->name);
   dprintf(funcfile, "n%d [label=\"%s\"];\n", fnn, func->name); 
   int typenoden = treetype(func->retrn);
-  dprintf(funcfile, "n%d -> n%d;\n", fnn, typenoden); //maybe do something to separate this from body of function
-
+  dprintf(funcfile, "n%d -> n%d;\n", fnn, typenoden);
   for(int i = 0; i < func->params->length; i++) {
     int parnum = pdecl(daget(func->params, i));
-    dprintf(funcfile, "n%d -> n%d;\n", fnn, parnum); //maybe do something to separate this from body of function
+    dprintf(funcfile, "n%d -> n%d;\n", fnn, parnum);
   }
   //params above, separate from body---by shape?
   int internode = statemeant(func->body);
-  dprintf(funcfile, "n%d -> n%d;\n", fnn, internode); //maybe do something to separate this from body of function
+  dprintf(funcfile, "n%d -> n%d;\n", fnn, internode);
   dprintf(funcfile, "}\n");
   close(funcfile);
 }
