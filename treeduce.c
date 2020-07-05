@@ -335,7 +335,6 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
               free(subexpr);
               return subexpr;
             } //else fallthrough
-            //free subexpr and its params dynarr
           default:
             dapush(newdyn, subexpr);
             break;
@@ -413,17 +412,6 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       }
       if(((rectexpr->type != UINT) ||
           rectexpr->uintconst != 0)) {
-        if(newdyn->length == 0) {
-          switch(rectexpr->type) {
-            case UINT: case INT:
-              rectexpr->type = INT;
-              rectexpr->intconst =  -rectexpr->intconst;
-              break;
-            case FLOAT:
-              rectexpr->floatconst =  -rectexpr->floatconst;
-              break;
-          }
-        }
         dapush(newdyn, rectexpr);
       } else {
         free(rectexpr);
@@ -529,7 +517,108 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       ex->params = newdyn;
       return ex;
     case DIVI:
-      //TODO: figure out what can be done here
+      newdyn = dactor(32);
+      rectexpr = ct_uintconst_expr(0);
+      for(int i = 0; i < ex->params->length; i++) {
+        subexpr = EPARAM(ex, i);
+        switch(subexpr->type) {
+          case DIVI:
+            if(!i) {
+              for(int j = 0; j < subexpr->params->length; j++) {
+                dapush(newdyn, EPARAM(subexpr, j)); 
+              }
+              dadtor(subexpr->params);
+              free(subexpr);
+              return subexpr;
+            } //else fallthrough
+          default:
+            dapush(newdyn, subexpr);
+            break;
+          case COMMA:
+            //look at end of expr
+            dapush(newdyn, subexpr);
+            break;
+          case UINT:
+            if(i == 0) {
+              dapush(newdyn, subexpr);
+              break;
+            }
+            switch(rectexpr->type) {
+              case UINT:
+                rectexpr->uintconst *= subexpr->uintconst;
+                break;
+              case INT:
+                rectexpr->intconst *= subexpr->uintconst;
+                break;
+              case FLOAT:
+                rectexpr->floatconst *= subexpr->uintconst;
+                break;
+            }
+            free(subexpr);
+            break;
+          case INT:
+            if(i == 0) {
+              dapush(newdyn, subexpr);
+              break;
+            }
+            switch(rectexpr->type) {
+              case UINT:
+                rectexpr->type = INT;
+                rectexpr->intconst *= subexpr->intconst;
+                break;
+              case INT:
+                rectexpr->intconst *= subexpr->intconst;
+                break;
+              case FLOAT:
+                rectexpr->floatconst *= subexpr->intconst;
+                break;
+            }
+            free(subexpr);
+            break;
+          case FLOAT:
+            if(i == 0) {
+              dapush(newdyn, subexpr);
+              break;
+            }
+            switch(rectexpr->type) {
+              case UINT:
+                rectexpr->type = FLOAT;
+                rectexpr->floatconst = rectexpr->uintconst;
+                rectexpr->floatconst *= subexpr->floatconst;
+                break;
+              case INT:
+                rectexpr->type = FLOAT;
+                rectexpr->floatconst = rectexpr->intconst;
+                rectexpr->floatconst *= subexpr->floatconst;
+                break;
+              case FLOAT:
+                rectexpr->floatconst *= subexpr->floatconst;
+                break;
+            }
+            free(subexpr);
+            break;
+        }
+      }
+      if(((rectexpr->type != UINT) ||
+          rectexpr->uintconst != 0)) {
+        dapush(newdyn, rectexpr);
+      } else {
+        free(rectexpr);
+      }
+      dadtor(ex->params);
+      if(newdyn->length == 1) {
+        EXPRESSION* rv = newdyn->arr[0];
+        dadtor(newdyn);
+        free(ex);
+        return rv;
+      } else if(newdyn->length == 0) {
+        dadtor(newdyn);
+        free(ex);
+        return ct_nop_expr();
+      }
+      //if first element is 0, transform into ADD if more than one other arg, wrap in NEG
+      //if one remaining param, remove SUB wrapper
+      return ex;      //TODO: figure out what can be done here
       return ex;
     case MOD: 
       //TODO: figure out what can be done here
