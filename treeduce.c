@@ -142,6 +142,8 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
           //free expr
           subexpr->floatconst = -subexpr->floatconst;
           return subexpr;
+        case COMMA:
+          //look at end of expr
         default:
           return ex;
       }
@@ -185,6 +187,8 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
           subexpr = EPARAM(ex, 0);
           subexpr->intconst = subexpr->intconst == 0;
           return subexpr;
+        case COMMA:
+          //look at end of expr
         default:
           return ex;
       }
@@ -192,9 +196,13 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       subexpr = EPARAM(ex, 0);
       switch(subexpr->type) {
         case B_NOT:
-          //free expr and subexpr
+          rectexpr = subexpr;
           subexpr = EPARAM(subexpr, 0);
+          free(ex);
+          free(rectexpr);
           return subexpr;
+        case COMMA:
+          //look at end of expr
         default:
           return ex;
       }
@@ -202,9 +210,13 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       subexpr = EPARAM(ex, 0);
       switch(subexpr->type) {
         case DEREF:
-          //free expr and subexpr
+          rectexpr = subexpr;
           subexpr = EPARAM(subexpr, 0);
+          free(ex);
+          free(rectexpr);
           return subexpr;
+        case COMMA:
+          //look at end of expr
         default:
           return ex;
       }
@@ -212,9 +224,13 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       subexpr = EPARAM(ex, 0);
       switch(subexpr->type) {
         case ADDR:
-          //free expr and subexpr
+          rectexpr = subexpr;
           subexpr = EPARAM(subexpr, 0);
+          free(ex);
+          free(rectexpr);
           return subexpr;
+        case COMMA:
+          //look at end of expr
         default:
           return ex;
       }
@@ -232,6 +248,8 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
             dadtor(subexpr->params);
             free(subexpr);
             break;
+          case COMMA:
+            //look at end of expr
           default:
             dapush(newdyn, subexpr);
             break;
@@ -303,22 +321,123 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       ex->params = newdyn;
       return ex;
     case SUB:
-      //Not sure this is right
+      newdyn = dactor(32);
+      rectexpr = ct_uintconst_expr(0);
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
         switch(subexpr->type) {
           case SUB:
-            LPARAM(ex, i) = ct_unary_expr(NEG, EPARAM(subexpr, 0)); 
-            for(int j = 1; j < subexpr->params->length; j++) {
-              dapush(ex->params, EPARAM(subexpr, j)); 
-            }
+            if(!i) {
+              for(int j = 0; j < subexpr->params->length; j++) {
+                dapush(newdyn, EPARAM(subexpr, j)); 
+              }
+              dadtor(subexpr->params);
+              free(subexpr);
+              return subexpr;
+            } //else fallthrough
             //free subexpr and its params dynarr
-            return subexpr;
-          case INT:
+          default:
+            dapush(newdyn, subexpr);
+            break;
+          case COMMA:
+            //look at end of expr
+            dapush(newdyn, subexpr);
+            break;
           case UINT:
+            if(i != 0) {
+              switch(rectexpr->type) {
+                case UINT:
+                  rectexpr->uintconst += subexpr->uintconst;
+                  break;
+                case INT:
+                  rectexpr->intconst += subexpr->uintconst;
+                  break;
+                case FLOAT:
+                  rectexpr->floatconst += subexpr->uintconst;
+                  break;
+            }} else {
+              switch(rectexpr->type) {
+                case UINT:
+                  rectexpr->uintconst -= subexpr->uintconst;
+                  break;
+                case INT:
+                  rectexpr->intconst -= subexpr->uintconst;
+                  break;
+                case FLOAT:
+                  rectexpr->floatconst -= subexpr->uintconst;
+                  break;
+              }
+            }
+            free(subexpr);
+            break;
+          case INT:
+            if(i == 0) {
+              subexpr->intconst = -subexpr->intconst;
+            }
+            switch(rectexpr->type) {
+              case UINT:
+                rectexpr->type = INT;
+                rectexpr->intconst += subexpr->intconst;
+                break;
+              case INT:
+                rectexpr->intconst += subexpr->intconst;
+                break;
+              case FLOAT:
+                rectexpr->floatconst += subexpr->intconst;
+                break;
+            }
+            free(subexpr);
+            break;
           case FLOAT:
-            ;//TODO:
+            if(i == 0) {
+              subexpr->floatconst = -subexpr->floatconst;
+            }
+            switch(rectexpr->type) {
+              case UINT:
+                rectexpr->type = FLOAT;
+                rectexpr->floatconst = rectexpr->uintconst;
+                rectexpr->floatconst += subexpr->floatconst;
+                break;
+              case INT:
+                rectexpr->type = FLOAT;
+                rectexpr->floatconst = rectexpr->intconst;
+                rectexpr->floatconst += subexpr->floatconst;
+                break;
+              case FLOAT:
+                rectexpr->floatconst += subexpr->floatconst;
+                break;
+            }
+            free(subexpr);
+            break;
         }
+      }
+      if(((rectexpr->type != UINT) ||
+          rectexpr->uintconst != 0)) {
+        if(newdyn->length == 0) {
+          switch(rectexpr->type) {
+            case UINT: case INT:
+              rectexpr->type = INT;
+              rectexpr->intconst =  -rectexpr->intconst;
+              break;
+            case FLOAT:
+              rectexpr->floatconst =  -rectexpr->floatconst;
+              break;
+          }
+        }
+        dapush(newdyn, rectexpr);
+      } else {
+        free(rectexpr);
+      }
+      dadtor(ex->params);
+      if(newdyn->length == 1) {
+        EXPRESSION* rv = newdyn->arr[0];
+        dadtor(newdyn);
+        free(ex);
+        return rv;
+      } else if(newdyn->length == 0) {
+        dadtor(newdyn);
+        free(ex);
+        return ct_nop_expr();
       }
       //if first element is 0, transform into ADD if more than one other arg, wrap in NEG
       //if one remaining param, remove SUB wrapper
@@ -338,6 +457,8 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
             dadtor(subexpr->params);
             free(subexpr);
             return subexpr;
+          case COMMA:
+            //look at end of expr
           default:
             dapush(newdyn, subexpr);
             break;
@@ -390,8 +511,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
             break;
         }
       }
-      if(((rectexpr->type != UINT) ||
-          rectexpr->uintconst != 1))
+      if(((rectexpr->type != UINT) || rectexpr->uintconst != 1))
         dapush(newdyn, rectexpr);
       else
         free(rectexpr);
@@ -434,15 +554,17 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       //That's all I can think of for now
     case NEQ: case GT: case LT: case GTE: case LTE: 
       //see above, adapt to specifics
-    case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
-    case XORASSIGN: case ORASSIGN: case DIVASSIGN: case MULTASSIGN: case MODASSIGN:
-      //if identity on right side of expression and expression is pure, ellide
+    case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case XORASSIGN: case ORASSIGN:  //0 is identity case 
+    case ANDASSIGN: case MODASSIGN: //no identity case (for our purposes)
+    case DIVASSIGN: case MULTASSIGN: 
+      //if identity on right side of expression (mostly 0, sometimes 1, none in case of mod (and for our purposes AND), etc) and expression is pure, ellide
     case ASSIGN:
-      //if same value on both sides, ellide
+      //if same value on both sides, ellide if pure
       //Further fix assign op
     case PREINC: case PREDEC: case POSTINC: case POSTDEC:
       return ex;
     case TERNARY:
+      //if condition is constant (or end of comma), select true case, else select false case, joining with cond on comma if necessary
     case FCALL:
     case SZOFEXPR:
       return ex;
