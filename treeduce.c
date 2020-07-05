@@ -111,6 +111,10 @@ char treequals(EXPRESSION* e1, EXPRESSION* e2) {
 
 EXPRESSION* foldconst(EXPRESSION* ex) {
   EXPRESSION* subexpr;
+  DYNARR* newdyn;
+  EXPRESSION* rectexpr;
+  EXPRTYPE eventualtype;
+
   //call on each param before the switch
   switch(ex->type) {
     case IDENT: case INT: case UINT: case FLOAT: case STRING: case NOP: case ARRAY_LIT: case CAST: case DOTOP: case ARROW:
@@ -214,24 +218,89 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
         default:
           return ex;
       }
-    case ADD: 
+    case ADD:
+      newdyn = dactor(32);
+      rectexpr = ct_uintconst_expr(0);
+      //TODO: remove 0s, handle type
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
         switch(subexpr->type) {
           case ADD:
-            LPARAM(ex, i) = EPARAM(subexpr, 0); 
-            for(int j = 1; j < subexpr->params->length; j++) {
-              dapush(ex->params, EPARAM(subexpr, j)); 
+            for(int j = 0; j < subexpr->params->length; j++) {
+              dapush(newdyn, EPARAM(subexpr, j)); 
             }
-            //free subexpr and its params dynarr
-            return subexpr;
-          case INT:
+            dadtor(subexpr->params);
+            free(subexpr);
+            break;
+          default:
+            dapush(newdyn, subexpr);
+            break;
           case UINT:
+            switch(rectexpr->type) {
+              case UINT:
+                rectexpr->uintconst += subexpr->uintconst;
+                break;
+              case INT:
+                rectexpr->intconst += subexpr->uintconst;
+                break;
+              case FLOAT:
+                rectexpr->floatconst += subexpr->uintconst;
+                break;
+            }
+            free(subexpr);
+            break;
+          case INT:
+            switch(rectexpr->type) {
+              case UINT:
+                rectexpr->type = INT;
+                rectexpr->intconst += subexpr->intconst;
+                break;
+              case INT:
+                rectexpr->intconst += subexpr->intconst;
+                break;
+              case FLOAT:
+                rectexpr->floatconst += subexpr->intconst;
+                break;
+            }
+            free(subexpr);
+            break;
           case FLOAT:
-            ;//TODO:
+            switch(rectexpr->type) {
+              case UINT:
+                rectexpr->type = FLOAT;
+                rectexpr->floatconst = rectexpr->uintconst;
+                rectexpr->floatconst += subexpr->floatconst;
+                break;
+              case INT:
+                rectexpr->type = FLOAT;
+                rectexpr->floatconst = rectexpr->intconst;
+                rectexpr->floatconst += subexpr->floatconst;
+                break;
+              case FLOAT:
+                rectexpr->floatconst += subexpr->floatconst;
+                break;
+            }
+            free(subexpr);
+            break;
         }
       }
-      //if one remaining param, remove ADD wrapper
+      if(((rectexpr->type != UINT) ||
+          rectexpr->uintconst != 0))
+        dapush(newdyn, rectexpr);
+      else
+        free(rectexpr);
+      dadtor(ex->params);
+      if(newdyn->length == 1) {
+        EXPRESSION* rv = newdyn->arr[0];
+        dadtor(newdyn);
+        free(ex);
+        return rv;
+      } else if(newdyn->length == 0) {
+        dadtor(newdyn);
+        free(ex);
+        return ct_nop_expr();
+      }
+      ex->params = newdyn;
       return ex;
     case SUB:
       //Not sure this is right
@@ -255,23 +324,89 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       //if one remaining param, remove SUB wrapper
       return ex;
     case MULT: 
+      newdyn = dactor(32);
+      rectexpr = ct_uintconst_expr(1);
+      //TODO: destroy all pure arguments when multiply by 0
+      //TODO: handle type
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
         switch(subexpr->type) {
           case MULT:
-            LPARAM(ex, i) = EPARAM(subexpr, 0); 
-            for(int j = 1; j < subexpr->params->length; j++) {
-              dapush(ex->params, EPARAM(subexpr, j)); 
+            for(int j = 0; j < subexpr->params->length; j++) {
+              dapush(newdyn, EPARAM(subexpr,j)); 
             }
-            //free subexpr and its params dynarr
+            dadtor(subexpr->params);
+            free(subexpr);
             return subexpr;
-          case INT:
+          default:
+            dapush(newdyn, subexpr);
+            break;
           case UINT:
+            switch(rectexpr->type) {
+              case UINT:
+                rectexpr->uintconst *= subexpr->uintconst;
+                break;
+              case INT:
+                rectexpr->intconst *= subexpr->uintconst;
+                break;
+              case FLOAT:
+                rectexpr->floatconst *= subexpr->uintconst;
+                break;
+            }
+            free(subexpr);
+            break;
+          case INT:
+            switch(rectexpr->type) {
+              case UINT:
+                rectexpr->type = INT;
+                rectexpr->intconst *= subexpr->intconst;
+                break;
+              case INT:
+                rectexpr->intconst *= subexpr->intconst;
+                break;
+              case FLOAT:
+                rectexpr->floatconst *= subexpr->intconst;
+                break;
+            }
+            free(subexpr);
+            break;
           case FLOAT:
-            ;//TODO:
+            switch(rectexpr->type) {
+              case UINT:
+                rectexpr->type = FLOAT;
+                rectexpr->floatconst = rectexpr->uintconst;
+                rectexpr->floatconst += subexpr->floatconst;
+                break;
+              case INT:
+                rectexpr->type = FLOAT;
+                rectexpr->floatconst = rectexpr->intconst;
+                rectexpr->floatconst += subexpr->floatconst;
+                break;
+              case FLOAT:
+                rectexpr->floatconst += subexpr->floatconst;
+                break;
+            }
+            free(subexpr);
+            break;
         }
       }
-      //if one remaining param, remove MULT wrapper
+      if(((rectexpr->type != UINT) ||
+          rectexpr->uintconst != 1))
+        dapush(newdyn, rectexpr);
+      else
+        free(rectexpr);
+      dadtor(ex->params);
+      if(newdyn->length == 1) {
+        EXPRESSION* rv = newdyn->arr[0];
+        dadtor(newdyn);
+        free(ex);
+        return rv;
+      } else if(newdyn->length == 0) {
+        dadtor(newdyn);
+        free(ex);
+        return ct_nop_expr();
+      }
+      ex->params = newdyn;
       return ex;
     case DIVI:
       //TODO: figure out what can be done here
