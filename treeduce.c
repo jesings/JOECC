@@ -333,7 +333,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
               }
               dadtor(subexpr->params);
               free(subexpr);
-              return subexpr;
+              break;
             } //else fallthrough
           default:
             dapush(newdyn, subexpr);
@@ -444,7 +444,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
             }
             dadtor(subexpr->params);
             free(subexpr);
-            return subexpr;
+            break;
           case COMMA:
             //look at end of expr
           default:
@@ -529,7 +529,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
               }
               dadtor(subexpr->params);
               free(subexpr);
-              return subexpr;
+              break;
             } //else fallthrough
           default:
             dapush(newdyn, subexpr);
@@ -616,19 +616,60 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
         free(ex);
         return ct_nop_expr();
       }
-      //if first element is 0, transform into ADD if more than one other arg, wrap in NEG
-      //if one remaining param, remove SUB wrapper
-      return ex;      //TODO: figure out what can be done here
       return ex;
     case MOD: 
-      //TODO: figure out what can be done here
+      //we don't flatten mods--that can happen in SSA and also chaining lots of modulos
+      //is not a case that is realistic or one I will handle
       return ex;
     case L_AND:
+      newdyn = dactor(32);
+      for(int i = 0; i < ex->params->length; i++) {
+        subexpr = EPARAM(ex, i);
+        switch(subexpr->type) {
+          case L_AND:
+            for(int j = 0; j < subexpr->params->length; j++) {
+              dapush(newdyn, EPARAM(subexpr, j)); 
+            }
+            dadtor(subexpr->params);
+            free(subexpr);
+            return subexpr;
+          default:
+            dapush(newdyn, subexpr);
+            break;
+          case COMMA:
+            //look at end of expr
+            dapush(newdyn, subexpr);
+            break;
+          case UINT: case INT: case FLOAT:
+            if(subexpr->uintconst == 0) {
+              for(; i < ex->params->length; i++) {
+                free(ex->params->arr[i]); //should be a recursive free
+              }
+            }
+            break;
+        }
+      }
+      dadtor(ex->params);
+      while(newdyn->length && puritree(dapeek(newdyn))){
+        EXPRESSION* ex = dapop(newdyn);
+        free(ex);//should be a recursive free
+      }
+      if(newdyn->length < 1) {
+        free(ex);
+        if(newdyn->length == 0) {
+          dadtor(newdyn);
+          return subexpr;
+        }
+        EXPRESSION* p1 = newdyn->arr[0];
+        dadtor(newdyn);
+        return ct_binary_expr(COMMA, p1, subexpr);
+      }
+      ex->params = newdyn;
+      return ct_binary_expr(COMMA, ex, subexpr);
       //adopt/flatten subexprs in
       //preserve order
       //Remove all params after first constant 0 param, remove all pure params that are between 
       //the last impure param and the constant 0, wrap in comma with constant 0 at end if necessary
-      return ex;
     case L_OR:
       //Remove all params after first constant 1 param, remove all pure params that are between 
       //the last impure param and the constant 1, wrap in comma with constant 1 at end if necessary
