@@ -1,5 +1,3 @@
-#include <stdlib.h>
-#include <string.h>
 #include "hash.h"
 
 unsigned long hash(unsigned char* str) {    /*courtesy of http://www.cse.yorku.ca/~oz/hash.html */

@@ -1,10 +1,15 @@
 #ifndef HASH_H
 #define HASH_H
 #define HASHSIZE 4096
+#include <stdlib.h>
+#include <string.h>
 #include "dynarr.h"
 
 typedef struct hp{
-  char* key;
+  union {
+    char* key;
+    long fixedkey;
+  };
   void* value;
   struct hp* next;
 } HASHPAIR;
@@ -25,6 +30,8 @@ char queryval(HASHTABLE* ht, char* key);
 void rmpair(HASHTABLE* ht, char* key);
 void rmpairfr(HASHTABLE* ht, char* key);
 DYNARR* htpairs(HASHTABLE* ht);
-
+unsigned long fixedhash(unsigned char* data, char lbits);
+void fixedinsert(HASHTABLE* ht, long fixedkey, void* value);
+void* fixedsearch(HASHTABLE* ht, long fixedkey);
 #endif
 
