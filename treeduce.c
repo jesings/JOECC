@@ -666,19 +666,86 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       }
       ex->params = newdyn;
       return ct_binary_expr(COMMA, ex, subexpr);
-      //adopt/flatten subexprs in
-      //preserve order
-      //Remove all params after first constant 0 param, remove all pure params that are between 
-      //the last impure param and the constant 0, wrap in comma with constant 0 at end if necessary
     case L_OR:
-      //Remove all params after first constant 1 param, remove all pure params that are between 
-      //the last impure param and the constant 1, wrap in comma with constant 1 at end if necessary
+      newdyn = dactor(32);
+      for(int i = 0; i < ex->params->length; i++) {
+        subexpr = EPARAM(ex, i);
+        switch(subexpr->type) {
+          case L_OR:
+            for(int j = 0; j < subexpr->params->length; j++) {
+              dapush(newdyn, EPARAM(subexpr, j)); 
+            }
+            dadtor(subexpr->params);
+            free(subexpr);
+            return subexpr;
+          default:
+            dapush(newdyn, subexpr);
+            break;
+          case COMMA:
+            //look at end of expr
+            dapush(newdyn, subexpr);
+            break;
+          case UINT: case INT: case FLOAT:
+            if(subexpr->uintconst != 0) {
+              for(; i < ex->params->length; i++) {
+                free(ex->params->arr[i]); //should be a recursive free
+              }
+            }
+            break;
+        }
+      }
+      dadtor(ex->params);
+      while(newdyn->length && puritree(dapeek(newdyn))){
+        EXPRESSION* ex = dapop(newdyn);
+        free(ex);//should be a recursive free
+      }
+      if(newdyn->length < 1) {
+        free(ex);
+        if(newdyn->length == 0) {
+          dadtor(newdyn);
+          return subexpr;
+        }
+        EXPRESSION* p1 = newdyn->arr[0];
+        dadtor(newdyn);
+        return ct_binary_expr(COMMA, p1, subexpr);
+      }
+      ex->params = newdyn;
+      return ct_binary_expr(COMMA, ex, subexpr);
       return ex;
     case B_AND: case B_OR: case B_XOR: case SHL: case SHR:
       ///no clue what should be done here except adopt/flatten in subexprs
     case COMMA:
+      newdyn = dactor(32);
+      for(int i = 0; i < ex->params->length; i++) {
+        subexpr = EPARAM(ex, i);
+        if(i != ex->params->length - 1) {
+          if(puritree(subexpr)) {
+            free(subexpr); //should be a recursive free
+            continue;
+          }
+        }
+        switch(subexpr->type) {
+          case COMMA:
+            for(int j = 0; j < subexpr->params->length; j++) {
+              EXPRESSION* fse = EPARAM(subexpr, j);
+              if(j != subexpr->params->length - 1) {
+                if(puritree(fse)) {
+                  free(fse);//should be a recursive free
+                  continue;
+                }
+              }
+              dapush(newdyn, fse); 
+            }
+          default:
+            dapush(newdyn, subexpr);
+            break;
+        }
+        dadtor(ex->params);
+        ex->params = newdyn;
+        return ex;
+      }
       //adopt/flatten in subexprs, remove pure exprs except the last one
-      //if impure call to pure function, extract out impure params, and eval those only
+      //if impure call to pure function, extract out impure params, and eval those only????
     case EQ: //should be kept binary
       //if both INT, UINT, FLOAT, and equal return intconst 1, else return intconst 0
       //That's all I can think of for now
