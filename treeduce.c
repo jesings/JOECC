@@ -761,6 +761,36 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
     case PREINC: case PREDEC: case POSTINC: case POSTDEC:
       return ex;
     case TERNARY:
+      subexpr = EPARAM(ex, 0);
+      switch(subexpr->type) {
+        case INT: case UINT: case FLOAT:
+          if(subexpr->uint == 0) {
+            free(EPARAM(ex, 1)); //should be a recursive free
+            free(subexpr);
+            return EPARAM(ex, 2);
+          } else {
+            free(EPARAM(ex, 2)); //should be a recursive free
+            free(subexpr);
+            return EPARAM(ex, 1);
+          }
+          break;
+        case COMMA:
+          rectexpr = dapeek(subexpr->params);
+          switch(rectexpr->type) {
+            case INT: case UINT: case FLOAT:
+              if(subexpr->uint == 0) {
+                free(EPARAM(ex, 1)); //should be a recursive free
+                free(subexpr);
+                dapush(subexpr->params, EPARAM(ex, 2));
+              } else {
+                free(EPARAM(ex, 2)); //should be a recursive free
+                free(subexpr);
+                dapush(subexpr->params, EPARAM(ex, 1));
+              }
+          }
+
+      }
+      return ex;
       //if condition is constant (or end of comma), select true case, else select false case, joining with cond on comma if necessary
     case FCALL:
     case SZOFEXPR:
