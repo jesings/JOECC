@@ -1,7 +1,7 @@
 CC = gcc
 LDFLAGS = 
 CFLAGS = -g 
-compiler: joecc.tab.o lex.yy.o hash dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o
+compiler: joecc.tab.o lex.yy.o hash.o fixedhash.o  dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o
 	mkdir -p functions
 	$(CC) joecc.tab.o lex.yy.o hash.o fixedhash.o dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o -o compiler $(LDFLAGS)
 gotest: compiler
@@ -10,8 +10,9 @@ lex.yy.c: joecc.lex
 	flex --header-file=lex.h joecc.lex
 joecc.tab.c: joecc.y
 	bison -d joecc.y --report=all
-hash: hash.c fixedhash.c
+hash.o: hash.c
 	$(CC) hash.c -c $(CFLAGS)
+fixedhash.o: fixedhash.c
 	$(CC) fixedhash.c -c $(CFLAGS)
 dynarr.o: dynarr.c
 	$(CC) dynarr.c -c $(CFLAGS)

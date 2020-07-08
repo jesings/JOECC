@@ -141,6 +141,42 @@ EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident) {
   return retval;
 }
 
+void rfreexpr(EXPRESSION* e) {
+  switch(e->type) {
+    default:
+      for(int i = 0; i < e->params->length; i++)
+        rfreexpr(e->params->arr[i]);
+    case NOP:
+      break;
+    case SZOF:
+      if(e->vartype->pointerstack)
+        for(int i = 0; i < e->vartype->pointerstack->length; i++)
+          free(e->vartype->pointerstack->arr[i]);
+      free(e->vartype);
+      break;
+    case CAST:
+      if(e->vartype->pointerstack)
+        for(int i = 0; i < e->vartype->pointerstack->length; i++)
+          free(e->vartype->pointerstack->arr[i]);
+      free(e->vartype);
+      for(int i = 0; i < e->params->length; i++)
+        rfreexpr(e->params->arr[i]);
+      break;
+    case STRING:
+      free(e->strconst);
+    case MEMBER:
+      free(e->member);
+    case INT: case UINT: case FLOAT:
+      break;
+    case IDENT:
+      break;//do not free identifier info
+    case ARRAY_LIT:
+      for(int i = 0; i < e->dynvals->length; i++)
+        rfreexpr(e->dynvals->arr[i]);
+  }
+  free(e);
+}
+
 DECLARATION* mkdeclaration(char* name) {
   DECLARATION* retval = calloc(1,sizeof(DECLARATION));
   retval->varname = name;

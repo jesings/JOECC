@@ -282,6 +282,7 @@ EXPRESSION* ct_floatconst_expr(double num);
 EXPRESSION* ct_array_lit(DYNARR* da);
 EXPRESSION* ct_member_expr(char* member);
 EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident);
+void rfreexpr(EXPRESSION* e);
 DECLARATION* mkdeclaration(char* name);
 INITIALIZER* geninit(DECLARATION* decl, EXPRESSION* expr);
 SOI* sois(struct stmt* state);

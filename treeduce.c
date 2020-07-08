@@ -643,7 +643,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
           case UINT: case INT: case FLOAT:
             if(subexpr->uintconst == 0) {
               for(; i < ex->params->length; i++) {
-                free(ex->params->arr[i]); //should be a recursive free
+                rfreexpr(ex->params->arr[i]);
               }
             }
             break;
@@ -652,7 +652,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       dadtor(ex->params);
       while(newdyn->length && puritree(dapeek(newdyn))){
         EXPRESSION* ex = dapop(newdyn);
-        free(ex);//should be a recursive free
+        rfreexpr(ex);
       }
       if(newdyn->length < 1) {
         free(ex);
@@ -688,7 +688,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
           case UINT: case INT: case FLOAT:
             if(subexpr->uintconst != 0) {
               for(; i < ex->params->length; i++) {
-                free(ex->params->arr[i]); //should be a recursive free
+                rfreexpr(ex->params->arr[i]); 
               }
             }
             break;
@@ -697,7 +697,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       dadtor(ex->params);
       while(newdyn->length && puritree(dapeek(newdyn))){
         EXPRESSION* ex = dapop(newdyn);
-        free(ex);//should be a recursive free
+        rfreexpr(ex);
       }
       if(newdyn->length < 1) {
         free(ex);
@@ -720,7 +720,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
         subexpr = EPARAM(ex, i);
         if(i != ex->params->length - 1) {
           if(puritree(subexpr)) {
-            free(subexpr); //should be a recursive free
+            rfreexpr(subexpr); 
             continue;
           }
         }
@@ -730,7 +730,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
               EXPRESSION* fse = EPARAM(subexpr, j);
               if(j != subexpr->params->length - 1) {
                 if(puritree(fse)) {
-                  free(fse);//should be a recursive free
+                  rfreexpr(fse);
                   continue;
                 }
               }
@@ -765,11 +765,11 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       switch(subexpr->type) {
         case INT: case UINT: case FLOAT:
           if(subexpr->uintconst== 0) {
-            free(EPARAM(ex, 1)); //should be a recursive free
+            rfreexpr(EPARAM(ex, 1)); 
             free(subexpr);
             return EPARAM(ex, 2);
           } else {
-            free(EPARAM(ex, 2)); //should be a recursive free
+            rfreexpr(EPARAM(ex, 2)); 
             free(subexpr);
             return EPARAM(ex, 1);
           }
@@ -779,11 +779,11 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
           switch(rectexpr->type) {
             case INT: case UINT: case FLOAT:
               if(subexpr->uintconst == 0) {
-                free(EPARAM(ex, 1)); //should be a recursive free
+                rfreexpr(EPARAM(ex, 1)); 
                 free(subexpr);
                 dapush(subexpr->params, EPARAM(ex, 2));
               } else {
-                free(EPARAM(ex, 2)); //should be a recursive free
+                rfreexpr(EPARAM(ex, 2)); 
                 free(subexpr);
                 dapush(subexpr->params, EPARAM(ex, 1));
               }
