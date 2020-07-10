@@ -322,8 +322,8 @@ void treefunc(FUNC* func) {
   dprintf(funcfile, "n%d [label=\"%s\"];\n", fnn, func->name); 
   int typenoden = treetype(func->retrn);
   dprintf(funcfile, "n%d -> n%d;\n", fnn, typenoden);
-  for(int i = 0; i < func->params->length; i++) {
-    int parnum = pdecl(daget(func->params, i));
+  for(int i = 0; i < func->params->da->length; i++) {
+    int parnum = pdecl(search(func->params->ht, daget(func->params->da, i)));
     dprintf(funcfile, "n%d -> n%d;\n", fnn, parnum);
   }
   //params above, separate from body---by shape?

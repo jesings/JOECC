@@ -395,7 +395,7 @@ EXPRESSION* exprfromdecl(char* name, IDTYPE* id) {
   return outer;
 }
 
-FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, IDTYPE* retrn) {
+FUNC* ct_function(char* name, STATEMENT* body, PARALLEL* params, IDTYPE* retrn) {
   FUNC* func = malloc(sizeof(FUNC));
   func->name = name;
   func->body = body;

@@ -101,7 +101,7 @@ typedef struct {
 typedef struct {
   char* name;
   struct stmt* body; //compound statement
-  DYNARR* params;
+  PARALLEL* params;
   IDTYPE* retrn;
   HASHTABLE* lbls;
   DYNARR* switchstack;
@@ -189,7 +189,7 @@ typedef struct {
 struct declarator_part {
   enum declpart_info type;
   union {
-    DYNARR* params;
+    PARALLEL* params;
     EXPRESSION* arrspec;
     EXPRESSION* bfspec;
     TYPEBITS ptrspec;
@@ -302,7 +302,7 @@ ENUMFIELD* genenumfield(char* name, EXPRESSION* value);
 struct declarator_part* mkdeclpart(enum declpart_info typ, void* d);
 struct declarator_part* mkdeclptr(TYPEBITS d);
 EXPRESSION* exprfromdecl(char* name, IDTYPE* id);
-FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, IDTYPE* retrn);
+FUNC* ct_function(char* name, STATEMENT* body, PARALLEL* params, IDTYPE* retrn);
 struct lexctx* ctxinit();
 SCOPE* mkscope();
 void scopepush(struct lexctx* ctx);

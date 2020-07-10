@@ -36,7 +36,9 @@ int main(int argc, char** argv) {
   DYNARR* funcky = htpairs(ctx->funcs);
   for(int i = 0; i < funcky->length; i++) {
     HASHPAIR* pairthere = daget(funcky, i);
-    puts(pairthere->key);
-    treefunc(pairthere->value);
+    if(pairthere->value) {
+      puts(pairthere->key);
+      treefunc(pairthere->value);
+    }
   }
 }

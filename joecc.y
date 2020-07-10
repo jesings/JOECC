@@ -62,6 +62,7 @@
   ENUM* enumvariant;
   DECLARATION* declvariant;
   FUNC* funcvariant;
+  PARALLEL* paravariant;
 }
 
 %type<dstr> multistring
@@ -70,32 +71,31 @@
 %type<idvariant> typem typews1 type typemintkw inttypem
 %type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee escoa
 %type<stmtvariant> statement compound_statement
-%type<arrvariant> statements_and_initializers struct_decls struct_decl cs_decls enums escl escoal abstract_ptr params cs_inits cs_minutes initializer program array_literal structbody enumbody
+%type<arrvariant> statements_and_initializers struct_decls struct_decl cs_decls enums escl escoal abstract_ptr cs_inits cs_minutes initializer program array_literal structbody enumbody
 %type<unionvariant> union fullunion
 %type<structvariant> struct fullstruct
 %type<enumvariant> enum fullenum
 %type<declvariant> declarator declname param_decl sdecl
 %type<funcvariant> function
 %type<firforvariant> dee
+%type<paravariant> params
 
 %%
 program:
   function {
     $$ = dactor(4096);
-    if(!search(ctx->funcs, $1->name)) {
-      insert(ctx->funcs, $1->name, $1);
-      dapush($$, gtb(1, $1));
-    }
-    else {}
+    insert(ctx->funcs, $1->name, $1);
+    dapush($$, gtb(1, $1));
+    //first function can't be a redefinition
   }
 | initializer {
     $$ = dactor(4096);
     for(int i = 0; i < $1->length; i++) {
-      //TODO: Validator to handle redefinitions, error case as well
       if(!scopequeryval(ctx, M_VARIABLE, aget($1, i)->decl->varname)) {
         add2scope(scopepeek(ctx), aget($1, i)->decl->varname, M_VARIABLE, aget($1, i)->expr);
+      } else {
+        fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", aget($1, i)->decl->varname, dapeek(file2compile), locprint(@$));
       }
-      else {}
       dapush($$, gtb(0, $1));
     }
     free($1);
@@ -106,17 +106,18 @@ program:
     if(!search(ctx->funcs, $2->name)) {
       insert(ctx->funcs, $2->name, $2);
       dapush($$, gtb(1, $2));
+    } else {
+      fprintf(stderr, "Error: redefinition of function %s in %s %d.%d-%d.%d\n", $2->name, dapeek(file2compile), locprint(@$));
     }
-    else {}
   }
 | program initializer {
     $$ = $1;
     for(int i = 0; i < $2->length; i++) {
-      //TODO: Validator to handle redefinitions, error case as well
       if(!scopequeryval(ctx, M_VARIABLE, aget($2, i)->decl->varname)) {
         add2scope(scopepeek(ctx), aget($2, i)->decl->varname, M_VARIABLE, aget($2, i)->expr);
+      } else {
+        fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", aget($2, i)->decl->varname, dapeek(file2compile), locprint(@$));
       }
-      else {}
       dapush($$, gtb(0, $2));
     }
     free($2);
@@ -191,7 +192,12 @@ initializer:
         dapush(da, &(ac->decl->type->structtype));
       }
     }
-    add2scope(current, ac->decl->varname, M_VARIABLE, ac->decl->type);
+    if(ac->decl->type->pointerstack->length &&
+       ((struct declarator_part*) dapeek(ac->decl->type->pointerstack))->type != PARAMSSPEC) {
+      add2scope(current, ac->decl->varname, M_VARIABLE, ac->decl->type);
+    } else {
+      insert(ctx->funcs, ac->decl->varname, NULL);
+    }
   }}
 | "struct" SYMBOL ';' {
   $$ = dactor(0);
@@ -243,8 +249,15 @@ declname:
 | declname '(' ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, NULL));}
 | declname '(' params ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));};
 params: /*TODO: confirm no collisions*/
-  param_decl {$$ = dactor(8); dapush($$, $1);}
-| params ',' param_decl {$$ = $1; dapush($$, $3);};
+  param_decl {$$ = paralector(8); pinsert($$, $1->varname, $1);}
+| params ',' param_decl {
+    $$ = $1;
+    if(psearch($$, $3->varname)) {
+      fprintf(stderr, "Error: param with duplicate name %s in %s %d.%d-%d.%d\n", $3->varname, dapeek(file2compile),  locprint(@$));
+    } else {
+      pinsert($$, $3->varname, $3);
+    }
+    };
 param_decl:
   type declarator {
     $2->type->tb |= $1->tb;
@@ -510,7 +523,7 @@ multistring:
 
 function: /*TODO: midrule action and getting parameters into local scope of compound statement*/
   type declarator <funcvariant>{
-    DYNARR* parammemb;
+    PARALLEL* parammemb;
     struct declarator_part* dp = dapop($2->type->pointerstack);
     $2->type->tb |= $1->tb;
     if($1->pointerstack) {
@@ -535,7 +548,7 @@ function: /*TODO: midrule action and getting parameters into local scope of comp
     if(dp->params)
       parammemb = dp->params;
     else
-      parammemb = dactor(0);
+      parammemb = paralector();
     $$ = ct_function($2->varname, NULL, parammemb, $2->type);
     free($2);
     ctx->func = $$;
