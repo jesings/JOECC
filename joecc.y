@@ -790,7 +790,7 @@ enums:
       default: //TODO: clone whole expression tree
         newexpr->type = ADD;
         dapush(newexpr->params, ct_intconst_expr(1));
-        dapush(newexpr->params, prevexpr);
+        dapush(newexpr->params, rclonexpr(prevexpr));
     }
     dapush($$, genenumfield($3, newexpr));
     add2scope(scopepeek(ctx), $3, M_ENUM_CONST, newexpr); //TODO: Confirm no collisions

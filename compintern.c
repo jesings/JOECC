@@ -164,8 +164,10 @@ void rfreexpr(EXPRESSION* e) {
       break;
     case STRING:
       free(e->strconst);
+      break;
     case MEMBER:
       free(e->member);
+      break;
     case INT: case UINT: case FLOAT:
       break;
     case IDENT:
@@ -173,8 +175,62 @@ void rfreexpr(EXPRESSION* e) {
     case ARRAY_LIT:
       for(int i = 0; i < e->dynvals->length; i++)
         rfreexpr(e->dynvals->arr[i]);
+      break;
   }
   free(e);
+}
+EXPRESSION* rclonexpr(EXPRESSION* e) {
+  EXPRESSION* e2 = malloc(sizeof(EXPRESSION));
+  memcpy(e2, e, sizeof(EXPRESSION));
+  switch(e->type) {
+    default:
+      e2->params = dactor(e->params->length);
+      for(int i = 0; i < e->params->length; i++)
+        dapush(e2->params, rclonexpr(e->params->arr[i]));
+    case NOP:
+      break;
+    case SZOF:
+      e2->vartype = malloc(sizeof(IDTYPE));
+      memcpy(e2->vartype, e->vartype, sizeof(IDTYPE));
+      if(e->vartype->pointerstack) {
+        for(int i = 0; i < e->vartype->pointerstack->length; i++) {
+          struct declarator_part* dp = malloc(sizeof(struct declarator_part));
+          memcpy(dp, e->vartype->pointerstack->arr[i], sizeof(struct declarator_part));
+          dapush(e2->vartype->pointerstack, dp);
+        }
+      }
+      break;
+    case CAST:
+      e2->vartype = malloc(sizeof(IDTYPE));
+      memcpy(e2->vartype, e->vartype, sizeof(IDTYPE));
+      if(e->vartype->pointerstack) {
+        for(int i = 0; i < e->vartype->pointerstack->length; i++) {
+          struct declarator_part* dp = malloc(sizeof(struct declarator_part));
+          memcpy(dp, e->vartype->pointerstack->arr[i], sizeof(struct declarator_part));
+          dapush(e2->vartype->pointerstack, dp);
+        }
+      }
+      e2->params = dactor(e->params->length);
+      for(int i = 0; i < e->params->length; i++)
+        dapush(e2->params, rclonexpr(e->params->arr[i]));
+      break;
+    case STRING:
+      e2->strconst = strdup(e->strconst);
+      break;
+    case MEMBER:
+      e2->member = strdup(e->member);
+      break;
+    case INT: case UINT: case FLOAT:
+      break;
+    case IDENT:
+      break;//do not free identifier info
+    case ARRAY_LIT:
+      e2->dynvals = dactor(e->dynvals->length);
+      for(int i = 0; i < e->dynvals->length; i++)
+        dapush(e2->dynvals, rclonexpr(e->dynvals->arr[i]));
+      break;
+  }
+  return e2;
 }
 
 DECLARATION* mkdeclaration(char* name) {
