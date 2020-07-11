@@ -43,6 +43,8 @@ EXPRESSION* ct_unary_expr(EXPRTYPE t, EXPRESSION* param) {
 }
 
 EXPRESSION* ct_sztype(IDTYPE* whichtype) {
+  if(!(whichtype->tb & (STRUCTVAL | ENUMVAL | UNIONVAL)))
+    return ct_intconst_expr(whichtype->tb & 0xf);
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = SZOF;
   retval->vartype = whichtype;
@@ -382,19 +384,6 @@ struct declarator_part* mkdeclptr(TYPEBITS d) {
   return retval;
 }
 
-EXPRESSION* exprfromdecl(char* name, IDTYPE* id) {
-  EXPRESSION* outer = malloc(sizeof(EXPRESSION));
-  outer->type = IDENT;
-  //outer->id = id;
-  DYNARR* ptrs = id->pointerstack;
-  if(ptrs) {
-    for(int i = 0; i<ptrs->length; i++) {
-      //TODO
-    }
-  }
-  return outer;
-}
-
 FUNC* ct_function(char* name, STATEMENT* body, PARALLEL* params, IDTYPE* retrn) {
   FUNC* func = malloc(sizeof(FUNC));
   func->name = name;
@@ -409,6 +398,7 @@ FUNC* ct_function(char* name, STATEMENT* body, PARALLEL* params, IDTYPE* retrn) 
 
 SCOPE* mkscope() {
   SCOPE* child = malloc(sizeof(SCOPE));
+  child->truescope = 1;
   child->members = htctor();
   child->structs = htctor();
   child->enums = htctor();
@@ -418,6 +408,13 @@ SCOPE* mkscope() {
   child->forwardstructs = htctor();
   child->forwardenums = htctor();
   child->forwardunions = htctor();
+  return child;
+}
+
+SCOPE* mkfakescope() {
+  SCOPE* child = malloc(sizeof(SCOPE));
+  child->truescope = 0;
+  child->fakescope = htctor();
   return child;
 }
 
@@ -448,6 +445,8 @@ void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, void* assi
 void* scopesearch(struct lexctx* lct, enum membertype mt, char* key){
   for(int i = lct->scopes->length - 1; i >= 0; i--) {
     SCOPE* htp = daget(lct->scopes, i);
+    if(!htp->truescope)
+      continue;
     HASHTABLE* ht;
     switch(mt) {
       default:
@@ -491,6 +490,8 @@ void* scopesearch(struct lexctx* lct, enum membertype mt, char* key){
 char scopequeryval(struct lexctx* lct, enum membertype mt, char* key) {
   for(int i = lct->scopes->length - 1; i >= 0; i--) {
     SCOPE* htp = daget(lct->scopes, i);
+    if(!htp->truescope)
+      continue;
     HASHTABLE* ht;
     switch(mt) {
       default:
@@ -528,21 +529,32 @@ struct lexctx* ctxinit() {
   return lct;
 }
 
-void scopepush(struct lexctx* ctx) {
-  dapush(ctx->scopes, mkscope());
+void scopepush(struct lexctx* lct) {
+  dapush(lct->scopes, mkscope());
+}
+void fakescopepush(struct lexctx* lct) {
+  dapush(lct->scopes, mkfakescope());
 }
 
-void scopepop(struct lexctx* ctx) {
-  SCOPE* cleanup = dapop(ctx->scopes);
-  if(cleanup->forwardstructs->keys != 0 ||
+void scopepop(struct lexctx* lct) {
+  SCOPE* cleanup = dapop(lct->scopes);
+  if(cleanup->truescope && (
+     cleanup->forwardstructs->keys != 0 ||
      cleanup->forwardunions->keys != 0 ||
-     cleanup->forwardenums->keys != 0)
+     cleanup->forwardenums->keys != 0))
     fprintf(stderr, "Error: not all forward declarations processed by end of scope\n");
-  free(cleanup);
+  free(cleanup); //free all members???
 }
 
-SCOPE* scopepeek(struct lexctx* ctx) {
-  return dapeek(ctx->scopes);
+SCOPE* fakescopepeek(struct lexctx* lct) {
+  return dapeek(lct->scopes);
+}
+SCOPE* scopepeek(struct lexctx* lct) {
+  for(int i = lct->scopes->length - 1; i >= 0; i--) {
+    SCOPE* htp = daget(lct->scopes, i);
+    if(htp->truescope)
+      return htp;
+  }
 }
 
 static long numvars = 0;//maybe do something special with global variables

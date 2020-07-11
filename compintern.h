@@ -108,15 +108,13 @@ typedef struct {
   int caseindex;
 } FUNC;
 
-struct lexctx {//TODO: FIX
+struct lexctx {
   HASHTABLE* funcs;
-  //unsigned int fllast, fllen;
   DYNARR* scopes;
   DYNARR* definestack;
   FUNC* func;
   HASHTABLE* defines;
 };
-
 
 typedef struct expr {
   EXPRTYPE type;
@@ -221,7 +219,7 @@ typedef struct {
   };
 } TOPBLOCK;
 
-#define MEMBERTYPELIST X(M_LABEL), X(M_TYPEDEF), X(M_VARIABLE), X(M_STRUCT), X(M_UNION), X(M_ENUM), X(M_ENUM_CONST), X(M_CASE)
+#define MEMBERTYPELIST X(M_LABEL), X(M_TYPEDEF), X(M_VARIABLE), X(M_STRUCT), X(M_UNION), X(M_ENUM), X(M_ENUM_CONST)
 #define X(name) name
 enum membertype {
   MEMBERTYPELIST
@@ -244,15 +242,21 @@ typedef struct {
 } SCOPEMEMBER;
 
 typedef struct {
+  char truescope;
   //one for vars ?
-  HASHTABLE* typesdef;//SCOPEMEMBER argument
-  HASHTABLE* members;//SCOPEMEMBER argument
-  HASHTABLE* structs;
-  HASHTABLE* enums;
-  HASHTABLE* unions;
-  HASHTABLE* forwardstructs;
-  HASHTABLE* forwardenums;
-  HASHTABLE* forwardunions;
+  union {
+    struct {
+      HASHTABLE* typesdef;//SCOPEMEMBER argument
+      HASHTABLE* members;//SCOPEMEMBER argument
+      HASHTABLE* structs;
+      HASHTABLE* enums;
+      HASHTABLE* unions;
+      HASHTABLE* forwardstructs;
+      HASHTABLE* forwardenums;
+      HASHTABLE* forwardunions;
+    };
+    HASHTABLE* fakescope;
+  };
 } SCOPE;
 
 enum ifdefstate {
@@ -301,13 +305,15 @@ STATEMENT* mkdefaultstmt(struct lexctx* lct, char* label);
 ENUMFIELD* genenumfield(char* name, EXPRESSION* value);
 struct declarator_part* mkdeclpart(enum declpart_info typ, void* d);
 struct declarator_part* mkdeclptr(TYPEBITS d);
-EXPRESSION* exprfromdecl(char* name, IDTYPE* id);
 FUNC* ct_function(char* name, STATEMENT* body, PARALLEL* params, IDTYPE* retrn);
 struct lexctx* ctxinit();
 SCOPE* mkscope();
-void scopepush(struct lexctx* ctx);
-void scopepop(struct lexctx* ctx);
-SCOPE* scopepeek(struct lexctx* ctx);
+SCOPE* mkfakescope();
+void scopepush(struct lexctx* lct);
+void fakescopepush(struct lexctx* lct);
+void scopepop(struct lexctx* lct);
+SCOPE* fakescopepeek(struct lexctx* lct);
+SCOPE* scopepeek(struct lexctx* lct);
 void* scopesearch(struct lexctx* lct, enum membertype mt, char* key);
 char scopequeryval(struct lexctx* lct, enum membertype mt, char* key);
 void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, void* assignval);

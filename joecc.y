@@ -36,6 +36,7 @@
   #define dget(param, index) ((DECLARATION*) (param)->arr[(index)])
   //TODO: Compound literals?
   //TODO: Consider designated initializers?
+  //TODO: free scopes after pop and use
 }
 
 %{
@@ -686,12 +687,22 @@ struct:
         fprintf(stderr, "Error: reference to undefined struct %s at %s %d.%d-%d.%d\n", $2, dapeek(file2compile), locprint(@$));
       }
     }};
-structbody: '{' struct_decls '}' {$$ = $2;};
-struct_decls: /*TODO: Confirm no collisions*/
+structbody: '{' {fakescopepush(ctx);} struct_decls '}' {$$ = $3; scopepop(ctx);};
+struct_decls:
   struct_decl {$$ = $1;}
 | struct_decls struct_decl {$$ = damerge($1, $2);};
 struct_decl:
   type cs_decls ';' {
+    for(int i = 0; i < $2->length; i++) {
+      char* vn = dget($2, i)->varname;
+      if(vn) {
+        if(queryval(fakescopepeek(ctx)->fakescope, vn)) {
+          fprintf(stderr, "Error: redefinition of struct or union member %s at %s %d.%d-%d.%d\n", vn, dapeek(file2compile), locprint(@$));
+        } else {
+          insert(fakescopepeek(ctx)->fakescope, vn, NULL);
+        }
+      }
+    }
     $$ = $2; 
     DECLARATION* dc;
     for(int i = 0; i < $2->length; i++) {
@@ -724,6 +735,16 @@ struct_decl:
       }
     }}
 | "struct" structbody ';' {
+    for(int i = 0; i < $2->length; i++) {
+      char* vn = dget($2, i)->varname;
+      if(vn) {
+        if(queryval(fakescopepeek(ctx)->fakescope, vn)) {
+          fprintf(stderr, "Error: redefinition of struct or union member %s at %s %d.%d-%d.%d\n", vn, dapeek(file2compile), locprint(@$));
+        } else {
+          insert(fakescopepeek(ctx)->fakescope, vn, NULL);
+        }
+      }
+    }
     $$ = dactor(1);
     IDTYPE* tt = malloc(sizeof(IDTYPE));
     tt->structtype = structor(NULL, $2);
@@ -735,6 +756,16 @@ struct_decl:
     dapush($$, dec);
     }
 | "union" structbody ';' {
+    for(int i = 0; i < $2->length; i++) {
+      char* vn = dget($2, i)->varname;
+      if(vn) {
+        if(queryval(fakescopepeek(ctx)->fakescope, vn)) {
+          fprintf(stderr, "Error: redefinition of struct or union member %s at %s %d.%d-%d.%d\n", vn, dapeek(file2compile), locprint(@$));
+        } else {
+          insert(fakescopepeek(ctx)->fakescope, vn, NULL);
+        }
+      }
+    }
     $$ = dactor(1);
     IDTYPE* tt = malloc(sizeof(IDTYPE));
     tt->uniontype= unionctor(NULL, $2);

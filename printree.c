@@ -194,7 +194,6 @@ int treexpr(EXPRESSION* expr) {
       dprintf(funcfile, "n%d -> n%d;\n", exnode, secondnodeary);
       break;
     case ARRAY_LIT:
-      //TODO: perhaps we want array handling
       for(int i = 0; i < expr->dynvals->length; i++) {
         EXPRESSION* longman = daget(expr->dynvals, i);
         dprintf(funcfile, "n%d -> n%d;\n", exnode, treexpr(longman));
