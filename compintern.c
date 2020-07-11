@@ -472,8 +472,6 @@ void* scopesearch(struct lexctx* lct, enum membertype mt, char* key){
       switch(rv->mtype) {
         case M_ENUM_CONST:
           return rv->enumnum;
-        case M_CASE:
-          return rv->caseval;
         case M_VARIABLE:
           return rv->idi;
         case M_STRUCT:

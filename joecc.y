@@ -71,7 +71,7 @@
 %type<idvariant> typem typews1 type typemintkw inttypem
 %type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee escoa
 %type<stmtvariant> statement compound_statement
-%type<arrvariant> statements_and_initializers struct_decls struct_decl cs_decls enums escl escoal abstract_ptr cs_inits cs_minutes initializer program array_literal structbody enumbody
+%type<arrvariant> statements_and_initializers soiorno struct_decls struct_decl cs_decls enums escl escoal abstract_ptr cs_inits cs_minutes initializer program array_literal structbody enumbody
 %type<unionvariant> union fullunion
 %type<structvariant> struct fullstruct
 %type<enumvariant> enum fullenum
@@ -248,7 +248,7 @@ declname:
 | declname '[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, $3));}
 | declname '(' ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, NULL));}
 | declname '(' params ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));};
-params: /*TODO: confirm no collisions*/
+params:
   param_decl {$$ = paralector(8); pinsert($$, $1->varname, $1);}
 | params ',' param_decl {
     $$ = $1;
@@ -521,7 +521,7 @@ multistring:
     free($2);
     }
 
-function: /*TODO: midrule action and getting parameters into local scope of compound statement*/
+function:
   type declarator <funcvariant>{
     PARALLEL* parammemb;
     struct declarator_part* dp = dapop($2->type->pointerstack);
@@ -545,17 +545,26 @@ function: /*TODO: midrule action and getting parameters into local scope of comp
         dapush(da, &($2->type->structtype));
       }
     }
-    if(dp->params)
+    if(dp->params) {
       parammemb = dp->params;
-    else
+    } else {
       parammemb = paralector();
+    }
     $$ = ct_function($2->varname, NULL, parammemb, $2->type);
     free($2);
     ctx->func = $$;
     /*check that it is in fact a param spec*/
-    } compound_statement {
+    } '{' {
+      PARALLEL* par = $3->params;
+      scopepush(ctx);
+      for(int i = 0; i < par->da->length; i++) {
+        char* pname = daget(par->da, i);
+        add2scope(scopepeek(ctx), pname, M_VARIABLE, NULL);
+      }
+    } soiorno '}' {
+    scopepop(ctx);
     $$ = $3;
-    $$->body = $4;
+    $$->body = mkcmpndstmt($6); 
     ctx->func = NULL;
     }
 | error compound_statement {
@@ -601,8 +610,7 @@ dee:
   initializer {$$ = malloc(sizeof(EOI)); $$->isE = 0; $$->I = $1;}
 | ee ';' {$$ = malloc(sizeof(EOI)); $$->isE = 1; $$->E = $1;};
 compound_statement:/*add new scope to scope stack, remove when done*/
-  '{' '}' {$$ = mkcmpndstmt(NULL);}
-| '{' compound_midrule statements_and_initializers '}' {
+  '{' compound_midrule soiorno'}' {
     $$ = mkcmpndstmt($3); 
     scopepop(ctx);
     };
@@ -614,6 +622,9 @@ statements_and_initializers:
 | statement {$$ = dactor(4096); dapush($$,sois($1));}
 | statements_and_initializers initializer {$$ = $1; dapush($$,soii($2));}
 | statements_and_initializers statement {$$ = $1; dapush($$,sois($2));};
+soiorno:
+  statements_and_initializers {$$ = $1;}
+| %empty {$$ = NULL;};
 switch_midrule:
   %empty {
     dapush(ctx->func->switchstack, paralector());
@@ -628,7 +639,7 @@ fullunion:
       }
     } else {
       fprintf(stderr, "Error: redefinition of union %s at %s %d.%d-%d.%d\n", $2, dapeek(file2compile), locprint(@$));
-    }} structbody  {
+    }} structbody {
     $$ = unionctor($2, $4); 
     add2scope(scopepeek(ctx), $2, M_UNION, $$); 
     defbackward(ctx, M_UNION, $2, $$);
@@ -688,10 +699,11 @@ struct_decl:
       dc->type->tb |= $1->tb; 
       if($1->pointerstack) {
         DYNARR* nptr = daclone($1->pointerstack);
-        if(dc->type->pointerstack)
+        if(dc->type->pointerstack) {
           dc->type->pointerstack = damerge(nptr, dc->type->pointerstack);
-        else
+        } else {
           dc->type->pointerstack = nptr;
+        }
       }
       if($1->tb & (ENUMVAL | STRUCTVAL | UNIONVAL)) {
         if($1->structtype->fields) {
@@ -800,17 +812,27 @@ enums:
           ++(newexpr->intconst);
           break;
         }
-      default: //TODO: clone whole expression tree
+      default:
         newexpr->type = ADD;
         dapush(newexpr->params, ct_intconst_expr(1));
         dapush(newexpr->params, rclonexpr(prevexpr));
     }
     dapush($$, genenumfield($3, newexpr));
-    add2scope(scopepeek(ctx), $3, M_ENUM_CONST, newexpr); //TODO: Confirm no collisions
+    if(scopequeryval(ctx, M_ENUM_CONST, $3) ||
+       scopequeryval(ctx, M_VARIABLE, $3)) {
+      fprintf(stderr, "Error: redefinition of symbol %s as enum constant at %s %d.%d-%d.%d\n", $3, dapeek(file2compile), locprint(@$));
+    } else {
+      add2scope(scopepeek(ctx), $3, M_ENUM_CONST, newexpr);
+    }
     }
 | enums ',' SYMBOL '=' esc {$$ = $1;
     dapush($$, genenumfield($3,$5)); 
-    add2scope(scopepeek(ctx), $3, M_ENUM_CONST, $5);
+    if(scopequeryval(ctx, M_ENUM_CONST, $3) ||
+       scopequeryval(ctx, M_VARIABLE, $3)) {
+      fprintf(stderr, "Error: redefinition of symbol %s as enum constant at %s %d.%d-%d.%d\n", $3, dapeek(file2compile), locprint(@$));
+    } else {
+      add2scope(scopepeek(ctx), $3, M_ENUM_CONST, $5);
+    }
     };
 commaopt: ',' | %empty;
 %%
