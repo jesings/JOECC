@@ -237,7 +237,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
     case ADD:
       newdyn = dactor(32);
       rectexpr = ct_uintconst_expr(0);
-      //TODO: remove 0s, handle type
+      //handle type?
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
         switch(subexpr->type) {
@@ -433,7 +433,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
     case MULT: 
       newdyn = dactor(32);
       rectexpr = ct_uintconst_expr(1);
-      //TODO: destroy all pure arguments when multiply by 0
+      //TODO: destroy all pure (integer because NaN/inf) arguments when multiply by 0
       //TODO: handle type
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
@@ -618,6 +618,40 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       }
       return ex;
     case MOD: 
+      subexpr = EPARAM(ex, 0);
+      rectexpr = EPARAM(ex, 1);
+      switch(subexpr->type) {
+        case UINT:
+          switch(rectexpr->type) {
+            case UINT:
+              subexpr->uintconst %= rectexpr->uintconst;
+              break;
+            case INT:
+              subexpr->intconst %= rectexpr->uintconst;
+              break;
+            default:
+              goto nomodreduce;
+          }
+          free(rectexpr);
+          free(ex);
+          return subexpr;
+        case INT:
+          switch(rectexpr->type) {
+            case UINT:
+              rectexpr->type = INT;
+              subexpr->intconst %= rectexpr->intconst;
+              break;
+            case INT:
+              subexpr->intconst %= rectexpr->intconst;
+              break;
+            default:
+              goto nomodreduce;
+          }
+          free(rectexpr);
+          free(ex);
+          return subexpr;
+      }
+      nomodreduce:
       //we don't flatten mods--that can happen in SSA and also chaining lots of modulos
       //is not a case that is realistic or one I will handle
       return ex;
@@ -712,8 +746,12 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       ex->params = newdyn;
       return ct_binary_expr(COMMA, ex, subexpr);
       return ex;
-    case B_AND: case B_OR: case B_XOR: case SHL: case SHR:
+    case B_AND: 
+      //flatten, make const, if const is 0, eliminate impure
+    case B_OR: case B_XOR:
       ///no clue what should be done here except adopt/flatten in subexprs
+    case SHL: case SHR:
+      //evaluate if constant
     case COMMA:
       newdyn = dactor(32);
       for(int i = 0; i < ex->params->length; i++) {
