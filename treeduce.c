@@ -41,6 +41,45 @@ char puritree(EXPRESSION* cexpr) {
       return 0;
   }
 }
+//X(FRET), X(LBREAK), X(JGOTO), X(LCONT), \
+  X(WHILEL), X(DOWHILEL), \
+  X(IFS), X(IFELSES), \
+  X(SWITCH), \
+  X(CASE), X(LABEL), \
+  X(CMPND), \
+  X(EXPR), X(NOPSTMT), \
+  X(DEFAULT)
+char purestmt(STATEMENT* stmt) {
+  switch(stmt->type) {
+    case FRET: case EXPR:
+      return puritree(stmt->expression);
+    case LBREAK: case LCONT: case LABEL: case CASE: case NOPSTMT: case DEFAULT:
+      return 1;
+    case JGOTO: case WHILEL: case DOWHILEL:
+      return 0;
+    case CMPND:
+      for(int i = 0; i < stmt->stmtsandinits->length; i++) {
+        SOI* s = stmt->stmtsandinits->arr[i];
+        if(s->isstmt && !purestmt(s->state))
+            return 0;
+        if(!s->isstmt) {
+          for(int j = 0; j < s->init->length; j++) {
+            if(!puritree(((INITIALIZER*) s->init->arr[j])->expr))
+              return 0;
+          }
+        }
+      }
+      return 1;
+    case SWITCH:
+      return puritree(stmt->cond) && purestmt(stmt->body);
+    case IFELSES:
+      if(!purestmt(stmt->elsecond))
+        return 0;
+    case IFS:
+      return puritree(stmt->ifcond) && purestmt(stmt->thencond);
+
+  }
+}
 //confirm function call is pure
 //Criteria: global var as lvalue of assign, or inc/dec
 //dereferencing of lvalue in assign or in inc/dec

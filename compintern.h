@@ -45,7 +45,7 @@ typedef enum {
 
 #define STMTTYPE_LIST \
   X(FRET), X(LBREAK), X(JGOTO), X(LCONT), \
-  X(FORL), X(WHILEL), X(DOWHILEL), \
+  X(WHILEL), X(DOWHILEL), \
   X(IFS), X(IFELSES), \
   X(SWITCH), \
   X(CASE), X(LABEL), \
