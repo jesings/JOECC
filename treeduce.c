@@ -102,6 +102,67 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
     return 0;
   return 1;
 }
+
+
+#define FREE2RET \
+              subexpr->type = UINT; \
+              free(rectexpr);  \
+              free(ex);  \
+              return subexpr;  
+
+#define CMPOP(OP)  do {\
+      subexpr = EPARAM(ex, 0); \
+      rectexpr = EPARAM(ex, 1); \
+      switch(subexpr->type) { \
+        case UINT: case INT: case FLOAT:\
+          switch(rectexpr->type) { \
+            case UINT: case INT: case FLOAT: \
+              subexpr->uintconst = (subexpr->uintconst OP rectexpr->uintconst); \
+              FREE2RET; \
+          } \
+      } } while (0)
+
+#define CMPOP2(OP)  do {\
+      subexpr = EPARAM(ex, 0); \
+      rectexpr = EPARAM(ex, 1); \
+      switch(subexpr->type) { \
+        case UINT:          \
+          switch(rectexpr->type) { \
+            case UINT: \
+              subexpr->uintconst = (subexpr->uintconst OP rectexpr->uintconst); \
+              FREE2RET;\
+            case INT: \
+              subexpr->uintconst = (subexpr->uintconst OP rectexpr->intconst); \
+              FREE2RET;\
+            case FLOAT: \
+              subexpr->uintconst = (subexpr->uintconst OP rectexpr->floatconst); \
+              FREE2RET;\
+          }\
+        case INT: \
+          switch(rectexpr->type) { \
+            case UINT: \
+              subexpr->uintconst = (subexpr->intconst OP rectexpr->uintconst); \
+              FREE2RET;\
+            case INT: \
+              subexpr->uintconst = (subexpr->intconst OP rectexpr->intconst); \
+              FREE2RET;\
+            case FLOAT: \
+              subexpr->uintconst = (subexpr->intconst OP rectexpr->floatconst); \
+              FREE2RET;\
+          } \
+        case FLOAT:\
+          switch(rectexpr->type) { \
+            case UINT: \
+              subexpr->uintconst = (subexpr->floatconst OP rectexpr->uintconst); \
+              FREE2RET;\
+            case INT: \
+              subexpr->uintconst = (subexpr->floatconst OP rectexpr->intconst); \
+              FREE2RET;\
+            case FLOAT: \
+              subexpr->uintconst = (subexpr->floatconst OP rectexpr->floatconst); \
+              FREE2RET;\
+          } \
+      } } while (0)
 //check 2 trees for equality
 char treequals(EXPRESSION* e1, EXPRESSION* e2) {
   if(e1->type != e2->type)
@@ -824,10 +885,25 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       //adopt/flatten in subexprs, remove pure exprs except the last one
       //if impure call to pure function, extract out impure params, and eval those only????
     case EQ: //should be kept binary
+      CMPOP(==);
       //if both INT, UINT, FLOAT, and equal return intconst 1, else return intconst 0
       //That's all I can think of for now
-    case NEQ: case GT: case LT: case GTE: case LTE: 
-      //see above, adapt to specifics
+      return ex;
+    case NEQ:
+      CMPOP(!=);
+      return ex;
+    case GT: 
+      CMPOP2(>);
+      return ex;
+    case LT:
+      CMPOP2(<);
+      return ex;
+    case GTE: 
+      CMPOP2(>=);
+      return ex;
+    case LTE: 
+      CMPOP2(<=);
+      return ex;
     case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case XORASSIGN: case ORASSIGN:  //0 is identity case 
     case ANDASSIGN: case MODASSIGN: //no identity case (for our purposes)
     case DIVASSIGN: case MULTASSIGN: 
