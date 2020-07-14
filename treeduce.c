@@ -163,6 +163,46 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
               FREE2RET;\
           } \
       } } while (0)
+
+#define INTOP(OP) do {\
+      subexpr = EPARAM(ex, 0); \
+      rectexpr = EPARAM(ex, 1); \
+      switch(subexpr->type) { \
+        case UINT: \
+          switch(rectexpr->type) { \
+            case UINT: \
+              subexpr->uintconst OP rectexpr->uintconst; \
+              break; \
+            case INT: \
+              subexpr->intconst OP rectexpr->uintconst; \
+              break; \
+            default: \
+              return ex; \
+          } \
+          free(rectexpr); \
+          free(ex); \
+          return subexpr; \
+        case INT: \
+          switch(rectexpr->type) { \
+            case UINT: \
+              rectexpr->type = INT; \
+              subexpr->intconst OP rectexpr->intconst; \
+              break; \
+            case INT: \
+              subexpr->intconst OP rectexpr->intconst; \
+              break; \
+            default: \
+              return ex; \
+          } \
+          free(rectexpr); \
+          free(ex); \
+          return subexpr; \
+      } } while (0)
+
+
+
+
+
 //check 2 trees for equality
 char treequals(EXPRESSION* e1, EXPRESSION* e2) {
   if(e1->type != e2->type)
@@ -718,40 +758,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       }
       return ex;
     case MOD: 
-      subexpr = EPARAM(ex, 0);
-      rectexpr = EPARAM(ex, 1);
-      switch(subexpr->type) {
-        case UINT:
-          switch(rectexpr->type) {
-            case UINT:
-              subexpr->uintconst %= rectexpr->uintconst;
-              break;
-            case INT:
-              subexpr->intconst %= rectexpr->uintconst;
-              break;
-            default:
-              goto nomodreduce;
-          }
-          free(rectexpr);
-          free(ex);
-          return subexpr;
-        case INT:
-          switch(rectexpr->type) {
-            case UINT:
-              rectexpr->type = INT;
-              subexpr->intconst %= rectexpr->intconst;
-              break;
-            case INT:
-              subexpr->intconst %= rectexpr->intconst;
-              break;
-            default:
-              goto nomodreduce;
-          }
-          free(rectexpr);
-          free(ex);
-          return subexpr;
-      }
-      nomodreduce:
+      INTOP(%=);
       //we don't flatten mods--that can happen in SSA and also chaining lots of modulos
       //is not a case that is realistic or one I will handle
       return ex;
@@ -845,13 +852,17 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       }
       ex->params = newdyn;
       return ct_binary_expr(COMMA, ex, subexpr);
-      return ex;
     case B_AND: 
       //flatten, make const, if const is 0, eliminate impure
     case B_OR: case B_XOR:
       ///no clue what should be done here except adopt/flatten in subexprs
-    case SHL: case SHR:
-      //evaluate if constant
+    case SHL://maybe check if right side is within bounds of type size
+      INTOP(<<=);
+      return ex;
+    case SHR:
+      INTOP(>>=);
+      return ex;
+
     case COMMA:
       newdyn = dactor(32);
       for(int i = 0; i < ex->params->length; i++) {
