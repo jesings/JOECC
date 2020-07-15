@@ -215,7 +215,7 @@ int treexpr(EXPRESSION* expr) {
     case FCALL:
       dprintf(funcfile, "n%d -> n%d [color=red];\n", exnode, treexpr(expr->params->arr[0]));
       for(int i = 1; i < expr->params->length; i++) {
-        dprintf(funcfile, "n%d -> n%d [color=green] [label=\"%d\"];\n", exnode, treexpr(expr->params->arr[i]), i);
+        dprintf(funcfile, "n%d -> n%d [color=green] [xlabel=\"%d\"];\n", exnode, treexpr(expr->params->arr[i]), i);
       }
       break;
     case TERNARY:

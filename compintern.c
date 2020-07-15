@@ -413,7 +413,6 @@ SCOPE* mkscope() {
   child->typesdef = htctor();
   //the below have values consisting of dynarrs of pointers where the address of the STRUCT* should be placed
   child->forwardstructs = htctor();
-  child->forwardenums = htctor();
   child->forwardunions = htctor();
   return child;
 }
@@ -431,10 +430,6 @@ void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, void* assi
     case M_STRUCT:
       da = (DYNARR*) search(scopepeek(lct)->forwardstructs, defnd);
       rmpair(scopepeek(lct)->forwardstructs, defnd);
-      break;
-    case M_ENUM:
-      da = (DYNARR*) search(scopepeek(lct)->forwardenums, defnd);
-      rmpair(scopepeek(lct)->forwardenums, defnd);
       break;
     case M_UNION:
       da = (DYNARR*) search(scopepeek(lct)->forwardunions, defnd);
@@ -551,8 +546,7 @@ void scopepop(struct lexctx* lct) {
   SCOPE* cleanup = dapop(lct->scopes);
   if(cleanup->truescope && (
      cleanup->forwardstructs->keys != 0 ||
-     cleanup->forwardunions->keys != 0 ||
-     cleanup->forwardenums->keys != 0))
+     cleanup->forwardunions->keys != 0))
     fprintf(stderr, "Error: not all forward declarations processed by end of scope\n");
   free(cleanup); //free all members???
 }

@@ -153,8 +153,6 @@ initializer:
           ht = scopepeek(ctx)->forwardstructs;
         } else if($2->tb & UNIONVAL) {
           ht = scopepeek(ctx)->forwardunions;
-        } else if($2->tb & ENUMVAL) {
-          ht = scopepeek(ctx)->forwardenums;
         } else {
           fprintf(stderr, "Error: forward definition of unknown type %s in %s %d.%d-%d.%d\n", $2->structtype->name, locprint(@$));
           continue;
@@ -190,8 +188,6 @@ initializer:
           ht = scopepeek(ctx)->forwardstructs;
         } else if($1->tb & UNIONVAL) {
           ht = scopepeek(ctx)->forwardunions;
-        } else if($1->tb & ENUMVAL) {
-          ht = scopepeek(ctx)->forwardenums;
         } else {
           fprintf(stderr, "Error: forward definition of unknown type %s in %s %d.%d-%d.%d\n", $1->structtype->name, locprint(@$));
           continue;
@@ -202,7 +198,8 @@ initializer:
     }
     if(ac->decl->type->pointerstack->length &&
        ((struct declarator_part*) dapeek(ac->decl->type->pointerstack))->type != PARAMSSPEC) {
-      add2scope(ctx, ac->decl->varname, M_VARIABLE, ac->decl->type);
+      if(ctx->func)
+        add2scope(ctx, ac->decl->varname, M_VARIABLE, ac->decl->type);
     } else {
       insert(ctx->funcs, ac->decl->varname, NULL);
     }
@@ -214,14 +211,6 @@ initializer:
     insert(scopepeek(ctx)->forwardstructs, $2, dactor(16));
   } else 
     fprintf(stderr, "Error: redefinition of struct %s in %s %d.%d-%d.%d\n", $2,  locprint(@$));
-  }
-| "enum" SYMBOL ';' {
-  $$ = dactor(0);
-  if(!scopequeryval(ctx, M_ENUM, $2)) {
-    add2scope(ctx, $2, M_ENUM, NULL);
-    insert(scopepeek(ctx)->forwardenums, $2, dactor(16));
-  } else 
-    fprintf(stderr, "Error: redefinition of enum %s in %s %d.%d-%d.%d\n", $2,  locprint(@$));
   }
 | "union" SYMBOL ';' {
   $$ = dactor(0);
@@ -287,8 +276,6 @@ param_decl:
           ht = scopepeek(ctx)->forwardstructs;
         } else if($1->tb & UNIONVAL) {
           ht = scopepeek(ctx)->forwardunions;
-        } else if($1->tb & ENUMVAL) {
-          ht = scopepeek(ctx)->forwardenums;
         }
         DYNARR* da = search(ht, $1->structtype->name);
         dapush(da, &($2->type->structtype));
@@ -343,13 +330,7 @@ typem:
     $$ = calloc(1, sizeof(IDTYPE)); 
     $$->enumtype = $1;
     $$->tb = ENUMVAL; 
-    if($1->fields == NULL) {
-      DYNARR* da = (DYNARR*) search(scopepeek(ctx)->forwardenums, $1->name); 
-      if(!da) 
-        fprintf(stderr, "Error: enum %s undeclared in %s %d.%d-%d.%d\n", $1->name, locprint(@$));
-      else
-        dapush(da, &($$->enumtype));
-    }};
+    };
 types1:
   "const" {$$ = CONSTNUM;}
 | "volatile" {$$ = VOLATILENUM;};
@@ -544,8 +525,6 @@ function:
           ht = scopepeek(ctx)->forwardstructs;
         } else if($1->tb & UNIONVAL) {
           ht = scopepeek(ctx)->forwardunions;
-        } else if($1->tb & ENUMVAL) {
-          ht = scopepeek(ctx)->forwardenums;
         }
         DYNARR* da = search(ht, $1->structtype->name);
         dapush(da, &($2->type->structtype));
@@ -661,13 +640,13 @@ union:
 | "union" SYMBOL {
     $$ = (UNION*) scopesearch(ctx, M_UNION, $2);
     if(!$$) {
-      if(queryval(scopepeek(ctx)->forwardunions, $2)) {
-        $$ = malloc(sizeof(UNION));
-        $$->name = $2;
-        $$->fields = NULL;
-      } else {
-        fprintf(stderr, "Error: reference to undefined union %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
+      if(!queryval(scopepeek(ctx)->forwardunions, $2)) {
+        add2scope(ctx, $2, M_UNION, NULL);
+        insert(scopepeek(ctx)->forwardunions, $2, dactor(16));
       }
+      $$ = malloc(sizeof(UNION));
+      $$->name = $2;
+      $$->fields = NULL;
     }};
 fullstruct:
   "struct" SYMBOL {
@@ -689,13 +668,13 @@ struct:
 | "struct" SYMBOL {
     $$ = (STRUCT*) scopesearch(ctx, M_STRUCT, $2);
     if(!$$) {
-      if(queryval(scopepeek(ctx)->forwardstructs, $2)) {
-        $$ = malloc(sizeof(STRUCT));
-        $$->name = $2;
-        $$->fields = NULL;
-      } else {
-        fprintf(stderr, "Error: reference to undefined struct %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
+      if(!queryval(scopepeek(ctx)->forwardstructs, $2)) {
+        add2scope(ctx, $2, M_STRUCT, NULL);
+        insert(scopepeek(ctx)->forwardstructs, $2, dactor(16));
       }
+      $$ = malloc(sizeof(STRUCT));
+      $$->name = $2;
+      $$->fields = NULL;
     }};
 structbody: '{' {fakescopepush(ctx);} struct_decls '}' {$$ = $3; scopepop(ctx);};
 struct_decls:
@@ -795,18 +774,12 @@ sdecl:
 | ':' esc {$$ = mkdeclaration(NULL); dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $2));};
 fullenum:
   "enum" SYMBOL {
-    if(!scopesearch(ctx, M_ENUM, $2)) {
-      if(!queryval(scopepeek(ctx)->forwardenums, $2)) {
-        add2scope(ctx, $2, M_STRUCT, NULL);
-        insert(scopepeek(ctx)->forwardenums, $2, dactor(16));
-      }
-    } else {
+    if(scopesearch(ctx, M_ENUM, $2)) {
       fprintf(stderr, "Error: redefinition of enum %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
     }
     } enumbody {
     $$ = enumctor($2, $4); 
     add2scope(ctx, $2, M_ENUM, $$);
-    defbackward(ctx, M_ENUM, $2, $$);
     };
 enum:
   fullenum {$$ = $1;}
@@ -814,13 +787,7 @@ enum:
 | "enum" SYMBOL {
     $$ = (ENUM*) scopesearch(ctx, M_ENUM, $2);
     if(!$$) {
-      if(queryval(scopepeek(ctx)->forwardenums, $2)) {
-        $$ = malloc(sizeof(ENUM));
-        $$->name = $2;
-        $$->fields = NULL;
-      } else {
-        fprintf(stderr, "Error: reference to undefined enum %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
-      }
+      fprintf(stderr, "Error: reference to undefined enum %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
     }};
 enumbody:
   '{' enums commaopt '}' {$$ = $2;};

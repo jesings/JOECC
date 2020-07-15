@@ -251,7 +251,6 @@ typedef struct {
       HASHTABLE* enums;
       HASHTABLE* unions;
       HASHTABLE* forwardstructs;
-      HASHTABLE* forwardenums;
       HASHTABLE* forwardunions;
     };
     HASHTABLE* fakescope;

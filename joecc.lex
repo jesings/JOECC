@@ -5,6 +5,8 @@ EXP [Ee][+-]?[[:digit:]]+
 FLOATSIZE (f|F|l|L)
 INTSIZE (u|U|l|L)*
 %{
+//TODO: handle if, elif in preprocessor (including defined and stuff)
+//TODO: handle stringizing in macros
 
 #include <math.h>
 #include "joecc.tab.h"
@@ -92,6 +94,7 @@ extern DYNARR* locs, * file2compile;
   define[[:blank:]]+ {if(!skipping) {yy_push_state(DEFINE); md = calloc(1, sizeof(struct macrodef));} else yy_pop_state();}
   undef[[:blank:]]+ {if(!skipping) yy_push_state(UNDEF); else yy_pop_state();}
   ifdef[[:blank:]]+ {yy_push_state(IFDEF);}
+  if[[:blank:]]*defined[[:blank:]]+ {yy_push_state(IFDEF);}
   ifndef[[:blank:]]+ {yy_push_state(IFNDEF);}
   else[[:blank:]]*\n {
     yy_pop_state();
@@ -107,7 +110,7 @@ extern DYNARR* locs, * file2compile;
         yy_pop_state();
         break;
       default:
-        fputs("Error: Unexpected #else", stderr);
+        fprintf(stderr, "Error: Unexpected #else %s %d.%d-%d.%d\n", locprint(yylloc));
       case IFDEFDUMMY:
         break;
     }
@@ -125,18 +128,35 @@ extern DYNARR* locs, * file2compile;
           break;
       }
     } else {
-      fputs("Error: Unexpected #endif", stderr);
+      fprintf(stderr, "Error: Unexpected #endif %s %d.%d-%d.%d\n", locprint(yylloc));
     }
+    }
+  if {/*handle if case*/
+    yy_pop_state();
+    DYNARR* ds = ctx->definestack;
+    enum ifdefstate ids = ds->length > 0 ? *(enum ifdefstate*) dapeek(ds) : IFANDTRUE;
+    enum ifdefstate* rids = malloc(sizeof(enum ifdefstate));
+    switch(ids) {
+      default:
+        *rids = IFANDFALSE;//TODO: actually handle this
+        break;
+      case IFDEFDUMMY: case IFANDFALSE: case ELSEANDTRUE:
+        *rids = IFDEFDUMMY;
+        break;
+    }
+    dapush(ds, rids);
+    yy_push_state(PPSKIP);
+    yy_push_state(SINGLELINE_COMMENT);
     }
   line {yy_pop_state(); yy_push_state(SINGLELINE_COMMENT);}
-  \n {yy_pop_state();fprintf(stderr, "PREPROCESSOR: Incorrect line end %d\n", yylloc.first_line);}
-  . {fprintf(stderr, "PREPROCESSOR: I made a stupid: %c\n", *yytext);}
+  \n {yy_pop_state();fprintf(stderr, "PREPROCESSOR: Incorrect line end %d %s %d.%d-%d.%d\n", yylloc.first_line, locprint(yylloc));}
+  . {fprintf(stderr, "PREPROCESSOR: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint(yylloc));}
 }
 
 <INCLUDE>{
   "<"[^>\n]*">" {
     if(stmtover){
-      fprintf(stderr, "Error: tried to include multiple files with single directive on line %d!\n", yylloc.last_line);
+      fprintf(stderr, "Error: tried to include multiple files with single directive on line %d! %s %d.%d-%d.%d\n", yylloc.last_line, locprint(yylloc));
     } else {
       stmtover = 1;
       yytext[yyleng - 1] = '\0'; //ignore closing >
@@ -162,7 +182,7 @@ extern DYNARR* locs, * file2compile;
     }
   \"[^\"\n]*\" {/*"*/
     if(stmtover) {
-      fprintf(stderr, "Error: tried to include multiple files with single directive on line %d!\n", yylloc.last_line);
+      fprintf(stderr, "Error: tried to include multiple files with single directive on line %d! %s %d.%d-%d.%d\n", yylloc.last_line, locprint(yylloc));
     } else {
       stmtover = 1;
       yytext[yyleng - 1] = '\0'; //ignore closing "
@@ -180,15 +200,15 @@ extern DYNARR* locs, * file2compile;
         yy_push_state(INITIAL);
         yypush_buffer_state(ybs);
       } else {
-        fprintf(stderr, "Invalid local file %s included!\n", yytext + 1);
+        fprintf(stderr, "Invalid local file %s included! %s %d.%d-%d.%d\n", yytext + 1, locprint(yylloc));
         yy_pop_state();
         yy_pop_state();
       }
     }
     }
   [[:space:]]+[<\"] {/*"*/yyless(1);}
-  [[:space:]]*\n {yy_pop_state(); yy_pop_state();if(!stmtover) fprintf(stderr, "Error: incomplete include %d.%d-%d.%d %s\n", yylloc.first_line, yylloc.first_column, yylloc.last_line, yylloc.last_column, (char*) dapeek(file2compile));}
-  . {fprintf(stderr, "INCLUDE: I made a stupid: %c\n", *yytext);}
+  [[:space:]]*\n {yy_pop_state(); yy_pop_state();if(!stmtover) fprintf(stderr, "Error: incomplete include %s %d.%d-%d.%d\n", locprint(yylloc));}
+  . {fprintf(stderr, "INCLUDE: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint(yylloc));}
 }
 
 <DEFINE>{
@@ -223,20 +243,20 @@ extern DYNARR* locs, * file2compile;
     argeaten = 0;
     }
   \n {yy_pop_state(); yy_pop_state();/*error state*/}
-  . {fprintf(stderr, "DEFINE: I made a stupid: %c\n", *yytext);}
+  . {fprintf(stderr, "DEFINE: Unexpected character encountered: %c %s %d.%d-%d.%d %s %d.%d-%d.%d\n", *yytext, locprint(yylloc), locprint(yylloc));}
 }
 
 <DEFARG>{
   {IDENT} {
     if(argeaten) 
-      fprintf(stderr, "Error: unexpected macro argument\n"); 
+      fprintf(stderr, "Error: unexpected macro argument %s %d.%d-%d.%d\n", locprint(yylloc)); 
     argeaten = 1; /*new arg encountered*/ 
     dapush(md->args, strdup(yytext));
     /*probably should confirm no 2 args have the same name*/
     }
   {IDENT}/[[:blank:]] {
     if(argeaten) 
-      fprintf(stderr, "Error: unexpected macro argument\n"); 
+      fprintf(stderr, "Error: unexpected macro argument %s %d.%d-%d.%d\n", locprint(yylloc)); 
     argeaten = 1;
     /*new arg encountered*/ yy_push_state(KILLBLANK); 
     dapush(md->args, strdup(yytext));
@@ -246,18 +266,18 @@ extern DYNARR* locs, * file2compile;
     if(argeaten) 
       argeaten = 0; 
     else 
-      fprintf(stderr, "Error: unexpected macro argument\n");
+      fprintf(stderr, "Error: unexpected macro argument %s %d.%d-%d.%d\n", locprint(yylloc));
     }
   \,/[[:blank:]] {
     if(argeaten) 
       argeaten = 0; 
     else 
-      fprintf(stderr, "Error: unexpected macro argument\n");
+      fprintf(stderr, "Error: unexpected macro argument %s %d.%d-%d.%d\n", locprint(yylloc));
     yy_push_state(KILLBLANK);
     }
   \) {
     if(!argeaten && md->args->length != 0) 
-      fprintf(stderr, "Error: unexpected macro argument\n"); 
+      fprintf(stderr, "Error: unexpected macro argument %s %d.%d-%d.%d\n", locprint(yylloc)); 
     /*last arg encountered*/
     yy_pop_state();
     yy_push_state(DEFINE2); 
@@ -265,7 +285,7 @@ extern DYNARR* locs, * file2compile;
     }
   \)/[[:blank:]] {
     if(!argeaten && md->args->length != 0) 
-      fprintf(stderr, "Error: unexpected macro argument\n"); 
+      fprintf(stderr, "Error: unexpected macro argument %s %d.%d-%d.%d\n", locprint(yylloc)); 
     /*last arg encountered*/
     yy_pop_state();
     yy_push_state(DEFINE2); 
@@ -273,7 +293,7 @@ extern DYNARR* locs, * file2compile;
     yy_push_state(KILLBLANK);
     }
   \n {yy_pop_state(); yy_pop_state();/*error state*/}
-  . {fprintf(stderr, "DEFINE: I made a stupid: %c\n", *yytext);}
+  . {fprintf(stderr, "DEFINE: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint(yylloc));}
 }
 
 <DEFINE2>{
@@ -294,7 +314,7 @@ extern DYNARR* locs, * file2compile;
   {IDENT} {rmpairfr(ctx->defines, yytext);}
   {IDENT}/[[:blank:]] {rmpairfr(ctx->defines, yytext); yy_push_state(KILLBLANK);}
   \n {yy_pop_state(); yy_pop_state();/*error state if expr not over?*/}
-  . {fprintf(stderr, "UNDEF: I made a stupid: %c\n", *yytext);}
+  . {fprintf(stderr, "UNDEF: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint(yylloc));}
 }
 
 
@@ -310,7 +330,7 @@ extern DYNARR* locs, * file2compile;
     yy_pop_state(); 
     if(!stmtover) {
       /*error state*/
-      fprintf(stderr, "Incomplete ifdef!\n");
+      fprintf(stderr, "Incomplete ifdef! %s %d.%d-%d.%d\n", locprint(yylloc));
     } else {
       DYNARR* ds = ctx->definestack;
       enum ifdefstate* rids = malloc(sizeof(enum ifdefstate));
@@ -332,7 +352,7 @@ extern DYNARR* locs, * file2compile;
       dapush(ds, rids);
     }
     }
-  . {fprintf(stderr, "IFDEF: I made a stupid: %c\n", *yytext);}
+  . {fprintf(stderr, "IFDEF: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint(yylloc));}
 }
 <IFNDEF>{
   {IDENT} {stmtover = 1; defname = strdup(yytext);}
@@ -346,7 +366,7 @@ extern DYNARR* locs, * file2compile;
     yy_pop_state(); 
     if(!stmtover) {
       /*error state*/
-      fprintf(stderr, "Incomplete ifndef!\n");
+      fprintf(stderr, "Incomplete ifndef! %s %d.%d-%d.%d\n", locprint(yylloc));
     } else {
       DYNARR* ds = ctx->definestack;
       enum ifdefstate* rids = malloc(sizeof(enum ifdefstate));
@@ -368,7 +388,7 @@ extern DYNARR* locs, * file2compile;
       dapush(ds, rids);
     }
     }
-  . {fprintf(stderr, "IFNDEF: I made a stupid: %c\n", *yytext);}
+  . {fprintf(stderr, "IFNDEF: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint(yylloc));}
 }
 
 <CALLMACRO>{
@@ -387,7 +407,7 @@ extern DYNARR* locs, * file2compile;
 
       struct macrodef* md;
       if(!(md = search(ctx->defines, defname))) {
-        fprintf(stderr, "Error: Malformed function-like macro call\n");
+        fprintf(stderr, "Error: Malformed function-like macro call %s %d.%d-%d.%d\n", locprint(yylloc));
         //error state
       } else if(parg->length != md->args->length) {
         if(md->args->length == 0 && parg->length == 1
@@ -405,7 +425,7 @@ extern DYNARR* locs, * file2compile;
           dapush(file2compile, strdup(buf));
           yy_push_state(INITIAL);
         } else {
-          fprintf(stderr, "Error: the number of arguments passed to function-like macro is different than the number of parameters\n");
+          fprintf(stderr, "Error: the number of arguments passed to function-like macro is different than the number of parameters %s %d.%d-%d.%d\n", locprint(yylloc));
           //error state
         }
       } else {
@@ -457,7 +477,7 @@ extern DYNARR* locs, * file2compile;
       dstrdly = strctor(malloc(2048), 0, 2048);
     }
     }
-  . {fprintf(stderr, "Error: unexpected character in function macro call\n");}
+  . {fprintf(stderr, "Error: unexpected character in function macro call %s %d.%d-%d.%d\n", locprint(yylloc));}
 }
 
 <FINDREPLACE>{
@@ -612,11 +632,11 @@ extern DYNARR* locs, * file2compile;
 \' {yy_push_state(CHARLIT); }
 <CHARLIT>{
   \' {
-    fprintf(stderr, "Error: 0 length character literal %s\n", yytext);
+    fprintf(stderr, "Error: 0 length character literal %s %s %d.%d-%d.%d\n", yytext, locprint(yylloc));
     GOC('?');
   	}
   [\n\v] {
-    fputs("ERROR: character literal terminated with newline unexpectedly", stderr);
+    fprintf(stderr, "Error: character literal terminated with newline unexpectedly %s %d.%d-%d.%d\n", locprint(yylloc));
     yy_pop_state();
     }
   \\a\' {GOC('\a');}
@@ -635,7 +655,7 @@ extern DYNARR* locs, * file2compile;
     unsigned int result;
     sscanf(yytext + 1, "%o", &result);
     if(result >= 1 << 8) {
-      fprintf(stderr, "Warning: octal character %s in string literal out of bounds\n", yytext);
+      fprintf(stderr, "Warning: octal character %s in string literal out of bounds %s %d.%d-%d.%d\n", yytext, locprint(yylloc));
     }
     GOC((char) result);
     }
@@ -645,14 +665,14 @@ extern DYNARR* locs, * file2compile;
     GOC((char) result);
     }
   \\.\' {
-    fprintf(stderr, "Warning: Unknown escape sequence %s in string literal\n", yytext);
+    fprintf(stderr, "Warning: Unknown escape sequence %s in string literal %s %d.%d-%d.%d\n", yytext, locprint(yylloc));
     GOC(yytext[1]);
   }
   [^\\\'\n\v]\' {
     GOC(yytext[0]);
   }
   [^\']{2,}\' {
-    fprintf(stderr, "Error: character literal too long %s\n", yytext);
+    fprintf(stderr, "Error: character literal too long %s %s %d.%d-%d.%d\n", yytext, locprint(yylloc));
     GOC(yytext[1]);
   }
 }
@@ -668,7 +688,7 @@ extern DYNARR* locs, * file2compile;
   [\n\v] {
     strdtor(strcur);
     free(strconst); 
-    fputs("ERROR: String terminated with newline unexpectedly", stderr);
+    fprintf(stderr, "Error: String terminated with newline unexpectedly %s %d.%d-%d.%d\n", locprint(yylloc));
     yy_pop_state();
     }
   \\a {dsccat(strcur, '\a');}
@@ -687,7 +707,7 @@ extern DYNARR* locs, * file2compile;
     unsigned int result;
     sscanf(yytext + 1, "%o", &result);
     if(result >= 1 << 8) {
-      fprintf(stderr, "Warning: octal character %s in string literal out of bounds\n", yytext);
+      fprintf(stderr, "Warning: octal character %s in string literal out of bounds %s %d.%d-%d.%d\n", yytext, locprint(yylloc));
     }
     dsccat(strcur, result);
     }
@@ -697,7 +717,7 @@ extern DYNARR* locs, * file2compile;
     dsccat(strcur, result);
     }
   \\. {
-    fprintf(stderr, "Warning: Unknown escape sequence %s in string literal\n", yytext);
+    fprintf(stderr, "Warning: Unknown escape sequence %s in string literal %s %d.%d-%d.%d\n", yytext, locprint(yylloc));
     dsccat(strcur, yytext[1]);
   }
   [^\\\"\v]+ {/*"*/
@@ -705,10 +725,10 @@ extern DYNARR* locs, * file2compile;
   }
 }
 
-[[:space:]]+ {/*Whitespace, ignored*/}
+[[:blank:]]+ {/*Whitespace, ignored*/}
+[[:space:]] {/*Whitespace, ignored*/}
 
 <<EOF>> {
-  //fprintf(stderr, "I want for death\n");
   yypop_buffer_state();
   if ( !YY_CURRENT_BUFFER ) {
     yyterminate();
@@ -723,7 +743,6 @@ extern DYNARR* locs, * file2compile;
 }
 
 "\0" {//same as EOF
-  //fprintf(stderr, "I want for death\n");
   yypop_buffer_state();
   if ( !YY_CURRENT_BUFFER ) {
     yyterminate();
