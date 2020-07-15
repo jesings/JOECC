@@ -1,23 +1,24 @@
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "dynarr.h"
 #include "compintern.h"
 #define EPARAM(EVA, IND) ((EXPRESSION*)((EVA)->params->arr[IND]))
 #define LPARAM(EVA, IND) ((EVA)->params->arr[IND])
-//  X(NOP), X(STRING), X(INT), X(UINT), X(FLOAT), X(IDENT), X(ARRAY_LIT), \
-//  X(ADD), X(NEG), X(SUB), X(EQ), X(NEQ), X(GT), X(LT), X(GTE), X(LTE), X(MULT), X(DIVI), X(MOD), \
-//  X(PREINC), X(POSTINC), X(PREDEC), X(POSTDEC), \
-//  X(L_AND), X(L_OR), X(L_NOT), X(B_AND), X(B_OR), X(B_XOR), X(B_NOT), X(SHL), X(SHR), \
-//  X(DOTOP), X(ARROW), \
-//  X(SZOF), X(SZOFEXPR), \
-//  X(ASSIGN), \
-//  X(ADDASSIGN), X(SUBASSIGN), X(SHLASSIGN), X(SHRASSIGN), X(ANDASSIGN),  \
-//  X(XORASSIGN), X(ORASSIGN), X(DIVASSIGN), X(MULTASSIGN), X(MODASSIGN), \
-//  X(CAST), \
-//  X(COMMA), \
-//  X(ADDR), X(DEREF), \
-//  X(FCALL), \
-//  X(TERNARY) 
+//  X(NOP), X(STRING), X(INT), X(UINT), X(FLOAT), X(IDENT), X(ARRAY_LIT), 
+//  X(ADD), X(NEG), X(SUB), X(EQ), X(NEQ), X(GT), X(LT), X(GTE), X(LTE), X(MULT), X(DIVI), X(MOD), 
+//  X(PREINC), X(POSTINC), X(PREDEC), X(POSTDEC), 
+//  X(L_AND), X(L_OR), X(L_NOT), X(B_AND), X(B_OR), X(B_XOR), X(B_NOT), X(SHL), X(SHR), 
+//  X(DOTOP), X(ARROW), 
+//  X(SZOF), X(SZOFEXPR), 
+//  X(ASSIGN), 
+//  X(ADDASSIGN), X(SUBASSIGN), X(SHLASSIGN), X(SHRASSIGN), X(ANDASSIGN),  
+//  X(XORASSIGN), X(ORASSIGN), X(DIVASSIGN), X(MULTASSIGN), X(MODASSIGN), 
+//  X(CAST), 
+//  X(COMMA), 
+//  X(ADDR), X(DEREF), 
+//  X(FCALL), 
+//  X(TERNARY)
 char puritree(EXPRESSION* cexpr) {
   switch(cexpr->type){
     case STRING: case INT: case UINT: case FLOAT: case NOP: case IDENT: case ARRAY_LIT: case SZOF: case MEMBER:
@@ -40,15 +41,17 @@ char puritree(EXPRESSION* cexpr) {
     case XORASSIGN: case ORASSIGN: case DIVASSIGN: case MULTASSIGN: case MODASSIGN:
       return 0;
   }
+  fprintf(stderr, "Error: determining purity of expression failed\n");
+  return 0;
 }
-//X(FRET), X(LBREAK), X(JGOTO), X(LCONT), \
-  X(WHILEL), X(DOWHILEL), \
-  X(IFS), X(IFELSES), \
-  X(SWITCH), \
-  X(CASE), X(LABEL), \
-  X(CMPND), \
-  X(EXPR), X(NOPSTMT), \
-  X(DEFAULT)
+// X(FRET), X(LBREAK), X(JGOTO), X(LCONT), 
+// X(WHILEL), X(DOWHILEL), 
+// X(IFS), X(IFELSES), 
+// X(SWITCH), 
+// X(CASE), X(LABEL), 
+// X(CMPND), 
+// X(EXPR), X(NOPSTMT), 
+// X(DEFAULT)
 char purestmt(STATEMENT* stmt) {
   switch(stmt->type) {
     case FRET: case EXPR:
@@ -77,8 +80,9 @@ char purestmt(STATEMENT* stmt) {
         return 0;
     case IFS:
       return puritree(stmt->ifcond) && purestmt(stmt->thencond);
-
   }
+  fprintf(stderr, "Error: determining purity of statement failed\n");
+  return 0;
 }
 //confirm function call is pure
 //Criteria: global var as lvalue of assign, or inc/dec
@@ -119,7 +123,11 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
             case UINT: case INT: case FLOAT: \
               subexpr->uintconst = (subexpr->uintconst OP rectexpr->uintconst); \
               FREE2RET; \
+            default: \
+              return ex; \
           } \
+        default: \
+          return ex; \
       } } while (0)
 
 #define CMPOP2(OP)  do {\
@@ -137,6 +145,8 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
             case FLOAT: \
               subexpr->uintconst = (subexpr->uintconst OP rectexpr->floatconst); \
               FREE2RET;\
+            default: \
+              return ex; \
           }\
         case INT: \
           switch(rectexpr->type) { \
@@ -149,6 +159,8 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
             case FLOAT: \
               subexpr->uintconst = (subexpr->intconst OP rectexpr->floatconst); \
               FREE2RET;\
+            default: \
+              return ex; \
           } \
         case FLOAT:\
           switch(rectexpr->type) { \
@@ -161,7 +173,11 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
             case FLOAT: \
               subexpr->uintconst = (subexpr->floatconst OP rectexpr->floatconst); \
               FREE2RET;\
+            default: \
+              return ex; \
           } \
+        default: \
+          return ex; \
       } } while (0)
 
 #define INTOP(OP) do {\
@@ -197,6 +213,8 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
           free(rectexpr); \
           free(ex); \
           return subexpr; \
+        default: \
+          return ex; \
       } } while (0)
 
 
@@ -246,14 +264,15 @@ char treequals(EXPRESSION* e1, EXPRESSION* e2) {
       }
       return 1;
   }
-  //factor out params into loop for ease of use, probably use DYNARR
+  fprintf(stderr, "Error: determining equality of 2 expressions failed\n");
+  return 0;
 }
 
 EXPRESSION* foldconst(EXPRESSION* ex) {
   EXPRESSION* subexpr;
   DYNARR* newdyn;
   EXPRESSION* rectexpr;
-  EXPRTYPE eventualtype;
+//  EXPRTYPE eventualtype;
 
   //call on each param before the switch
   for(int i = 0; i < ex->params->length; i++) {
@@ -407,6 +426,8 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
               case FLOAT:
                 rectexpr->floatconst += subexpr->uintconst;
                 break;
+              default:
+                break;
             }
             free(subexpr);
             break;
@@ -421,6 +442,8 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 break;
               case FLOAT:
                 rectexpr->floatconst += subexpr->intconst;
+                break;
+              default:
                 break;
             }
             free(subexpr);
@@ -439,6 +462,8 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 break;
               case FLOAT:
                 rectexpr->floatconst += subexpr->floatconst;
+                break;
+              default:
                 break;
             }
             free(subexpr);
@@ -497,6 +522,8 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 case FLOAT:
                   rectexpr->floatconst += subexpr->uintconst;
                   break;
+                default:
+                  break;
             }} else {
               switch(rectexpr->type) {
                 case UINT:
@@ -507,6 +534,8 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                   break;
                 case FLOAT:
                   rectexpr->floatconst -= subexpr->uintconst;
+                  break;
+                default:
                   break;
               }
             }
@@ -526,6 +555,8 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 break;
               case FLOAT:
                 rectexpr->floatconst += subexpr->intconst;
+                break;
+              default:
                 break;
             }
             free(subexpr);
@@ -547,6 +578,8 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 break;
               case FLOAT:
                 rectexpr->floatconst += subexpr->floatconst;
+                break;
+              default:
                 break;
             }
             free(subexpr);
@@ -604,6 +637,8 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
               case FLOAT:
                 rectexpr->floatconst *= subexpr->uintconst;
                 break;
+              default:
+                break;
             }
             free(subexpr);
             break;
@@ -618,6 +653,8 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 break;
               case FLOAT:
                 rectexpr->floatconst *= subexpr->intconst;
+                break;
+              default:
                 break;
             }
             free(subexpr);
@@ -636,6 +673,8 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 break;
               case FLOAT:
                 rectexpr->floatconst *= subexpr->floatconst;
+                break;
+              default:
                 break;
             }
             free(subexpr);
@@ -696,6 +735,8 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
               case FLOAT:
                 rectexpr->floatconst *= subexpr->uintconst;
                 break;
+              default:
+                break;
             }
             free(subexpr);
             break;
@@ -714,6 +755,8 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 break;
               case FLOAT:
                 rectexpr->floatconst *= subexpr->intconst;
+                break;
+              default:
                 break;
             }
             free(subexpr);
@@ -736,6 +779,8 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 break;
               case FLOAT:
                 rectexpr->floatconst *= subexpr->floatconst;
+                break;
+              default:
                 break;
             }
             free(subexpr);
@@ -954,13 +999,19 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 free(subexpr);
                 dapush(subexpr->params, EPARAM(ex, 1));
               }
+            default:
+              break;
           }
+          default:
+            break;
       }
       return ex;
     case FCALL:
     case SZOFEXPR:
       return ex;
   }
+  fprintf(stderr, "Error: reducing expression failed\n");
+  return NULL;
 }
 
 //do the same as above but with statements

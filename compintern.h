@@ -107,6 +107,7 @@ typedef struct {
   DYNARR* switchstack;
   int caseindex;
   int numvars;
+  char purity;
 } FUNC;
 
 struct lexctx {
@@ -220,7 +221,7 @@ typedef struct {
   };
 } TOPBLOCK;
 
-#define MEMBERTYPELIST X(M_LABEL), X(M_TYPEDEF), X(M_VARIABLE), X(M_GLOBAL), X(M_STRUCT), X(M_UNION), X(M_ENUM), X(M_ENUM_CONST)
+#define MEMBERTYPELIST X(M_TYPEDEF), X(M_VARIABLE), X(M_GLOBAL), X(M_STRUCT), X(M_UNION), X(M_ENUM), X(M_ENUM_CONST)
 #define X(name) name
 enum membertype {
   MEMBERTYPELIST
@@ -319,5 +320,5 @@ void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, void* assi
 void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* memberval);
 TOPBLOCK* gtb(char isfunc, void* assign);
 
-#define locprint(lv) lv.first_line, lv.first_column, lv.last_line, lv.last_column
+#define locprint(lv) (char*) dapeek(file2compile), lv.first_line, lv.first_column, lv.last_line, lv.last_column
 #endif

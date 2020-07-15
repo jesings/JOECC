@@ -30,7 +30,7 @@ char queryval(HASHTABLE* ht, char* key);
 void rmpair(HASHTABLE* ht, char* key);
 void rmpairfr(HASHTABLE* ht, char* key);
 DYNARR* htpairs(HASHTABLE* ht);
-unsigned long fixedhash(unsigned char* data, char lbits);
+unsigned long fixedhash(char* data, char lbits);
 void fixedinsert(HASHTABLE* ht, long fixedkey, void* value);
 void* fixedsearch(HASHTABLE* ht, long fixedkey);
 #endif

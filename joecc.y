@@ -99,7 +99,7 @@ program:
         id->type = aget($1, i)->decl->type;
         add2scope(ctx, aget($1, i)->decl->varname, M_GLOBAL, id);
       } else {
-        fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", aget($1, i)->decl->varname, dapeek(file2compile), locprint(@$));
+        fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", aget($1, i)->decl->varname, locprint(@$));
       }
       dapush($$, gtb(0, $1));
     }
@@ -108,11 +108,11 @@ program:
 | program function {
     $$ = $1;
     char* cs = $2->name;
-    if(!search(ctx->funcs, $2->name)) {
-      insert(ctx->funcs, $2->name, $2);
+    if(!search(ctx->funcs, cs)) {
+      insert(ctx->funcs, cs, $2);
       dapush($$, gtb(1, $2));
     } else {
-      fprintf(stderr, "Error: redefinition of function %s in %s %d.%d-%d.%d\n", $2->name, dapeek(file2compile), locprint(@$));
+      fprintf(stderr, "Error: redefinition of function %s in %s %d.%d-%d.%d\n", $2->name, locprint(@$));
     }
   }
 | program initializer {
@@ -125,7 +125,7 @@ program:
         id->type = aget($2, i)->decl->type;
         add2scope(ctx, aget($2, i)->decl->varname, M_GLOBAL, id);
       } else {
-        fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", aget($2, i)->decl->varname, dapeek(file2compile), locprint(@$));
+        fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", aget($2, i)->decl->varname, locprint(@$));
       }
       dapush($$, gtb(0, $2));
     }
@@ -156,7 +156,7 @@ initializer:
         } else if($2->tb & ENUMVAL) {
           ht = scopepeek(ctx)->forwardenums;
         } else {
-          fprintf(stderr, "Error: forward definition of unknown type %s in %s %d.%d-%d.%d\n", $2->structtype->name, dapeek(file2compile), locprint(@$));
+          fprintf(stderr, "Error: forward definition of unknown type %s in %s %d.%d-%d.%d\n", $2->structtype->name, locprint(@$));
           continue;
         }
         DYNARR* da = search(ht, $2->structtype->name);
@@ -169,7 +169,6 @@ initializer:
   $$ = dactor(0);
   }
 | type cs_inits ';' {
-  SCOPE* current = scopepeek(ctx);
   $$ = $2;
   INITIALIZER* ac;
   for(int i = 0; i < $$->length; i++) {
@@ -194,7 +193,7 @@ initializer:
         } else if($1->tb & ENUMVAL) {
           ht = scopepeek(ctx)->forwardenums;
         } else {
-          fprintf(stderr, "Error: forward definition of unknown type %s in %s %d.%d-%d.%d\n", $1->structtype->name, dapeek(file2compile), locprint(@$));
+          fprintf(stderr, "Error: forward definition of unknown type %s in %s %d.%d-%d.%d\n", $1->structtype->name, locprint(@$));
           continue;
         }
         DYNARR* da = search(ht, $1->structtype->name);
@@ -214,7 +213,7 @@ initializer:
     add2scope(ctx, $2, M_STRUCT, NULL);
     insert(scopepeek(ctx)->forwardstructs, $2, dactor(16));
   } else 
-    fprintf(stderr, "Error: redefinition of struct %s in %s %d.%d-%d.%d\n", $2, dapeek(file2compile),  locprint(@$));
+    fprintf(stderr, "Error: redefinition of struct %s in %s %d.%d-%d.%d\n", $2,  locprint(@$));
   }
 | "enum" SYMBOL ';' {
   $$ = dactor(0);
@@ -222,7 +221,7 @@ initializer:
     add2scope(ctx, $2, M_ENUM, NULL);
     insert(scopepeek(ctx)->forwardenums, $2, dactor(16));
   } else 
-    fprintf(stderr, "Error: redefinition of enum %s in %s %d.%d-%d.%d\n", $2, dapeek(file2compile),  locprint(@$));
+    fprintf(stderr, "Error: redefinition of enum %s in %s %d.%d-%d.%d\n", $2,  locprint(@$));
   }
 | "union" SYMBOL ';' {
   $$ = dactor(0);
@@ -230,7 +229,7 @@ initializer:
     add2scope(ctx, $2, M_UNION, NULL);
     insert(scopepeek(ctx)->forwardunions, $2, dactor(16));
   } else 
-    fprintf(stderr, "Error: redefinition of union %s in %s %d.%d-%d.%d\n", $2, dapeek(file2compile),  locprint(@$));
+    fprintf(stderr, "Error: redefinition of union %s in %s %d.%d-%d.%d\n", $2,  locprint(@$));
   }
 | fullstruct';' {$$ = dactor(0);}
 | fullenum ';' {$$ = dactor(0);}
@@ -264,7 +263,7 @@ params:
 | params ',' param_decl {
     $$ = $1;
     if(psearch($$, $3->varname)) {
-      fprintf(stderr, "Error: param with duplicate name %s in %s %d.%d-%d.%d\n", $3->varname, dapeek(file2compile),  locprint(@$));
+      fprintf(stderr, "Error: param with duplicate name %s in %s %d.%d-%d.%d\n", $3->varname,  locprint(@$));
     } else {
       pinsert($$, $3->varname, $3);
     }
@@ -325,7 +324,7 @@ typem:
     if($1->fields == NULL) {
       DYNARR* da = (DYNARR*) search(scopepeek(ctx)->forwardstructs, $1->name); 
       if(!da) 
-        fprintf(stderr, "Error: struct %s undeclared in %s %d.%d-%d.%d\n", $1->name, dapeek(file2compile), locprint(@$));
+        fprintf(stderr, "Error: struct %s undeclared in %s %d.%d-%d.%d\n", $1->name, locprint(@$));
       else
         dapush(da, &($$->structtype));
     }}
@@ -336,7 +335,7 @@ typem:
     if($1->fields == NULL) {
       DYNARR* da = (DYNARR*) search(scopepeek(ctx)->forwardunions, $1->name); 
       if(!da) 
-        fprintf(stderr, "Error: union %s undeclared in %s %d.%d-%d.%d\n", $1->name, dapeek(file2compile), locprint(@$));
+        fprintf(stderr, "Error: union %s undeclared in %s %d.%d-%d.%d\n", $1->name, locprint(@$));
       else
         dapush(da, &($$->uniontype));
     }}
@@ -347,7 +346,7 @@ typem:
     if($1->fields == NULL) {
       DYNARR* da = (DYNARR*) search(scopepeek(ctx)->forwardenums, $1->name); 
       if(!da) 
-        fprintf(stderr, "Error: enum %s undeclared in %s %d.%d-%d.%d\n", $1->name, dapeek(file2compile), locprint(@$));
+        fprintf(stderr, "Error: enum %s undeclared in %s %d.%d-%d.%d\n", $1->name, locprint(@$));
       else
         dapush(da, &($$->enumtype));
     }};
@@ -364,7 +363,7 @@ typews1:
     if(idt) {
       memcpy($$, idt, sizeof(IDTYPE));
     } else {
-      fprintf(stderr, "Error: use of unknown type name %s in %s %d.%d-%d.%d\n", $1, dapeek(file2compile), locprint(@$));
+      fprintf(stderr, "Error: use of unknown type name %s in %s %d.%d-%d.%d\n", $1, locprint(@$));
     }
     }
 | typem {$$ = $1;}
@@ -375,7 +374,7 @@ typews1:
     if(idt) {
       memcpy($$, idt, sizeof(IDTYPE));
     } else {
-      fprintf(stderr, "Error: use of unknown type name %s in %s %d.%d-%d.%d\n", $2, dapeek(file2compile), locprint(@$));
+      fprintf(stderr, "Error: use of unknown type name %s in %s %d.%d-%d.%d\n", $2, locprint(@$));
     }
     $$->tb |= $1; 
     }
@@ -386,7 +385,7 @@ typews1:
     if(idt) {
       memcpy($$, idt, sizeof(IDTYPE));
     } else {
-      fprintf(stderr, "Error: use of unknown type name %s in %s %d.%d-%d.%d\n", $2, dapeek(file2compile), locprint(@$));
+      fprintf(stderr, "Error: use of unknown type name %s in %s %d.%d-%d.%d\n", $2, locprint(@$));
     }
     $$->tb |= $1; 
     };
@@ -502,16 +501,12 @@ esu:
     if(!expr) {
       $$ = ct_ident_expr(ctx, $1);
     } else {
-      char* foobar = $1;
       $$ = expr;
     }
     }
 | error {
     $$ = ct_nop_expr(); 
-    fprintf (stderr, "%d.%d-%d.%d in %s: error encountered\n",
-             @1.first_line, @1.first_column,
-             @1.last_line, @1.last_column,
-             dapeek(file2compile));
+    fprintf (stderr, "Malformed expression at %s %d.%d-%d.%d\n", locprint(@1));
     };
 escl:
   esc {$$ = dactor(32); dapush($$, $1);}
@@ -587,10 +582,7 @@ function:
     ctx->func = NULL;
     }
 | error compound_statement {
-  fprintf (stderr, "%d.%d-%d.%d in %s: error encountered in function definition\n",
-           @1.first_line, @1.first_column,
-           @1.last_line, @1.last_column,
-           dapeek(file2compile));
+  fprintf (stderr, "Malformed function definition at %s %d.%d-%d.%d\n", locprint(@1));
   };
 statement:
   compound_statement {$$ = $1;}
@@ -657,7 +649,7 @@ fullunion:
         insert(scopepeek(ctx)->forwardunions, $2, dactor(16));
       }
     } else {
-      fprintf(stderr, "Error: redefinition of union %s at %s %d.%d-%d.%d\n", $2, dapeek(file2compile), locprint(@$));
+      fprintf(stderr, "Error: redefinition of union %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
     }} structbody {
     $$ = unionctor($2, $4); 
     add2scope(ctx, $2, M_UNION, $$); 
@@ -674,7 +666,7 @@ union:
         $$->name = $2;
         $$->fields = NULL;
       } else {
-        fprintf(stderr, "Error: reference to undefined union %s at %s %d.%d-%d.%d\n", $2, dapeek(file2compile), locprint(@$));
+        fprintf(stderr, "Error: reference to undefined union %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
       }
     }};
 fullstruct:
@@ -685,7 +677,7 @@ fullstruct:
         insert(scopepeek(ctx)->forwardstructs, $2, dactor(16));
       }
     } else {
-      fprintf(stderr, "Error: redefinition of struct %s at %s %d.%d-%d.%d\n", $2, dapeek(file2compile), locprint(@$));
+      fprintf(stderr, "Error: redefinition of struct %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
     }} structbody {
     $$ = structor($2, $4); 
     add2scope(ctx, $2, M_STRUCT, $$);
@@ -702,7 +694,7 @@ struct:
         $$->name = $2;
         $$->fields = NULL;
       } else {
-        fprintf(stderr, "Error: reference to undefined struct %s at %s %d.%d-%d.%d\n", $2, dapeek(file2compile), locprint(@$));
+        fprintf(stderr, "Error: reference to undefined struct %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
       }
     }};
 structbody: '{' {fakescopepush(ctx);} struct_decls '}' {$$ = $3; scopepop(ctx);};
@@ -715,7 +707,7 @@ struct_decl:
       char* vn = dget($2, i)->varname;
       if(vn) {
         if(queryval(fakescopepeek(ctx)->fakescope, vn)) {
-          fprintf(stderr, "Error: redefinition of struct or union member %s at %s %d.%d-%d.%d\n", vn, dapeek(file2compile), locprint(@$));
+          fprintf(stderr, "Error: redefinition of struct or union member %s at %s %d.%d-%d.%d\n", vn, locprint(@$));
         } else {
           insert(fakescopepeek(ctx)->fakescope, vn, NULL);
         }
@@ -744,7 +736,7 @@ struct_decl:
           } else if($1->tb & UNIONVAL) {
             ht = scopepeek(ctx)->forwardunions;
           } else {
-            fprintf(stderr, "Error: forward declaration of unknown type %s at %s %d.%d-%d.%d\n", $1->structtype->name, dapeek(file2compile), locprint(@$));
+            fprintf(stderr, "Error: forward declaration of unknown type %s at %s %d.%d-%d.%d\n", $1->structtype->name, locprint(@$));
             continue;
           }
           DYNARR* da = search(ht, $1->structtype->name);
@@ -757,7 +749,7 @@ struct_decl:
       char* vn = dget($2, i)->varname;
       if(vn) {
         if(queryval(fakescopepeek(ctx)->fakescope, vn)) {
-          fprintf(stderr, "Error: redefinition of struct or union member %s at %s %d.%d-%d.%d\n", vn, dapeek(file2compile), locprint(@$));
+          fprintf(stderr, "Error: redefinition of struct or union member %s at %s %d.%d-%d.%d\n", vn, locprint(@$));
         } else {
           insert(fakescopepeek(ctx)->fakescope, vn, NULL);
         }
@@ -778,7 +770,7 @@ struct_decl:
       char* vn = dget($2, i)->varname;
       if(vn) {
         if(queryval(fakescopepeek(ctx)->fakescope, vn)) {
-          fprintf(stderr, "Error: redefinition of struct or union member %s at %s %d.%d-%d.%d\n", vn, dapeek(file2compile), locprint(@$));
+          fprintf(stderr, "Error: redefinition of struct or union member %s at %s %d.%d-%d.%d\n", vn, locprint(@$));
         } else {
           insert(fakescopepeek(ctx)->fakescope, vn, NULL);
         }
@@ -809,7 +801,7 @@ fullenum:
         insert(scopepeek(ctx)->forwardenums, $2, dactor(16));
       }
     } else {
-      fprintf(stderr, "Error: redefinition of enum %s at %s %d.%d-%d.%d\n", $2, dapeek(file2compile), locprint(@$));
+      fprintf(stderr, "Error: redefinition of enum %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
     }
     } enumbody {
     $$ = enumctor($2, $4); 
@@ -827,7 +819,7 @@ enum:
         $$->name = $2;
         $$->fields = NULL;
       } else {
-        fprintf(stderr, "Error: reference to undefined enum %s at %s %d.%d-%d.%d\n", $2, dapeek(file2compile), locprint(@$));
+        fprintf(stderr, "Error: reference to undefined enum %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
       }
     }};
 enumbody:
@@ -869,7 +861,7 @@ enums:
     dapush($$, genenumfield($3, newexpr));
     if(scopequeryval(ctx, M_ENUM_CONST, $3) ||
        scopequeryval(ctx, M_VARIABLE, $3)) {
-      fprintf(stderr, "Error: redefinition of symbol %s as enum constant at %s %d.%d-%d.%d\n", $3, dapeek(file2compile), locprint(@$));
+      fprintf(stderr, "Error: redefinition of symbol %s as enum constant at %s %d.%d-%d.%d\n", $3, locprint(@$));
     } else {
       add2scope(ctx, $3, M_ENUM_CONST, newexpr);
     }
@@ -878,7 +870,7 @@ enums:
     dapush($$, genenumfield($3,$5)); 
     if(scopequeryval(ctx, M_ENUM_CONST, $3) ||
        scopequeryval(ctx, M_VARIABLE, $3)) {
-      fprintf(stderr, "Error: redefinition of symbol %s as enum constant at %s %d.%d-%d.%d\n", $3, dapeek(file2compile), locprint(@$));
+      fprintf(stderr, "Error: redefinition of symbol %s as enum constant at %s %d.%d-%d.%d\n", $3, locprint(@$));
     } else {
       add2scope(ctx, $3, M_ENUM_CONST, $5);
     }

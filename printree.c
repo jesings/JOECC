@@ -35,17 +35,14 @@ int structree(STRUCT* container) {
       dprintf(funcfile, "n%d -> n%d;\n", structnode, pdecl(field));
     } else if(field->type->tb & ANONMEMB) {
       int (*memptr) (void*);
-      char* wmem;
       if(field->type->tb & STRUCTVAL) {
         memptr = (int (*) (void*)) structree;
-        wmem = "STRUCT";
       } else if(field->type->tb & UNIONVAL) {
         memptr = (int (*) (void*)) uniontree;
-        wmem = "UNION";
       } else {
         exit(-1);
       }
-      dprintf(funcfile, "n%d -> n%d;\n", structnode, memptr(field->type->structtype), wmem);
+      dprintf(funcfile, "n%d -> n%d;\n", structnode, memptr(field->type->structtype));
     } else  {
       exit(-1);
     }
@@ -75,17 +72,14 @@ int uniontree(UNION* container) {
       dprintf(funcfile, "n%d -> n%d;\n", unionnode, pdecl(field));
     } else if(field->type->tb & ANONMEMB) {
       int (*memptr) (void*);
-      char* wmem;
       if(field->type->tb & STRUCTVAL) {
         memptr = (int (*) (void*)) structree;
-        wmem = "STRUCT";
       } else if(field->type->tb & UNIONVAL) {
         memptr = (int (*) (void*)) uniontree;
-        wmem = "UNION";
       } else {
         exit(-1);
       }
-      dprintf(funcfile, "n%d -> n%d;\n", unionnode, memptr(field->type->structtype), wmem);
+      dprintf(funcfile, "n%d -> n%d;\n", unionnode, memptr(field->type->structtype));
     } else  {
       exit(-1);
     }
@@ -208,7 +202,7 @@ int treexpr(EXPRESSION* expr) {
         dprintf(funcfile, "n%d -> n%d;\n", exnode, treexpr(expr->params->arr[i]));
       break;
     case NEG: case PREINC: case POSTINC: case PREDEC: case POSTDEC: case ADDR: 
-    case DEREF: case SZOFEXPR: case L_NOT:
+    case DEREF: case SZOFEXPR: case L_NOT: case B_NOT:
       dprintf(funcfile, "n%d -> n%d;\n", exnode, treexpr(expr->params->arr[0]));
       break;
     case SZOF:
@@ -221,7 +215,7 @@ int treexpr(EXPRESSION* expr) {
     case FCALL:
       dprintf(funcfile, "n%d -> n%d [color=red];\n", exnode, treexpr(expr->params->arr[0]));
       for(int i = 1; i < expr->params->length; i++) {
-        dprintf(funcfile, "n%d -> n%d [color=green];\n", exnode, treexpr(expr->params->arr[i]), i);
+        dprintf(funcfile, "n%d -> n%d [color=green] [label=\"%d\"];\n", exnode, treexpr(expr->params->arr[i]), i);
       }
       break;
     case TERNARY:

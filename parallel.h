@@ -10,5 +10,6 @@ typedef struct {
 PARALLEL* paralector();
 void* psearch(PARALLEL* p, char* key);
 void pinsert(PARALLEL* p, char* key, void* value);
+char pquery(PARALLEL* p, char* key);
 #endif
 

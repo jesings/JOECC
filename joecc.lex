@@ -65,7 +65,7 @@ extern DYNARR* locs, * file2compile;
 }
 
 <MULTILINE_COMMENT>{
-  [^"*"]+ {/*The multiline comment is not terminated*/}
+  [^*]+ {/*The multiline comment is not terminated*/}
   "*"+ {/*The multiline comment is not terminated*/}
   "*"+"/" {yy_pop_state();}
 }
@@ -128,6 +128,7 @@ extern DYNARR* locs, * file2compile;
       fputs("Error: Unexpected #endif", stderr);
     }
     }
+  line {yy_pop_state(); yy_push_state(SINGLELINE_COMMENT);}
   \n {yy_pop_state();fprintf(stderr, "PREPROCESSOR: Incorrect line end %d\n", yylloc.first_line);}
   . {fprintf(stderr, "PREPROCESSOR: I made a stupid: %c\n", *yytext);}
 }
@@ -142,7 +143,7 @@ extern DYNARR* locs, * file2compile;
       char pathbuf[2048];
       extern char* execloc;
       snprintf(pathbuf, 2048, "%sinclude/%s", execloc, yytext + 1); //ignore opening <
-      FILE* newbuf;
+      //FILE* newbuf;
       //if((newbuf = fopen(pathbuf, "r")) != NULL) {
       //  YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
       //  yypush_buffer_state(ybs);
@@ -186,7 +187,7 @@ extern DYNARR* locs, * file2compile;
     }
     }
   [[:space:]]+[<\"] {/*"*/yyless(1);}
-  [[:space:]]*\n {yy_pop_state(); yy_pop_state();if(!stmtover) fprintf(stderr, "Error: incomplete include %d.%d-%d.%d %s\n", yylloc.first_line, yylloc.first_column, yylloc.last_line, yylloc.last_column, dapeek(file2compile));}
+  [[:space:]]*\n {yy_pop_state(); yy_pop_state();if(!stmtover) fprintf(stderr, "Error: incomplete include %d.%d-%d.%d %s\n", yylloc.first_line, yylloc.first_column, yylloc.last_line, yylloc.last_column, (char*) dapeek(file2compile));}
   . {fprintf(stderr, "INCLUDE: I made a stupid: %c\n", *yytext);}
 }
 
@@ -443,7 +444,8 @@ extern DYNARR* locs, * file2compile;
   }
   [[:space:]]*,[[:space:]]* {
     if(paren_depth) {
-      char tmpstr[3], tmpstrl = 0;
+      char tmpstr[3];
+      int tmpstrl = 0;
       if(yytext[0] == ' ')
         tmpstr[tmpstrl++] = ' ';
       tmpstr[tmpstrl++] = ',';
@@ -619,7 +621,7 @@ extern DYNARR* locs, * file2compile;
     }
   \\a\' {GOC('\a');}
   \\b\' {GOC('\b');}
-  \\e\' {GOC('\e');}
+  \\e\' {GOC('\033');}
   \\f\' {GOC('\f');}
   \\n\' {GOC('\n');}
   \\r\' {GOC('\r');}
@@ -630,7 +632,7 @@ extern DYNARR* locs, * file2compile;
   \\\\\' {GOC('\\');}
   \\\?\' {GOC('\?');}
   \\[0-7]{1,3}\' {
-    int result;
+    unsigned int result;
     sscanf(yytext + 1, "%o", &result);
     if(result >= 1 << 8) {
       fprintf(stderr, "Warning: octal character %s in string literal out of bounds\n", yytext);
@@ -638,7 +640,7 @@ extern DYNARR* locs, * file2compile;
     GOC((char) result);
     }
   \\0x[[:xdigit:]]{1,2}\' {
-    int result;
+    unsigned int result;
     sscanf(yytext + 3, "%x", &result);
     GOC((char) result);
     }
@@ -671,7 +673,7 @@ extern DYNARR* locs, * file2compile;
     }
   \\a {dsccat(strcur, '\a');}
   \\b {dsccat(strcur, '\b');}
-  \\e {dsccat(strcur, '\e');}
+  \\e {dsccat(strcur, '\033');}
   \\f {dsccat(strcur, '\f');}
   \\n {dsccat(strcur, '\n');}
   \\r {dsccat(strcur, '\r');}
@@ -682,7 +684,7 @@ extern DYNARR* locs, * file2compile;
   \\\\ {dsccat(strcur, '\\');}
   \\\? {dsccat(strcur, '\?');}
   \\[0-7]{1,3} {
-    int result;
+    unsigned int result;
     sscanf(yytext + 1, "%o", &result);
     if(result >= 1 << 8) {
       fprintf(stderr, "Warning: octal character %s in string literal out of bounds\n", yytext);
@@ -690,7 +692,7 @@ extern DYNARR* locs, * file2compile;
     dsccat(strcur, result);
     }
   \\0x[[:xdigit:]]{1,2} {
-    int result;
+    unsigned int result;
     sscanf(yytext + 3, "%x", &result);
     dsccat(strcur, result);
     }
@@ -735,8 +737,8 @@ extern DYNARR* locs, * file2compile;
   }
 }
 
-<*>. {fprintf(stderr, "Unexpected character encountered: %c %d %s\n", *yytext, *yytext, dapeek(file2compile));}
-<*>\n {fprintf(stderr, "Unexpected newline encountered: %s\n", dapeek(file2compile));}
+<*>. {fprintf(stderr, "Unexpected character encountered: %c %d %s %d.%d-%d.%d\n", *yytext, *yytext, locprint(yylloc));}
+<*>\n {fprintf(stderr, "Unexpected newline encountered:  %s %d.%d-%d.%d\n", locprint(yylloc));}
 %%
 int check_type(char* symb) {
   struct macrodef* macdef = search(ctx->defines, symb);

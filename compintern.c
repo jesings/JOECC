@@ -399,6 +399,7 @@ FUNC* ct_function(char* name, STATEMENT* body, PARALLEL* params, IDTYPE* retrn) 
   func->switchstack = dactor(8);
   func->caseindex = 0;
   func->numvars = 0;
+  func->purity = -1;
   return func;
 }
 
@@ -487,6 +488,10 @@ void* scopesearch(struct lexctx* lct, enum membertype mt, char* key){
           return rv->unionmemb;
         case M_TYPEDEF:
           return rv->typememb;
+        case M_GLOBAL: 
+          //global should never be encountered, they're coerced to variables on declaration
+          fprintf(stderr, "Error: corrupted global variable encountered");
+          return rv->idi;
       }
     }
   }
@@ -561,6 +566,8 @@ SCOPE* scopepeek(struct lexctx* lct) {
     if(htp->truescope)
       return htp;
   }
+  fprintf(stderr, "Error: corrupted scope environment encountered\n");
+  return NULL;
 }
 
 void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* memberval) {

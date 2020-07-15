@@ -1,5 +1,5 @@
 #include "hash.h"
-unsigned long fixedhash(unsigned char* data, char lbits) {    /*courtesy of http://www.cse.yorku.ca/~oz/hash.html */
+unsigned long fixedhash(char* data, char lbits) {    /*courtesy of http://www.cse.yorku.ca/~oz/hash.html */
   unsigned long hash = 5381;
   int c;
   while(c = *data++, --lbits >= 0)
