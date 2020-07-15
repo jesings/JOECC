@@ -256,6 +256,9 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
   EXPRTYPE eventualtype;
 
   //call on each param before the switch
+  for(int i = 0; i < ex->params->length; i++) {
+    ex->params->arr[i] = foldconst(EPARAM(ex, i));
+  }
   switch(ex->type) {
     case IDENT: case INT: case UINT: case FLOAT: case STRING: case NOP: case ARRAY_LIT: case CAST: case DOTOP: case ARROW:
       return ex;
@@ -624,15 +627,15 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
               case UINT:
                 rectexpr->type = FLOAT;
                 rectexpr->floatconst = rectexpr->uintconst;
-                rectexpr->floatconst += subexpr->floatconst;
+                rectexpr->floatconst *= subexpr->floatconst;
                 break;
               case INT:
                 rectexpr->type = FLOAT;
                 rectexpr->floatconst = rectexpr->intconst;
-                rectexpr->floatconst += subexpr->floatconst;
+                rectexpr->floatconst *= subexpr->floatconst;
                 break;
               case FLOAT:
-                rectexpr->floatconst += subexpr->floatconst;
+                rectexpr->floatconst *= subexpr->floatconst;
                 break;
             }
             free(subexpr);
