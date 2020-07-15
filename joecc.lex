@@ -140,19 +140,23 @@ extern DYNARR* locs, * file2compile;
       stmtover = 1;
       yytext[yyleng - 1] = '\0'; //ignore closing >
       char pathbuf[2048];
-      snprintf(pathbuf, 2048, "/usr/include/%s", yytext + 1); //ignore opening <
+      extern char* execloc;
+      snprintf(pathbuf, 2048, "%sinclude/%s", execloc, yytext + 1); //ignore opening <
       FILE* newbuf;
-      if((newbuf = fopen(pathbuf, "r")) != NULL) {
-        //YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
-        //yy_push_state(INITIAL);
-        //yypush_buffer_state(ybs);
-        yy_pop_state();
-        yy_pop_state();
-      } else {
-        fprintf(stderr, "Invalid system file %s included!\n", yytext + 1);
-        yy_pop_state();
-        yy_pop_state();
-      }
+      //if((newbuf = fopen(pathbuf, "r")) != NULL) {
+      //  YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
+      //  yypush_buffer_state(ybs);
+      //  yy_pop_state();
+      //  yy_pop_state();
+      //  yy_push_state(INITIAL);
+      //  break;
+      //} else {
+      //  fprintf(stderr, "Invalid system file %s included!\n", yytext + 1);
+      //  yy_pop_state();
+      //  yy_pop_state();
+      //}
+      yy_pop_state();
+      yy_pop_state();
     }
     }
   \"[^\"\n]*\" {/*"*/
@@ -514,6 +518,7 @@ extern DYNARR* locs, * file2compile;
 "&=" {return AND_GETS;}
 "^=" {return XOR_GETS;}
 "|=" {return OR_GETS;}
+"..." {return ELLIPSIS;}
 "typedef" {return TYPEDEF;}
 "static" {return STATIC;}
 "extern" {return EXTERN;}

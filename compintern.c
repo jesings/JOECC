@@ -143,6 +143,11 @@ EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident) {
   return retval;
 }
 
+char isglobal(struct lexctx* lct, char* ident) {
+  SCOPE* sc = daget(lct->scopes, 0);
+  return queryval(sc->members, ident);
+}
+
 void rfreexpr(EXPRESSION* e) {
   switch(e->type) {
     default:
@@ -393,6 +398,7 @@ FUNC* ct_function(char* name, STATEMENT* body, PARALLEL* params, IDTYPE* retrn) 
   func->lbls = htctor();
   func->switchstack = dactor(8);
   func->caseindex = 0;
+  func->numvars = 0;
   return func;
 }
 
@@ -557,8 +563,8 @@ SCOPE* scopepeek(struct lexctx* lct) {
   }
 }
 
-static long numvars = 0;//maybe do something special with global variables
-void add2scope(SCOPE* scope, char* memname, enum membertype mtype, void* memberval) {
+void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* memberval) {
+  SCOPE* scope = scopepeek(lct);
   SCOPEMEMBER* sm = malloc(sizeof(SCOPEMEMBER));
   sm->mtype = mtype;
   switch(mtype) {
@@ -582,10 +588,12 @@ void add2scope(SCOPE* scope, char* memname, enum membertype mtype, void* memberv
       sm->idi = malloc(sizeof(IDENTIFIERINFO));
       sm->idi->name = memname;
       sm->idi->type = memberval;
-      sm->idi->index= numvars++;
+      sm->idi->index= lct->func->numvars++;
       insert(scope->members, memname, sm);
       break;
-     default:
+    case M_GLOBAL:
+      sm->mtype = M_VARIABLE; //fallthrough, because we manually construct identifierinfo
+    default:
       sm->garbage = memberval;
       insert(scope->members, memname, sm);
       break;

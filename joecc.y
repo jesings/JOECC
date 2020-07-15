@@ -2,7 +2,7 @@
 %token ARROWTK "->" INC "++" DEC "--" SHLTK "<<" SHRTK ">>" LE "<=" GE ">=" EQTK "=="
 %token NEQTK "!=" AND "&&" OR "||" DIV_GETS "/=" MUL_GETS "*=" MOD_GETS "%="
 %token ADD_GETS "+=" SUB_GETS "-=" SHL_GETS "<<=" SHR_GETS ">>=" AND_GETS "&=" 
-%token XOR_GETS "^=" OR_GETS "|="
+%token XOR_GETS "^=" OR_GETS "|=" ELLIPSIS "..."
 
 %token TYPEDEF "typedef" STATIC "static" EXTERN "extern" CHAR "char" VOID "void"
 %token INT8 "int8" INT16 "int16" INT32 "int32" INT64 "int64" BYTE "byte"
@@ -93,7 +93,11 @@ program:
     $$ = dactor(4096);
     for(int i = 0; i < $1->length; i++) {
       if(!scopequeryval(ctx, M_VARIABLE, aget($1, i)->decl->varname)) {
-        add2scope(scopepeek(ctx), aget($1, i)->decl->varname, M_VARIABLE, aget($1, i)->expr);
+        IDENTIFIERINFO* id = malloc(sizeof(IDENTIFIERINFO));
+        id->index = -1;
+        id->name = aget($1, i)->decl->varname;
+        id->type = aget($1, i)->decl->type;
+        add2scope(ctx, aget($1, i)->decl->varname, M_GLOBAL, id);
       } else {
         fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", aget($1, i)->decl->varname, dapeek(file2compile), locprint(@$));
       }
@@ -115,7 +119,11 @@ program:
     $$ = $1;
     for(int i = 0; i < $2->length; i++) {
       if(!scopequeryval(ctx, M_VARIABLE, aget($2, i)->decl->varname)) {
-        add2scope(scopepeek(ctx), aget($2, i)->decl->varname, M_VARIABLE, aget($2, i)->expr);
+        IDENTIFIERINFO* id = malloc(sizeof(IDENTIFIERINFO));
+        id->index = -1;
+        id->name = aget($2, i)->decl->varname;
+        id->type = aget($2, i)->decl->type;
+        add2scope(ctx, aget($2, i)->decl->varname, M_GLOBAL, id);
       } else {
         fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", aget($2, i)->decl->varname, dapeek(file2compile), locprint(@$));
       }
@@ -155,7 +163,7 @@ initializer:
         dapush(da, &(dc->type->structtype));
       }
     }
-    add2scope(scopepeek(ctx), dc->varname, M_TYPEDEF, dc->type);
+    add2scope(ctx, dc->varname, M_TYPEDEF, dc->type);
     free(dc);
   }
   $$ = dactor(0);
@@ -195,7 +203,7 @@ initializer:
     }
     if(ac->decl->type->pointerstack->length &&
        ((struct declarator_part*) dapeek(ac->decl->type->pointerstack))->type != PARAMSSPEC) {
-      add2scope(current, ac->decl->varname, M_VARIABLE, ac->decl->type);
+      add2scope(ctx, ac->decl->varname, M_VARIABLE, ac->decl->type);
     } else {
       insert(ctx->funcs, ac->decl->varname, NULL);
     }
@@ -203,7 +211,7 @@ initializer:
 | "struct" SYMBOL ';' {
   $$ = dactor(0);
   if(!scopequeryval(ctx, M_STRUCT, $2)) {
-    add2scope(scopepeek(ctx), $2, M_STRUCT, NULL);
+    add2scope(ctx, $2, M_STRUCT, NULL);
     insert(scopepeek(ctx)->forwardstructs, $2, dactor(16));
   } else 
     fprintf(stderr, "Error: redefinition of struct %s in %s %d.%d-%d.%d\n", $2, dapeek(file2compile),  locprint(@$));
@@ -211,7 +219,7 @@ initializer:
 | "enum" SYMBOL ';' {
   $$ = dactor(0);
   if(!scopequeryval(ctx, M_ENUM, $2)) {
-    add2scope(scopepeek(ctx), $2, M_ENUM, NULL);
+    add2scope(ctx, $2, M_ENUM, NULL);
     insert(scopepeek(ctx)->forwardenums, $2, dactor(16));
   } else 
     fprintf(stderr, "Error: redefinition of enum %s in %s %d.%d-%d.%d\n", $2, dapeek(file2compile),  locprint(@$));
@@ -219,7 +227,7 @@ initializer:
 | "union" SYMBOL ';' {
   $$ = dactor(0);
   if(!scopequeryval(ctx, M_UNION, $2)) {
-    add2scope(scopepeek(ctx), $2, M_UNION, NULL);
+    add2scope(ctx, $2, M_UNION, NULL);
     insert(scopepeek(ctx)->forwardunions, $2, dactor(16));
   } else 
     fprintf(stderr, "Error: redefinition of union %s in %s %d.%d-%d.%d\n", $2, dapeek(file2compile),  locprint(@$));
@@ -248,7 +256,9 @@ declname:
 | declname '[' ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, NULL));}
 | declname '[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, $3));}
 | declname '(' ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, NULL));}
-| declname '(' params ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));};
+| declname '(' "void" ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, NULL));}
+| declname '(' params ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));}
+| declname '(' params ',' "..." ')' {$$ = $1; pinsert($3, "...", NULL); dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));};
 params:
   param_decl {$$ = paralector(8); pinsert($$, $1->varname, $1);}
 | params ',' param_decl {
@@ -552,20 +562,28 @@ function:
       parammemb = paralector();
     }
     $$ = ct_function($2->varname, NULL, parammemb, $2->type);
+    IDENTIFIERINFO* id = malloc(sizeof(IDENTIFIERINFO));
+    id->index = -1;
+    id->name = $2->varname;
+    $2->type->pointerstack = daclone($2->type->pointerstack);
+    dapush($2->type->pointerstack, dp);
+    id->type = $2->type;
+    add2scope(ctx, $2->varname, M_GLOBAL, id);
     free($2);
     ctx->func = $$;
+
     /*check that it is in fact a param spec*/
-    } '{' {
-      PARALLEL* par = $3->params;
-      scopepush(ctx);
-      for(int i = 0; i < par->da->length; i++) {
-        char* pname = daget(par->da, i);
-        add2scope(scopepeek(ctx), pname, M_VARIABLE, NULL);
-      }
-    } soiorno '}' {
+    PARALLEL* par = $$->params;
+    scopepush(ctx);
+    for(int i = 0; i < par->da->length; i++) {
+      char* pname = daget(par->da, i);
+      add2scope(ctx, pname, M_VARIABLE, NULL);
+    }
+    }
+    '{' soiorno '}' {
     scopepop(ctx);
     $$ = $3;
-    $$->body = mkcmpndstmt($6); 
+    $$->body = mkcmpndstmt($5); 
     ctx->func = NULL;
     }
 | error compound_statement {
@@ -635,14 +653,14 @@ fullunion:
   "union" SYMBOL {
     if(!scopesearch(ctx, M_UNION, $2)) {
       if(!queryval(scopepeek(ctx)->forwardunions, $2)) {
-        add2scope(scopepeek(ctx), $2, M_UNION, NULL);
+        add2scope(ctx, $2, M_UNION, NULL);
         insert(scopepeek(ctx)->forwardunions, $2, dactor(16));
       }
     } else {
       fprintf(stderr, "Error: redefinition of union %s at %s %d.%d-%d.%d\n", $2, dapeek(file2compile), locprint(@$));
     }} structbody {
     $$ = unionctor($2, $4); 
-    add2scope(scopepeek(ctx), $2, M_UNION, $$); 
+    add2scope(ctx, $2, M_UNION, $$); 
     defbackward(ctx, M_UNION, $2, $$);
     };
 union:
@@ -663,14 +681,14 @@ fullstruct:
   "struct" SYMBOL {
     if(!scopesearch(ctx, M_STRUCT, $2)) {
       if(!queryval(scopepeek(ctx)->forwardstructs, $2)) {
-        add2scope(scopepeek(ctx), $2, M_STRUCT, NULL);
+        add2scope(ctx, $2, M_STRUCT, NULL);
         insert(scopepeek(ctx)->forwardstructs, $2, dactor(16));
       }
     } else {
       fprintf(stderr, "Error: redefinition of struct %s at %s %d.%d-%d.%d\n", $2, dapeek(file2compile), locprint(@$));
     }} structbody {
     $$ = structor($2, $4); 
-    add2scope(scopepeek(ctx), $2, M_STRUCT, $$);
+    add2scope(ctx, $2, M_STRUCT, $$);
     defbackward(ctx, M_STRUCT, $2, $$);
     };
 struct:
@@ -787,7 +805,7 @@ fullenum:
   "enum" SYMBOL {
     if(!scopesearch(ctx, M_ENUM, $2)) {
       if(!queryval(scopepeek(ctx)->forwardenums, $2)) {
-        add2scope(scopepeek(ctx), $2, M_STRUCT, NULL);
+        add2scope(ctx, $2, M_STRUCT, NULL);
         insert(scopepeek(ctx)->forwardenums, $2, dactor(16));
       }
     } else {
@@ -795,7 +813,7 @@ fullenum:
     }
     } enumbody {
     $$ = enumctor($2, $4); 
-    add2scope(scopepeek(ctx), $2, M_ENUM, $$);
+    add2scope(ctx, $2, M_ENUM, $$);
     defbackward(ctx, M_ENUM, $2, $$);
     };
 enum:
@@ -818,11 +836,11 @@ enums:
   SYMBOL {$$ = dactor(256);
     EXPRESSION* const0 = ct_intconst_expr(0);
     dapush($$, genenumfield($1,const0)); 
-    add2scope(scopepeek(ctx), $1, M_ENUM_CONST, const0);
+    add2scope(ctx, $1, M_ENUM_CONST, const0);
     }
 | SYMBOL '=' esc {$$ = dactor(256);
     dapush($$, genenumfield($1,$3)); 
-    add2scope(scopepeek(ctx), $1, M_ENUM_CONST, $3);
+    add2scope(ctx, $1, M_ENUM_CONST, $3);
     }
 | enums ',' SYMBOL {
     $$ = $1; 
@@ -853,7 +871,7 @@ enums:
        scopequeryval(ctx, M_VARIABLE, $3)) {
       fprintf(stderr, "Error: redefinition of symbol %s as enum constant at %s %d.%d-%d.%d\n", $3, dapeek(file2compile), locprint(@$));
     } else {
-      add2scope(scopepeek(ctx), $3, M_ENUM_CONST, newexpr);
+      add2scope(ctx, $3, M_ENUM_CONST, newexpr);
     }
     }
 | enums ',' SYMBOL '=' esc {$$ = $1;
@@ -862,7 +880,7 @@ enums:
        scopequeryval(ctx, M_VARIABLE, $3)) {
       fprintf(stderr, "Error: redefinition of symbol %s as enum constant at %s %d.%d-%d.%d\n", $3, dapeek(file2compile), locprint(@$));
     } else {
-      add2scope(scopepeek(ctx), $3, M_ENUM_CONST, $5);
+      add2scope(ctx, $3, M_ENUM_CONST, $5);
     }
     };
 commaopt: ',' | %empty;

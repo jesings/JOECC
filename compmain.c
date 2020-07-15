@@ -8,10 +8,17 @@ int yylex();
 int yyparse();
 DYNARR* locs;
 DYNARR* file2compile;
+char* execloc;
 int main(int argc, char** argv) {
   ctx = ctxinit();
   locs = dactor(128);
   file2compile = dactor(128);
+  char* el2 = execloc = argv[0];
+  int lastslash = 0;
+  while(*++el2)
+    if(*el2 == '/') 
+      lastslash = el2 - execloc;
+  execloc[lastslash + 1] = '\0';
   int inval;
   int compilefile;
   if(argc > 1) {

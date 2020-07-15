@@ -106,6 +106,7 @@ typedef struct {
   HASHTABLE* lbls;
   DYNARR* switchstack;
   int caseindex;
+  int numvars;
 } FUNC;
 
 struct lexctx {
@@ -219,7 +220,7 @@ typedef struct {
   };
 } TOPBLOCK;
 
-#define MEMBERTYPELIST X(M_LABEL), X(M_TYPEDEF), X(M_VARIABLE), X(M_STRUCT), X(M_UNION), X(M_ENUM), X(M_ENUM_CONST)
+#define MEMBERTYPELIST X(M_LABEL), X(M_TYPEDEF), X(M_VARIABLE), X(M_GLOBAL), X(M_STRUCT), X(M_UNION), X(M_ENUM), X(M_ENUM_CONST)
 #define X(name) name
 enum membertype {
   MEMBERTYPELIST
@@ -235,15 +236,12 @@ typedef struct {
     IDTYPE* typememb;
     IDENTIFIERINFO* idi;
     EXPRESSION* enumnum;
-    EXPRESSION* caseval;
-    //label needs nothing?
     void* garbage;
   };
 } SCOPEMEMBER;
 
 typedef struct {
   char truescope;
-  //one for vars ?
   union {
     struct {
       HASHTABLE* typesdef;//SCOPEMEMBER argument
@@ -286,6 +284,7 @@ EXPRESSION* ct_floatconst_expr(double num);
 EXPRESSION* ct_array_lit(DYNARR* da);
 EXPRESSION* ct_member_expr(char* member);
 EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident);
+char isglobal(struct lexctx* lct, char* ident);
 void rfreexpr(EXPRESSION* e);
 EXPRESSION* rclonexpr(EXPRESSION* e);
 DECLARATION* mkdeclaration(char* name);
@@ -317,7 +316,7 @@ SCOPE* scopepeek(struct lexctx* lct);
 void* scopesearch(struct lexctx* lct, enum membertype mt, char* key);
 char scopequeryval(struct lexctx* lct, enum membertype mt, char* key);
 void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, void* assignval);
-void add2scope(SCOPE* scope, char* memname, enum membertype mtype, void* memberval);
+void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* memberval);
 TOPBLOCK* gtb(char isfunc, void* assign);
 
 #define locprint(lv) lv.first_line, lv.first_column, lv.last_line, lv.last_column
