@@ -7,6 +7,7 @@ INTSIZE (u|U|l|L)*
 %{
 //TODO: handle if, elif in preprocessor (including defined and stuff)
 //TODO: handle stringizing in macros
+//TODO: handle concatenation in macros
 
 #include <math.h>
 #include "joecc.tab.h"
@@ -55,6 +56,7 @@ extern DYNARR* locs, * file2compile;
 %x KILLBLANK
 %x STRINGLIT CHARLIT
 %x CALLMACRO FINDREPLACE
+%x WITHINIF
 
 %%
 <KILLBLANK>{
@@ -148,7 +150,9 @@ extern DYNARR* locs, * file2compile;
     yy_push_state(PPSKIP);
     yy_push_state(SINGLELINE_COMMENT);
     }
-  line {yy_pop_state(); yy_push_state(SINGLELINE_COMMENT);}
+  line {yy_pop_state(); yy_push_state(SINGLELINE_COMMENT);/*TODO: line directive currently ignored*/}
+  warning {yy_pop_state(); yy_push_state(SINGLELINE_COMMENT); fprintf(stderr, "Preprocessor warning directive encountered %s %d.%d-%d.%d\n", locprint(yylloc)); /*TODO: warning directive currently ignored*/}
+  error {yy_pop_state(); yy_push_state(SINGLELINE_COMMENT); fprintf(stderr, "Preprocessor error directive encountered %s %d.%d-%d.%d\n", locprint(yylloc)); exit(-1); /*TODO: warning directive currently ignored*/}
   \n {yy_pop_state();fprintf(stderr, "PREPROCESSOR: Incorrect line end %d %s %d.%d-%d.%d\n", yylloc.first_line, locprint(yylloc));}
   . {fprintf(stderr, "PREPROCESSOR: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint(yylloc));}
 }
@@ -519,17 +523,14 @@ extern DYNARR* locs, * file2compile;
 
 
 <INITIAL,SINGLELINE_COMMENT,PREPROCESSOR,INCLUDE,DEFINE,DEFINE2,IFDEF,IFNDEF,STRINGLIT>\\+[[:blank:]]*\n {/*the newline is ignored*/}
+<WITHINIF>"defined" {/*go into special preprocessor mode*/}
 "->" {return ARROWTK;}
 "++" {return INC;}
 "--" {return DEC;}
-"<<" {return SHLTK;}
-">>" {return SHRTK;}
 "<=" {return LE;}
 ">=" {return GE;}
 "==" {return EQTK;}
 "!=" {return NEQTK;}
-"&&" {return AND;}
-"||" {return OR;}
 "/=" {return DIV_GETS;}
 "*=" {return MUL_GETS;}
 "%=" {return MOD_GETS;}
@@ -578,33 +579,54 @@ extern DYNARR* locs, * file2compile;
 "struct" {return STRUCTTK;}
 "enum" {return ENUMTK;}
 "union" {return UNIONTK;}
-"&" {return '&';}
-"*" {return '*';}
-"<" {return '<';}
-">" {return '>';}
+<INITIAL,WITHINIF>{
+  "<<" {return SHLTK;}
+  ">>" {return SHRTK;}
+  "&&" {return AND;}
+  "||" {return OR;}
+  "<" {return '<';}
+  ">" {return '>';}
+  "=" {return '=';}
+  "!" {return '!';}
+  "-" {return '-';}
+  "(" {return '(';}
+  ")" {return ')';}
+  "|" {return '|';}
+  "+" {return '+';}
+  "/" {return '/';}
+  "*" {return '*';}
+  "~" {return '~';}
+  "^" {return '^';}
+  "&" {return '&';}
+}
 "[" {return '[';}
 "]" {return ']';}
 ":" {return ':';}
 "," {return ',';}
 "{" {return '{';}
 "}" {return '}';}
-"=" {return '=';}
-"!" {return '!';}
-"-" {return '-';}
-"(" {return '(';}
-")" {return ')';}
-"%" {return '%';}
-"." {return '.';}
-"|" {return '|';}
-"+" {return '+';}
 "?" {return '?';}
 ";" {return ';';}
-"/" {return '/';}
-"~" {return '~';}
-"^" {return '^';}
+"%" {return '%';}
+"." {return '.';}
 
 ((?i:"infinity")|(?i:"inf")) {yylval.dbl = 0x7f800000; return FLOAT_LITERAL;}
 (?i:"nan") {yylval.dbl = 0x7fffffff; return FLOAT_LITERAL;}
+
+<WITHINIF>{
+  {IDENT} {
+    char* ylstr = strdup(yytext);
+    int mt = check_type(ylstr);
+    switch(mt) {
+      default:
+        yylval.ii.num = 0;
+        yylval.ii.sign = 0;
+        return INTEGER_LITERAL;
+      case -1:
+        break;
+    } 
+  }
+}
 
 {IDENT} {
   char* ylstr = strdup(yytext);
@@ -614,22 +636,24 @@ extern DYNARR* locs, * file2compile;
       yylval.str = ylstr;
       return mt;
   } 
-  }
+}
 
-0[bB]{BIN}+{INTSIZE}? {yylval.ii.num = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
-                       yylval.ii.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
-0{OCT}+{INTSIZE}? {yylval.ii.num = strtoul(yytext,NULL,8);//every intconst is 8 bytes
-                   yylval.ii.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
-[[:digit:]]+{INTSIZE}?  {yylval.ii.num = strtoul(yytext,NULL,10);//every intconst is 8 bytes
-                   yylval.ii.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
-0[xX][[:xdigit:]]+{INTSIZE}? {yylval.ii.num = strtoul(yytext,NULL,16); /*specify intsize here in yylval.ii.size maybe?*/
-                       yylval.ii.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
+<INITIAL,WITHINIF>{
+  0[bB]{BIN}+{INTSIZE}? {yylval.ii.num = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
+                         yylval.ii.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
+  0{OCT}+{INTSIZE}? {yylval.ii.num = strtoul(yytext,NULL,8);//every intconst is 8 bytes
+                     yylval.ii.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
+  [[:digit:]]+{INTSIZE}?  {yylval.ii.num = strtoul(yytext,NULL,10);//every intconst is 8 bytes
+                     yylval.ii.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
+  0[xX][[:xdigit:]]+{INTSIZE}? {yylval.ii.num = strtoul(yytext,NULL,16); /*specify intsize here in yylval.ii.size maybe?*/
+                         yylval.ii.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
+  \' {yy_push_state(CHARLIT);}
+}
 
 [[:digit:]]+{EXP}{FLOATSIZE}? {sscanf(yytext, "%lf", &yylval.dbl);return FLOAT_LITERAL;}
 [[:digit:]]*"."?[[:digit:]]+({EXP})?{FLOATSIZE}? {sscanf(yytext, "%lf", &yylval.dbl);return FLOAT_LITERAL;}
 [[:digit:]]+"."?[[:digit:]]*({EXP})?{FLOATSIZE}? {sscanf(yytext, "%lf", &yylval.dbl);return FLOAT_LITERAL;}
 
-\' {yy_push_state(CHARLIT); }
 <CHARLIT>{
   \' {
     fprintf(stderr, "Error: 0 length character literal %s %s %d.%d-%d.%d\n", yytext, locprint(yylloc));
@@ -641,14 +665,14 @@ extern DYNARR* locs, * file2compile;
     }
   \\a\' {GOC('\a');}
   \\b\' {GOC('\b');}
-  \\e\' {GOC('\033');}
+  \\e\' {GOC('\33');}
   \\f\' {GOC('\f');}
   \\n\' {GOC('\n');}
   \\r\' {GOC('\r');}
   \\t\' {GOC('\t');}
   \\v\' {GOC('\v');}
   \\\'\' {GOC('\'');}
-  \\\"\' {GOC('\"');/*"*/}
+  \\\"\' {/*"*/GOC('\"');}
   \\\\\' {GOC('\\');}
   \\\?\' {GOC('\?');}
   \\[0-7]{1,3}\' {
@@ -667,14 +691,14 @@ extern DYNARR* locs, * file2compile;
   \\.\' {
     fprintf(stderr, "Warning: Unknown escape sequence %s in string literal %s %d.%d-%d.%d\n", yytext, locprint(yylloc));
     GOC(yytext[1]);
-  }
+    }
   [^\\\'\n\v]\' {
     GOC(yytext[0]);
-  }
+    }
   [^\']{2,}\' {
     fprintf(stderr, "Error: character literal too long %s %s %d.%d-%d.%d\n", yytext, locprint(yylloc));
     GOC(yytext[1]);
-  }
+    }
 }
 
 \" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
@@ -693,7 +717,7 @@ extern DYNARR* locs, * file2compile;
     }
   \\a {dsccat(strcur, '\a');}
   \\b {dsccat(strcur, '\b');}
-  \\e {dsccat(strcur, '\033');}
+  \\e {dsccat(strcur, '\33');}
   \\f {dsccat(strcur, '\f');}
   \\n {dsccat(strcur, '\n');}
   \\r {dsccat(strcur, '\r');}
@@ -724,9 +748,10 @@ extern DYNARR* locs, * file2compile;
     dscat(strcur, yytext, yyleng);
   }
 }
-
-[[:blank:]]+ {/*Whitespace, ignored*/}
-[[:space:]] {/*Whitespace, ignored*/}
+<INITIAL,WITHINIF>{
+  [[:blank:]]+ {/*Whitespace, ignored*/}
+  [[:space:]] {/*Whitespace, ignored*/}
+}
 
 <<EOF>> {
   yypop_buffer_state();

@@ -9,6 +9,8 @@ int yyparse();
 DYNARR* locs;
 DYNARR* file2compile;
 char* execloc;
+//TODO: Predefined macros
+//TODO: Variadic macros?
 int main(int argc, char** argv) {
   ctx = ctxinit();
   locs = dactor(128);
