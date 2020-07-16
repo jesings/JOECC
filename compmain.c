@@ -8,19 +8,13 @@ int yylex();
 int yyparse();
 DYNARR* locs;
 DYNARR* file2compile;
-char* execloc;
 //TODO: Predefined macros
+//__FILE__, __LINE__, __DATE__, __TIME__, __STDC__ = 1, __STDC_VERSION__ = '199901L', __STDC_HOSTED__ = 1
 //TODO: Variadic macros?
 int main(int argc, char** argv) {
   ctx = ctxinit();
   locs = dactor(128);
   file2compile = dactor(128);
-  char* el2 = execloc = argv[0];
-  int lastslash = 0;
-  while(*++el2)
-    if(*el2 == '/') 
-      lastslash = el2 - execloc;
-  execloc[lastslash + 1] = '\0';
   int inval;
   int compilefile;
   if(argc > 1) {

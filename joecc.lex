@@ -117,6 +117,26 @@ extern DYNARR* locs, * file2compile;
         break;
     }
     }
+  elif[[:blank:]]*\n {
+    yy_pop_state();
+    DYNARR* ds = ctx->definestack;
+    enum ifdefstate ids = ds->length > 0 ? *(enum ifdefstate*) dapeek(ds) : ELSEANDFALSE;
+    switch(ids) {
+      case IFANDTRUE: 
+        *(enum ifdefstate*) dapeek(ds) = IFDEFDUMMY;
+        yy_push_state(PPSKIP);
+        break;
+      case IFANDFALSE: 
+        *(enum ifdefstate*) dapeek(ds) = ELSEANDFALSE;
+        //evaluate if condition
+        yy_pop_state();
+        break;
+      case IFDEFDUMMY:
+        break;
+      default:
+        fprintf(stderr, "Error: Unexpected #elif %s %d.%d-%d.%d\n", locprint(yylloc));
+    }
+    }
   endif[[:blank:]]*\n {/*handle endif case*/
     yy_pop_state();
     DYNARR* ds = ctx->definestack;
@@ -165,8 +185,7 @@ extern DYNARR* locs, * file2compile;
       stmtover = 1;
       yytext[yyleng - 1] = '\0'; //ignore closing >
       char pathbuf[2048];
-      extern char* execloc;
-      snprintf(pathbuf, 2048, "%sinclude/%s", execloc, yytext + 1); //ignore opening <
+      snprintf(pathbuf, 2048, "/blah/include/%s", yytext + 1); //ignore opening <
       //FILE* newbuf;
       //if((newbuf = fopen(pathbuf, "r")) != NULL) {
       //  YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
