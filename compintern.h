@@ -110,14 +110,6 @@ typedef struct {
   char purity;
 } FUNC;
 
-struct lexctx {
-  HASHTABLE* funcs;
-  DYNARR* scopes;
-  DYNARR* definestack;
-  FUNC* func;
-  HASHTABLE* defines;
-};
-
 typedef struct expr {
   EXPRTYPE type;
   DYNARR* params; //arr of exprs
@@ -133,6 +125,15 @@ typedef struct expr {
     /*possible struct const for later struct initializations*/
   };
 } EXPRESSION;
+
+struct lexctx {
+  HASHTABLE* funcs;
+  DYNARR* scopes;
+  DYNARR* definestack;
+  FUNC* func;
+  HASHTABLE* defines;
+  EXPRESSION* ifexpr;
+};
 
 typedef struct {
   char isE;

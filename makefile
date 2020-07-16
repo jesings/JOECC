@@ -1,15 +1,17 @@
 CC = gcc
 LDFLAGS = 
 CFLAGS = -g -Wall -Wpedantic
-compiler: joecc.tab.o lex.yy.o hash.o fixedhash.o  dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o
+compiler: joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o  dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o
 	mkdir -p functions
-	$(CC) joecc.tab.o lex.yy.o hash.o fixedhash.o dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o -o compiler $(LDFLAGS)
+	$(CC) joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o -o compiler $(LDFLAGS)
 gotest: compiler
 	./compiler dynarr.c
 lex.yy.c: joecc.lex
 	flex --header-file=lex.h joecc.lex
 joecc.tab.c: joecc.y
 	bison -d joecc.y --report=all
+ifjoecc.tab.c: ifjoecc.y
+	bison -d ifjoecc.y --report=all
 hash.o: hash.c
 	$(CC) hash.c -c $(CFLAGS)
 fixedhash.o: fixedhash.c
@@ -22,6 +24,8 @@ lex.yy.o: lex.yy.c
 	$(CC) lex.yy.c -c $(CFLAGS)
 joecc.tab.o: joecc.tab.c
 	$(CC) joecc.tab.c -c $(CFLAGS)
+ifjoecc.tab.o: ifjoecc.tab.c
+	$(CC) ifjoecc.tab.c -c $(CFLAGS)
 compintern.o: compintern.c
 	$(CC) compintern.c -c $(CFLAGS)
 compmain.o: compmain.c

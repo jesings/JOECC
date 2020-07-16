@@ -27,6 +27,7 @@ INTSIZE (u|U|l|L)*
     }
 #define SIGNEDCHAR 0
 
+int zzparse();
 int check_type(char* symb);
 extern struct lexctx* ctx;
 char stmtover, skipping;
@@ -157,18 +158,19 @@ extern DYNARR* locs, * file2compile;
     yy_pop_state();
     DYNARR* ds = ctx->definestack;
     enum ifdefstate ids = ds->length > 0 ? *(enum ifdefstate*) dapeek(ds) : IFANDTRUE;
-    enum ifdefstate* rids = malloc(sizeof(enum ifdefstate));
+    enum ifdefstate* rids;
     switch(ids) {
-      default:
-        *rids = IFANDFALSE;//TODO: actually handle this
-        break;
-      case IFDEFDUMMY: case IFANDFALSE: case ELSEANDTRUE:
+      case IFDEFDUMMY: 
+        rids = malloc(sizeof(enum ifdefstate));
         *rids = IFDEFDUMMY;
+        dapush(ds, rids);
+        yy_push_state(PPSKIP);
+        break;
+      default:
+        yy_push_state(WITHINIF);
+        zzparse();
         break;
     }
-    dapush(ds, rids);
-    yy_push_state(PPSKIP);
-    yy_push_state(SINGLELINE_COMMENT);
     }
   line {yy_pop_state(); yy_push_state(SINGLELINE_COMMENT);/*TODO: line directive currently ignored*/}
   warning {yy_pop_state(); yy_push_state(SINGLELINE_COMMENT); fprintf(stderr, "Preprocessor warning directive encountered %s %d.%d-%d.%d\n", locprint(yylloc)); /*TODO: warning directive currently ignored*/}
@@ -541,7 +543,7 @@ extern DYNARR* locs, * file2compile;
 }
 
 
-<INITIAL,SINGLELINE_COMMENT,PREPROCESSOR,INCLUDE,DEFINE,DEFINE2,IFDEF,IFNDEF,STRINGLIT>\\+[[:blank:]]*\n {/*the newline is ignored*/}
+<INITIAL,SINGLELINE_COMMENT,PREPROCESSOR,INCLUDE,DEFINE,DEFINE2,IFDEF,IFNDEF,STRINGLIT,WITHINIF>\\+[[:blank:]]*\n {/*the newline is ignored*/}
 <WITHINIF>"defined" {/*go into special preprocessor mode*/}
 "->" {return ARROWTK;}
 "++" {return INC;}
@@ -767,10 +769,9 @@ extern DYNARR* locs, * file2compile;
     dscat(strcur, yytext, yyleng);
   }
 }
-<INITIAL,WITHINIF>{
-  [[:blank:]]+ {/*Whitespace, ignored*/}
-  [[:space:]] {/*Whitespace, ignored*/}
-}
+<INITIAL,WITHINIF>[[:blank:]]+ {/*Whitespace, ignored*/}
+<WITHINIF>[[:space:]] {yy_pop_state(); return '\n';/*modify ifdefstack*/}
+[[:space:]] {/*Whitespace, ignored*/}
 
 <<EOF>> {
   yypop_buffer_state();
