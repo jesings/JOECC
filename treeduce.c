@@ -901,9 +901,141 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       ex->params = newdyn;
       return ct_binary_expr(COMMA, ex, subexpr);
     case B_AND: 
+      newdyn = dactor(32);
+      for(int i = 0; i < ex->params->length; i++) {
+        subexpr = EPARAM(ex, i);
+        rectexpr = ct_uintconst_expr(-1UL);
+        switch(subexpr->type) {
+          case B_AND:
+            for(int j = 0; j < subexpr->params->length; j++) {
+              dapush(newdyn, EPARAM(subexpr, j)); 
+            }
+            dadtor(subexpr->params);
+            free(subexpr);
+            return subexpr;
+          default:
+            dapush(newdyn, subexpr);
+            break;
+          case COMMA:
+            //look at end of expr
+            dapush(newdyn, subexpr);
+            break;
+          case UINT: case INT: case FLOAT:
+              rectexpr->uintconst &= subexpr->uintconst;
+              free(subexpr);
+              if(rectexpr->uintconst == 0) {
+                for(; i < ex->params->length; i++) {
+                  EXPRESSION* free2 = EPARAM(ex, i);
+                  if(puritree(free2)) {
+                    rfreexpr(free2);
+                  } else {
+                    dapush(newdyn, free2);
+                  }
+                }
+              }
+            break;
+        }
+      }
+      dadtor(ex->params);
+      if(newdyn->length == 0) {
+        free(ex);
+        dadtor(newdyn);
+        return rectexpr;
+      }
+      if(rectexpr->uintconst != -1UL) {
+        dapush(newdyn, rectexpr);
+      }
+
+      ex->params = newdyn;
+      return ex;
       //flatten, make const, if const is 0, eliminate impure
-    case B_OR: case B_XOR:
-      ///no clue what should be done here except adopt/flatten in subexprs
+    case B_OR:
+      newdyn = dactor(32);
+      for(int i = 0; i < ex->params->length; i++) {
+        subexpr = EPARAM(ex, i);
+        rectexpr = ct_uintconst_expr(0);
+        switch(subexpr->type) {
+          case B_OR:
+            for(int j = 0; j < subexpr->params->length; j++) {
+              dapush(newdyn, EPARAM(subexpr, j)); 
+            }
+            dadtor(subexpr->params);
+            free(subexpr);
+            return subexpr;
+          default:
+            dapush(newdyn, subexpr);
+            break;
+          case COMMA:
+            //look at end of expr
+            dapush(newdyn, subexpr);
+            break;
+          case UINT: case INT: case FLOAT:
+              rectexpr->uintconst |= subexpr->uintconst;
+              free(subexpr);
+              if(rectexpr->uintconst == -1UL) {
+                for(; i < ex->params->length; i++) {
+                  EXPRESSION* free2 = EPARAM(ex, i);
+                  if(puritree(free2)) {
+                    rfreexpr(free2);
+                  } else {
+                    dapush(newdyn, free2);
+                  }
+                }
+              }
+            break;
+        }
+      }
+      dadtor(ex->params);
+      if(newdyn->length == 0) {
+        free(ex);
+        dadtor(newdyn);
+        return rectexpr;
+      }
+      if(rectexpr->uintconst != 0) {
+        dapush(newdyn, rectexpr);
+      }
+
+      ex->params = newdyn;
+      return ex;
+
+    case B_XOR:
+      newdyn = dactor(32);
+      for(int i = 0; i < ex->params->length; i++) {
+        subexpr = EPARAM(ex, i);
+        rectexpr = ct_uintconst_expr(0);
+        switch(subexpr->type) {
+          case B_OR:
+            for(int j = 0; j < subexpr->params->length; j++) {
+              dapush(newdyn, EPARAM(subexpr, j)); 
+            }
+            dadtor(subexpr->params);
+            free(subexpr);
+            return subexpr;
+          default:
+            dapush(newdyn, subexpr);
+            break;
+          case COMMA:
+            //look at end of expr
+            dapush(newdyn, subexpr);
+            break;
+          case UINT: case INT: case FLOAT:
+              rectexpr->uintconst ^= subexpr->uintconst;
+              free(subexpr);
+            break;
+        }
+      }
+      dadtor(ex->params);
+      if(newdyn->length == 0) {
+        free(ex);
+        dadtor(newdyn);
+        return rectexpr;
+      }
+      if(rectexpr->uintconst != 0) {
+        dapush(newdyn, rectexpr);
+      }
+
+      ex->params = newdyn;
+      return ex;
     case SHL://maybe check if right side is within bounds of type size
       INTOP(<<=);
       return ex;
