@@ -1,6 +1,6 @@
 #include "hash.h"
 
-unsigned long hash(char* str) {    /*courtesy of http://www.cse.yorku.ca/~oz/hash.html */
+static unsigned long hash(const char* str) {    /*courtesy of http://www.cse.yorku.ca/~oz/hash.html */
   unsigned long hash = 5381;
   int c;
   while((c = *str++))
@@ -8,7 +8,7 @@ unsigned long hash(char* str) {    /*courtesy of http://www.cse.yorku.ca/~oz/has
   return hash % HASHSIZE;
 }
 
-HASHTABLE* htctor() {
+HASHTABLE* htctor(void) {
   return calloc(1, sizeof(HASHTABLE));
 }
 
@@ -34,25 +34,7 @@ HASHTABLE* htclone(HASHTABLE* ht) {
   return retval;
 }
 
-void hpdtor(HASHPAIR* hp) {
-  if(hp->next) {
-    free(hp->key);
-    hpdtor(hp->next);
-  }
-  free(hp);
-}
-
-void htdtor(HASHTABLE* ht) {
-  for(int i = 0; i < HASHSIZE; i++) {
-    if(ht->pairs[i].next)
-      hpdtor(ht->pairs[i].next);
-    if(ht->pairs[i].key)
-      free(ht->pairs[i].key);
-  }
-  free(ht);
-}
-
-void hpdtorfr(HASHPAIR* hp) {
+static void hpdtorfr(HASHPAIR* hp) {
   if(hp->next) {
     free(hp->key);
     free(hp->value);
@@ -73,7 +55,7 @@ void htdtorfr(HASHTABLE* ht) {
   free(ht);
 }
 
-void insert(HASHTABLE* ht, char* key, void* value) {
+void insert(HASHTABLE* ht, const char* key, void* value) {
   unsigned long i = hash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!(hp->key)) {
@@ -98,7 +80,7 @@ void insert(HASHTABLE* ht, char* key, void* value) {
   ++ht->keys;
 }
 
-void insertfr(HASHTABLE* ht, char* key, void* value) {
+void insertfr(HASHTABLE* ht, const char* key, void* value) {
   unsigned long i = hash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!(hp->key)) {
@@ -125,7 +107,7 @@ void insertfr(HASHTABLE* ht, char* key, void* value) {
   ++ht->keys;
 }
 
-void rmpair(HASHTABLE* ht, char* key) {
+void rmpair(HASHTABLE* ht, const char* key) {
   unsigned long i = hash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!(hp->key))
@@ -147,7 +129,7 @@ void rmpair(HASHTABLE* ht, char* key) {
   }
 }
 
-void rmpairfr(HASHTABLE* ht, char* key) {
+void rmpairfr(HASHTABLE* ht, const char* key) {
   unsigned long i = hash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!(hp->key))
@@ -171,7 +153,7 @@ void rmpairfr(HASHTABLE* ht, char* key) {
   }
 }
 
-void* search(HASHTABLE* ht, char* key) {
+void* search(HASHTABLE* ht, const char* key) {
   unsigned long i = hash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!(hp->key))
@@ -183,7 +165,7 @@ void* search(HASHTABLE* ht, char* key) {
   return NULL;
 }
 
-void* searchval(HASHTABLE* ht, char* key, char* vallocate) {
+void* searchval(HASHTABLE* ht, const char* key, char* vallocate) {
   unsigned long i = hash(key);
   *vallocate = 0;
   HASHPAIR* hp = &(ht->pairs[i]);
@@ -198,7 +180,7 @@ void* searchval(HASHTABLE* ht, char* key, char* vallocate) {
   return NULL;
 }
 
-char queryval(HASHTABLE* ht, char* key) {
+char queryval(HASHTABLE* ht, const char* key) {
   unsigned long i = hash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!(hp->key))

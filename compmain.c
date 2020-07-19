@@ -4,8 +4,8 @@
 #include "compintern.h"
 #include "printree.h"
 struct lexctx* ctx;
-int yylex();
-int yyparse();
+int yylex(void);
+int yyparse(void);
 DYNARR* locs;
 DYNARR* file2compile;
 //TODO: Predefined macros
@@ -25,7 +25,7 @@ int main(int argc, char** argv) {
       exit(1);
     dup2(compilefile, STDIN_FILENO);
   } else {
-    dapush(file2compile, "stdin");
+    dapush(file2compile, (void*)(unsigned long) "stdin");
   }
   extern int yydebug;
   yydebug = 0;

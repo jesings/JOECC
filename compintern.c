@@ -28,7 +28,7 @@ EXPRESSION* cloneexpr(EXPRESSION* orig) {
   return clone;
 }
 
-EXPRESSION* ct_nop_expr() {
+EXPRESSION* ct_nop_expr(void) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = NOP;
   return retval;
@@ -88,10 +88,10 @@ EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params) {
   return retval;
 }
 
-EXPRESSION* ct_strconst_expr(char* str) {
+EXPRESSION* ct_strconst_expr(const char* str) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = STRING;
-  retval->strconst = str;
+  retval->strconst = (char*)(unsigned long) str;
   return retval;
 }
 
@@ -363,7 +363,7 @@ STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label) {
 
 STATEMENT* mkdefaultstmt(struct lexctx* lct, char* label) {
   PARALLEL* pl = dapeek(lct->func->switchstack);
-  pinsert(pl, label, ct_strconst_expr("default"));//TODO reverse the order of these--expr rectified to int should point to label
+  pinsert(pl, label, ct_strconst_expr((char*)(unsigned long)"default"));//TODO reverse the order of these--expr rectified to int should point to label
   return mklblstmt(lct, label);
 }
 
@@ -403,7 +403,7 @@ FUNC* ct_function(char* name, STATEMENT* body, PARALLEL* params, IDTYPE* retrn) 
   return func;
 }
 
-SCOPE* mkscope() {
+SCOPE* mkscope(void) {
   SCOPE* child = malloc(sizeof(SCOPE));
   child->truescope = 1;
   child->members = htctor();
@@ -417,7 +417,7 @@ SCOPE* mkscope() {
   return child;
 }
 
-SCOPE* mkfakescope() {
+SCOPE* mkfakescope(void) {
   SCOPE* child = malloc(sizeof(SCOPE));
   child->truescope = 0;
   child->fakescope = htctor();
@@ -524,7 +524,7 @@ char scopequeryval(struct lexctx* lct, enum membertype mt, char* key) {
   return 0;
 }
 
-struct lexctx* ctxinit() {
+struct lexctx* ctxinit(void) {
   struct lexctx* lct =  malloc(sizeof(struct lexctx));
   lct->funcs = htctor();
   lct->defines = htctor();
@@ -593,7 +593,9 @@ void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* m
       insert(scope->members, memname, sm);
       break;
     case M_GLOBAL:
-      sm->mtype = M_VARIABLE; //fallthrough, because we manually construct identifierinfo
+      sm->mtype = M_VARIABLE;
+      //because we manually construct identifierinfo
+      //fall through
     default:
       sm->garbage = memberval;
       insert(scope->members, memname, sm);

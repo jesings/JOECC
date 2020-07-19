@@ -41,8 +41,8 @@
 
 %{
   extern struct lexctx* ctx;
-  int yylex();
-  int yyerror();
+  int yylex(void);
+  int yyerror(const char* s);
 %}
 
 %union {
@@ -248,7 +248,7 @@ declname:
 | declname '(' params ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));}
 | declname '(' params ',' "..." ')' {$$ = $1; pinsert($3, "...", NULL); dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));};
 params:
-  param_decl {$$ = paralector(8); pinsert($$, $1->varname, $1);}
+  param_decl {$$ = paralector(); pinsert($$, $1->varname, $1);}
 | params ',' param_decl {
     $$ = $1;
     if(psearch($$, $3->varname)) {
@@ -820,6 +820,7 @@ enums:
           ++(newexpr->intconst);
           break;
         }
+        //fall through
       default:
         newexpr->type = ADD;
         dapush(newexpr->params, ct_intconst_expr(1));
@@ -844,8 +845,9 @@ enums:
     };
 commaopt: ',' | %empty;
 %%
-int yyerror(char* s){
+int yyerror(const char* s){
   //printf("\ncolumn: %d\n%s\n", yylloc->first_column, s);
+  (void)s;
   return 0;
 }
 

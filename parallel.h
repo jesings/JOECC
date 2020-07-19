@@ -7,9 +7,9 @@ typedef struct {
   HASHTABLE* ht;
   DYNARR* da;
 } PARALLEL;
-PARALLEL* paralector();
-void* psearch(PARALLEL* p, char* key);
-void pinsert(PARALLEL* p, char* key, void* value);
-char pquery(PARALLEL* p, char* key);
+PARALLEL* paralector(void);
+void* psearch(PARALLEL* p, const char* key);
+void pinsert(PARALLEL* p, const char* key, void* value);
+char pquery(PARALLEL* p, const char* key);
 #endif
 

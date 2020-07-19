@@ -28,7 +28,7 @@ INTSIZE (u|U|l|L)*
     }
 #define SIGNEDCHAR 0
 
-int zzparse();
+int zzparse(void);
 int check_type(char* symb);
 extern struct lexctx* ctx;
 char stmtover, skipping;
@@ -787,6 +787,7 @@ extern DYNARR* locs, * file2compile;
         *rids = IFANDTRUE;
         break;
       }
+      //fall through
     case NOP:
       rids = malloc(sizeof(enum ifdefstate));
       *rids = IFANDFALSE;

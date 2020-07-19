@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "dynarr.h"
 #include "compintern.h"
+#include "treeduce.h"
 #define EPARAM(EVA, IND) ((EXPRESSION*)((EVA)->params->arr[IND]))
 #define LPARAM(EVA, IND) ((EVA)->params->arr[IND])
 //  X(NOP), X(STRING), X(INT), X(UINT), X(FLOAT), X(IDENT), X(ARRAY_LIT), 
@@ -78,6 +79,7 @@ char purestmt(STATEMENT* stmt) {
     case IFELSES:
       if(!purestmt(stmt->elsecond))
         return 0;
+      //fall through
     case IFS:
       return puritree(stmt->ifcond) && purestmt(stmt->thencond);
   }
@@ -141,7 +143,7 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
               subexpr->uintconst = (subexpr->uintconst OP rectexpr->uintconst); \
               FREE2RET;\
             case INT: \
-              subexpr->uintconst = (subexpr->uintconst OP rectexpr->intconst); \
+              subexpr->uintconst = ((signed long) subexpr->uintconst OP rectexpr->intconst); \
               FREE2RET;\
             case FLOAT: \
               subexpr->uintconst = (subexpr->uintconst OP rectexpr->floatconst); \
@@ -152,7 +154,7 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
         case INT: \
           switch(rectexpr->type) { \
             case UINT: \
-              subexpr->uintconst = (subexpr->intconst OP rectexpr->uintconst); \
+              subexpr->uintconst = (subexpr->intconst OP (signed long) rectexpr->uintconst); \
               FREE2RET;\
             case INT: \
               subexpr->uintconst = (subexpr->intconst OP rectexpr->intconst); \

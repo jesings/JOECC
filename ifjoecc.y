@@ -14,8 +14,8 @@
 %{
   extern struct lexctx* ctx;
   #define zzlex yylex
-  int yylex();
-  int yyerror();
+  int yylex(void);
+  int yyerror(const char* s);
 %}
 
 %union {
@@ -81,6 +81,7 @@ esu:
     fprintf (stderr, "Malformed expression at %s %d.%d-%d.%d\n", locprint(@1));
     };
 %%
-int yyerror(char* s){
+int yyerror(const char* s){
+  (void)s;
   return 0;
 }
