@@ -112,7 +112,8 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
               subexpr->type = UINT; \
               free(rectexpr);  \
               free(ex);  \
-              return subexpr;  
+              *exa = subexpr; \
+              return 1;  
 
 #define CMPOP(OP)  do {\
       subexpr = EPARAM(ex, 0); \
@@ -124,10 +125,10 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
               subexpr->uintconst = (subexpr->uintconst OP rectexpr->uintconst); \
               FREE2RET; \
             default: \
-              return ex; \
+              return 0; \
           } \
         default: \
-          return ex; \
+          return 0; \
       } } while (0)
 
 #define CMPOP2(OP)  do {\
@@ -146,7 +147,7 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
               subexpr->uintconst = (subexpr->uintconst OP rectexpr->floatconst); \
               FREE2RET;\
             default: \
-              return ex; \
+              return 0; \
           }\
         case INT: \
           switch(rectexpr->type) { \
@@ -160,7 +161,7 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
               subexpr->uintconst = (subexpr->intconst OP rectexpr->floatconst); \
               FREE2RET;\
             default: \
-              return ex; \
+              return 0; \
           } \
         case FLOAT:\
           switch(rectexpr->type) { \
@@ -174,10 +175,10 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
               subexpr->uintconst = (subexpr->floatconst OP rectexpr->floatconst); \
               FREE2RET;\
             default: \
-              return ex; \
+              return 0; \
           } \
         default: \
-          return ex; \
+          return 0; \
       } } while (0)
 
 #define INTOP(OP) do {\
@@ -193,11 +194,12 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
               subexpr->intconst OP rectexpr->uintconst; \
               break; \
             default: \
-              return ex; \
+              return 0; \
           } \
           free(rectexpr); \
           free(ex); \
-          return subexpr; \
+          *exa = subexpr; \
+          return 1; \
         case INT: \
           switch(rectexpr->type) { \
             case UINT: \
@@ -208,13 +210,14 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
               subexpr->intconst OP rectexpr->intconst; \
               break; \
             default: \
-              return ex; \
+              return 0; \
           } \
           free(rectexpr); \
           free(ex); \
-          return subexpr; \
+          *exa = subexpr; \
+          return 1; \
         default: \
-          return ex; \
+          return 0; \
       } } while (0)
 
 
@@ -268,92 +271,92 @@ char treequals(EXPRESSION* e1, EXPRESSION* e2) {
   return 0;
 }
 
-EXPRESSION* foldconst(EXPRESSION* ex) {
+char foldconst(EXPRESSION** exa) {
+  EXPRESSION* ex = *exa;
   EXPRESSION* subexpr;
   DYNARR* newdyn;
   EXPRESSION* rectexpr;
 //  EXPRTYPE eventualtype;
+  char rove;
 
   //call on each param before the switch
   for(int i = 0; i < ex->params->length; i++) {
-    ex->params->arr[i] = foldconst(EPARAM(ex, i));
+    while(foldconst((EXPRESSION**) &LPARAM(ex, i))) ;
   }
   switch(ex->type) {
     case IDENT: case INT: case UINT: case FLOAT: case STRING: case NOP: case ARRAY_LIT: case CAST: case DOTOP: case ARROW:
-      return ex;
+      return 0;
     case MEMBER: 
       //get addr for deref, as struct should be fully populated at this point
-      return ex;
+      return 0;
     case SZOF:
       //turn into intconst
-      return ex;
+      return 0;
     case NEG:
       subexpr = EPARAM(ex, 0);
       switch(subexpr->type) {
         case NEG:
           //free expr and subexpr
           subexpr = EPARAM(subexpr, 0);
-          LPARAM(subexpr, 0) = foldconst(EPARAM(subexpr, 0));
-          return subexpr;
+          foldconst((EXPRESSION**) &LPARAM(subexpr, 0));
+          break;
         case INT: case UINT:
           //free expr
           subexpr->intconst = -subexpr->intconst;
           subexpr->type = INT;
-          return subexpr;
+          break;
         case FLOAT:
           //free expr
           subexpr->floatconst = -subexpr->floatconst;
-          return subexpr;
+          break;
         case COMMA:
           //look at end of expr
         default:
-          return ex;
+          return 0;
       }
+      *exa = subexpr;
+      return 1;
     case L_NOT: 
       subexpr = EPARAM(ex, 0);
       switch(subexpr->type) {
         case L_NOT:
           //free expr and subexpr
           subexpr = EPARAM(subexpr, 0);
-          return subexpr;
+          *exa = subexpr;
+          return 1;
         case NEG: //neg doesn't change the result of logical nots
-          //free expr
           LPARAM(ex, 0) = EPARAM(subexpr, 0);
-          return ex;
+          free(subexpr);
+          return 1;
         case EQ:
-          //free expr
           subexpr->type = NEQ;
-          return subexpr;
+          break;
         case NEQ:
-          //free expr
           subexpr->type = EQ;
-          return subexpr;
+          break;
         case GT:
-          //free expr
           subexpr->type = LTE;
-          return subexpr;
+          break;
         case LT:
-          //free expr
           subexpr->type = GTE;
-          return subexpr;
+          break;
         case LTE:
-          //free expr
           subexpr->type = GT;
-          return subexpr;
+          break;
         case GTE:
-          //free expr
           subexpr->type = LT;
-          return subexpr;
+          break;
         case INT: case UINT: case FLOAT: ;//float is forcibly cast
-          //free expr
-          subexpr = EPARAM(ex, 0);
           subexpr->intconst = subexpr->intconst == 0;
-          return subexpr;
+          break;
         case COMMA:
           //look at end of expr
         default:
-          return ex;
+          return 0;
       }
+      free(ex);
+      *exa = subexpr;
+      return 1;
     case B_NOT: 
       subexpr = EPARAM(ex, 0);
       switch(subexpr->type) {
@@ -362,11 +365,12 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
           subexpr = EPARAM(subexpr, 0);
           free(ex);
           free(rectexpr);
-          return subexpr;
+          *exa = subexpr;
+          return 1;
         case COMMA:
           //look at end of expr
         default:
-          return ex;
+          return 0;
       }
     case ADDR:
       subexpr = EPARAM(ex, 0);
@@ -376,11 +380,12 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
           subexpr = EPARAM(subexpr, 0);
           free(ex);
           free(rectexpr);
-          return subexpr;
+          *exa = subexpr;
+          return 1;
         case COMMA:
           //look at end of expr
         default:
-          return ex;
+          return 0;
       }
     case DEREF:
       subexpr = EPARAM(ex, 0);
@@ -390,16 +395,18 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
           subexpr = EPARAM(subexpr, 0);
           free(ex);
           free(rectexpr);
-          return subexpr;
+          *exa = subexpr;
+          return 1;
         case COMMA:
           //look at end of expr
         default:
-          return ex;
+          return 0;
       }
     case ADD:
       newdyn = dactor(32);
       rectexpr = ct_uintconst_expr(0);
-      //handle type?
+      rove = 0;
+      //handle type? (likely unnecessary)
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
         switch(subexpr->type) {
@@ -409,6 +416,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
             }
             dadtor(subexpr->params);
             free(subexpr);
+            rove = 1;
             break;
           case COMMA:
             //look at end of expr
@@ -430,6 +438,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 break;
             }
             free(subexpr);
+            rove = 1;
             break;
           case INT:
             switch(rectexpr->type) {
@@ -447,6 +456,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 break;
             }
             free(subexpr);
+            rove = 1;
             break;
           case FLOAT:
             switch(rectexpr->type) {
@@ -467,6 +477,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 break;
             }
             free(subexpr);
+            rove = 1;
             break;
         }
       }
@@ -480,17 +491,20 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
         EXPRESSION* rv = newdyn->arr[0];
         dadtor(newdyn);
         free(ex);
-        return rv;
+        *exa = rv;
+        return 1;
       } else if(newdyn->length == 0) {
         dadtor(newdyn);
         free(ex);
-        return ct_nop_expr();
+        *exa = ct_nop_expr();
+        return 1;
       }
       ex->params = newdyn;
-      return ex;
+      return rove;
     case SUB:
       newdyn = dactor(32);
       rectexpr = ct_uintconst_expr(0);
+      rove = 0;
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
         switch(subexpr->type) {
@@ -501,6 +515,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
               }
               dadtor(subexpr->params);
               free(subexpr);
+              rove = 1;
               break;
             } //else fallthrough
           default:
@@ -511,6 +526,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
             dapush(newdyn, subexpr);
             break;
           case UINT:
+            //Test if this is all correct/necessary
             if(i != 0) {
               switch(rectexpr->type) {
                 case UINT:
@@ -540,6 +556,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
               }
             }
             free(subexpr);
+            rove = 1;
             break;
           case INT:
             if(i == 0) {
@@ -560,6 +577,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 break;
             }
             free(subexpr);
+            rove = 1;
             break;
           case FLOAT:
             if(i == 0) {
@@ -583,6 +601,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 break;
             }
             free(subexpr);
+            rove = 1;
             break;
         }
       }
@@ -597,20 +616,23 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
         EXPRESSION* rv = newdyn->arr[0];
         dadtor(newdyn);
         free(ex);
-        return rv;
+        *exa = rv;
+        return 1;
       } else if(newdyn->length == 0) {
         dadtor(newdyn);
         free(ex);
-        return ct_nop_expr();
+        *exa = ct_nop_expr();
+        return 1;
       }
       //if first element is 0, transform into ADD if more than one other arg, wrap in NEG
       //if one remaining param, remove SUB wrapper
-      return ex;
+      return rove;
     case MULT: 
       newdyn = dactor(32);
       rectexpr = ct_uintconst_expr(1);
       //TODO: destroy all pure (integer because NaN/inf) arguments when multiply by 0
       //TODO: handle type
+      rove = 0;
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
         switch(subexpr->type) {
@@ -620,6 +642,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
             }
             dadtor(subexpr->params);
             free(subexpr);
+            rove = 1;
             break;
           case COMMA:
             //look at end of expr
@@ -641,6 +664,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 break;
             }
             free(subexpr);
+            rove = 1;
             break;
           case INT:
             switch(rectexpr->type) {
@@ -658,6 +682,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 break;
             }
             free(subexpr);
+            rove = 1;
             break;
           case FLOAT:
             switch(rectexpr->type) {
@@ -678,6 +703,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 break;
             }
             free(subexpr);
+            rove = 1;
             break;
         }
       }
@@ -690,17 +716,20 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
         EXPRESSION* rv = newdyn->arr[0];
         dadtor(newdyn);
         free(ex);
-        return rv;
+        *exa = rv;
+        return 1;
       } else if(newdyn->length == 0) {
         dadtor(newdyn);
         free(ex);
-        return ct_nop_expr();
+        *exa = ct_nop_expr();
+        return 1;
       }
       ex->params = newdyn;
-      return ex;
+      return rove;
     case DIVI:
       newdyn = dactor(32);
       rectexpr = ct_uintconst_expr(0);
+      rove = 0;
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
         switch(subexpr->type) {
@@ -711,6 +740,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
               }
               dadtor(subexpr->params);
               free(subexpr);
+              rove = 1;
               break;
             } //else fallthrough
           default:
@@ -739,6 +769,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 break;
             }
             free(subexpr);
+            rove = 1;
             break;
           case INT:
             if(i == 0) {
@@ -760,6 +791,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 break;
             }
             free(subexpr);
+            rove = 1;
             break;
           case FLOAT:
             if(i == 0) {
@@ -784,6 +816,7 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 break;
             }
             free(subexpr);
+            rove = 1;
             break;
         }
       }
@@ -798,20 +831,23 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
         EXPRESSION* rv = newdyn->arr[0];
         dadtor(newdyn);
         free(ex);
-        return rv;
+        *exa = rv;
+        return 1;
       } else if(newdyn->length == 0) {
         dadtor(newdyn);
         free(ex);
-        return ct_nop_expr();
+        *exa = ct_nop_expr();
+        return 1;
       }
-      return ex;
+      return rove;
     case MOD: 
       INTOP(%=);
       //we don't flatten mods--that can happen in SSA and also chaining lots of modulos
       //is not a case that is realistic or one I will handle
-      return ex;
+      return 1; //If it reaches the end of this block, it's definitely changed
     case L_AND:
       newdyn = dactor(32);
+      rove = 0;
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
         switch(subexpr->type) {
@@ -821,12 +857,11 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
             }
             dadtor(subexpr->params);
             free(subexpr);
-            return subexpr;
-          default:
-            dapush(newdyn, subexpr);
+            rove = 1;
             break;
           case COMMA:
             //look at end of expr
+          default:
             dapush(newdyn, subexpr);
             break;
           case UINT: case INT: case FLOAT:
@@ -834,31 +869,61 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
               for(; i < ex->params->length; i++) {
                 rfreexpr(ex->params->arr[i]);
               }
+              dadtor(ex->params);
+              EXPRESSION* topx = dapeek(newdyn);
+              while(newdyn->length && puritree(dapeek(newdyn))){
+                EXPRESSION* ex2 = dapop(newdyn);
+                rfreexpr(ex2);
+              }
+              if(topx != dapeek(newdyn))
+                dapush(newdyn, topx);
+              ex->type = COMMA;
+              if(!newdyn->length) {
+                free(ex);
+                *exa = ct_nop_expr();
+              }
+              else {
+                ex->params = newdyn;
+              }
+              return 1;
             }
+            rove = 1;
             break;
         }
       }
       dadtor(ex->params);
-      while(newdyn->length && puritree(dapeek(newdyn))){
-        EXPRESSION* ex = dapop(newdyn);
-        rfreexpr(ex);
-      }
-      if(newdyn->length < 1) {
-        free(ex);
+      if(newdyn->length <= 1) {
         if(newdyn->length == 0) {
+          free(ex);
           dadtor(newdyn);
-          return subexpr;
+          *exa = subexpr;
+          return 1;
         }
-        EXPRESSION* p1 = newdyn->arr[0];
-        dadtor(newdyn);
-        return ct_binary_expr(COMMA, p1, subexpr);
+        switch(subexpr->type) {
+          case INT: case UINT: case FLOAT:
+            break;
+          default:
+            free(ex);
+            EXPRESSION* p1 = newdyn->arr[0];
+            dadtor(newdyn);
+            *exa = p1;
+            return 1;
+        }
+      }
+      switch(subexpr->type) {
+        case INT: case UINT: case FLOAT:
+          dapush(newdyn, subexpr);
+          break;
+        default:
+          break;
       }
       ex->params = newdyn;
-      return ct_binary_expr(COMMA, ex, subexpr);
+      return rove;
     case L_OR:
       newdyn = dactor(32);
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
+        rove = 0;
         switch(subexpr->type) {
           case L_OR:
             for(int j = 0; j < subexpr->params->length; j++) {
@@ -866,7 +931,8 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
             }
             dadtor(subexpr->params);
             free(subexpr);
-            return subexpr;
+            rove = 1;
+            break;
           default:
             dapush(newdyn, subexpr);
             break;
@@ -877,31 +943,61 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
           case UINT: case INT: case FLOAT:
             if(subexpr->uintconst != 0) {
               for(; i < ex->params->length; i++) {
-                rfreexpr(ex->params->arr[i]); 
+                rfreexpr(ex->params->arr[i]);
               }
+              dadtor(ex->params);
+              EXPRESSION* topx = dapeek(newdyn);
+              while(newdyn->length && puritree(dapeek(newdyn))){
+                EXPRESSION* ex2 = dapop(newdyn);
+                rfreexpr(ex2);
+              }
+              if(topx != dapeek(newdyn))
+                dapush(newdyn, topx);
+              ex->type = COMMA;
+              if(!newdyn->length) {
+                free(ex);
+                *exa = ct_nop_expr();
+              }
+              else {
+                ex->params = newdyn;
+              }
+              return 1;
             }
+            rove = 1;
             break;
         }
       }
       dadtor(ex->params);
-      while(newdyn->length && puritree(dapeek(newdyn))){
-        EXPRESSION* ex = dapop(newdyn);
-        rfreexpr(ex);
-      }
-      if(newdyn->length < 1) {
-        free(ex);
+      if(newdyn->length <= 1) {
         if(newdyn->length == 0) {
+          free(ex);
           dadtor(newdyn);
-          return subexpr;
+          *exa = subexpr;
+          return 1;
         }
-        EXPRESSION* p1 = newdyn->arr[0];
-        dadtor(newdyn);
-        return ct_binary_expr(COMMA, p1, subexpr);
+        switch(subexpr->type) {
+          case INT: case UINT: case FLOAT:
+            break;
+          default:
+            free(ex);
+            EXPRESSION* p1 = newdyn->arr[0];
+            dadtor(newdyn);
+            *exa = p1;
+            return 1;
+        }
+      }
+      switch(subexpr->type) {
+        case INT: case UINT: case FLOAT:
+          dapush(newdyn, subexpr);
+          break;
+        default:
+          break;
       }
       ex->params = newdyn;
-      return ct_binary_expr(COMMA, ex, subexpr);
+      return rove;
     case B_AND: 
       newdyn = dactor(32);
+      rove = 0;
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
         rectexpr = ct_uintconst_expr(-1UL);
@@ -912,27 +1008,29 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
             }
             dadtor(subexpr->params);
             free(subexpr);
-            return subexpr;
-          default:
-            dapush(newdyn, subexpr);
+            rove = 1;
             break;
           case COMMA:
             //look at end of expr
+          default:
             dapush(newdyn, subexpr);
             break;
           case UINT: case INT: case FLOAT:
-              rectexpr->uintconst &= subexpr->uintconst;
-              free(subexpr);
-              if(rectexpr->uintconst == 0) {
-                for(; i < ex->params->length; i++) {
-                  EXPRESSION* free2 = EPARAM(ex, i);
-                  if(puritree(free2)) {
-                    rfreexpr(free2);
-                  } else {
-                    dapush(newdyn, free2);
-                  }
+            if(rectexpr->uintconst != -1UL)
+              rove = 1;
+            rectexpr->uintconst &= subexpr->uintconst;
+            free(subexpr);
+            if(rectexpr->uintconst == 0) {
+              for(; i < ex->params->length; i++) {
+                EXPRESSION* free2 = EPARAM(ex, i);
+                if(puritree(free2)) {
+                  rfreexpr(free2);
+                } else {
+                  dapush(newdyn, free2);
+                  //perhaps reduce into comma?
                 }
               }
+            }
             break;
         }
       }
@@ -940,17 +1038,19 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       if(newdyn->length == 0) {
         free(ex);
         dadtor(newdyn);
-        return rectexpr;
+        *exa = rectexpr;
+        return 1;
       }
       if(rectexpr->uintconst != -1UL) {
         dapush(newdyn, rectexpr);
       }
 
       ex->params = newdyn;
-      return ex;
+      return rove;
       //flatten, make const, if const is 0, eliminate impure
     case B_OR:
       newdyn = dactor(32);
+      rove = 0;
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
         rectexpr = ct_uintconst_expr(0);
@@ -961,27 +1061,29 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
             }
             dadtor(subexpr->params);
             free(subexpr);
-            return subexpr;
-          default:
-            dapush(newdyn, subexpr);
+            rove = 1;
             break;
           case COMMA:
             //look at end of expr
+          default:
             dapush(newdyn, subexpr);
             break;
           case UINT: case INT: case FLOAT:
-              rectexpr->uintconst |= subexpr->uintconst;
-              free(subexpr);
-              if(rectexpr->uintconst == -1UL) {
-                for(; i < ex->params->length; i++) {
-                  EXPRESSION* free2 = EPARAM(ex, i);
-                  if(puritree(free2)) {
-                    rfreexpr(free2);
-                  } else {
-                    dapush(newdyn, free2);
-                  }
+            if(rectexpr->uintconst != 0)
+              rove = 1;
+            rectexpr->uintconst |= subexpr->uintconst;
+            free(subexpr);
+            if(rectexpr->uintconst == -1UL) {
+              for(; i < ex->params->length; i++) {
+                EXPRESSION* free2 = EPARAM(ex, i);
+                if(puritree(free2)) {
+                  rfreexpr(free2);
+                } else {
+                  dapush(newdyn, free2);
+                  //perhaps reduce into comma?
                 }
               }
+            }
             break;
         }
       }
@@ -989,28 +1091,31 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       if(newdyn->length == 0) {
         free(ex);
         dadtor(newdyn);
-        return rectexpr;
+        *exa = rectexpr;
+        return 1;
       }
       if(rectexpr->uintconst != 0) {
         dapush(newdyn, rectexpr);
       }
 
       ex->params = newdyn;
-      return ex;
+      return rove;
 
     case B_XOR:
       newdyn = dactor(32);
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
         rectexpr = ct_uintconst_expr(0);
+        rove = 0;
         switch(subexpr->type) {
-          case B_OR:
+          case B_XOR:
             for(int j = 0; j < subexpr->params->length; j++) {
               dapush(newdyn, EPARAM(subexpr, j)); 
             }
             dadtor(subexpr->params);
             free(subexpr);
-            return subexpr;
+            rove = 1;
+            break;
           default:
             dapush(newdyn, subexpr);
             break;
@@ -1019,8 +1124,10 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
             dapush(newdyn, subexpr);
             break;
           case UINT: case INT: case FLOAT:
-              rectexpr->uintconst ^= subexpr->uintconst;
-              free(subexpr);
+            if(rectexpr->intconst != 0)
+              return rove;
+            rectexpr->uintconst ^= subexpr->uintconst;
+            free(subexpr);
             break;
         }
       }
@@ -1028,28 +1135,31 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       if(newdyn->length == 0) {
         free(ex);
         dadtor(newdyn);
-        return rectexpr;
+        *exa = rectexpr;
+        return 1;
       }
       if(rectexpr->uintconst != 0) {
         dapush(newdyn, rectexpr);
       }
 
       ex->params = newdyn;
-      return ex;
+      return rove;
     case SHL://maybe check if right side is within bounds of type size
       INTOP(<<=);
-      return ex;
+      return 1;
     case SHR:
       INTOP(>>=);
-      return ex;
+      return 1;
 
     case COMMA:
       newdyn = dactor(32);
+      rove = 0;
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
         if(i != ex->params->length - 1) {
           if(puritree(subexpr)) {
             rfreexpr(subexpr); 
+            rove = 1;
             continue;
           }
         }
@@ -1060,41 +1170,42 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
               if(j != subexpr->params->length - 1) {
                 if(puritree(fse)) {
                   rfreexpr(fse);
+                  rove = 1;
                   continue;
                 }
               }
               dapush(newdyn, fse); 
             }
+            rove = 1;
+            break;
           default:
             dapush(newdyn, subexpr);
             break;
         }
-        dadtor(ex->params);
-        ex->params = newdyn;
-        return ex;
       }
+      dadtor(ex->params);
+      ex->params = newdyn;
+      return rove;
       //adopt/flatten in subexprs, remove pure exprs except the last one
       //if impure call to pure function, extract out impure params, and eval those only????
     case EQ: //should be kept binary
       CMPOP(==);
-      //if both INT, UINT, FLOAT, and equal return intconst 1, else return intconst 0
-      //That's all I can think of for now
-      return ex;
+      return 1;
     case NEQ:
       CMPOP(!=);
-      return ex;
+      return 1;
     case GT: 
       CMPOP2(>);
-      return ex;
+      return 1;
     case LT:
       CMPOP2(<);
-      return ex;
+      return 1;
     case GTE: 
       CMPOP2(>=);
-      return ex;
+      return 1;
     case LTE: 
       CMPOP2(<=);
-      return ex;
+      return 1;
     case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case XORASSIGN: case ORASSIGN:  //0 is identity case 
     case ANDASSIGN: case MODASSIGN: //no identity case (for our purposes)
     case DIVASSIGN: case MULTASSIGN: 
@@ -1103,20 +1214,24 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
       //if same value on both sides, ellide if pure
       //Further fix assign op
     case PREINC: case PREDEC: case POSTINC: case POSTDEC:
-      return ex;
+      return 0;
     case TERNARY:
       subexpr = EPARAM(ex, 0);
+      rove = 0;
       switch(subexpr->type) {
         case INT: case UINT: case FLOAT:
-          if(subexpr->uintconst== 0) {
+          if(subexpr->uintconst == 0) {
             rfreexpr(EPARAM(ex, 1)); 
             free(subexpr);
-            return EPARAM(ex, 2);
+            *exa = EPARAM(ex, 2);
+            return 1;
           } else {
             rfreexpr(EPARAM(ex, 2)); 
             free(subexpr);
-            return EPARAM(ex, 1);
+            *exa = EPARAM(ex, 1);
+            return 1;
           }
+          rove = 1;
           break;
         case COMMA:
           rectexpr = dapeek(subexpr->params);
@@ -1131,19 +1246,22 @@ EXPRESSION* foldconst(EXPRESSION* ex) {
                 free(subexpr);
                 dapush(subexpr->params, EPARAM(ex, 1));
               }
+              free(ex);
+              *exa = subexpr;
+              return 1;
             default:
               break;
           }
           default:
             break;
       }
-      return ex;
+      return rove;
     case FCALL:
     case SZOFEXPR:
-      return ex;
+      return 0;
   }
   fprintf(stderr, "Error: reducing expression failed\n");
-  return NULL;
+  return 0;
 }
 
 //do the same as above but with statements

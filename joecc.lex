@@ -12,6 +12,7 @@ INTSIZE (u|U|l|L)*
 #include <math.h>
 #include "joecc.tab.h"
 #include "compintern.h"
+#include "treeduce.h"
 
 #define YY_USER_ACTION \
     yylloc.first_line = yylloc.last_line; \
@@ -777,8 +778,25 @@ extern DYNARR* locs, * file2compile;
 <INITIAL,WITHINIF>[[:blank:]]+ {/*Whitespace, ignored*/}
 <WITHINIF>[[:space:]] {
   yy_pop_state(); 
+  while(foldconst(&ctx->ifexpr)) ;
+  enum ifdefstate* rids;
+  switch(ctx->ifexpr->type) {
+    case INT: case UINT:
+      if(ctx->ifexpr->intconst != 0) {
+        rids = malloc(sizeof(enum ifdefstate));
+        *rids = IFANDTRUE;
+        break;
+      }
+    case NOP:
+      rids = malloc(sizeof(enum ifdefstate));
+      *rids = IFANDFALSE;
+      yy_push_state(PPSKIP);
+      break;
+    default:
+      exit(-1);
+  }
+  dapush(ctx->definestack, rids);
   return '\n';
-  /*modify ifdefstack*/
 }
 [[:space:]] {/*Whitespace, ignored*/}
 
