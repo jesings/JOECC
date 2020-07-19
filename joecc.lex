@@ -57,7 +57,7 @@ extern DYNARR* locs, * file2compile;
 %x KILLBLANK
 %x STRINGLIT CHARLIT
 %x CALLMACRO FINDREPLACE
-%x WITHINIF
+%x WITHINIF CHECKDEFINED
 
 %%
 <KILLBLANK>{
@@ -128,9 +128,9 @@ extern DYNARR* locs, * file2compile;
         yy_push_state(PPSKIP);
         break;
       case IFANDFALSE: 
-        *(enum ifdefstate*) dapeek(ds) = ELSEANDFALSE;
-        //evaluate if condition
         yy_pop_state();
+        yy_push_state(WITHINIF);
+        zzparse();
         break;
       case IFDEFDUMMY:
         break;
@@ -542,9 +542,14 @@ extern DYNARR* locs, * file2compile;
     }
 }
 
+<CHECKDEFINED>{
+  [[:blank:]]*\)[[:blank:]]* {yy_push_state(CHECKDEFINED);}
+  {IDENT}/[[:blank:]]*\)[[:blank:]]* {yylval.ii.num = queryval(ctx->defines, yytext); yylval.ii.sign = 0; return INTEGER_LITERAL;}
+}
+
 
 <INITIAL,SINGLELINE_COMMENT,PREPROCESSOR,INCLUDE,DEFINE,DEFINE2,IFDEF,IFNDEF,STRINGLIT,WITHINIF>\\+[[:blank:]]*\n {/*the newline is ignored*/}
-<WITHINIF>"defined" {/*go into special preprocessor mode*/}
+<WITHINIF>"defined"[[:blank:]]*\([[:blank:]]* {yy_push_state(CHECKDEFINED);}
 "->" {return ARROWTK;}
 "++" {return INC;}
 "--" {return DEC;}
@@ -770,7 +775,11 @@ extern DYNARR* locs, * file2compile;
   }
 }
 <INITIAL,WITHINIF>[[:blank:]]+ {/*Whitespace, ignored*/}
-<WITHINIF>[[:space:]] {yy_pop_state(); return '\n';/*modify ifdefstack*/}
+<WITHINIF>[[:space:]] {
+  yy_pop_state(); 
+  return '\n';
+  /*modify ifdefstack*/
+}
 [[:space:]] {/*Whitespace, ignored*/}
 
 <<EOF>> {
