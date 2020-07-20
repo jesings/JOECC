@@ -41,7 +41,13 @@ HASHTABLE* defargs = NULL;
 DYNSTR* dstrdly, * mdstrdly, * strcur;
 extern DYNARR* locs, * file2compile;
 
-#define GOC(c) yylval.unum= c, yy_pop_state(); return UNSIGNED_LITERAL
+extern union {
+  unsigned long unum;
+  EXPRESSION* exprvariant;
+} zzlval;
+
+#define GOC(c) yylval.unum = c, yy_pop_state(); return UNSIGNED_LITERAL
+#define ZGOC(c) zzlval.unum = c, yy_pop_state(); return UNSIGNED_LITERAL
 %}
 %option yylineno
 %option noyywrap
@@ -56,7 +62,7 @@ extern DYNARR* locs, * file2compile;
 %x DEFINE UNDEF DEFARG DEFINE2
 %x IFNDEF IFDEF PPSKIP
 %x KILLBLANK
-%x STRINGLIT CHARLIT
+%x STRINGLIT CHARLIT ZCHARLIT
 %x CALLMACRO FINDREPLACE
 %x WITHINIF CHECKDEFINED ENDWITHINIF
 
@@ -653,12 +659,21 @@ extern DYNARR* locs, * file2compile;
     int mt = check_type(ylstr);
     switch(mt) {
       default:
-        yylval.unum = 0;
+        zzlval.unum = 0;
         return UNSIGNED_LITERAL;
       case -1:
         break;
     } 
   }
+  0[bB]{BIN}+{INTSIZE}? {zzlval.unum = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
+                         return UNSIGNED_LITERAL;}
+  0{OCT}+{INTSIZE}? {zzlval.unum = strtoul(yytext,NULL,8);//every intconst is 8 bytes
+                     return UNSIGNED_LITERAL;}
+  [[:digit:]]+{INTSIZE}?  {zzlval.unum = strtoul(yytext,NULL,10);//every intconst is 8 bytes
+                           if(strchr(yytext,'u') || strchr(yytext,'U')) return UNSIGNED_LITERAL; return INTEGER_LITERAL;}
+  0[xX][[:xdigit:]]+{INTSIZE}? {zzlval.unum = strtoul(yytext,NULL,16);
+                                return UNSIGNED_LITERAL;}
+  \' {yy_push_state(ZCHARLIT);}
 }
 
 {IDENT} {
@@ -671,21 +686,66 @@ extern DYNARR* locs, * file2compile;
   } 
 }
 
-<INITIAL,WITHINIF>{
-  0[bB]{BIN}+{INTSIZE}? {yylval.unum = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
-                         return UNSIGNED_LITERAL;}
-  0{OCT}+{INTSIZE}? {yylval.unum = strtoul(yytext,NULL,8);//every intconst is 8 bytes
-                     return UNSIGNED_LITERAL;}
-  [[:digit:]]+{INTSIZE}?  {yylval.snum = strtoul(yytext,NULL,10);//every intconst is 8 bytes
-                           if(strchr(yytext,'u') || strchr(yytext,'U')) return UNSIGNED_LITERAL; return INTEGER_LITERAL;}
-  0[xX][[:xdigit:]]+{INTSIZE}? {yylval.unum = strtoul(yytext,NULL,16);
-                                return UNSIGNED_LITERAL;}
-  \' {yy_push_state(CHARLIT);}
-}
+0[bB]{BIN}+{INTSIZE}? {yylval.unum = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
+                       return UNSIGNED_LITERAL;}
+0{OCT}+{INTSIZE}? {yylval.unum = strtoul(yytext,NULL,8);//every intconst is 8 bytes
+                   return UNSIGNED_LITERAL;}
+[[:digit:]]+{INTSIZE}?  {yylval.snum = strtoul(yytext,NULL,10);//every intconst is 8 bytes
+                         if(strchr(yytext,'u') || strchr(yytext,'U')) return UNSIGNED_LITERAL; return INTEGER_LITERAL;}
+0[xX][[:xdigit:]]+{INTSIZE}? {yylval.unum = strtoul(yytext,NULL,16);
+                              return UNSIGNED_LITERAL;}
+\' {yy_push_state(CHARLIT);}
 
 [[:digit:]]+{EXP}{FLOATSIZE}? {sscanf(yytext, "%lf", &yylval.dbl);return FLOAT_LITERAL;}
 [[:digit:]]*"."?[[:digit:]]+({EXP})?{FLOATSIZE}? {sscanf(yytext, "%lf", &yylval.dbl);return FLOAT_LITERAL;}
 [[:digit:]]+"."?[[:digit:]]*({EXP})?{FLOATSIZE}? {sscanf(yytext, "%lf", &yylval.dbl);return FLOAT_LITERAL;}
+
+<ZCHARLIT>{
+  \' {
+    fprintf(stderr, "Error: 0 length character literal %s %s %d.%d-%d.%d\n", yytext, locprint(yylloc));
+    ZGOC('?');
+  	}
+  [\n\v] {
+    fprintf(stderr, "Error: character literal terminated with newline unexpectedly %s %d.%d-%d.%d\n", locprint(yylloc));
+    yy_pop_state();
+    }
+  \\a\' {ZGOC('\a');}
+  \\b\' {ZGOC('\b');}
+  \\e\' {ZGOC('\33');}
+  \\f\' {ZGOC('\f');}
+  \\n\' {ZGOC('\n');}
+  \\r\' {ZGOC('\r');}
+  \\t\' {ZGOC('\t');}
+  \\v\' {ZGOC('\v');}
+  \\\'\' {ZGOC('\'');}
+  \\\"\' {/*"*/ZGOC('\"');}
+  \\\\\' {ZGOC('\\');}
+  \\\?\' {ZGOC('\?');}
+  \\[0-7]{1,3}\' {
+    unsigned int result;
+    sscanf(yytext + 1, "%o", &result);
+    if(result >= 1 << 8) {
+      fprintf(stderr, "Warning: octal character %s in string literal out of bounds %s %d.%d-%d.%d\n", yytext, locprint(yylloc));
+    }
+    ZGOC((char) result);
+    }
+  \\0x[[:xdigit:]]{1,2}\' {
+    unsigned int result;
+    sscanf(yytext + 3, "%x", &result);
+    ZGOC((char) result);
+    }
+  \\.\' {
+    fprintf(stderr, "Warning: Unknown escape sequence %s in string literal %s %d.%d-%d.%d\n", yytext, locprint(yylloc));
+    ZGOC(yytext[1]);
+    }
+  [^\\\'\n\v]\' {
+    ZGOC(yytext[0]);
+    }
+  [^\']{2,}\' {
+    fprintf(stderr, "Error: character literal too long %s %s %d.%d-%d.%d\n", yytext, locprint(yylloc));
+    ZGOC(yytext[1]);
+    }
+}
 
 <CHARLIT>{
   \' {
