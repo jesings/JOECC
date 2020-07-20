@@ -41,13 +41,13 @@ HASHTABLE* defargs = NULL;
 DYNSTR* dstrdly, * mdstrdly, * strcur;
 extern DYNARR* locs, * file2compile;
 
-#define GOC(c) yylval.ii.num = c, yy_pop_state(); return INTEGER_LITERAL
+#define GOC(c) yylval.unum= c, yy_pop_state(); return UNSIGNED_LITERAL
 %}
 %option yylineno
 %option noyywrap
 %option stack
 
-/*%option debug*/
+%option debug
 %option warn
 %option nodefault
 
@@ -58,7 +58,7 @@ extern DYNARR* locs, * file2compile;
 %x KILLBLANK
 %x STRINGLIT CHARLIT
 %x CALLMACRO FINDREPLACE
-%x WITHINIF CHECKDEFINED
+%x WITHINIF CHECKDEFINED ENDWITHINIF
 
 %%
 <KILLBLANK>{
@@ -170,6 +170,7 @@ extern DYNARR* locs, * file2compile;
       default:
         yy_push_state(WITHINIF);
         zzparse();
+        puts("subsidiary parser");
         break;
     }
     }
@@ -544,8 +545,12 @@ extern DYNARR* locs, * file2compile;
 }
 
 <CHECKDEFINED>{
-  [[:blank:]]*\)[[:blank:]]* {yy_push_state(CHECKDEFINED);}
-  {IDENT}/[[:blank:]]*\)[[:blank:]]* {yylval.ii.num = queryval(ctx->defines, yytext); yylval.ii.sign = 0; return INTEGER_LITERAL;}
+  [[:blank:]]*\)[[:blank:]]* {yy_pop_state();}
+  {IDENT}/[[:blank:]]*\)[[:blank:]]* {
+    yylval.unum = queryval(ctx->defines, yytext);
+    return UNSIGNED_LITERAL;
+    }
+
 }
 
 
@@ -574,6 +579,8 @@ extern DYNARR* locs, * file2compile;
 "extern" {return EXTERN;}
 "signed" {return SIGNED;}
 "unsigned" {return UNSIGNED;}
+"const" {return CONST;}
+"volatile" {return VOLATILE;}
 "char" {return CHAR;}
 "short" {return INT16;}
 "int" {return INT32;}
@@ -646,9 +653,8 @@ extern DYNARR* locs, * file2compile;
     int mt = check_type(ylstr);
     switch(mt) {
       default:
-        yylval.ii.num = 0;
-        yylval.ii.sign = 0;
-        return INTEGER_LITERAL;
+        yylval.unum = 0;
+        return UNSIGNED_LITERAL;
       case -1:
         break;
     } 
@@ -666,14 +672,14 @@ extern DYNARR* locs, * file2compile;
 }
 
 <INITIAL,WITHINIF>{
-  0[bB]{BIN}+{INTSIZE}? {yylval.ii.num = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
-                         yylval.ii.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
-  0{OCT}+{INTSIZE}? {yylval.ii.num = strtoul(yytext,NULL,8);//every intconst is 8 bytes
-                     yylval.ii.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
-  [[:digit:]]+{INTSIZE}?  {yylval.ii.num = strtoul(yytext,NULL,10);//every intconst is 8 bytes
-                     yylval.ii.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
-  0[xX][[:xdigit:]]+{INTSIZE}? {yylval.ii.num = strtoul(yytext,NULL,16); /*specify intsize here in yylval.ii.size maybe?*/
-                         yylval.ii.sign = !(strchr(yytext,'u') || strchr(yytext,'U')); return INTEGER_LITERAL;}
+  0[bB]{BIN}+{INTSIZE}? {yylval.unum = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
+                         return UNSIGNED_LITERAL;}
+  0{OCT}+{INTSIZE}? {yylval.unum = strtoul(yytext,NULL,8);//every intconst is 8 bytes
+                     return UNSIGNED_LITERAL;}
+  [[:digit:]]+{INTSIZE}?  {yylval.snum = strtoul(yytext,NULL,10);//every intconst is 8 bytes
+                           if(strchr(yytext,'u') || strchr(yytext,'U')) return UNSIGNED_LITERAL; return INTEGER_LITERAL;}
+  0[xX][[:xdigit:]]+{INTSIZE}? {yylval.unum = strtoul(yytext,NULL,16);
+                                return UNSIGNED_LITERAL;}
   \' {yy_push_state(CHARLIT);}
 }
 
@@ -776,7 +782,13 @@ extern DYNARR* locs, * file2compile;
   }
 }
 <INITIAL,WITHINIF>[[:blank:]]+ {/*Whitespace, ignored*/}
-<WITHINIF>[[:space:]] {
+<WITHINIF>\n {
+  yy_pop_state();
+  yy_push_state(ENDWITHINIF);
+  unput('\n');
+  return '\n';
+}
+<ENDWITHINIF>\n {
   yy_pop_state(); 
   while(foldconst(&ctx->ifexpr)) ;
   enum ifdefstate* rids;
@@ -797,7 +809,6 @@ extern DYNARR* locs, * file2compile;
       exit(-1);
   }
   dapush(ctx->definestack, rids);
-  return '\n';
 }
 [[:space:]] {/*Whitespace, ignored*/}
 

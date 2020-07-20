@@ -1,6 +1,13 @@
 %locations
-%token ARROWTK "->" INC "++" DEC "--" SHLTK "<<" SHRTK ">>" LE "<=" GE ">=" EQTK "=="
-%token NEQTK "!=" AND "&&" OR "||" DIV_GETS "/=" MUL_GETS "*=" MOD_GETS "%="
+%token<unum> UNSIGNED_LITERAL;
+%token<snum> INTEGER_LITERAL;
+%token SHLTK "<<" SHRTK ">>" LE "<=" GE ">=" EQTK "==" NEQTK "!=" AND "&&" OR "||" 
+
+%token<dbl> FLOAT_LITERAL;
+%token<str> SYMBOL TYPE_NAME
+%token<dstr> STRING_LITERAL;
+
+%token ARROWTK "->" INC "++" DEC "--" DIV_GETS "/=" MUL_GETS "*=" MOD_GETS "%="
 %token ADD_GETS "+=" SUB_GETS "-=" SHL_GETS "<<=" SHR_GETS ">>=" AND_GETS "&=" 
 %token XOR_GETS "^=" OR_GETS "|=" ELLIPSIS "..."
 
@@ -11,17 +18,13 @@
 %token WHILE "while" DO "do" FOR "for" GOTO "goto" CONTINUE "continue" 
 %token BREAK "break" RETURN "return" SIZEOF "sizeof" UNSIGNED "unsigned"
 %token STRUCTTK "struct" ENUMTK "enum" UNIONTK "union" SIGNED "signed"
+%token CONST "const" VOLATILE "volatile"
 
 %right THEN "else"
 %start program
 %define parse.trace
 %define parse.assert
 %define parse.error verbose
-
-%token<ii> INTEGER_LITERAL;
-%token<dbl> FLOAT_LITERAL;
-%token<str> SYMBOL TYPE_NAME
-%token<dstr> STRING_LITERAL;
 
 %code requires{
   #include <stdint.h>
@@ -46,7 +49,8 @@
 %}
 
 %union {
-  struct intinfo ii;
+  long snum;
+  unsigned long unum;
   int integert;
   char* str;
   DYNSTR* dstr;
@@ -475,7 +479,8 @@ esp:
 esu:
   '(' expression ')' {$$ = $2;}
 | multistring {$$ = ct_strconst_expr($1->strptr); free($1);}
-| INTEGER_LITERAL {$$ = $1.sign ? ct_intconst_expr($1.num) : ct_uintconst_expr($1.num);}
+| INTEGER_LITERAL {$$ = ct_intconst_expr($1);}
+| UNSIGNED_LITERAL {$$ = ct_uintconst_expr($1);}
 | FLOAT_LITERAL {$$ = ct_floatconst_expr($1);}
 | SYMBOL {
     EXPRESSION* expr = scopesearch(ctx, M_ENUM_CONST, $1);
@@ -559,10 +564,7 @@ function:
     $$ = $3;
     $$->body = mkcmpndstmt($5); 
     ctx->func = NULL;
-    }
-| error compound_statement {
-  fprintf (stderr, "Malformed function definition at %s %d.%d-%d.%d\n", locprint(@1));
-  };
+    };
 statement:
   compound_statement {$$ = $1;}
 |  SYMBOL ':' {$$ = mklblstmt(ctx, $1);}

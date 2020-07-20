@@ -282,12 +282,19 @@ char foldconst(EXPRESSION** exa) {
   char rove;
 
   //call on each param before the switch
-  for(int i = 0; i < ex->params->length; i++) {
-    while(foldconst((EXPRESSION**) &LPARAM(ex, i))) ;
+  switch(ex->type) {
+    case UINT: case INT: case FLOAT: case ARRAY_LIT: case STRING: case SZOF: case NOP: case IDENT:
+      break;
+    default:
+      for(int i = 0; i < ex->params->length; i++) {
+        while(foldconst((EXPRESSION**) &LPARAM(ex, i))) ;
+      }
+      break;
   }
   switch(ex->type) {
-    case IDENT: case INT: case UINT: case FLOAT: case STRING: case NOP: case ARRAY_LIT: case CAST: case DOTOP: case ARROW:
+    case IDENT: case INT: case UINT: case FLOAT: case STRING: case NOP: case ARRAY_LIT: case DOTOP: case ARROW:
       return 0;
+    case CAST:
     case MEMBER: 
       //get addr for deref, as struct should be fully populated at this point
       return 0;

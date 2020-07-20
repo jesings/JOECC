@@ -1,9 +1,15 @@
-%token SHLTK "<<" SHRTK ">>" LE "<=" GE ">=" EQTK "==" NEQTK "!=" AND "&&" OR "||" 
 %locations
+%token<unum> UNSIGNED_LITERAL;
+%token<unum> INTEGER_LITERAL;
+%token SHLTK "<<" SHRTK ">>" LE "<=" GE ">=" EQTK "==" NEQTK "!=" AND "&&" OR "||" 
+
 %start fullifexpr
-%token<ii> INTEGER_LITERAL;
 %define api.prefix {zz}
+%define parse.trace
+%define parse.assert
+%define parse.error verbose
 %type<exprvariant> expression est eslo esla esbo esbx esba eseq escmp essh esas esca esu
+%type<unum> fint
 
 %code requires{
   #include <stdio.h>
@@ -19,16 +25,16 @@
 %}
 
 %union {
-  struct intinfo ii;
+  unsigned long unum;
   EXPRESSION* exprvariant;
 }
 
 %%
 fullifexpr:
-  expression '\n';
+  expression '\n' {ctx->ifexpr = $1;};
 expression:
-  est '?' expression ':' est {$$ = ct_ternary_expr($1, $3, $5); ctx->ifexpr = $$;}
-| est {$$ = $1; ctx->ifexpr = $$;};
+  est '?' expression ':' est {$$ = ct_ternary_expr($1, $3, $5);}
+| est {$$ = $1;};
 est:
   est "||" eslo {$$ = ct_binary_expr(L_OR, $1, $3);}
 | eslo {$$ = $1;};
@@ -75,11 +81,13 @@ esca:
 | esu {$$ = $1;};
 esu:
   '(' expression ')' {$$ = $2;}
-| INTEGER_LITERAL {$$ = $1.sign ? ct_intconst_expr($1.num) : ct_uintconst_expr($1.num);}
-| error {
-    $$ = ct_nop_expr(); 
-    fprintf (stderr, "Malformed expression at %s %d.%d-%d.%d\n", locprint(@1));
+| fint {
+    $$ = ct_uintconst_expr($1);
+    printf("------------------intconst is %lu-----------------------\n", $1);
     };
+fint:
+  UNSIGNED_LITERAL {$$ = $1;}
+| INTEGER_LITERAL {$$ = $1;};
 %%
 int yyerror(const char* s){
   (void)s;
