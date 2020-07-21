@@ -527,11 +527,14 @@ char scopequeryval(struct lexctx* lct, enum membertype mt, char* key) {
 struct lexctx* ctxinit(void) {
   struct lexctx* lct =  malloc(sizeof(struct lexctx));
   lct->funcs = htctor();
-  lct->defines = htctor();
   lct->definestack = dactor(64);
   lct->scopes = dactor(64);
   lct->func = NULL;
   dapush(lct->scopes, mkscope());
+  lct->defines = htctor();
+  insert(lct->defines, "__STDC__", (char*)(unsigned long) "1");
+  insert(lct->defines, "__STDC_VERSION__", (char*)(unsigned long) "199901L");
+  insert(lct->defines, "__STDC_HOSTED__", (char*)(unsigned long) "1"); 
   return lct;
 }
 

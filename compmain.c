@@ -8,8 +8,6 @@ int yylex(void);
 int yyparse(void);
 DYNARR* locs;
 DYNARR* file2compile;
-//TODO: Predefined macros
-//__FILE__, __LINE__, __DATE__, __TIME__, __STDC__ = 1, __STDC_VERSION__ = '199901L', __STDC_HOSTED__ = 1
 //TODO: Variadic macros?
 int main(int argc, char** argv) {
   ctx = ctxinit();
@@ -29,8 +27,8 @@ int main(int argc, char** argv) {
   }
   extern int yydebug;
   extern int zzdebug;
-  zzdebug = 1;
-  yydebug = 1;
+  zzdebug = 0;
+  yydebug = 0;
   yyparse();
   if(argc > 1) {
     close(compilefile);

@@ -10,6 +10,7 @@ INTSIZE (u|U|l|L)*
 //TODO: handle concatenation in macros
 
 #include <math.h>
+#include <time.h>
 #include "joecc.tab.h"
 #include "compintern.h"
 #include "treeduce.h"
@@ -48,6 +49,7 @@ extern union {
 
 #define GOC(c) yylval.unum = c, yy_pop_state(); return UNSIGNED_LITERAL
 #define ZGOC(c) zzlval.unum = c, yy_pop_state(); return UNSIGNED_LITERAL
+#define UNPUTSTR(str) for(int l = strlen(str); l; unput(str[--l])) ;
 %}
 %option yylineno
 %option noyywrap
@@ -553,7 +555,7 @@ extern union {
 <CHECKDEFINED>{
   [[:blank:]]*\)[[:blank:]]* {yy_pop_state();}
   {IDENT}/[[:blank:]]*\)[[:blank:]]* {
-    yylval.unum = queryval(ctx->defines, yytext);
+    zzlval.unum = queryval(ctx->defines, yytext);
     return UNSIGNED_LITERAL;
     }
 
@@ -567,8 +569,6 @@ extern union {
 "--" {return DEC;}
 "<=" {return LE;}
 ">=" {return GE;}
-"==" {return EQTK;}
-"!=" {return NEQTK;}
 "/=" {return DIV_GETS;}
 "*=" {return MUL_GETS;}
 "%=" {return MOD_GETS;}
@@ -624,9 +624,10 @@ extern union {
   ">>" {return SHRTK;}
   "&&" {return AND;}
   "||" {return OR;}
+  "!=" {return NEQTK;}
+  "==" {return EQTK;}
   "<" {return '<';}
   ">" {return '>';}
-  "=" {return '=';}
   "!" {return '!';}
   "-" {return '-';}
   "(" {return '(';}
@@ -639,6 +640,7 @@ extern union {
   "^" {return '^';}
   "&" {return '&';}
 }
+"=" {return '=';}
 "[" {return '[';}
 "]" {return ']';}
 ":" {return ':';}
@@ -652,6 +654,14 @@ extern union {
 
 ((?i:"infinity")|(?i:"inf")) {yylval.dbl = 0x7f800000; return FLOAT_LITERAL;}
 (?i:"nan") {yylval.dbl = 0x7fffffff; return FLOAT_LITERAL;}
+
+<WITHINIF,INITIAL>{
+  "__FILE__" {char* fstr = dapeek(file2compile); unput('"'); UNPUTSTR(fstr); unput('"');}
+  "__LINE__" {char linebuf[16]; sprintf(linebuf, "%d", yylloc.last_line); unput('"'); UNPUTSTR(linebuf); unput('"');}
+  "__DATE__" {time_t tim = time(NULL); struct tm* tms = localtime(&tim); char datebuf[14]; strftime(datebuf, 14, "\"%b %e %Y\"", tms); UNPUTSTR(datebuf);}
+  "__TIME__" {time_t tim = time(NULL); struct tm* tms = localtime(&tim); char timebuf[11]; strftime(timebuf, 11, "\"%T\"",tms); UNPUTSTR(timebuf);}
+  "__func__" {char* namestr = ctx->func->name; unput('"'); UNPUTSTR(namestr); unput('"');}
+}
 
 <WITHINIF>{
   {IDENT} {
@@ -869,6 +879,7 @@ extern union {
       exit(-1);
   }
   dapush(ctx->definestack, rids);
+  return 0;
 }
 [[:space:]] {/*Whitespace, ignored*/}
 

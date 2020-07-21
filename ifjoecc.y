@@ -9,7 +9,6 @@
 %define parse.assert
 %define parse.error verbose
 %type<exprvariant> expression est eslo esla esbo esbx esba eseq escmp essh esas esca esu
-%type<unum> fint
 
 %code requires{
   #include <stdio.h>
@@ -81,13 +80,8 @@ esca:
 | esu {$$ = $1;};
 esu:
   '(' expression ')' {$$ = $2;}
-| fint {
-    $$ = ct_uintconst_expr($1);
-    printf("------------------intconst is %lu-----------------------\n", $1);
-    };
-fint:
-  UNSIGNED_LITERAL {$$ = $1;}
-| INTEGER_LITERAL {$$ = $1;};
+| UNSIGNED_LITERAL {$$ = ct_uintconst_expr($1);}
+| INTEGER_LITERAL {$$ = ct_intconst_expr($1);};
 %%
 int yyerror(const char* s){
   (void)s;
