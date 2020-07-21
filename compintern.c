@@ -535,6 +535,11 @@ struct lexctx* ctxinit(void) {
   insert(lct->defines, "__STDC__", (char*)(unsigned long) "1");
   insert(lct->defines, "__STDC_VERSION__", (char*)(unsigned long) "199901L");
   insert(lct->defines, "__STDC_HOSTED__", (char*)(unsigned long) "1"); 
+  insert(lct->defines, "__FILE__", NULL); 
+  insert(lct->defines, "__LINE__", NULL); 
+  insert(lct->defines, "__DATE__", NULL); 
+  insert(lct->defines, "__TIME__", NULL); 
+  insert(lct->defines, "__func__", NULL); 
   return lct;
 }
 

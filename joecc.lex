@@ -6,7 +6,6 @@ FLOATSIZE (f|F|l|L)
 INTSIZE (u|U|l|L)*
 %{
 //TODO: handle if, elif in preprocessor (including defined and stuff)
-//TODO: handle stringizing in macros
 //TODO: handle concatenation in macros
 
 #include <math.h>
@@ -524,6 +523,16 @@ extern union {
       dscat(dstrdly, yytext, yyleng);
     }
     }
+  #{IDENT} {
+    DYNSTR* argy = search(defargs, yytext + 1);
+    if(argy) {
+      dsccat(dstrdly, '"');
+      dscat(dstrdly, argy->strptr, argy->lenstr);
+      dsccat(dstrdly, '"');
+    } else {
+      dscat(dstrdly, yytext, yyleng);
+    }
+    }
   \"(\\.|[^\\"]|\/[[:blank:]]*\n)*\" {/*"*/
     dscat(dstrdly, yytext, yyleng);
     }
@@ -655,13 +664,11 @@ extern union {
 ((?i:"infinity")|(?i:"inf")) {yylval.dbl = 0x7f800000; return FLOAT_LITERAL;}
 (?i:"nan") {yylval.dbl = 0x7fffffff; return FLOAT_LITERAL;}
 
-<WITHINIF,INITIAL>{
-  "__FILE__" {char* fstr = dapeek(file2compile); unput('"'); UNPUTSTR(fstr); unput('"');}
-  "__LINE__" {char linebuf[16]; sprintf(linebuf, "%d", yylloc.last_line); unput('"'); UNPUTSTR(linebuf); unput('"');}
-  "__DATE__" {time_t tim = time(NULL); struct tm* tms = localtime(&tim); char datebuf[14]; strftime(datebuf, 14, "\"%b %e %Y\"", tms); UNPUTSTR(datebuf);}
-  "__TIME__" {time_t tim = time(NULL); struct tm* tms = localtime(&tim); char timebuf[11]; strftime(timebuf, 11, "\"%T\"",tms); UNPUTSTR(timebuf);}
-  "__func__" {char* namestr = ctx->func->name; unput('"'); UNPUTSTR(namestr); unput('"');}
-}
+"__FILE__" {char* fstr = dapeek(file2compile); unput('"'); UNPUTSTR(fstr); unput('"');}
+"__LINE__" {char linebuf[16]; sprintf(linebuf, "%d", yylloc.last_line); unput('"'); UNPUTSTR(linebuf); unput('"');}
+"__DATE__" {time_t tim = time(NULL); struct tm* tms = localtime(&tim); char datebuf[14]; strftime(datebuf, 14, "\"%b %e %Y\"", tms); UNPUTSTR(datebuf);}
+"__TIME__" {time_t tim = time(NULL); struct tm* tms = localtime(&tim); char timebuf[11]; strftime(timebuf, 11, "\"%T\"",tms); UNPUTSTR(timebuf);}
+"__func__" {char* namestr = ctx->func->name; unput('"'); UNPUTSTR(namestr); unput('"');}
 
 <WITHINIF>{
   {IDENT} {
