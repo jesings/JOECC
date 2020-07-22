@@ -1281,21 +1281,64 @@ char foldconst(EXPRESSION** exa) {
 
 //do the same as above but with statements
 char pleatstate(STATEMENT** stated) {
+  //TODO: optimize more here
   STATEMENT* st = *stated;
+  DYNARR* newsdyn;
   int i = 0;
   switch(st->type) {
     case LBREAK: case JGOTO: case LCONT: case LABEL: case CASE: case DEFAULT: case NOPSTMT:
+      //We don't reduce case statement here
       return 0;
     case WHILEL: case DOWHILEL: case SWITCH:
       //for while and maybe do while do something different if cond evaluates to false
       while(foldconst(&st->cond)) i = 1;
       return i || pleatstate(&st->body);
     case CMPND:
+      newsdyn = dactor(st->stmtsandinits->length);
       //special case for initializers?
-      return 0;
+      for(int i = 0; i < st->stmtsandinits->length; i++) {
+        SOI* soi = daget(st->stmtsandinits, i);
+        if(soi->isstmt) {
+          if(soi->state->type == FRET && i != st->stmtsandinits->length - 1) {
+            for(; i < st->stmtsandinits->length; i++) {
+              //TODO: free statement recursively
+              SOI* free2 = daget(st->stmtsandinits, i);
+              if(soi->isstmt) {
+                free(free2->state);
+              } else {
+                for(int j = 0; j < free2->init->length; j++) {
+                  INITIALIZER* in = daget(free2->init, j);
+                  rfreexpr(in->expr);
+                  //TODO: free decl completely
+                  free(in->decl);
+                  free(in);
+                }
+                dadtor(free2->init);
+              }
+              free(free2);
+            }
+            return 1;
+          }
+          if(pleatstate(&soi->state)) i = 1;
+          if(soi->state->type == NOPSTMT) {
+            i = 1;
+          } else {
+            dapush(newsdyn, soi);
+          }
+        } else {
+          for(int j = 0; j < soi->init->length; j++) {
+            INITIALIZER* in = daget(soi->init, j);
+            while(foldconst(&in->expr)) i = 1;
+          }
+          dapush(newsdyn, soi);
+        }
+      }
+      dadtor(st->stmtsandinits);
+      st->stmtsandinits = newsdyn;
+      return i;
     case FRET:
     case EXPR: 
-      //for fret remove everything after in scope
+      //For EXPR, turn into nop if pure?
       while(foldconst(&st->expression)) i = 1;
       return i;
     case IFELSES:

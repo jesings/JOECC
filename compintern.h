@@ -170,7 +170,6 @@ typedef struct stmt {
     //IDENTIFIERINFO* label; //case or label, maybe also goto?
     char* glabel; //for label and goto
     DYNARR* stmtsandinits; //compound
-    struct stmt* substatement; //default
   };
 } STATEMENT;
 
