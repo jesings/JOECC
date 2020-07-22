@@ -1220,7 +1220,13 @@ char foldconst(EXPRESSION** exa) {
     case DIVASSIGN: case MULTASSIGN: 
       //if identity on right side of expression (mostly 0, sometimes 1, none in case of mod (and for our purposes AND), etc) and expression is pure, ellide
     case ASSIGN:
-      //if same value on both sides, ellide if pure
+      if(puritree(EPARAM(ex, 0)) && treequals(EPARAM(ex, 0), EPARAM(ex, 1))) {
+        rfreexpr(EPARAM(ex, 0));
+        rfreexpr(EPARAM(ex, 1));
+        ex->type = NOP;
+        return 1;
+      }
+      return 0;
       //Further fix assign op
     case PREINC: case PREDEC: case POSTINC: case POSTDEC:
       return 0;
@@ -1274,3 +1280,31 @@ char foldconst(EXPRESSION** exa) {
 }
 
 //do the same as above but with statements
+char pleatstate(STATEMENT** stated) {
+  STATEMENT* st = *stated;
+  int i = 0;
+  switch(st->type) {
+    case LBREAK: case JGOTO: case LCONT: case LABEL: case CASE: case DEFAULT: case NOPSTMT:
+      return 0;
+    case WHILEL: case DOWHILEL: case SWITCH:
+      //for while and maybe do while do something different if cond evaluates to false
+      while(foldconst(&st->cond)) i = 1;
+      return i || pleatstate(&st->body);
+    case CMPND:
+      //special case for initializers?
+      return 0;
+    case FRET:
+    case EXPR: 
+      //for fret remove everything after in scope
+      while(foldconst(&st->expression)) i = 1;
+      return i;
+    case IFELSES:
+      //check if condition resolves to true, discard other case
+      while(foldconst(&st->ifcond)) i = 1;
+      return i || pleatstate(&st->thencond) || pleatstate(&st->elsecond);
+    case IFS:
+      return foldconst(&st->ifcond) || pleatstate(&st->thencond);
+  }
+  fprintf(stderr, "Error: reducing statement failed\n");
+  return 0;
+}
