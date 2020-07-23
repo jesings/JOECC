@@ -62,17 +62,21 @@ extern union {
 %x PREPROCESSOR INCLUDE 
 %x DEFINE UNDEF DEFARG DEFINE2
 %x IFNDEF IFDEF PPSKIP
-%x KILLBLANK
+%x KILLBLANK KILLCONCAT
 %x STRINGLIT CHARLIT ZCHARLIT
 %x CALLMACRO FINDREPLACE
 %x WITHINIF CHECKDEFINED ENDWITHINIF
 
 %%
 <KILLBLANK>{
-  ([[:blank:]]+|\\[[:blank:]]*\n)+ {yy_pop_state();}
+  ([[:blank:]]+|\\[[:blank:]]*\n)* {yy_pop_state();}
+}
+<KILLCONCAT>{
+  ##/("/*"([^*]|\*)*"*/")* {yy_pop_state();}
+  ##/([[:blank:]]+|"/*"([^*]|\*)*"*/")* {yy_pop_state();yy_push_state(KILLBLANK);}
 }
 
-<INITIAL,PREPROCESSOR,INCLUDE,DEFINE,UNDEF,DEFARG,DEFINE2,IFDEF,IFNDEF,CALLMACRO,PPSKIP,KILLBLANK>{
+<INITIAL,PREPROCESSOR,INCLUDE,DEFINE,UNDEF,DEFARG,DEFINE2,IFDEF,IFNDEF,CALLMACRO,PPSKIP,KILLBLANK,KILLCONCAT>{
   "/*" {yy_push_state(MULTILINE_COMMENT);}
   "//" {yy_push_state(SINGLELINE_COMMENT);}
 }
@@ -533,17 +537,56 @@ extern union {
       dscat(dstrdly, yytext, yyleng);
     }
     }
+  {IDENT}/("/*"([^*]|\*)*"*/")*##  {
+    DYNSTR* argy = search(defargs, yytext);
+    if(argy) {
+      dscat(dstrdly, argy->strptr, argy->lenstr);
+    } else {
+      dscat(dstrdly, yytext, yyleng);
+    }
+    yy_push_state(KILLCONCAT);
+  }
+  {IDENT}/([[:blank:]]+|"/*"([^*]|\*)*"*/")*## {
+    DYNSTR* argy = search(defargs, yytext);
+    if(argy) {
+      dscat(dstrdly, argy->strptr, argy->lenstr);
+    } else {
+      dscat(dstrdly, yytext, yyleng);
+    }
+    yy_push_state(KILLCONCAT);
+    yy_push_state(KILLBLANK);
+    }
+  /*we do no concatenation with strings, character constants, or stringized things*/
   \"(\\.|[^\\"]|\/[[:blank:]]*\n)*\" {/*"*/
     dscat(dstrdly, yytext, yyleng);
     }
   '(\\.|[^\\'\n])+' {
     dscat(dstrdly, yytext, yyleng);
     }
-  [^[:alnum:]_\'\"\n]+ {/*cntrl/delim expr*/
+  [^[:alnum:]_\'\"\n[:blank:]/#]+ {/*cntrl/delim expr*/
     dscat(dstrdly, yytext, yyleng);
     }
+  [^[:alnum:]_\'\"\n[:blank:]/#]+/("/*"([^*]|\*)*"*/")*## {
+    dscat(dstrdly, yytext, yyleng);
+    yy_push_state(KILLCONCAT);
+    }
+  [^[:alnum:]_\'\"\n[:blank:]/#]+/([[:blank:]]+|"/*"([^*]|\*)*"*/")*## {
+    dscat(dstrdly, yytext, yyleng);
+    yy_push_state(KILLCONCAT);
+    yy_push_state(KILLBLANK);
+    }
+  [[:blank:]]+ {dsccat(dstrdly, ' ');}
   [[:cntrl:][:print:]] {
     dsccat(dstrdly, *yytext);
+    }
+  [[:cntrl:][:print:]]/("/*"([^*]|\*)*"*/")*## {
+    dsccat(dstrdly, *yytext);
+    yy_push_state(KILLCONCAT);
+    }
+  [[:cntrl:][:print:]]/([[:blank:]]+|"/*"([^*]|\*)*"*/")*## {
+    dsccat(dstrdly, *yytext);
+    yy_push_state(KILLCONCAT);
+    yy_push_state(KILLBLANK);
     }
   <<EOF>> {
     //TODO:free hashtable and stuff?
