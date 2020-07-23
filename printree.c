@@ -22,7 +22,7 @@ const char* name_MEMBERTYPE[] = {
 #undef X
 
 static int pdecl(DECLARATION* decl);
-static int treexpr(EXPRESSION* expr);
+int treexpr(EXPRESSION* expr);
 static int structree(STRUCT* container);
 //static int enumtree(ENUM* container);
 static int uniontree(UNION* container);
@@ -153,7 +153,7 @@ static int treetype(IDTYPE* type) {
 //  return idnode;
 //}
 
-static int treexpr(EXPRESSION* expr) {
+int treexpr(EXPRESSION* expr) {
   int exnode = nodenumber++;
   dprintf(funcfile, "n%d [label=\"%s\"];\n", exnode, name_EXPRTYPE[expr->type]);
   int secondnodeary;

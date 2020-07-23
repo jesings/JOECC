@@ -12,7 +12,9 @@
 
 %code requires{
   #include <stdio.h>
+  #include <fcntl.h>
   #include "compintern.h"
+  #include "printree.h"
   extern DYNARR* file2compile;
 }
 
@@ -30,7 +32,18 @@
 
 %%
 fullifexpr:
-  expression '\n' {ctx->ifexpr = $1;};
+  expression '\n' {
+    extern int funcfile, nodenumber;
+    nodenumber = 0;
+    int fnn = nodenumber++;
+    funcfile = creat("ppexpr.dot", 0666);
+    dprintf(funcfile, "digraph %s {\ngraph [rankdir=LR];\nnode [shape=box];\ngraph [splines=ortho, nodesep=1];", "ppexpr");
+    dprintf(funcfile, "n%d [label=\"%s\"];\n", fnn, "contingent on"); 
+    dprintf(funcfile, "n%d -> n%d;\n", fnn, treexpr($1));
+    dprintf(funcfile, "}\n");
+    close(funcfile);
+    ctx->ifexpr = $1;
+    };
 expression:
   est '?' expression ':' est {$$ = ct_ternary_expr($1, $3, $5);}
 | est {$$ = $1;};

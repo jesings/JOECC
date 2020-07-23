@@ -65,7 +65,7 @@ extern union {
 %x KILLBLANK KILLCONCAT
 %x STRINGLIT CHARLIT ZCHARLIT
 %x CALLMACRO FINDREPLACE
-%x WITHINIF CHECKDEFINED ENDWITHINIF
+%x WITHINIF CHECKDEFINED CHECKDEFINED2 ENDWITHINIF
 
 %%
 <KILLBLANK>{
@@ -109,7 +109,6 @@ extern union {
   define[[:blank:]]+ {if(!skipping) {yy_push_state(DEFINE); md = calloc(1, sizeof(struct macrodef));} else yy_pop_state();}
   undef[[:blank:]]+ {if(!skipping) yy_push_state(UNDEF); else yy_pop_state();}
   ifdef[[:blank:]]+ {yy_push_state(IFDEF);}
-  if[[:blank:]]*defined[[:blank:]]+ {yy_push_state(IFDEF);}
   ifndef[[:blank:]]+ {yy_push_state(IFNDEF);}
   else[[:blank:]]*\n {
     yy_pop_state();
@@ -181,13 +180,12 @@ extern union {
       default:
         yy_push_state(WITHINIF);
         zzparse();
-        puts("subsidiary parser");
         break;
     }
     }
-  line {yy_pop_state(); yy_push_state(SINGLELINE_COMMENT);/*TODO: line directive currently ignored*/}
-  warning {yy_pop_state(); yy_push_state(SINGLELINE_COMMENT); fprintf(stderr, "Preprocessor warning directive encountered %s %d.%d-%d.%d\n", locprint(yylloc)); /*TODO: warning directive currently ignored*/}
-  error {yy_pop_state(); yy_push_state(SINGLELINE_COMMENT); fprintf(stderr, "Preprocessor error directive encountered %s %d.%d-%d.%d\n", locprint(yylloc)); exit(-1); /*TODO: warning directive currently ignored*/}
+  line {if(!skipping){yy_pop_state(); yy_push_state(SINGLELINE_COMMENT);} else {while(input() != '\n') ; yy_pop_state();}/*TODO: line directive currently doesn't print requisite information*/}
+  warning {if(!skipping){yy_pop_state(); yy_push_state(SINGLELINE_COMMENT); fprintf(stderr, "Preprocessor warning directive encountered %s %d.%d-%d.%d\n", locprint(yylloc));} else {while(input() != '\n') ; yy_pop_state();}/*TODO: warning directive currently doesn't print requisite information*/}
+  error {if(!skipping){yy_pop_state(); yy_push_state(SINGLELINE_COMMENT); fprintf(stderr, "Preprocessor error directive encountered %s %d.%d-%d.%d\n", locprint(yylloc)); exit(-1);} else {while(input() != '\n') ; yy_pop_state();}/*TODO: error directive currently doesn't print requisite information*/}
   \n {yy_pop_state();fprintf(stderr, "PREPROCESSOR: Incorrect line end %d %s %d.%d-%d.%d\n", yylloc.first_line, locprint(yylloc));}
   . {fprintf(stderr, "PREPROCESSOR: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint(yylloc));}
 }
@@ -200,22 +198,28 @@ extern union {
       stmtover = 1;
       yytext[yyleng - 1] = '\0'; //ignore closing >
       char pathbuf[2048];
-      snprintf(pathbuf, 2048, "/blah/include/%s", yytext + 1); //ignore opening <
-      //FILE* newbuf;
-      //if((newbuf = fopen(pathbuf, "r")) != NULL) {
-      //  YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
-      //  yypush_buffer_state(ybs);
-      //  yy_pop_state();
-      //  yy_pop_state();
-      //  yy_push_state(INITIAL);
-      //  break;
-      //} else {
-      //  fprintf(stderr, "Invalid system file %s included!\n", yytext + 1);
-      //  yy_pop_state();
-      //  yy_pop_state();
-      //}
+      static const char* searchpath[] = {
+        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.1.0/include",
+        "/usr/local/include",
+        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.1.0/include-fixed",
+        "/usr/include",
+        };
       yy_pop_state();
       yy_pop_state();
+      int i;
+      for(i = 0; i < 4 /*sizeof searchpath*/; i++) {
+        FILE* newbuf;
+        snprintf(pathbuf, 2048, "%s/%s", searchpath[i], yytext + 1); //ignore opening <
+        if((newbuf = fopen(pathbuf, "r")) != NULL) {
+          YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
+          yypush_buffer_state(ybs);
+          yy_push_state(INITIAL);
+          break;
+        }
+      } 
+      if(i == 4){
+        fprintf(stderr, "Invalid system file %s included!\n", yytext + 1);
+      }
     }
     }
   \"[^\"\n]*\" {/*"*/
@@ -613,14 +617,20 @@ extern union {
 
 }
 
+<CHECKDEFINED2>{
+  {IDENT} {
+    yy_pop_state();
+    zzlval.unum = queryval(ctx->defines, yytext);
+    return UNSIGNED_LITERAL;
+    }
+
+}
+
 
 <INITIAL,SINGLELINE_COMMENT,PREPROCESSOR,INCLUDE,DEFINE,DEFINE2,IFDEF,IFNDEF,STRINGLIT,WITHINIF>\\+[[:blank:]]*\n {/*the newline is ignored*/}
-<WITHINIF>"defined"[[:blank:]]*\([[:blank:]]* {yy_push_state(CHECKDEFINED);}
 "->" {return ARROWTK;}
 "++" {return INC;}
 "--" {return DEC;}
-"<=" {return LE;}
-">=" {return GE;}
 "/=" {return DIV_GETS;}
 "*=" {return MUL_GETS;}
 "%=" {return MOD_GETS;}
@@ -678,6 +688,8 @@ extern union {
   "||" {return OR;}
   "!=" {return NEQTK;}
   "==" {return EQTK;}
+  "<=" {return LE;}
+  ">=" {return GE;}
   "<" {return '<';}
   ">" {return '>';}
   "!" {return '!';}
@@ -714,6 +726,8 @@ extern union {
 "__func__" {char* namestr = ctx->func->name; unput('"'); UNPUTSTR(namestr); unput('"');}
 
 <WITHINIF>{
+  "defined"[[:blank:]]*"("[[:blank:]]* {yy_push_state(CHECKDEFINED);}
+  "defined"[[:blank:]]*/{IDENT} {yy_push_state(CHECKDEFINED2);}
   {IDENT} {
     char* ylstr = strdup(yytext);
     int mt = check_type(ylstr);

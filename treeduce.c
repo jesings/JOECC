@@ -1222,8 +1222,9 @@ char foldconst(EXPRESSION** exa) {
     case ASSIGN:
       if(puritree(EPARAM(ex, 0)) && treequals(EPARAM(ex, 0), EPARAM(ex, 1))) {
         rfreexpr(EPARAM(ex, 0));
-        rfreexpr(EPARAM(ex, 1));
-        ex->type = NOP;
+        *exa = EPARAM(ex, 1);
+        dadtor(ex->params);
+        free(ex);
         return 1;
       }
       return 0;

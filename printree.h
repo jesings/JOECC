@@ -3,5 +3,6 @@
 #include "compintern.h"
 
 void treefunc(FUNC* func);
+int treexpr(EXPRESSION* expr);
 #endif 
 
