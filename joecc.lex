@@ -29,7 +29,7 @@ INTSIZE (u|U|l|L)*
 #define SIGNEDCHAR 0
 
 int zzparse(void);
-int check_type(char* symb);
+int check_type(char* symb, char frominitial);
 extern struct lexctx* ctx;
 char stmtover, skipping;
 char* defname, * strconst;
@@ -126,14 +126,14 @@ extern union {
       fprintf(stderr, "ERROR: else without preceding if %s %d.%d-%d.%d\n", locprint(yylloc));
       exit(-1);
     }
-    enum ifdefstate ids =*(enum ifdefstate*) dapeek(ds);
-    switch(ids) {
+    enum ifdefstate* ids = dapeek(ds);
+    switch(*ids) {
       case IFANDTRUE: 
-        *(enum ifdefstate*) dapeek(ds) = ELSEANDTRUE;
+        *ids = ELSEANDTRUE;
         yy_push_state(PPSKIP);
         break;
       case IFANDFALSE: 
-        *(enum ifdefstate*) dapeek(ds) = ELSEANDFALSE;
+        *ids = ELSEANDFALSE;
         yy_pop_state();
         break;
       default:
@@ -150,10 +150,10 @@ extern union {
       fprintf(stderr, "ERROR: elif without preceding if %s %d.%d-%d.%d\n", locprint(yylloc));
       exit(-1);
     }
-    enum ifdefstate ids = *(enum ifdefstate*) dapeek(ds);
-    switch(ids) {
+    enum ifdefstate* ids = dapeek(ds);
+    switch(*ids) {
       case IFANDTRUE: 
-        *(enum ifdefstate*) dapeek(ds) = IFDEFDUMMY;
+        *ids = IFDEFDUMMY;
         yy_push_state(PPSKIP);
         break;
       case IFANDFALSE: 
@@ -172,14 +172,15 @@ extern union {
     yy_pop_state();
     DYNARR* ds = ctx->definestack;
     if(ds->length > 0) {
-      enum ifdefstate ids = *(enum ifdefstate*) dapop(ds);
-      switch(ids) {
+      enum ifdefstate* ids = dapop(ds);
+      switch(*ids) {
         case IFANDTRUE: case ELSEANDFALSE:
           break;
         default: //case IFANDFALSE: case ELSEANDTRUE: case IFDEFDUMMY:
           yy_pop_state();
           break;
       }
+      free(ids);
     } else {
       fprintf(stderr, "Error: Unexpected #endif %s %d.%d-%d.%d\n", locprint(yylloc));
     }
@@ -191,13 +192,13 @@ extern union {
     enum ifdefstate ids = ds->length > 0 ? *(enum ifdefstate*) dapeek(ds) : IFANDTRUE;
     enum ifdefstate* rids;
     switch(ids) {
-      case IFDEFDUMMY: 
+      default:
         rids = malloc(sizeof(enum ifdefstate));
         *rids = IFDEFDUMMY;
         dapush(ds, rids);
         yy_push_state(PPSKIP);
         break;
-      default:
+      case IFANDTRUE: case ELSEANDFALSE:
         yy_push_state(WITHINIF);
         zzparse();
         break;
@@ -756,7 +757,7 @@ extern union {
   "defined"[[:blank:]]*/{IDENT} {yy_push_state(CHECKDEFINED2);}
   {IDENT} {
     char* ylstr = strdup(yytext);
-    int mt = check_type(ylstr);
+    int mt = check_type(ylstr, 0);
     switch(mt) {
       default:
         zzlval.unum = 0;
@@ -778,7 +779,7 @@ extern union {
 
 {IDENT} {
   char* ylstr = strdup(yytext);
-  int mt = check_type(ylstr);
+  int mt = check_type(ylstr, 1);
   switch(mt) {
     case SYMBOL: case TYPE_NAME:
       yylval.str = ylstr;
@@ -1004,7 +1005,7 @@ extern union {
 <*>. {fprintf(stderr, "Unexpected character encountered: %c %d %s %d.%d-%d.%d\n", *yytext, *yytext, locprint(yylloc));}
 <*>\n {fprintf(stderr, "Unexpected newline encountered:  %s %d.%d-%d.%d\n", locprint(yylloc));}
 %%
-int check_type(char* symb) {
+int check_type(char* symb, char frominitial) {
   struct macrodef* macdef = search(ctx->defines, symb);
   if(macdef) {
     defname = symb;
@@ -1034,7 +1035,10 @@ int check_type(char* symb) {
       dstrdly = strctor(malloc(2048), 0, 2048);
       parg = dactor(64); 
     } else {
-      yy_push_state(INITIAL);
+      if(frominitial == 1)
+        yy_push_state(INITIAL);
+      if(frominitial == 0)
+        yy_push_state(WITHINIF);
       char* buf = malloc(256);
       snprintf(buf, 256, "Macro %s", symb);
       dapush(file2compile, buf);

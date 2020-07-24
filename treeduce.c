@@ -98,6 +98,7 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
               *exa = subexpr; \
               return 1  
 
+//TODO: CMPOP separate float case
 #define CMPOP(OP)  do {\
       subexpr = EPARAM(ex, 0); \
       rectexpr = EPARAM(ex, 1); \
