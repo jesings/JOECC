@@ -6,20 +6,8 @@
 #include "treeduce.h"
 #define EPARAM(EVA, IND) ((EXPRESSION*)((EVA)->params->arr[IND]))
 #define LPARAM(EVA, IND) ((EVA)->params->arr[IND])
-//  X(NOP), X(STRING), X(INT), X(UINT), X(FLOAT), X(IDENT), X(ARRAY_LIT), 
-//  X(ADD), X(NEG), X(SUB), X(EQ), X(NEQ), X(GT), X(LT), X(GTE), X(LTE), X(MULT), X(DIVI), X(MOD), 
-//  X(PREINC), X(POSTINC), X(PREDEC), X(POSTDEC), 
-//  X(L_AND), X(L_OR), X(L_NOT), X(B_AND), X(B_OR), X(B_XOR), X(B_NOT), X(SHL), X(SHR), 
-//  X(DOTOP), X(ARROW), 
-//  X(SZOF), X(SZOFEXPR), 
-//  X(ASSIGN), 
-//  X(ADDASSIGN), X(SUBASSIGN), X(SHLASSIGN), X(SHRASSIGN), X(ANDASSIGN),  
-//  X(XORASSIGN), X(ORASSIGN), X(DIVASSIGN), X(MULTASSIGN), X(MODASSIGN), 
-//  X(CAST), 
-//  X(COMMA), 
-//  X(ADDR), X(DEREF), 
-//  X(FCALL), 
-//  X(TERNARY)
+//TODO: Fix disgusting memory leaks for subexpr
+
 char puritree(EXPRESSION* cexpr) {
   switch(cexpr->type){
     case STRING: case INT: case UINT: case FLOAT: case NOP: case IDENT: case ARRAY_LIT: case SZOF: case MEMBER:
@@ -45,14 +33,7 @@ char puritree(EXPRESSION* cexpr) {
   fprintf(stderr, "Error: determining purity of expression failed\n");
   return 0;
 }
-// X(FRET), X(LBREAK), X(JGOTO), X(LCONT), 
-// X(WHILEL), X(DOWHILEL), 
-// X(IFS), X(IFELSES), 
-// X(SWITCH), 
-// X(CASE), X(LABEL), 
-// X(CMPND), 
-// X(EXPR), X(NOPSTMT), 
-// X(DEFAULT)
+
 char purestmt(STATEMENT* stmt) {
   switch(stmt->type) {
     case FRET: case EXPR:
@@ -115,7 +96,7 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
               free(rectexpr);  \
               free(ex);  \
               *exa = subexpr; \
-              return 1;  
+              return 1  
 
 #define CMPOP(OP)  do {\
       subexpr = EPARAM(ex, 0); \
@@ -141,47 +122,52 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
           switch(rectexpr->type) { \
             case UINT: \
               subexpr->uintconst = (subexpr->uintconst OP rectexpr->uintconst); \
-              FREE2RET;\
+              break;\
             case INT: \
               subexpr->uintconst = ((signed long) subexpr->uintconst OP rectexpr->intconst); \
-              FREE2RET;\
+              break;\
             case FLOAT: \
               subexpr->uintconst = (subexpr->uintconst OP rectexpr->floatconst); \
-              FREE2RET;\
+              break;\
             default: \
               return 0; \
-          }\
+          } \
+          break; \
         case INT: \
           switch(rectexpr->type) { \
             case UINT: \
               subexpr->uintconst = (subexpr->intconst OP (signed long) rectexpr->uintconst); \
-              FREE2RET;\
+              break;\
             case INT: \
               subexpr->uintconst = (subexpr->intconst OP rectexpr->intconst); \
-              FREE2RET;\
+              break;\
             case FLOAT: \
               subexpr->uintconst = (subexpr->intconst OP rectexpr->floatconst); \
-              FREE2RET;\
+              break;\
             default: \
               return 0; \
           } \
+          break; \
         case FLOAT:\
           switch(rectexpr->type) { \
             case UINT: \
               subexpr->uintconst = (subexpr->floatconst OP rectexpr->uintconst); \
-              FREE2RET;\
+              break;\
             case INT: \
               subexpr->uintconst = (subexpr->floatconst OP rectexpr->intconst); \
-              FREE2RET;\
+              break;\
             case FLOAT: \
               subexpr->uintconst = (subexpr->floatconst OP rectexpr->floatconst); \
-              FREE2RET;\
+              break;\
             default: \
               return 0; \
           } \
+          break; \
         default: \
           return 0; \
-      } } while (0)
+      }\
+      FREE2RET; \
+    } while (0)
 
 #define INTOP(OP) do {\
       subexpr = EPARAM(ex, 0); \
@@ -355,9 +341,10 @@ char foldconst(EXPRESSION** exa) {
         case GTE:
           subexpr->type = LT;
           break;
-        case INT: case UINT: case FLOAT: ;//float is forcibly cast
-          subexpr->intconst = subexpr->intconst == 0;
+        case INT: case UINT:
+          subexpr->intconst = !subexpr->intconst;
           break;
+        //we don't really deal with float
         case COMMA:
           //look at end of expr
         default:
@@ -505,7 +492,7 @@ char foldconst(EXPRESSION** exa) {
       } else if(newdyn->length == 0) {
         dadtor(newdyn);
         free(ex);
-        *exa = ct_nop_expr();
+        *exa = rectexpr;
         return 1;
       }
       ex->params = newdyn;
@@ -630,7 +617,7 @@ char foldconst(EXPRESSION** exa) {
       } else if(newdyn->length == 0) {
         dadtor(newdyn);
         free(ex);
-        *exa = ct_nop_expr();
+        *exa = rectexpr;
         return 1;
       }
       //if first element is 0, transform into ADD if more than one other arg, wrap in NEG
@@ -730,7 +717,7 @@ char foldconst(EXPRESSION** exa) {
       } else if(newdyn->length == 0) {
         dadtor(newdyn);
         free(ex);
-        *exa = ct_nop_expr();
+        *exa = rectexpr;
         return 1;
       }
       ex->params = newdyn;
@@ -845,7 +832,7 @@ char foldconst(EXPRESSION** exa) {
       } else if(newdyn->length == 0) {
         dadtor(newdyn);
         free(ex);
-        *exa = ct_nop_expr();
+        *exa = rectexpr;
         return 1;
       }
       return rove;
@@ -875,7 +862,7 @@ char foldconst(EXPRESSION** exa) {
             break;
           case UINT: case INT: case FLOAT:
             if(subexpr->uintconst == 0) {
-              for(; i < ex->params->length; i++) {
+              for(++i; i < ex->params->length; ++i) {
                 rfreexpr(ex->params->arr[i]);
               }
               dadtor(ex->params);
@@ -889,7 +876,7 @@ char foldconst(EXPRESSION** exa) {
               ex->type = COMMA;
               if(!newdyn->length) {
                 free(ex);
-                *exa = ct_nop_expr();
+                *exa = subexpr;
               }
               else {
                 ex->params = newdyn;
@@ -951,7 +938,7 @@ char foldconst(EXPRESSION** exa) {
             break;
           case UINT: case INT: case FLOAT:
             if(subexpr->uintconst != 0) {
-              for(; i < ex->params->length; i++) {
+              for(++i; i < ex->params->length; ++i) {
                 rfreexpr(ex->params->arr[i]);
               }
               dadtor(ex->params);
@@ -965,7 +952,7 @@ char foldconst(EXPRESSION** exa) {
               ex->type = COMMA;
               if(!newdyn->length) {
                 free(ex);
-                *exa = ct_nop_expr();
+                *exa = subexpr;
               }
               else {
                 ex->params = newdyn;
@@ -1030,7 +1017,7 @@ char foldconst(EXPRESSION** exa) {
             rectexpr->uintconst &= subexpr->uintconst;
             free(subexpr);
             if(rectexpr->uintconst == 0) {
-              for(; i < ex->params->length; i++) {
+              for(++i; i < ex->params->length; ++i) {
                 EXPRESSION* free2 = EPARAM(ex, i);
                 if(puritree(free2)) {
                   rfreexpr(free2);
@@ -1083,7 +1070,7 @@ char foldconst(EXPRESSION** exa) {
             rectexpr->uintconst |= subexpr->uintconst;
             free(subexpr);
             if(rectexpr->uintconst == -1UL) {
-              for(; i < ex->params->length; i++) {
+              for(++i; i < ex->params->length; ++i) {
                 EXPRESSION* free2 = EPARAM(ex, i);
                 if(puritree(free2)) {
                   rfreexpr(free2);
@@ -1306,6 +1293,7 @@ char pleatstate(STATEMENT** stated) {
               SOI* free2 = daget(st->stmtsandinits, i);
               if(soi->isstmt) {
                 free(free2->state);
+                  //TODO: if we find a label, stop freeing
               } else {
                 for(int j = 0; j < free2->init->length; j++) {
                   INITIALIZER* in = daget(free2->init, j);
@@ -1338,9 +1326,15 @@ char pleatstate(STATEMENT** stated) {
       st->stmtsandinits = newsdyn;
       return i;
     case FRET:
+      while(foldconst(&st->expression)) i = 1;
+      return i;
     case EXPR: 
       //For EXPR, turn into nop if pure?
       while(foldconst(&st->expression)) i = 1;
+      if(puritree(st->expression)) {
+        rfreexpr(st->expression);
+        st->type = NOPSTMT;
+      }
       return i;
     case IFELSES:
       //check if condition resolves to true, discard other case

@@ -62,7 +62,7 @@ extern union {
 %x PREPROCESSOR INCLUDE 
 %x DEFINE UNDEF DEFARG DEFINE2
 %x IFNDEF IFDEF PPSKIP
-%x KILLBLANK KILLCONCAT
+%x KILLBLANK KILLCONCAT KILLUNTIL
 %x STRINGLIT CHARLIT ZCHARLIT
 %x CALLMACRO FINDREPLACE
 %x WITHINIF CHECKDEFINED CHECKDEFINED2 ENDWITHINIF
@@ -74,6 +74,15 @@ extern union {
 <KILLCONCAT>{
   ##/("/*"([^*]|\*)*"*/")* {yy_pop_state();}
   ##/([[:blank:]]+|"/*"([^*]|\*)*"*/")* {yy_pop_state();yy_push_state(KILLBLANK);}
+}
+
+<KILLUNTIL>{
+  [^/\n\\]+ {}
+  \n {yy_pop_state();}
+  "/" {}
+  \\ {}
+  "//" {yy_pop_state(); yy_push_state(SINGLELINE_COMMENT);}
+  "/*" {yy_push_state(MULTILINE_COMMENT);}
 }
 
 <INITIAL,PREPROCESSOR,INCLUDE,DEFINE,UNDEF,DEFARG,DEFINE2,IFDEF,IFNDEF,CALLMACRO,PPSKIP,KILLBLANK,KILLCONCAT>{
@@ -129,7 +138,7 @@ extern union {
         break;
     }
     }
-  elif[[:blank:]]*\n {
+  elif {
     yy_pop_state();
     DYNARR* ds = ctx->definestack;
     enum ifdefstate ids = ds->length > 0 ? *(enum ifdefstate*) dapeek(ds) : ELSEANDFALSE;
@@ -149,7 +158,7 @@ extern union {
         fprintf(stderr, "Error: Unexpected #elif %s %d.%d-%d.%d\n", locprint(yylloc));
     }
     }
-  endif[[:blank:]]*\n {/*handle endif case*/
+  endif {/*handle endif case*/
     yy_pop_state();
     DYNARR* ds = ctx->definestack;
     if(ds->length > 0) {
@@ -164,6 +173,7 @@ extern union {
     } else {
       fprintf(stderr, "Error: Unexpected #endif %s %d.%d-%d.%d\n", locprint(yylloc));
     }
+    yy_push_state(KILLUNTIL);
     }
   if {/*handle if case*/
     yy_pop_state();
@@ -183,9 +193,9 @@ extern union {
         break;
     }
     }
-  line {if(!skipping){yy_pop_state(); yy_push_state(SINGLELINE_COMMENT);} else {while(input() != '\n') ; yy_pop_state();}/*TODO: line directive currently doesn't print requisite information*/}
-  warning {if(!skipping){yy_pop_state(); yy_push_state(SINGLELINE_COMMENT); fprintf(stderr, "Preprocessor warning directive encountered %s %d.%d-%d.%d\n", locprint(yylloc));} else {while(input() != '\n') ; yy_pop_state();}/*TODO: warning directive currently doesn't print requisite information*/}
-  error {if(!skipping){yy_pop_state(); yy_push_state(SINGLELINE_COMMENT); fprintf(stderr, "Preprocessor error directive encountered %s %d.%d-%d.%d\n", locprint(yylloc)); exit(-1);} else {while(input() != '\n') ; yy_pop_state();}/*TODO: error directive currently doesn't print requisite information*/}
+  line {if(!skipping){yy_pop_state(); yy_push_state(SINGLELINE_COMMENT);} else {yy_pop_state(); yy_push_state(KILLUNTIL);}/*TODO: line directive currently doesn't print requisite information*/}
+  warning {if(!skipping){yy_pop_state(); yy_push_state(SINGLELINE_COMMENT); fprintf(stderr, "Preprocessor warning directive encountered %s %d.%d-%d.%d\n", locprint(yylloc));} else {yy_pop_state(); yy_push_state(KILLUNTIL);}/*TODO: warning directive currently doesn't print requisite information*/}
+  error {if(!skipping){yy_pop_state(); yy_push_state(SINGLELINE_COMMENT); fprintf(stderr, "Preprocessor error directive encountered %s %d.%d-%d.%d\n", locprint(yylloc)); exit(-1);} else {yy_pop_state(); yy_push_state(KILLUNTIL);}/*TODO: error directive currently doesn't print requisite information*/}
   \n {yy_pop_state();fprintf(stderr, "PREPROCESSOR: Incorrect line end %d %s %d.%d-%d.%d\n", yylloc.first_line, locprint(yylloc));}
   . {fprintf(stderr, "PREPROCESSOR: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint(yylloc));}
 }
@@ -627,7 +637,7 @@ extern union {
 }
 
 
-<INITIAL,SINGLELINE_COMMENT,PREPROCESSOR,INCLUDE,DEFINE,DEFINE2,IFDEF,IFNDEF,STRINGLIT,WITHINIF>\\+[[:blank:]]*\n {/*the newline is ignored*/}
+<INITIAL,SINGLELINE_COMMENT,PREPROCESSOR,INCLUDE,DEFINE,DEFINE2,IFDEF,IFNDEF,STRINGLIT,WITHINIF,KILLUNTIL,KILLBLANK>\\+[[:blank:]]*\n {/*the newline is ignored*/}
 "->" {return ARROWTK;}
 "++" {return INC;}
 "--" {return DEC;}
@@ -703,15 +713,15 @@ extern union {
   "~" {return '~';}
   "^" {return '^';}
   "&" {return '&';}
+  "?" {return '?';}
+  ":" {return ':';}
 }
 "=" {return '=';}
 "[" {return '[';}
 "]" {return ']';}
-":" {return ':';}
 "," {return ',';}
 "{" {return '{';}
 "}" {return '}';}
-"?" {return '?';}
 ";" {return ';';}
 "%" {return '%';}
 "." {return '.';}
@@ -940,6 +950,7 @@ extern union {
       yy_push_state(PPSKIP);
       break;
     default:
+      yy_pop_state();
       exit(-1);
   }
   dapush(ctx->definestack, rids);

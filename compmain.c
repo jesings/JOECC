@@ -27,7 +27,7 @@ int main(int argc, char** argv) {
   }
   extern int yydebug;
   extern int zzdebug;
-  zzdebug = 0;
+  zzdebug = 1;
   yydebug = 0;
   yyparse();
   if(argc > 1) {
