@@ -289,16 +289,22 @@ param_decl:
     };
 typemsign:
   "signed" {$$ = 0;}
-| "unsigned" {$$ = UNSIGNEDNUM;}
+| "unsigned" {$$ = UNSIGNEDNUM;};
 typemintkw:
   "char" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 1;}
 | "int8" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 1;}
 | "int16" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 2;}
 | "int32" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 4;}
 | "int64" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 8;}
+| "int16" "int32" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 2;/*garbage feature only here for compatibility*/}
+| "int64" "int32" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 8;/*garbage feature only here for compatibility*/}
+| "int64" "int64" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 8;/*garbage feature only here for compatibility*/}
+| "int64" "int64" "int32" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 8;/*garbage feature only here for compatibility*/}
 inttypem:
   typemintkw {$$ = $1;}
 | typemsign typemintkw {$$ = $2; $$->tb |= $1;}
+| typemintkw typemsign {$$ = $1; $$->tb |= $2;/*garbage feature only here for compatibility (long unsigned)*/}
+| typemintkw typemsign typemintkw {$$ = $1; $$->tb |= $2; free($3);/*even more garbage feature only here for compatibility (long unsigned int)*/};
 typem:
   inttypem {$$ = $1;}
 | "byte"  {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 1 | UNSIGNEDNUM;}
@@ -848,7 +854,7 @@ enums:
 commaopt: ',' | %empty;
 %%
 int yyerror(const char* s){
-  //printf("\ncolumn: %d\n%s\n", yylloc->first_column, s);
+  printf("ERROR: %s %s %d.%d-%d.%d\n", s, locprint(yylloc));
   (void)s;
   return 0;
 }

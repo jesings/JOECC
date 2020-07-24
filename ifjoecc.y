@@ -13,6 +13,7 @@
 %code requires{
   #include <stdio.h>
   #include <fcntl.h>
+  #include <unistd.h>
   #include "compintern.h"
   #include "printree.h"
   extern DYNARR* file2compile;
@@ -32,7 +33,7 @@
 
 %%
 fullifexpr:
-  expression '\n' {
+  expression {
     extern int funcfile, nodenumber;
     nodenumber = 0;
     int fnn = nodenumber++;

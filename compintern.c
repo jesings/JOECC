@@ -135,6 +135,7 @@ EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident) {
   retval->type = IDENT;
   retval->id = scopesearch(lct, M_VARIABLE, ident);
   if(!retval->id) {
+    exit(255);
     retval->id = malloc(sizeof(IDENTIFIERINFO));
     retval->id->index = -1;
     retval->id->name = ident;
@@ -540,6 +541,7 @@ struct lexctx* ctxinit(void) {
   insert(lct->defines, "__DATE__", NULL); 
   insert(lct->defines, "__TIME__", NULL); 
   insert(lct->defines, "__func__", NULL); 
+  insert(lct->defines, "__x86_64__", NULL); 
   return lct;
 }
 

@@ -119,10 +119,14 @@ extern union {
   undef[[:blank:]]+ {if(!skipping) yy_push_state(UNDEF); else yy_pop_state();}
   ifdef[[:blank:]]+ {yy_push_state(IFDEF);}
   ifndef[[:blank:]]+ {yy_push_state(IFNDEF);}
-  else[[:blank:]]*\n {
+  else {
     yy_pop_state();
     DYNARR* ds = ctx->definestack;
-    enum ifdefstate ids = ds->length > 0 ? *(enum ifdefstate*) dapeek(ds) : ELSEANDFALSE;
+    if(!ds->length) {
+      fprintf(stderr, "ERROR: else without preceding if %s %d.%d-%d.%d\n", locprint(yylloc));
+      exit(-1);
+    }
+    enum ifdefstate ids =*(enum ifdefstate*) dapeek(ds);
     switch(ids) {
       case IFANDTRUE: 
         *(enum ifdefstate*) dapeek(ds) = ELSEANDTRUE;
@@ -137,11 +141,16 @@ extern union {
       case IFDEFDUMMY:
         break;
     }
+    yy_push_state(KILLUNTIL);
     }
   elif {
     yy_pop_state();
     DYNARR* ds = ctx->definestack;
-    enum ifdefstate ids = ds->length > 0 ? *(enum ifdefstate*) dapeek(ds) : ELSEANDFALSE;
+    if(!ds->length) {
+      fprintf(stderr, "ERROR: elif without preceding if %s %d.%d-%d.%d\n", locprint(yylloc));
+      exit(-1);
+    }
+    enum ifdefstate ids = *(enum ifdefstate*) dapeek(ds);
     switch(ids) {
       case IFANDTRUE: 
         *(enum ifdefstate*) dapeek(ds) = IFDEFDUMMY;
@@ -149,6 +158,7 @@ extern union {
         break;
       case IFANDFALSE: 
         yy_pop_state();
+        free(dapop(ds));
         yy_push_state(WITHINIF);
         zzparse();
         break;
@@ -197,7 +207,7 @@ extern union {
   warning {if(!skipping){yy_pop_state(); yy_push_state(SINGLELINE_COMMENT); fprintf(stderr, "Preprocessor warning directive encountered %s %d.%d-%d.%d\n", locprint(yylloc));} else {yy_pop_state(); yy_push_state(KILLUNTIL);}/*TODO: warning directive currently doesn't print requisite information*/}
   error {if(!skipping){yy_pop_state(); yy_push_state(SINGLELINE_COMMENT); fprintf(stderr, "Preprocessor error directive encountered %s %d.%d-%d.%d\n", locprint(yylloc)); exit(-1);} else {yy_pop_state(); yy_push_state(KILLUNTIL);}/*TODO: error directive currently doesn't print requisite information*/}
   \n {yy_pop_state();fprintf(stderr, "PREPROCESSOR: Incorrect line end %d %s %d.%d-%d.%d\n", yylloc.first_line, locprint(yylloc));}
-  . {fprintf(stderr, "PREPROCESSOR: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint(yylloc));}
+  . {fprintf(stderr, "PREPROCESSOR: Unexpected character encountered: %d %c %s %d.%d-%d.%d\n", *yytext, *yytext, locprint(yylloc));}
 }
 
 <INCLUDE>{
@@ -220,10 +230,17 @@ extern union {
       for(i = 0; i < 4 /*sizeof searchpath*/; i++) {
         FILE* newbuf;
         snprintf(pathbuf, 2048, "%s/%s", searchpath[i], yytext + 1); //ignore opening <
+        puts(yytext + 1);
         if((newbuf = fopen(pathbuf, "r")) != NULL) {
+          YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
+          *ylt = yylloc;
+          dapush(locs, ylt);
+          yylloc.first_line = yylloc.last_line = 1;
+          yylloc.first_column = yylloc.last_column = 0;
+          dapush(file2compile, strdup(yytext + 1));
           YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
-          yypush_buffer_state(ybs);
           yy_push_state(INITIAL);
+          yypush_buffer_state(ybs);
           break;
         }
       } 
@@ -238,6 +255,8 @@ extern union {
     } else {
       stmtover = 1;
       yytext[yyleng - 1] = '\0'; //ignore closing "
+      yy_pop_state();
+      yy_pop_state();
       FILE* newbuf;
       if((newbuf = fopen(yytext + 1, "r")) != NULL) { //ignore opening "
         YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
@@ -247,14 +266,10 @@ extern union {
         yylloc.first_column = yylloc.last_column = 0;
         dapush(file2compile, strdup(yytext + 1));
         YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
-        yy_pop_state();
-        yy_pop_state();
         yy_push_state(INITIAL);
         yypush_buffer_state(ybs);
       } else {
         fprintf(stderr, "Invalid local file %s included! %s %d.%d-%d.%d\n", yytext + 1, locprint(yylloc));
-        yy_pop_state();
-        yy_pop_state();
       }
     }
     }
@@ -386,7 +401,7 @@ extern union {
     } else {
       DYNARR* ds = ctx->definestack;
       enum ifdefstate* rids = malloc(sizeof(enum ifdefstate));
-      enum ifdefstate contval = ds->length <= 0 ? IFANDTRUE : *(enum ifdefstate*) dapeek(ds);
+      enum ifdefstate contval = ds->length ? *(enum ifdefstate*) dapeek(ds) : IFANDTRUE;
       switch(contval) {
         case IFANDTRUE: case ELSEANDFALSE:
           if(queryval(ctx->defines, defname)) {
@@ -422,7 +437,8 @@ extern union {
     } else {
       DYNARR* ds = ctx->definestack;
       enum ifdefstate* rids = malloc(sizeof(enum ifdefstate));
-      enum ifdefstate contval = ds->length <= 0 ? IFANDTRUE : *(enum ifdefstate*) dapeek(ds);
+      enum ifdefstate contval = ds->length ? *(enum ifdefstate*) dapeek(ds) : IFANDTRUE;
+
       switch(contval) {
         case IFANDTRUE: case ELSEANDFALSE:
           if(queryval(ctx->defines, defname)) {
@@ -930,7 +946,7 @@ extern union {
   yy_pop_state();
   yy_push_state(ENDWITHINIF);
   unput('\n');
-  return '\n';
+  return 0;
 }
 <ENDWITHINIF>\n {
   yy_pop_state(); 
@@ -954,7 +970,6 @@ extern union {
       exit(-1);
   }
   dapush(ctx->definestack, rids);
-  return 0;
 }
 [[:space:]] {/*Whitespace, ignored*/}
 
