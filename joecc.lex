@@ -48,7 +48,7 @@ extern union {
 
 #define GOC(c) yylval.unum = c, yy_pop_state(); return UNSIGNED_LITERAL
 #define ZGOC(c) zzlval.unum = c, yy_pop_state(); return UNSIGNED_LITERAL
-#define UNPUTSTR(str) for(int l = strlen(str); l; unput(str[--l])) --yylloc.last_column;
+#define UNPUTSTR(str) for(int l = strlen(str); l; unput(str[--l])) --yylloc.last_column
 %}
 %option yylineno
 %option noyywrap
@@ -576,7 +576,7 @@ extern union {
     }
     yy_push_state(KILLCONCAT);
   }
-  {IDENT}/([[:blank:]]+|"/*"([^*]|\*)*"*/")*## {
+  {IDENT}/([[:blank:]]+|"/*"([^*]|\*)*"*/")+## {
     DYNSTR* argy = search(defargs, yytext);
     if(argy) {
       dscat(dstrdly, argy->strptr, argy->lenstr);

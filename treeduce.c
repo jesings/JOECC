@@ -1207,6 +1207,7 @@ char foldconst(EXPRESSION** exa) {
     case ANDASSIGN: case MODASSIGN: //no identity case (for our purposes)
     case DIVASSIGN: case MULTASSIGN: 
       //if identity on right side of expression (mostly 0, sometimes 1, none in case of mod (and for our purposes AND), etc) and expression is pure, ellide
+      return 0;
     case ASSIGN:
       if(puritree(EPARAM(ex, 0)) && treequals(EPARAM(ex, 0), EPARAM(ex, 1))) {
         rfreexpr(EPARAM(ex, 0));

@@ -550,6 +550,8 @@ struct lexctx* ctxinit(void) {
   declmacro(lct->defines, "__func__", NULL); 
   declmacro(lct->defines, "__x86_64__", "1"); 
   declmacro(lct->defines, "__linux__", "1"); 
+  declmacro(lct->defines, "_Float32", "float"); //should be typedefs actually
+  declmacro(lct->defines, "_Float64", "double"); 
   return lct;
 }
 
