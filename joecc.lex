@@ -48,7 +48,7 @@ extern union {
 
 #define GOC(c) yylval.unum = c, yy_pop_state(); return UNSIGNED_LITERAL
 #define ZGOC(c) zzlval.unum = c, yy_pop_state(); return UNSIGNED_LITERAL
-#define UNPUTSTR(str) for(int l = strlen(str); l; unput(str[--l])) ;
+#define UNPUTSTR(str) for(int l = strlen(str); l; unput(str[--l])) --yylloc.last_column;
 %}
 %option yylineno
 %option noyywrap
@@ -231,7 +231,6 @@ extern union {
       for(i = 0; i < 4 /*sizeof searchpath*/; i++) {
         FILE* newbuf;
         snprintf(pathbuf, 2048, "%s/%s", searchpath[i], yytext + 1); //ignore opening <
-        puts(yytext + 1);
         if((newbuf = fopen(pathbuf, "r")) != NULL) {
           YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
           *ylt = yylloc;
@@ -676,6 +675,7 @@ extern union {
 "unsigned" {return UNSIGNED;}
 "const" {return CONST;}
 "volatile" {return VOLATILE;}
+"restrict" {return RESTRICT;}
 "char" {return CHAR;}
 "short" {return INT16;}
 "int" {return INT32;}
@@ -1035,10 +1035,11 @@ int check_type(char* symb, char frominitial) {
       dstrdly = strctor(malloc(2048), 0, 2048);
       parg = dactor(64); 
     } else {
-      if(frominitial == 1)
+      if(frominitial) {
         yy_push_state(INITIAL);
-      if(frominitial == 0)
+      } else {
         yy_push_state(WITHINIF);
+      }
       char* buf = malloc(256);
       snprintf(buf, 256, "Macro %s", symb);
       dapush(file2compile, buf);
@@ -1047,11 +1048,9 @@ int check_type(char* symb, char frominitial) {
       dapush(locs, ylt);
       yylloc.first_line = yylloc.last_line = 1;
       yylloc.first_column = yylloc.last_column = 0;
-      //YY_BUFFER_STATE yms = yy_scan_string(macdef->text);
       YY_BUFFER_STATE yms = yy_create_buffer(fmemopen(macdef->text, 
       	strlen(macdef->text), "r"), YY_BUF_SIZE);// strlen is inefficient
       yypush_buffer_state(yms);
-      //yydebug = 1;
     }
     return -1;
   }

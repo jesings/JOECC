@@ -102,8 +102,9 @@ static char* name_TYPEBITS(TYPEBITS tb) {
       case 0x20: memcpy(&vals[index], "UNSIGNEDNUM ", 12); index += 12; break;
       case 0x40: memcpy(&vals[index], "CONSTNUM ", 9); index += 9; break;
       case 0x80: memcpy(&vals[index], "VOLATILENUM ", 12); index += 12; break;
-      case 0x100: memcpy(&vals[index], "STATICNUM ", 10); index += 10; break;
-      case 0x200: memcpy(&vals[index], "EXTERNNUM ", 10); index += 10; break;
+      case 0x100: if((tb & 0x300) != tb) {memcpy(&vals[index], "STATICNUM ", 10); index += 10;} break;
+      case 0x200: if((tb & 0x300) != tb) {memcpy(&vals[index], "EXTERNNUM ", 10); index += 10;}
+                  else {memcpy(&vals[index], "RESTRICTNUM", 12); index += 12;}break;
       case 0x400: memcpy(&vals[index], "PARAMNUM ", 9); index += 9; break;
       case 0x800: memcpy(&vals[index], "VOIDNUM ", 8); index += 8; break;
       case 0x1000: memcpy(&vals[index], "ENUMVAL ", 8); index += 8; break;

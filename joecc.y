@@ -18,7 +18,7 @@
 %token WHILE "while" DO "do" FOR "for" GOTO "goto" CONTINUE "continue" 
 %token BREAK "break" RETURN "return" SIZEOF "sizeof" UNSIGNED "unsigned"
 %token STRUCTTK "struct" ENUMTK "enum" UNIONTK "union" SIGNED "signed"
-%token CONST "const" VOLATILE "volatile"
+%token CONST "const" VOLATILE "volatile" RESTRICT "restrict"
 
 %right THEN "else"
 %start program
@@ -299,7 +299,7 @@ typemintkw:
 | "int16" "int32" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 2;/*garbage feature only here for compatibility*/}
 | "int64" "int32" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 8;/*garbage feature only here for compatibility*/}
 | "int64" "int64" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 8;/*garbage feature only here for compatibility*/}
-| "int64" "int64" "int32" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 8;/*garbage feature only here for compatibility*/}
+| "int64" "int64" "int32" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 8;/*garbage feature only here for compatibility*/};
 inttypem:
   typemintkw {$$ = $1;}
 | typemsign typemintkw {$$ = $2; $$->tb |= $1;}
@@ -314,6 +314,7 @@ typem:
 | "void" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = VOIDNUM;}
 | "single" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 4 | FLOATNUM;}
 | "double" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 8 | FLOATNUM;}
+| "int64" "double" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 10;/*garbage feature only here for compatibility(?)*/}
 | struct {
     $$ = calloc(1, sizeof(IDTYPE)); 
     $$->structtype = $1;
@@ -343,7 +344,8 @@ typem:
     };
 types1:
   "const" {$$ = CONSTNUM;}
-| "volatile" {$$ = VOLATILENUM;};
+| "volatile" {$$ = VOLATILENUM;}
+| "restrict" {$$ = RESTRICTNUM;};
 types2:
   "extern" {$$ = EXTERNNUM;}
 | "static" {$$ = STATICNUM;};

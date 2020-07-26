@@ -14,6 +14,7 @@ typedef enum {
   VOLATILENUM = 0x80,
   STATICNUM   = 0x100,
   EXTERNNUM   = 0x200,
+  RESTRICTNUM = 0x300, //STATICNUM + EXTERNUM (impossible if literal), only for pointers
   PARAMNUM    = 0x400,
   VOIDNUM     = 0x800,
   ENUMVAL     = 0x1000,
