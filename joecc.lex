@@ -491,7 +491,6 @@ extern union {
           yylloc.first_line = yylloc.last_line = 1;
           yylloc.first_column = yylloc.last_column = 0;
           dapush(file2compile, strdup(buf));
-          yy_push_state(INITIAL);
         } else {
           fprintf(stderr, "Error: the number of arguments passed to function-like macro is different than the number of parameters %s %d.%d-%d.%d\n", locprint(yylloc));
           //error state
@@ -630,7 +629,6 @@ extern union {
     yylloc.first_line = yylloc.last_line = 1;
     yylloc.first_column = yylloc.last_column = 0;
     dapush(file2compile, strdup(buf));
-    yy_push_state(INITIAL);
     }
 }
 
@@ -1009,6 +1007,7 @@ int check_type(char* symb, char frominitial) {
   struct macrodef* macdef = search(ctx->defines, symb);
   if(macdef) {
     defname = symb;
+    yy_push_state(frominitial ? INITIAL : WITHINIF);
     if(macdef->args) {
       char c;
       while(1) {
@@ -1035,11 +1034,6 @@ int check_type(char* symb, char frominitial) {
       dstrdly = strctor(malloc(2048), 0, 2048);
       parg = dactor(64); 
     } else {
-      if(frominitial) {
-        yy_push_state(INITIAL);
-      } else {
-        yy_push_state(WITHINIF);
-      }
       char* buf = malloc(256);
       snprintf(buf, 256, "Macro %s", symb);
       dapush(file2compile, buf);

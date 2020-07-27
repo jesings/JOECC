@@ -316,14 +316,8 @@ char foldconst(EXPRESSION** exa) {
       subexpr = EPARAM(ex, 0);
       switch(subexpr->type) {
         case L_NOT:
-          //free expr and subexpr
           subexpr = EPARAM(subexpr, 0);
-          *exa = subexpr;
-          return 1;
-        case NEG: //neg doesn't change the result of logical nots
-          LPARAM(ex, 0) = EPARAM(subexpr, 0);
-          free(subexpr);
-          return 1;
+          break;
         case EQ:
           subexpr->type = NEQ;
           break;
@@ -864,22 +858,16 @@ char foldconst(EXPRESSION** exa) {
           case UINT: case INT: case FLOAT:
             if(subexpr->uintconst == 0) {
               for(++i; i < ex->params->length; ++i) {
-                rfreexpr(ex->params->arr[i]);
+                rfreexpr(EPARAM(ex, i));
               }
               dadtor(ex->params);
-              EXPRESSION* topx = dapeek(newdyn);
-              while(newdyn->length && puritree(dapeek(newdyn))){
-                EXPRESSION* ex2 = dapop(newdyn);
-                rfreexpr(ex2);
-              }
-              if(topx != dapeek(newdyn))
-                dapush(newdyn, topx);
-              ex->type = COMMA;
               if(!newdyn->length) {
                 free(ex);
+                dadtor(newdyn);
                 *exa = subexpr;
               }
               else {
+                dapush(newdyn, subexpr);
                 ex->params = newdyn;
               }
               return 1;
@@ -940,22 +928,16 @@ char foldconst(EXPRESSION** exa) {
           case UINT: case INT: case FLOAT:
             if(subexpr->uintconst != 0) {
               for(++i; i < ex->params->length; ++i) {
-                rfreexpr(ex->params->arr[i]);
+                rfreexpr(EPARAM(ex, i));
               }
               dadtor(ex->params);
-              EXPRESSION* topx = dapeek(newdyn);
-              while(newdyn->length && puritree(dapeek(newdyn))){
-                EXPRESSION* ex2 = dapop(newdyn);
-                rfreexpr(ex2);
-              }
-              if(topx != dapeek(newdyn))
-                dapush(newdyn, topx);
-              ex->type = COMMA;
               if(!newdyn->length) {
                 free(ex);
+                dadtor(newdyn);
                 *exa = subexpr;
               }
               else {
+                dapush(newdyn, subexpr);
                 ex->params = newdyn;
               }
               return 1;

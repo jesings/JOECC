@@ -98,6 +98,6 @@ esu:
 | INTEGER_LITERAL {$$ = ct_intconst_expr($1);};
 %%
 int yyerror(const char* s){
-  (void)s;
+  fprintf(stderr, "Subsidiary parser encountered error %s %s %d.%d-%d.%d\n", s, locprint(yylloc));
   return 0;
 }
