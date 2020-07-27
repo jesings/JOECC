@@ -669,6 +669,7 @@ extern union {
 "typedef" {return TYPEDEF;}
 "static" {return STATIC;}
 "extern" {return EXTERN;}
+"inline" {return INLINE;}
 "signed" {return SIGNED;}
 "unsigned" {return UNSIGNED;}
 "const" {return CONST;}

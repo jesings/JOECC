@@ -18,7 +18,7 @@
 %token WHILE "while" DO "do" FOR "for" GOTO "goto" CONTINUE "continue" 
 %token BREAK "break" RETURN "return" SIZEOF "sizeof" UNSIGNED "unsigned"
 %token STRUCTTK "struct" ENUMTK "enum" UNIONTK "union" SIGNED "signed"
-%token CONST "const" VOLATILE "volatile" RESTRICT "restrict"
+%token CONST "const" VOLATILE "volatile" RESTRICT "restrict" INLINE "inline"
 
 %right THEN "else"
 %start program
@@ -348,7 +348,8 @@ types1:
 | "restrict" {$$ = RESTRICTNUM;};
 types2:
   "extern" {$$ = EXTERNNUM;}
-| "static" {$$ = STATICNUM;};
+| "static" {$$ = STATICNUM;}
+| "inline" {$$ = INLINED;};
 typews1:
   TYPE_NAME {
     $$ = malloc(sizeof(IDTYPE));
@@ -359,29 +360,9 @@ typews1:
       fprintf(stderr, "Error: use of unknown type name %s in %s %d.%d-%d.%d\n", $1, locprint(@$));
     }
     }
-| typem {$$ = $1;}
-| types1 typem {$$ = $2; $$->tb |= $1;}
-| types1 TYPE_NAME {
-    $$ = malloc(sizeof(IDTYPE));
-    IDTYPE* idt = scopesearch(ctx, M_TYPEDEF, $2);
-    if(idt) {
-      memcpy($$, idt, sizeof(IDTYPE));
-    } else {
-      fprintf(stderr, "Error: use of unknown type name %s in %s %d.%d-%d.%d\n", $2, locprint(@$));
-    }
-    $$->tb |= $1; 
-    }
-| types2 typem {$$ = $2; $$->tb |= $1;}
-| types2 TYPE_NAME {
-    $$ = malloc(sizeof(IDTYPE));
-    IDTYPE* idt = scopesearch(ctx, M_TYPEDEF, $2);
-    if(idt) {
-      memcpy($$, idt, sizeof(IDTYPE));
-    } else {
-      fprintf(stderr, "Error: use of unknown type name %s in %s %d.%d-%d.%d\n", $2, locprint(@$));
-    }
-    $$->tb |= $1; 
-    };
+| typem{ $$ = $1;}
+| types1 typews1 {$$ = $2; $$->tb |= $1;}
+| types2 typews1 {$$ = $2; $$->tb |= $1;} ;
 type:
   typews1 {$$ = $1;};
 types1o:
@@ -856,7 +837,7 @@ enums:
 commaopt: ',' | %empty;
 %%
 int yyerror(const char* s){
-  printf("ERROR: %s %s %d.%d-%d.%d\n", s, locprint(yylloc));
+  fprintf(stderr, "ERROR: %s %s %d.%d-%d.%d\n", s, locprint(yylloc));
   (void)s;
   return 0;
 }

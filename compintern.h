@@ -14,13 +14,14 @@ typedef enum {
   VOLATILENUM = 0x80,
   STATICNUM   = 0x100,
   EXTERNNUM   = 0x200,
-  RESTRICTNUM = 0x300, //STATICNUM + EXTERNUM (impossible if literal), only for pointers
-  PARAMNUM    = 0x400,
-  VOIDNUM     = 0x800,
-  ENUMVAL     = 0x1000,
-  STRUCTVAL   = 0x2000,
-  UNIONVAL    = 0x4000,
-  ANONMEMB    = 0x8000,
+  RESTRICTNUM = 0x400,
+  PARAMNUM    = 0x800,
+  VOIDNUM     = 0x1000,
+  ENUMVAL     = 0x2000,
+  STRUCTVAL   = 0x4000,
+  UNIONVAL    = 0x8000,
+  ANONMEMB    = 0x10000,
+  INLINED     = 0x20000,
 } TYPEBITS;
 
 #define EXPRTYPELIST  \
