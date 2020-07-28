@@ -60,7 +60,7 @@ enum stmttype {
 };
 #undef X
 
-#define DECLPART_TYPE X(POINTERSPEC), X(ARRAYSPEC), X(PARAMSSPEC), X(BITFIELDSPEC)
+#define DECLPART_TYPE X(POINTERSPEC), X(ARRAYSPEC), X(PARAMSSPEC), X(BITFIELDSPEC), X(NAMELESS_PARAMSSPEC)
 #define X(name) name
 enum declpart_info {
   DECLPART_TYPE
@@ -192,6 +192,7 @@ struct declarator_part {
   enum declpart_info type;
   union {
     PARALLEL* params;
+    DYNARR* nameless_params;
     EXPRESSION* arrspec;
     EXPRESSION* bfspec;
     TYPEBITS ptrspec;

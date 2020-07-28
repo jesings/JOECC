@@ -21,6 +21,9 @@
 %token CONST "const" VOLATILE "volatile" RESTRICT "restrict" INLINE "inline"
 
 %right THEN "else"
+/*probably could do this smarter with redesign*/
+%precedence FPTR
+%precedence VOIDFUNC
 %start program
 %define parse.trace
 %define parse.assert
@@ -73,14 +76,14 @@
 %type<dstr> multistring
 %type<integert> typemsign
 %type<typevariant> types1 types2 types1o
-%type<idvariant> typem typews1 type typemintkw inttypem
+%type<idvariant> typem typews1 type typemintkw inttypem namelesstype
 %type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee escoa
 %type<stmtvariant> statement compound_statement
-%type<arrvariant> statements_and_initializers soiorno struct_decls struct_decl cs_decls enums escl escoal abstract_ptr cs_inits cs_minutes initializer program array_literal structbody enumbody
+%type<arrvariant> statements_and_initializers soiorno struct_decls struct_decl cs_decls enums escl escoal abstract_ptr cs_inits cs_minutes initializer program array_literal structbody enumbody nameless
 %type<unionvariant> union fullunion
 %type<structvariant> struct fullstruct
 %type<enumvariant> enum fullenum
-%type<declvariant> declarator declname param_decl sdecl
+%type<declvariant> declarator declname param_decl sdecl fptr
 %type<funcvariant> function
 %type<firforvariant> dee
 %type<paravariant> params
@@ -241,16 +244,49 @@ cs_minutes:
 | declarator {$$ = dactor(8); dapush($$, $1);};
 declarator:
   abstract_ptr declname {$$ = $2; $2->type->pointerstack = damerge($1, $2->type->pointerstack);}
-| declname {$$ = $1;};
+| abstract_ptr fptr {$$ = $2; $2->type->pointerstack = damerge($2->type->pointerstack, $1);}
+| declname {$$ = $1;}
+| fptr {$$ = $1;};
+/*TODO: discriminate between function decls and function pointers*/
 declname:
   SYMBOL {$$ = mkdeclaration($1);}
-| '(' declarator ')' {$$ = $2;}
+| '(' declname ')' {$$ = $2;}
 | declname '[' ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, NULL));}
 | declname '[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, $3));}
 | declname '(' ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, NULL));}
 | declname '(' "void" ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, NULL));}
 | declname '(' params ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));}
-| declname '(' params ',' "..." ')' {$$ = $1; pinsert($3, "...", NULL); dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));};
+| declname '(' params ',' "..." ')' {$$ = $1; 
+    pinsert($3, "...", NULL); 
+    dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));
+    };
+fptr:
+  '(' '*' SYMBOL ')' {$$ = mkdeclaration($3);}
+| '(' fptr')' {$$ = $2;}
+| fptr'[' ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, NULL));}
+| fptr'[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, $3));/*foldconst*/}
+| fptr'(' ')' {$$ = $1;
+    dapush($$->type->pointerstack, mkdeclpart(NAMELESS_PARAMSSPEC, NULL));
+    dapush($$->type->pointerstack, mkdeclpart(POINTERSPEC, mkdeclptr(sizeof(intptr_t))));
+    }
+| fptr '(' nameless ')' {$$ = $1; 
+    dapush($$->type->pointerstack, mkdeclpart(NAMELESS_PARAMSSPEC, $3));
+    dapush($$->type->pointerstack, mkdeclpart(POINTERSPEC, mkdeclptr(sizeof(intptr_t))));
+    }
+| fptr '(' params ')' {$$ = $1; 
+    dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));
+    dapush($$->type->pointerstack, mkdeclpart(POINTERSPEC, mkdeclptr(sizeof(intptr_t))));
+    }
+| fptr '(' nameless ',' "..." ')' {$$ = $1; 
+    dapush($3, NULL);//represent variadic with trailing null?
+    dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));
+    dapush($$->type->pointerstack, mkdeclpart(POINTERSPEC, mkdeclptr(sizeof(intptr_t))));
+    }
+| fptr '(' params ',' "..." ')' {$$ = $1; 
+    pinsert($3, "...", NULL); 
+    dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));
+    dapush($$->type->pointerstack, mkdeclpart(POINTERSPEC, mkdeclptr(sizeof(intptr_t))));
+    };
 params:
   param_decl {$$ = paralector(); pinsert($$, $1->varname, $1);}
 | params ',' param_decl {
@@ -259,8 +295,7 @@ params:
       fprintf(stderr, "Error: param with duplicate name %s in %s %d.%d-%d.%d\n", $3->varname,  locprint(@$));
     } else {
       pinsert($$, $3->varname, $3);
-    }
-    };
+    }};
 param_decl:
   type declarator {
     $2->type->tb |= $1->tb;
@@ -287,6 +322,18 @@ param_decl:
     }
     $$ = $2; 
     };
+nameless:
+  namelesstype {$$ = dactor(16); dapush($$, $1);/*read only*/ }
+| nameless ',' namelesstype {$$ = $1; dapush($$, $1);/*read only*/ };
+namelesstype:
+  type {$$ = $1;}
+| type abstract_ptr {$$ = $1;
+    if($1->pointerstack) { 
+      $1->pointerstack = daclone($1->pointerstack);
+      $1->pointerstack = damerge($1->pointerstack, $2);
+    } else {
+      $1->pointerstack = $2;
+    }};
 typemsign:
   "signed" {$$ = 0;}
 | "unsigned" {$$ = UNSIGNEDNUM;};

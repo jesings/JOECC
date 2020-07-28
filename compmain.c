@@ -37,6 +37,7 @@ int main(int argc, char** argv) {
   }
   chdir("./functions");
   DYNARR* funcky = htpairs(ctx->funcs);
+  puts("Functions defined:");
   for(int i = 0; i < funcky->length; i++) {
     HASHPAIR* pairthere = daget(funcky, i);
     if(pairthere->value) {
