@@ -203,8 +203,8 @@ initializer:
         dapush(da, &(ac->decl->type->structtype));
       }
     }
-    if(ac->decl->type->pointerstack->length &&
-       ((struct declarator_part*) dapeek(ac->decl->type->pointerstack))->type != PARAMSSPEC) {
+    if(!ac->decl->type->pointerstack->length ||
+       (((struct declarator_part*) dapeek(ac->decl->type->pointerstack))->type != PARAMSSPEC)) {
       if(ctx->func)
         add2scope(ctx, ac->decl->varname, M_VARIABLE, ac->decl->type);
     } else {
@@ -623,7 +623,9 @@ statement:
     }
 | "while" '(' expression ')' statement {$$ = mklsstmt(WHILEL, $3, $5);}
 | "do" statement "while" '(' expression ')' ';' {$$ = mklsstmt(DOWHILEL, $5, $2);}
-| "for" '(' dee  ee ';' ee ')' statement {$$ = mkforstmt($3, $4, $6, $8);}
+| "for" '(' {
+    scopepush(ctx);
+    } dee  ee ';' ee ')' statement {$$ = mkforstmt($4, $5, $7, $9); scopepop(ctx);/*variable should probably be in same scope?*/}
 | "goto" SYMBOL ';' {$$ = mkgotostmt($2);/*find label within function at some point, probably not now though*/}
 | "break" ';' {$$ = mkexprstmt(LBREAK,NULL);}
 | "continue" ';' {$$ = mkexprstmt(LCONT,NULL);}

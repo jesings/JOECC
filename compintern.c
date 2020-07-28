@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include "compintern.h"
 #include "treeduce.h"
+#include "joecc.tab.h"
+
+extern DYNARR* file2compile;
+extern YYLTYPE yylloc;
 
 STRUCT* structor(char* name, DYNARR* fields) {
     STRUCT* retval = malloc(sizeof(STRUCT));
@@ -136,11 +140,8 @@ EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident) {
   retval->type = IDENT;
   retval->id = scopesearch(lct, M_VARIABLE, ident);
   if(!retval->id) {
-    exit(255);
-    retval->id = malloc(sizeof(IDENTIFIERINFO));
-    retval->id->index = -1;
-    retval->id->name = ident;
-    retval->id->type = NULL;
+    printf("Error: use of undefined variable %s at %s %d.%d-%d.%d\n", ident, locprint(yylloc));
+    exit(-1);
   }
   return retval;
 }

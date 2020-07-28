@@ -40,8 +40,6 @@ DYNARR* daclone(DYNARR* orig) {
 }
 
 void dadtor(DYNARR* da) {
-  //for(int i = 0; i<da->length; i++)
-  //  free((da->arr)[i]);
   free(da->arr);
   free(da);
 }
