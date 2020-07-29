@@ -564,7 +564,7 @@ struct lexctx* ctxinit(void) {
   declmacro(lct->defines, "__func__", NULL); 
   declmacro(lct->defines, "__x86_64__", "1"); 
   declmacro(lct->defines, "__linux__", "1"); 
-  declmacro(lct->defines, "__builtin_va_list", "byte*"); 
+  declmacro(lct->defines, "__builtin_va_list", "byte*"); //should be typedef
   return lct;
 }
 

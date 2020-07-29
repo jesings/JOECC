@@ -252,40 +252,49 @@ declname:
   SYMBOL {$$ = mkdeclaration($1);}
 | '(' declname ')' {$$ = $2;}
 | declname '[' ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, NULL));}
-| declname '[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, $3));}
-| declname '(' ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, NULL));}
-| declname '(' "void" ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, NULL));}
+| declname '[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, $3));/*foldconst*/}
+| declname'(' ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(NAMELESS_PARAMSSPEC, NULL));}
+| declname '(' nameless ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(NAMELESS_PARAMSSPEC, $3));}
 | declname '(' params ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));}
+| declname '(' nameless ',' "..." ')' {$$ = $1; 
+    dapush($3, NULL);//represent variadic with trailing null?
+    dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));
+    }
 | declname '(' params ',' "..." ')' {$$ = $1; 
     pinsert($3, "...", NULL); 
     dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));
     };
 fptr:
-  '(' '*' SYMBOL ')' {$$ = mkdeclaration($3);}
-| '(' fptr')' {$$ = $2;}
+  '(' abstract_ptr SYMBOL ')' {$$ = mkdeclaration($3); damerge($$->type->pointerstack, $2);}
+| '(' fptr ')' {$$ = $2;}
 | fptr'[' ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, NULL));}
 | fptr'[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, $3));/*foldconst*/}
 | fptr'(' ')' {$$ = $1;
+    DYNARR* da = dactor(1);
     dapush($$->type->pointerstack, mkdeclpart(NAMELESS_PARAMSSPEC, NULL));
-    dapush($$->type->pointerstack, mkdeclpart(POINTERSPEC, mkdeclptr(sizeof(intptr_t))));
+    $$->type->pointerstack = damerge(da, $$->type->pointerstack);
     }
 | fptr '(' nameless ')' {$$ = $1; 
-    dapush($$->type->pointerstack, mkdeclpart(NAMELESS_PARAMSSPEC, $3));
-    dapush($$->type->pointerstack, mkdeclpart(POINTERSPEC, mkdeclptr(sizeof(intptr_t))));
+    DYNARR* da = dactor(1);
+    dapush(da, mkdeclpart(NAMELESS_PARAMSSPEC, $3));
+    $$->type->pointerstack = damerge(da, $$->type->pointerstack);
     }
 | fptr '(' params ')' {$$ = $1; 
-    dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));
-    dapush($$->type->pointerstack, mkdeclpart(POINTERSPEC, mkdeclptr(sizeof(intptr_t))));
+    DYNARR* da = dactor(1);
+    dapush(da, mkdeclpart(PARAMSSPEC, $3));
+    $$->type->pointerstack = damerge(da, $$->type->pointerstack);
     }
 | fptr '(' nameless ',' "..." ')' {$$ = $1; 
+    DYNARR* da = dactor(1);
     dapush($3, NULL);//represent variadic with trailing null?
-    dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));
-    dapush($$->type->pointerstack, mkdeclpart(POINTERSPEC, mkdeclptr(sizeof(intptr_t))));
+    dapush(da, mkdeclpart(PARAMSSPEC, $3));
+    $$->type->pointerstack = damerge(da, $$->type->pointerstack);
     }
 | fptr '(' params ',' "..." ')' {$$ = $1; 
+    DYNARR* da = dactor(1);
     pinsert($3, "...", NULL); 
-    dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));
-    dapush($$->type->pointerstack, mkdeclpart(POINTERSPEC, mkdeclptr(sizeof(intptr_t))));
+    dapush(da, mkdeclpart(PARAMSSPEC, $3));
+    $$->type->pointerstack = damerge(da, $$->type->pointerstack);
     };
 params:
   param_decl {$$ = paralector(); pinsert($$, $1->varname, $1);}
