@@ -536,9 +536,8 @@ char scopequeryval(struct lexctx* lct, enum membertype mt, char* key) {
 }
 
 static void declmacro(HASHTABLE* ht, const char* macroname, const char* body) {
-  struct macrodef* md = malloc(sizeof(struct macrodef));
+  struct macrodef* md = calloc(1, sizeof(struct macrodef));
   md->text = (char*)(unsigned long) body;
-  md->args = NULL;
   insert(ht, macroname, md);
 }
 
@@ -551,8 +550,13 @@ struct lexctx* ctxinit(void) {
   dapush(lct->scopes, mkscope());
   lct->defines = htctor();
   declmacro(lct->defines, "__STDC__", "1");
-  declmacro(lct->defines, "__STDC_VERSION__", "199901L");
+  declmacro(lct->defines, "__STDC_VERSION__", "201710L");
   declmacro(lct->defines, "__STDC_HOSTED__", "1"); 
+  declmacro(lct->defines, "_XOPEN_SOURCE", "700"); 
+  declmacro(lct->defines, "_DEFAULT_SOURCE", "700"); 
+  declmacro(lct->defines, "_POSIX_C_SOURCE", "200809L"); 
+  declmacro(lct->defines, "_XOPEN_SOURCE_EXTENDED", "1"); 
+  declmacro(lct->defines, "_USE_XOPEN_EXTENDED", "1"); 
   declmacro(lct->defines, "__FILE__", NULL); 
   declmacro(lct->defines, "__LINE__", NULL); 
   declmacro(lct->defines, "__DATE__", NULL); 
@@ -560,6 +564,7 @@ struct lexctx* ctxinit(void) {
   declmacro(lct->defines, "__func__", NULL); 
   declmacro(lct->defines, "__x86_64__", "1"); 
   declmacro(lct->defines, "__linux__", "1"); 
+  declmacro(lct->defines, "__builtin_va_list", "byte*"); 
   return lct;
 }
 

@@ -134,6 +134,7 @@ void rmpairfr(HASHTABLE* ht, const char* key) {
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!(hp->key))
     return;
+  HASHPAIR* prev = NULL;
   for(; hp; hp = hp->next) {
     if(!strcmp(hp->key, key)) {
       if(hp->next) {
@@ -146,10 +147,13 @@ void rmpairfr(HASHTABLE* ht, const char* key) {
         free(hp->key);
         hp->key = NULL;
         free(hp->value);
+        if(prev)
+          prev->next = NULL;
       }
       --ht->keys;
       return;
     }
+    prev = hp;
   }
 }
 
