@@ -73,6 +73,7 @@
   PARALLEL* paravariant;
 }
 
+%type<str> generic_symbol
 %type<dstr> multistring
 %type<integert> typemsign
 %type<typevariant> types1 types2 types1o
@@ -580,10 +581,21 @@ function:
         dapush(da, &($2->type->structtype));
       }
     }
-    if(dp->params) {
-      parammemb = dp->params;
-    } else {
+    if(!dp->params) {
       parammemb = paralector();
+    } else if(dp->type == PARAMSSPEC) {
+      parammemb = dp->params;
+    } else if(dp->type == NAMELESS_PARAMSSPEC) {
+      IDTYPE* prm = dp->nameless_params->arr[0];
+      if(dp->nameless_params->length == 1 && (!prm->pointerstack || prm->pointerstack->length == 0) && prm->tb == VOIDNUM) {
+        parammemb = paralector();
+      } else {
+        fprintf (stderr, "Function has unnamed parameters at %s %d.%d-%d.%d\n", locprint(@1));
+        exit(-1);
+      }
+    } else {
+        fprintf (stderr, "Function has malformed parameters at %s %d.%d-%d.%d\n", locprint(@1));
+        exit(-1);
     }
     $$ = ct_function($2->varname, NULL, parammemb, $2->type);
     IDENTIFIERINFO* id = malloc(sizeof(IDENTIFIERINFO));
@@ -668,9 +680,13 @@ switch_midrule:
   %empty {
     dapush(ctx->func->switchstack, paralector());
     };
+
+generic_symbol:
+  SYMBOL {$$ = $1;}
+| TYPE_NAME {$$ = $1;};
 /*for struct enum union make sure no redefinitions are happening*/
 fullunion:
-  "union" SYMBOL {
+  "union" generic_symbol {
     if(!scopesearch(ctx, M_UNION, $2)) {
       if(!queryval(scopepeek(ctx)->forwardunions, $2)) {
         add2scope(ctx, $2, M_UNION, NULL);
@@ -686,7 +702,7 @@ fullunion:
 union:
   fullunion {$$ = $1;}
 | "union" structbody  {$$ = unionctor(NULL, $2);}
-| "union" SYMBOL {
+| "union" generic_symbol {
     $$ = (UNION*) scopesearch(ctx, M_UNION, $2);
     if(!$$) {
       if(!queryval(scopepeek(ctx)->forwardunions, $2)) {
@@ -698,7 +714,7 @@ union:
       $$->fields = NULL;
     }};
 fullstruct:
-  "struct" SYMBOL {
+  "struct" generic_symbol {
     if(!scopesearch(ctx, M_STRUCT, $2)) {
       if(!queryval(scopepeek(ctx)->forwardstructs, $2)) {
         add2scope(ctx, $2, M_STRUCT, NULL);
@@ -714,7 +730,7 @@ fullstruct:
 struct:
   fullstruct {$$ = $1;}
 | "struct" structbody {$$ = structor(NULL, $2);}
-| "struct" SYMBOL {
+| "struct" generic_symbol {
     $$ = (STRUCT*) scopesearch(ctx, M_STRUCT, $2);
     if(!$$) {
       if(!queryval(scopepeek(ctx)->forwardstructs, $2)) {
@@ -822,7 +838,7 @@ sdecl:
 | declarator ':' esc {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $3));}
 | ':' esc {$$ = mkdeclaration(NULL); dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $2));};
 fullenum:
-  "enum" SYMBOL {
+  "enum" generic_symbol {
     if(scopesearch(ctx, M_ENUM, $2)) {
       fprintf(stderr, "Error: redefinition of enum %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
     }
@@ -833,7 +849,7 @@ fullenum:
 enum:
   fullenum {$$ = $1;}
 | "enum" enumbody {$$ = enumctor(NULL, $2);}
-| "enum" SYMBOL {
+| "enum" generic_symbol  {
     $$ = (ENUM*) scopesearch(ctx, M_ENUM, $2);
     if(!$$) {
       fprintf(stderr, "Error: reference to undefined enum %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
