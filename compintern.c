@@ -548,6 +548,7 @@ struct lexctx* ctxinit(void) {
   lct->scopes = dactor(64);
   lct->func = NULL;
   dapush(lct->scopes, mkscope());
+  lct->withindefines = htctor();
   lct->defines = htctor();
   declmacro(lct->defines, "__STDC__", "1");
   declmacro(lct->defines, "__STDC_VERSION__", "201710L");

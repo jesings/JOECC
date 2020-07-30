@@ -134,6 +134,7 @@ struct lexctx {
   DYNARR* definestack;
   FUNC* func;
   HASHTABLE* defines;
+  HASHTABLE* withindefines;
   EXPRESSION* ifexpr;
 };
 

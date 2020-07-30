@@ -284,6 +284,7 @@ extern union {
     yy_push_state(DEFINE2); 
     mdstrdly = strctor(malloc(2048), 0, 2048); 
     defname = strdup(yytext);
+    insert(ctx->withindefines, strdup(yytext), NULL);
     }
   {IDENT}/[[:blank:]] {
     yy_pop_state(); 
@@ -291,6 +292,7 @@ extern union {
     mdstrdly = strctor(malloc(2048), 0, 2048); 
     yy_push_state(KILLBLANK);
     defname = strdup(yytext);
+    insert(ctx->withindefines, strdup(yytext), NULL);
     }
   {IDENT}\( {
     yy_pop_state(); 
@@ -299,6 +301,7 @@ extern union {
     defname = strdup(yytext);
     md->args = dactor(8); 
     argeaten = 0;
+    insert(ctx->withindefines, strdup(yytext), NULL);
     }
   {IDENT}\(/[[:blank:]] {
     yy_pop_state(); 
@@ -308,6 +311,7 @@ extern union {
     defname = strdup(yytext); 
     md->args = dactor(8); 
     argeaten = 0;
+    insert(ctx->withindefines, strdup(yytext), NULL);
     }
   \n {yy_pop_state(); yy_pop_state();/*error state*/}
   . {fprintf(stderr, "DEFINE: Unexpected character encountered: %c %s %d.%d-%d.%d %s %d.%d-%d.%d\n", *yytext, locprint(yylloc), locprint(yylloc));}
@@ -374,6 +378,7 @@ extern union {
     md->text = mdstrdly->strptr;
     free(mdstrdly);
     insert(ctx->defines, defname, md);
+    rmpair(ctx->withindefines, defname);
     }
 }
 
@@ -487,7 +492,7 @@ extern union {
           YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(defname, strlen(defname), "r"), YY_BUF_SIZE);//strlen inefficient
           yypush_buffer_state(ybs);
           char buf[256];
-          snprintf(buf, 256, "call to macro %s", defname);
+          snprintf(buf, 256, "%s", defname);
           yylloc.first_line = yylloc.last_line = 1;
           yylloc.first_column = yylloc.last_column = 0;
           dapush(file2compile, strdup(buf));
@@ -625,7 +630,7 @@ extern union {
     free(dstrdly);
     yypush_buffer_state(ybs);
     char buf[256];
-    snprintf(buf, 256, "call to macro %s", defname);
+    snprintf(buf, 256, "%s", defname);
     yylloc.first_line = yylloc.last_line = 1;
     yylloc.first_column = yylloc.last_column = 0;
     dapush(file2compile, strdup(buf));
@@ -633,12 +638,11 @@ extern union {
 }
 
 <CHECKDEFINED>{
-  [[:blank:]]*\)[[:blank:]]* {yy_pop_state();}
-  {IDENT}/[[:blank:]]*\)[[:blank:]]* {
+  [[:blank:]]*\) {yy_pop_state();}
+  {IDENT}/[[:blank:]]*\) {
     zzlval.unum = queryval(ctx->defines, yytext);
     return UNSIGNED_LITERAL;
     }
-
 }
 
 <CHECKDEFINED2>{
@@ -647,7 +651,6 @@ extern union {
     zzlval.unum = queryval(ctx->defines, yytext);
     return UNSIGNED_LITERAL;
     }
-
 }
 
 
@@ -983,7 +986,9 @@ extern union {
     YYLTYPE* yl = dapop(locs);
     yylloc = *yl;
     free(yl);
-    dapop(file2compile);
+    char* ismac = dapop(file2compile);
+    rmpair(ctx->withindefines, ismac);
+    //rmpair is a no-op if not in hash
   }
 }
 
@@ -997,7 +1002,9 @@ extern union {
     YYLTYPE* yl = dapop(locs);
     yylloc = *yl;
     free(yl);
-    dapop(file2compile);
+    char* ismac = dapop(file2compile);
+    rmpair(ctx->withindefines, ismac);
+    //rmpair is a no-op if not in hash
   }
 }
 
@@ -1006,7 +1013,7 @@ extern union {
 %%
 int check_type(char* symb, char frominitial) {
   struct macrodef* macdef = search(ctx->defines, symb);
-  if(macdef) {
+  if(macdef && !queryval(ctx->withindefines, symb)) {
     defname = symb;
     yy_push_state(frominitial ? INITIAL : WITHINIF);
     if(macdef->args) {
@@ -1036,7 +1043,7 @@ int check_type(char* symb, char frominitial) {
       parg = dactor(64); 
     } else {
       char* buf = malloc(256);
-      snprintf(buf, 256, "Macro %s", symb);
+      snprintf(buf, 256, "%s", symb);
       dapush(file2compile, buf);
       YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
       *ylt = yylloc;
@@ -1047,6 +1054,7 @@ int check_type(char* symb, char frominitial) {
       	strlen(macdef->text), "r"), YY_BUF_SIZE);// strlen is inefficient
       yypush_buffer_state(yms);
     }
+    insert(ctx->withindefines, strdup(symb), NULL);
     return -1;
   }
   nofcall:
