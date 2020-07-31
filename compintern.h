@@ -289,6 +289,8 @@ EXPRESSION* ct_array_lit(DYNARR* da);
 EXPRESSION* ct_member_expr(char* member);
 EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident);
 char isglobal(struct lexctx* lct, char* ident);
+void wipestruct(STRUCT* strct);
+void freetype(IDTYPE* id);
 void rfreexpr(EXPRESSION* e);
 EXPRESSION* rclonexpr(EXPRESSION* e);
 DECLARATION* mkdeclaration(char* name);

@@ -107,7 +107,13 @@ program:
         id->type = aget($1, i)->decl->type;
         add2scope(ctx, aget($1, i)->decl->varname, M_GLOBAL, id);
       } else {
-        fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", aget($1, i)->decl->varname, locprint(@$));
+        IDENTIFIERINFO* id = scopesearch(ctx, M_VARIABLE, aget($1, i)->decl->varname);
+        if(!(id->type->tb & EXTERNNUM)) {
+          fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", aget($1, i)->decl->varname, locprint(@$));
+        } else {
+          freetype(aget($1, i)->decl->type);
+          id->type = aget($1, i)->decl->type;
+        }
       }
       dapush($$, gtb(0, $1));
     }
@@ -133,7 +139,13 @@ program:
         id->type = aget($2, i)->decl->type;
         add2scope(ctx, aget($2, i)->decl->varname, M_GLOBAL, id);
       } else {
-        fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", aget($2, i)->decl->varname, locprint(@$));
+        IDENTIFIERINFO* id = scopesearch(ctx, M_VARIABLE, aget($2, i)->decl->varname);
+        if(!(id->type->tb & EXTERNNUM)) {
+          fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", aget($1, i)->decl->varname, locprint(@$));
+        } else {
+          freetype(aget($2, i)->decl->type);
+          id->type = aget($2, i)->decl->type;
+        }
       }
       dapush($$, gtb(0, $2));
     }

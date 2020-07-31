@@ -151,6 +151,34 @@ char isglobal(struct lexctx* lct, char* ident) {
   return queryval(sc->members, ident);
 }
 
+void wipestruct(STRUCT* strct) {
+  for(int i = 0; i < strct->fields->length; ++i) {
+    DECLARATION* dcl = strct->fields->arr[i];
+    freetype(dcl->type);
+    if(dcl->varname)
+      free(dcl->varname);
+  }
+  free(strct);
+}
+
+void freetype(IDTYPE* id) {
+  if(id->pointerstack)
+    for(int i = 0; i < id->pointerstack->length; i++)
+      free(id->pointerstack->arr[i]);
+  if(id->tb & (STRUCTVAL | UNIONVAL))
+    wipestruct(id->structtype);
+  else if(id->tb & ENUMVAL) {
+    for(int i = 0; i < id->enumtype->fields->length; ++i) {
+      ENUMFIELD* enf = id->enumtype->fields->arr[i];
+      rfreexpr(enf->value);
+      free(enf->name);
+      free(enf);
+    }
+    free(id->enumtype);
+  }
+  free(id);
+}
+
 void rfreexpr(EXPRESSION* e) {
   switch(e->type) {
     default:
@@ -165,10 +193,7 @@ void rfreexpr(EXPRESSION* e) {
       free(e->vartype);
       break;
     case CAST:
-      if(e->vartype->pointerstack)
-        for(int i = 0; i < e->vartype->pointerstack->length; i++)
-          free(e->vartype->pointerstack->arr[i]);
-      free(e->vartype);
+      freetype(e->vartype);
       for(int i = 0; i < e->params->length; i++)
         rfreexpr(e->params->arr[i]);
       break;

@@ -54,7 +54,6 @@ extern union {
 %option noyywrap
 %option stack
 
-%option debug
 %option warn
 %option nodefault
 
@@ -522,7 +521,6 @@ extern union {
 }
 
 <CALLMACRO>{
-  /*we are not going to handle stringizing or concatenation in macros*/
   \( {
     ++paren_depth;
     dsccat(dstrdly, '(');
@@ -581,7 +579,17 @@ extern union {
       }
     }
     }
-  [^\(\)\",]*[^[:space:]\(\)\",] {/*"*/
+
+  {IDENT} {
+    if(queryval(ctx->withindefines, yytext))
+      dsccat(dstrdly, '`');
+    dscat(dstrdly, yytext, yyleng);
+  }
+  [[:digit:]]+ {
+    dscat(dstrdly, yytext, yyleng);
+  }
+
+  [^\(\)\",[:alnum:]_]*[^[:space:]\(\)\",[:alnum:]_] {/*"*/
     dscat(dstrdly, yytext, yyleng);
     }
   \"(\\.|[^\\"]|\/[[:space:]]*\n)*\" {/*"*/
@@ -628,7 +636,7 @@ extern union {
       dscat(dstrdly, yytext, yyleng);
     }
     }
-  {IDENT}/("/*"([^*]|\*)*"*/")*##  {
+  {IDENT}/("/*"([^*]|\*)*"*/")*##[^#] {
     DYNSTR* argy = search(defargs, yytext);
     if(argy) {
       dscat(dstrdly, argy->strptr, argy->lenstr);
@@ -637,7 +645,7 @@ extern union {
     }
     yy_push_state(KILLCONCAT);
   }
-  {IDENT}/([[:blank:]]+|"/*"([^*]|\*)*"*/")+## {
+  {IDENT}/([[:blank:]]+|"/*"([^*]|\*)*"*/")+##[^#] {
     DYNSTR* argy = search(defargs, yytext);
     if(argy) {
       dscat(dstrdly, argy->strptr, argy->lenstr);
@@ -825,6 +833,17 @@ extern union {
         break;
     } 
   }
+  `{IDENT} {
+    char* ylstr = strdup(yytext + 1);
+    int mt = check_type(ylstr, 0);
+    switch(mt) {
+      default:
+        zzlval.unum = 0;
+        return UNSIGNED_LITERAL;
+      case -1:
+        break;
+    } 
+  }
   0[bB]{BIN}+{INTSIZE}? {zzlval.unum = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
                          return UNSIGNED_LITERAL;}
   0{OCT}+{INTSIZE}? {zzlval.unum = strtoul(yytext,NULL,8);//every intconst is 8 bytes
@@ -839,6 +858,16 @@ extern union {
 {IDENT} {
   char* ylstr = strdup(yytext);
   int mt = check_type(ylstr, 1);
+  switch(mt) {
+    case SYMBOL: case TYPE_NAME:
+      yylval.str = ylstr;
+      return mt;
+  } 
+}
+`{IDENT} {
+  printf("%s is yytext, let's do it!\n", yytext);
+  char* ylstr = strdup(yytext + 1);
+  int mt = check_type(ylstr, 2);
   switch(mt) {
     case SYMBOL: case TYPE_NAME:
       yylval.str = ylstr;
@@ -1070,7 +1099,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
 %%
 int check_type(char* symb, char frominitial) {
   struct macrodef* macdef = search(ctx->defines, symb);
-  if(macdef && !queryval(ctx->withindefines, symb)) {
+  if(macdef && (frominitial == 2 || !queryval(ctx->withindefines, symb))) {
     defname = symb;
     yy_push_state(frominitial ? INITIAL : WITHINIF);
     if(macdef->args) {
