@@ -217,18 +217,19 @@ initializer:
   if(!scopequeryval(ctx, M_STRUCT, $2)) {
     add2scope(ctx, $2, M_STRUCT, NULL);
     insert(scopepeek(ctx)->forwardstructs, $2, dactor(16));
-  } else 
-    fprintf(stderr, "Error: redefinition of struct %s in %s %d.%d-%d.%d\n", $2,  locprint(@$));
+  }
+    //this is a no-op
   }
 | "union" SYMBOL ';' {
   $$ = dactor(0);
   if(!scopequeryval(ctx, M_UNION, $2)) {
     add2scope(ctx, $2, M_UNION, NULL);
     insert(scopepeek(ctx)->forwardunions, $2, dactor(16));
-  } else 
+  }
     fprintf(stderr, "Error: redefinition of union %s in %s %d.%d-%d.%d\n", $2,  locprint(@$));
   }
-| fullstruct';' {$$ = dactor(0);}
+| "enum" enumbody ';' {$$ = dactor(0); dadtorfr($2);}
+| fullstruct ';' {$$ = dactor(0);}
 | fullenum ';' {$$ = dactor(0);}
 | fullunion ';' {$$ = dactor(0);};
 /*some garbage with checking whether already defined must be done*/
@@ -421,7 +422,8 @@ typews1:
 | types1 typews1 {$$ = $2; $$->tb |= $1;}
 | types2 typews1 {$$ = $2; $$->tb |= $1;} ;
 type:
-  typews1 {$$ = $1;};
+  typews1 {$$ = $1;}
+| typews1 types1 {$$ = $1; $$->tb |= $2;};
 types1o:
   types1 {$$ = $1;}
 | types1o types1 {$$ = $1 | $2;};

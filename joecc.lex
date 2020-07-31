@@ -5,11 +5,11 @@ EXP [Ee][+-]?[[:digit:]]+
 FLOATSIZE (f|F|l|L)
 INTSIZE (u|U|l|L)*
 %{
-//TODO: handle if, elif in preprocessor (including defined and stuff)
-//TODO: handle concatenation in macros
+//TODO: computed include?
 
 #include <math.h>
 #include <time.h>
+#include <sys/stat.h>
 #include "joecc.tab.h"
 #include "compintern.h"
 #include "treeduce.h"
@@ -59,7 +59,7 @@ extern union {
 %option nodefault
 
 %x MULTILINE_COMMENT SINGLELINE_COMMENT
-%x PREPROCESSOR INCLUDE 
+%x PREPROCESSOR INCLUDE INCLUDENEXT
 %x DEFINE UNDEF DEFARG DEFINE2
 %x IFNDEF IFDEF PPSKIP
 %x KILLBLANK KILLCONCAT KILLUNTIL
@@ -115,6 +115,7 @@ extern union {
 ^[[:blank:]]*#[[:blank:]]* {yy_push_state(PREPROCESSOR); stmtover = 0; skipping = 0;}
 <PREPROCESSOR>{
   include[[:blank:]]+ {if(!skipping) yy_push_state(INCLUDE); else yy_pop_state();}
+  include_next[[:blank:]]+ {if(!skipping) yy_push_state(INCLUDENEXT); else yy_pop_state();}
   define[[:blank:]]+ {if(!skipping) {yy_push_state(DEFINE); md = calloc(1, sizeof(struct macrodef));} else yy_pop_state();}
   undef[[:blank:]]+ {if(!skipping) yy_push_state(UNDEF); else yy_pop_state();}
   ifdef[[:blank:]]+ {yy_push_state(IFDEF);}
@@ -273,10 +274,66 @@ extern union {
       }
     }
     }
+}
+<INCLUDE,INCLUDENEXT>{
   [[:space:]]+[<\"] {/*"*/yyless(1);}
   [[:space:]]*\n {yy_pop_state(); yy_pop_state();if(!stmtover) fprintf(stderr, "Error: incomplete include %s %d.%d-%d.%d\n", locprint(yylloc));}
   . {fprintf(stderr, "INCLUDE: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint(yylloc));}
 }
+
+<INCLUDENEXT>{
+  ["<][^>\n]*[>"] {
+    if(stmtover){
+      fprintf(stderr, "Error: tried to include multiple files with single directive on line %d! %s %d.%d-%d.%d\n", yylloc.last_line, locprint(yylloc));
+    } else {
+      stmtover = 1;
+      yytext[yyleng - 1] = '\0'; //ignore closing >
+      char pathbuf[2048];
+      static const char* searchpath[] = {
+        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.1.0/include",
+        "/usr/local/include",
+        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.1.0/include-fixed",
+        "/usr/include",
+        };
+      yy_pop_state();
+      yy_pop_state();
+      int i = 0;
+      FILE* ybsf = YY_CURRENT_BUFFER->yy_input_file;
+      struct stat newone, curone;
+      fstat(ybsf->_fileno, &curone);
+      for(; i < 3; ++i) {
+        FILE* newbuf;
+        snprintf(pathbuf, 2048, "%s/%s", searchpath[i], yytext + 1); //ignore opening
+        if((newbuf = fopen(pathbuf, "r")) != NULL) {
+          fstat(newbuf->_fileno, &newone);
+          if((curone.st_dev == newone.st_dev) && (curone.st_ino == newone.st_ino))
+            break;
+        }
+      }
+      ++i;
+      for(; i < 4 /*sizeof searchpath*/; ++i) {
+        FILE* newbuf;
+        snprintf(pathbuf, 2048, "%s/%s", searchpath[i], yytext + 1); //ignore opening
+        if((newbuf = fopen(pathbuf, "r")) != NULL) {
+          YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
+          *ylt = yylloc;
+          dapush(locs, ylt);
+          yylloc.first_line = yylloc.last_line = 1;
+          yylloc.first_column = yylloc.last_column = 0;
+          dapush(file2compile, strdup(yytext + 1));
+          YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
+          yy_push_state(INITIAL);
+          yypush_buffer_state(ybs);
+          break;
+        }
+      } 
+      if(i == 4){
+        fprintf(stderr, "Invalid system file %s included!\n", yytext + 1);
+      }
+    }
+    }
+}
+
 
 <DEFINE>{
   {IDENT} {
@@ -776,7 +833,7 @@ extern union {
                            if(strchr(yytext,'u') || strchr(yytext,'U')) return UNSIGNED_LITERAL; return INTEGER_LITERAL;}
   0[xX][[:xdigit:]]+{INTSIZE}? {zzlval.unum = strtoul(yytext,NULL,16);
                                 return UNSIGNED_LITERAL;}
-  \' {yy_push_state(ZCHARLIT);}
+  L?\' {yy_push_state(ZCHARLIT);}
 }
 
 {IDENT} {
@@ -797,7 +854,7 @@ extern union {
                          if(strchr(yytext,'u') || strchr(yytext,'U')) return UNSIGNED_LITERAL; return INTEGER_LITERAL;}
 0[xX][[:xdigit:]]+{INTSIZE}? {yylval.unum = strtoul(yytext,NULL,16);
                               return UNSIGNED_LITERAL;}
-\' {yy_push_state(CHARLIT);}
+L?\' {yy_push_state(CHARLIT);}
 
 [[:digit:]]+{EXP}{FLOATSIZE}? {sscanf(yytext, "%lf", &yylval.dbl);return FLOAT_LITERAL;}
 [[:digit:]]*"."?[[:digit:]]+({EXP})?{FLOATSIZE}? {sscanf(yytext, "%lf", &yylval.dbl);return FLOAT_LITERAL;}
@@ -897,7 +954,7 @@ extern union {
     }
 }
 
-\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
+L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
 <STRINGLIT>{
   \" {/*"*/
     dsccat(strcur, 0);
