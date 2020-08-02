@@ -154,9 +154,10 @@ char isglobal(struct lexctx* lct, char* ident) {
 void wipestruct(STRUCT* strct) {
   for(int i = 0; i < strct->fields->length; ++i) {
     DECLARATION* dcl = strct->fields->arr[i];
-    freetype(dcl->type);
     if(dcl->varname)
       free(dcl->varname);
+    else
+      freetype(dcl->type);
   }
   free(strct);
 }

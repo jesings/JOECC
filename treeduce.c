@@ -550,7 +550,7 @@ char foldconst(EXPRESSION** exa) {
             rove = 1;
             break;
           case INT:
-            if(i == 0) {
+            if(i) {
               subexpr->intconst = -subexpr->intconst;
             }
             switch(rectexpr->type) {
@@ -571,7 +571,7 @@ char foldconst(EXPRESSION** exa) {
             rove = 1;
             break;
           case FLOAT:
-            if(i == 0) {
+            if(i) {
               subexpr->floatconst = -subexpr->floatconst;
             }
             switch(rectexpr->type) {

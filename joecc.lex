@@ -54,6 +54,7 @@ extern union {
 %option noyywrap
 %option stack
 
+%option debug
 %option warn
 %option nodefault
 
@@ -697,6 +698,7 @@ extern union {
     yylloc.first_line = yylloc.last_line = 1;
     yylloc.first_column = yylloc.last_column = 0;
     dapush(file2compile, strdup(buf));
+    rmpair(ctx->withindefines, defname);
     }
 }
 
