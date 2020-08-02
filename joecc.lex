@@ -237,7 +237,7 @@ extern union {
           dapush(locs, ylt);
           yylloc.first_line = yylloc.last_line = 1;
           yylloc.first_column = yylloc.last_column = 0;
-          dapush(file2compile, strdup(yytext + 1));
+          dapush(file2compile, strdup(pathbuf));
           YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
           yy_push_state(INITIAL);
           yypush_buffer_state(ybs);
@@ -258,18 +258,27 @@ extern union {
       yy_pop_state();
       yy_pop_state();
       FILE* newbuf;
-      if((newbuf = fopen(yytext + 1, "r")) != NULL) { //ignore opening "
+      char* pfstr = dapeek(file2compile);
+      char* fname = yytext + 1;
+      if(pfstr[0] == '/') {
+          char pathbuf[2048];
+          strncpy(pathbuf, pfstr, 1792);
+          char* nextptr = strrchr(pathbuf, '/') + 1;
+          strncpy(nextptr, yytext + 1, 256);
+          fname = strdup(pathbuf);
+      }
+      if((newbuf = fopen(fname, "r")) != NULL) { //ignore opening "
         YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
         *ylt = yylloc;
         dapush(locs, ylt);
         yylloc.first_line = yylloc.last_line = 1;
         yylloc.first_column = yylloc.last_column = 0;
-        dapush(file2compile, strdup(yytext + 1));
+        dapush(file2compile, fname);
         YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
         yy_push_state(INITIAL);
         yypush_buffer_state(ybs);
       } else {
-        fprintf(stderr, "Invalid local file %s included! %s %d.%d-%d.%d\n", yytext + 1, locprint(yylloc));
+        fprintf(stderr, "Invalid local file %s included! %s %d.%d-%d.%d\n", fname, locprint(yylloc));
       }
     }
     }
@@ -297,18 +306,7 @@ extern union {
       yy_pop_state();
       yy_pop_state();
       int i = 0;
-      FILE* ybsf = YY_CURRENT_BUFFER->yy_input_file;
-      struct stat newone, curone;
-      fstat(ybsf->_fileno, &curone);
-      for(; i < 3; ++i) {
-        FILE* newbuf;
-        snprintf(pathbuf, 2048, "%s/%s", searchpath[i], yytext + 1); //ignore opening
-        if((newbuf = fopen(pathbuf, "r")) != NULL) {
-          fstat(newbuf->_fileno, &newone);
-          if((curone.st_dev == newone.st_dev) && (curone.st_ino == newone.st_ino))
-            break;
-        }
-      }
+      for(; i < 3 && strncmp(dapeek(file2compile), searchpath[i], strlen(searchpath[i])); ++i) ;
       ++i;
       for(; i < 4 /*sizeof searchpath*/; ++i) {
         FILE* newbuf;
@@ -319,7 +317,7 @@ extern union {
           dapush(locs, ylt);
           yylloc.first_line = yylloc.last_line = 1;
           yylloc.first_column = yylloc.last_column = 0;
-          dapush(file2compile, strdup(yytext + 1));
+          dapush(file2compile, strdup(pathbuf));
           YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
           yy_push_state(INITIAL);
           yypush_buffer_state(ybs);
