@@ -260,7 +260,7 @@ extern union {
       FILE* newbuf;
       char* pfstr = dapeek(file2compile);
       char* fname = yytext + 1;
-      if(pfstr[0] == '/') {
+      if(strchr(pfstr, '/')) {
           char pathbuf[2048];
           strncpy(pathbuf, pfstr, 1792);
           char* nextptr = strrchr(pathbuf, '/') + 1;
@@ -298,10 +298,10 @@ extern union {
       yytext[yyleng - 1] = '\0'; //ignore closing >
       char pathbuf[2048];
       static const char* searchpath[] = {
-        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.1.0/include",
-        "/usr/local/include",
-        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.1.0/include-fixed",
-        "/usr/include",
+        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.1.0/include/",
+        "/usr/local/include/",
+        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.1.0/include-fixed/",
+        "/usr/include/",
         };
       yy_pop_state();
       yy_pop_state();
@@ -310,7 +310,7 @@ extern union {
       ++i;
       for(; i < 4 /*sizeof searchpath*/; ++i) {
         FILE* newbuf;
-        snprintf(pathbuf, 2048, "%s/%s", searchpath[i], yytext + 1); //ignore opening
+        snprintf(pathbuf, 2048, "%s%s", searchpath[i], yytext + 1); //ignore opening
         if((newbuf = fopen(pathbuf, "r")) != NULL) {
           YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
           *ylt = yylloc;
@@ -325,7 +325,7 @@ extern union {
         }
       } 
       if(i == 4){
-        fprintf(stderr, "Invalid system file %s included!\n", yytext + 1);
+        fprintf(stderr, "Invalid system file %s included next!\n", yytext + 1);
       }
     }
     }
@@ -863,7 +863,6 @@ extern union {
   } 
 }
 `{IDENT} {
-  printf("%s is yytext, let's do it!\n", yytext);
   char* ylstr = strdup(yytext + 1);
   int mt = check_type(ylstr, 2);
   switch(mt) {

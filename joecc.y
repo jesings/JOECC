@@ -351,6 +351,7 @@ nameless:
 namelesstype:
   type {$$ = $1;}
 | type abstract_ptr {$$ = $1;
+    //TODO: full clone
     if($1->pointerstack) { 
       $1->pointerstack = daclone($1->pointerstack);
       $1->pointerstack = damerge($1->pointerstack, $2);
