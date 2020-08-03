@@ -583,12 +583,14 @@ extern union {
     if(queryval(ctx->withindefines, yytext))
       dsccat(dstrdly, '`');
     dscat(dstrdly, yytext, yyleng);
-  }
-  [[:digit:]]+ {
+    }
+  (0[bB]{BIN}+|0{OCT}+|[[:digit:]]+|0[xX][[:xdigit:]]+){INTSIZE}? {
     dscat(dstrdly, yytext, yyleng);
-  }
-
-  [^\(\)\",[:alnum:]_]*[^[:space:]\(\)\",[:alnum:]_] {/*"*/
+    }
+  ([[:digit:]]+|[[:digit:]]*"."?|[[:digit:]]+"."?)[[:digit:]]*({EXP})?{FLOATSIZE}? {
+    dscat(dstrdly, yytext, yyleng);
+    }
+  [^\(\)\",[:alnum:]_]*[^[:space:]\(\)\",[:alnum:]_`] {/*"*/
     dscat(dstrdly, yytext, yyleng);
     }
   \"(\\.|[^\\"]|\/[[:space:]]*\n)*\" {/*"*/
@@ -597,7 +599,7 @@ extern union {
     }
   [[:space:]]+ {
     dsccat(dstrdly, ' ');
-  }
+    }
   [[:space:]]*,[[:space:]]* {
     if(paren_depth) {
       char tmpstr[3];

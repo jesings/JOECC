@@ -154,10 +154,11 @@ char isglobal(struct lexctx* lct, char* ident) {
 void wipestruct(STRUCT* strct) {
   for(int i = 0; i < strct->fields->length; ++i) {
     DECLARATION* dcl = strct->fields->arr[i];
-    if(dcl->varname)
+    if(dcl->varname) {
       free(dcl->varname);
-    else
-      freetype(dcl->type);
+    }
+    freetype(dcl->type);
+    free(dcl);
   }
   free(strct);
 }
@@ -166,8 +167,10 @@ void freetype(IDTYPE* id) {
   if(id->pointerstack)
     for(int i = 0; i < id->pointerstack->length; i++)
       free(id->pointerstack->arr[i]);
-  if(id->tb & (STRUCTVAL | UNIONVAL))
-    wipestruct(id->structtype);
+  if(id->tb & (STRUCTVAL | UNIONVAL)) {
+    if(!id->structtype->name)
+      wipestruct(id->structtype);
+  }
   else if(id->tb & ENUMVAL) {
     for(int i = 0; i < id->enumtype->fields->length; ++i) {
       ENUMFIELD* enf = id->enumtype->fields->arr[i];
