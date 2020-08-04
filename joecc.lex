@@ -61,6 +61,7 @@ extern union {
 %x MULTILINE_COMMENT SINGLELINE_COMMENT
 %x PREPROCESSOR INCLUDE INCLUDENEXT
 %x DEFINE UNDEF DEFARG DEFINE2
+%x WARNING ERROR
 %x IFNDEF IFDEF PPSKIP
 %x KILLBLANK KILLCONCAT KILLUNTIL
 %x STRINGLIT CHARLIT ZCHARLIT
@@ -206,11 +207,25 @@ extern union {
     }
     }
   line {if(!skipping){yy_pop_state(); yy_push_state(SINGLELINE_COMMENT);} else {yy_pop_state(); yy_push_state(KILLUNTIL);}/*TODO: line directive currently doesn't print requisite information*/}
-  warning {if(!skipping){yy_pop_state(); yy_push_state(SINGLELINE_COMMENT); fprintf(stderr, "Preprocessor warning directive encountered %s %d.%d-%d.%d\n", locprint(yylloc));} else {yy_pop_state(); yy_push_state(KILLUNTIL);}/*TODO: warning directive currently doesn't print requisite information*/}
-  error {if(!skipping){yy_pop_state(); yy_push_state(SINGLELINE_COMMENT); fprintf(stderr, "Preprocessor error directive encountered %s %d.%d-%d.%d\n", locprint(yylloc)); exit(-1);} else {yy_pop_state(); yy_push_state(KILLUNTIL);}/*TODO: error directive currently doesn't print requisite information*/}
+  warning {if(!skipping){yy_pop_state(); yy_push_state(WARNING); yy_push_state(KILLBLANK);} else {yy_pop_state(); yy_push_state(KILLUNTIL);}}
+  error {if(!skipping){yy_pop_state(); yy_push_state(ERROR); yy_push_state(KILLBLANK);} else {yy_pop_state(); yy_push_state(KILLUNTIL);}}
   \n {yy_pop_state();fprintf(stderr, "PREPROCESSOR: Incorrect line end %d %s %d.%d-%d.%d\n", yylloc.first_line, locprint(yylloc));}
   . {fprintf(stderr, "PREPROCESSOR: Unexpected character encountered: %d %c %s %d.%d-%d.%d\n", *yytext, *yytext, locprint(yylloc));}
 }
+<WARNING>\"(\\.|[^\\"]|\/[[:space:]]*\n)*\" {/*"*/
+    /*WARNING, ERROR, only support single string const*/
+    yy_pop_state(); 
+    yy_push_state(KILLUNTIL); 
+    yytext[yyleng - 1] = '\0'; 
+    fprintf(stderr, "WARNING: %s\n", yytext + 1);
+    }
+<ERROR>\"(\\.|[^\\"]|\/[[:space:]]*\n)*\" {/*"*/
+    yy_pop_state(); 
+    yy_push_state(KILLUNTIL); 
+    yytext[yyleng - 1] = '\0'; 
+    fprintf(stderr, "ERROR: %s\n", yytext + 1);
+    exit(-1);
+    }
 
 <INCLUDE>{
   "<"[^>\n]*">" {
