@@ -261,7 +261,6 @@ declarator:
 | abstract_ptr fptr {$$ = $2; $2->type->pointerstack = damerge($2->type->pointerstack, $1);}
 | declname {$$ = $1;}
 | fptr {$$ = $1;};
-/*TODO: discriminate between function decls and function pointers*/
 declname:
   SYMBOL {$$ = mkdeclaration($1);}
 | '(' declname ')' {$$ = $2;}

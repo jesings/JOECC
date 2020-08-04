@@ -103,10 +103,24 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
       subexpr = EPARAM(ex, 0); \
       rectexpr = EPARAM(ex, 1); \
       switch(subexpr->type) { \
-        case UINT: case INT: case FLOAT:\
+        case UINT: case INT:\
           switch(rectexpr->type) { \
-            case UINT: case INT: case FLOAT: \
+            case UINT: case INT:\
               subexpr->uintconst = (subexpr->uintconst OP rectexpr->uintconst); \
+              FREE2RET; \
+            case FLOAT: \
+              subexpr->uintconst = (subexpr->uintconst OP rectexpr->floatconst); \
+              FREE2RET; \
+            default: \
+              return 0; \
+          } \
+        case FLOAT: \
+          switch(rectexpr->type) { \
+            case UINT: case INT:\
+              subexpr->uintconst = (subexpr->floatconst OP rectexpr->uintconst); \
+              FREE2RET; \
+            case FLOAT: \
+              subexpr->uintconst = (subexpr->floatconst OP rectexpr->floatconst); \
               FREE2RET; \
             default: \
               return 0; \

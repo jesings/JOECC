@@ -573,7 +573,7 @@ extern union {
         dapush(locs, ylt);
         yylloc.first_line = yylloc.last_line = 1;
         yylloc.first_column = yylloc.last_column = 0;
-        YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(md->text, strlen(md->text), "r"), YY_BUF_SIZE);//strlen inefficient
+        YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(md->text, strlen(md->text), "r"), YY_BUF_SIZE);//TODO: strlen inefficient
         yypush_buffer_state(ybs);
       }
     }
@@ -595,6 +595,10 @@ extern union {
     }
   \"(\\.|[^\\"]|\/[[:space:]]*\n)*\" {/*"*/
   	//this is here to make sure that parenthesis depth isn't changed within strings
+    dscat(dstrdly, yytext, yyleng);
+    }
+  \'(\\.|[^\\']|\/[[:space:]]*\n)*\' {
+  	//this is here to make sure that parenthesis depth isn't changed within char literals
     dscat(dstrdly, yytext, yyleng);
     }
   [[:space:]]+ {
