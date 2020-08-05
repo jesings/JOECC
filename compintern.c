@@ -42,6 +42,7 @@ EXPRESSION* ct_nop_expr(void) {
 EXPRESSION* ct_unary_expr(EXPRTYPE t, EXPRESSION* param) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = t;
+  retval->rettype = NULL;
   retval->params = dactor(1);
   dapush(retval->params, param);
   return retval;
@@ -52,6 +53,7 @@ EXPRESSION* ct_sztype(IDTYPE* whichtype) {
     return ct_intconst_expr(whichtype->tb & 0xf);
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = SZOF;
+  retval->rettype = NULL;
   retval->vartype = whichtype;
   return retval;
 }
@@ -59,6 +61,7 @@ EXPRESSION* ct_sztype(IDTYPE* whichtype) {
 EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = t;
+  retval->rettype = NULL;
   retval->params = dactor(2);
   dapush(retval->params, param1);
   dapush(retval->params, param2);
@@ -68,6 +71,7 @@ EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2) {
 EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = CAST;
+  retval->rettype = NULL;
   retval->params = dactor(1);
   dapush(retval->params, expr);
   retval->vartype = type;
@@ -77,6 +81,7 @@ EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr) {
 EXPRESSION* ct_ternary_expr(EXPRESSION* param1, EXPRESSION* param2, EXPRESSION* param3) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = TERNARY;
+  retval->rettype = NULL;
   retval->params = dactor(3);
   dapush(retval->params, param1);
   dapush(retval->params, param2);
@@ -87,6 +92,7 @@ EXPRESSION* ct_ternary_expr(EXPRESSION* param1, EXPRESSION* param2, EXPRESSION* 
 EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = FCALL;
+  retval->rettype = NULL;
   DYNARR* dd = dactor(1);
   dapush(dd, func);
   retval->params = damerge(dd, params);
@@ -96,6 +102,7 @@ EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params) {
 EXPRESSION* ct_strconst_expr(const char* str) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = STRING;
+  retval->rettype = NULL;
   retval->strconst = (char*)(unsigned long) str;
   return retval;
 }
@@ -103,6 +110,7 @@ EXPRESSION* ct_strconst_expr(const char* str) {
 EXPRESSION* ct_intconst_expr(long num) { 
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = INT;
+  retval->rettype = NULL;
   retval->intconst = num;
   return retval;
 }
@@ -110,6 +118,7 @@ EXPRESSION* ct_intconst_expr(long num) {
 EXPRESSION* ct_uintconst_expr(unsigned long num) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = INT;
+  retval->rettype = NULL;
   retval->uintconst = num;
   return retval;
 }
@@ -117,6 +126,7 @@ EXPRESSION* ct_uintconst_expr(unsigned long num) {
 EXPRESSION* ct_floatconst_expr(double num) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));\
   retval->type = FLOAT;
+  retval->rettype = NULL;
   retval->floatconst = num;
   return retval;
 }
@@ -124,6 +134,7 @@ EXPRESSION* ct_floatconst_expr(double num) {
 EXPRESSION* ct_array_lit(DYNARR* da) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));\
   retval->type = ARRAY_LIT;
+  retval->rettype = NULL;
   retval->dynvals = da;
   return retval;
 }
@@ -131,6 +142,7 @@ EXPRESSION* ct_array_lit(DYNARR* da) {
 EXPRESSION* ct_member_expr(char* member) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = MEMBER;
+  retval->rettype = NULL;
   retval->member = member;
   return retval;
 }

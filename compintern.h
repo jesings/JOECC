@@ -115,6 +115,7 @@ typedef struct {
 typedef struct expr {
   EXPRTYPE type;
   DYNARR* params; //arr of exprs
+  IDTYPE* rettype;
   union {
     IDTYPE* vartype;
     char* strconst;
