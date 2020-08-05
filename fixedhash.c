@@ -45,3 +45,15 @@ void* fixedsearch(HASHTABLE* ht, long fixedkey) {
   return NULL;
 }
 
+char fixedqueryval(HASHTABLE* ht, long fixedkey) {
+  unsigned long i = fixedhash((char*) &fixedkey, sizeof(fixedkey));
+  HASHPAIR* hp = &(ht->pairs[i]);
+  if(!hp->next)
+    return 0;
+  for(; (long) hp > 1; hp = hp->next) {
+    if(hp->next && hp->fixedkey == fixedkey)
+      return 1;
+  }
+  return 0;
+}
+

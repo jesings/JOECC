@@ -34,6 +34,14 @@ HASHTABLE* htclone(HASHTABLE* ht) {
   return retval;
 }
 
+static void hpdtor(HASHPAIR* hp) {
+  if(hp->next) {
+    free(hp->key);
+    hpdtor(hp->next);
+  }
+  free(hp);
+}
+
 static void hpdtorfr(HASHPAIR* hp) {
   if(hp->next) {
     free(hp->key);
@@ -41,6 +49,17 @@ static void hpdtorfr(HASHPAIR* hp) {
     hpdtorfr(hp->next);
   }
   free(hp);
+}
+
+void htdtor(HASHTABLE* ht) {
+  for(int i = 0; i < HASHSIZE; i++) {
+    if(ht->pairs[i].key) {
+      free(ht->pairs[i].key);
+    }
+    if(ht->pairs[i].next)
+      hpdtor(ht->pairs[i].next);
+  }
+  free(ht);
 }
 
 void htdtorfr(HASHTABLE* ht) {

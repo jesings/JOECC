@@ -15,3 +15,20 @@ void pinsert(PARALLEL* p, const char* key, void* value) {
   dapush(p->da, (char *)(unsigned long) key);
   insert(p->ht, key, value);
 }
+
+void* pfsearch(PARALLEL* p, long unsigned key) {
+  return fixedsearch(p->ht, key);
+}
+char pfquery(PARALLEL* p, long unsigned key) {
+  return fixedqueryval(p->ht, key);
+}
+void pfinsert(PARALLEL* p, long unsigned key, void* value) {
+  dapush(p->da, (char *)(unsigned long) key);
+  fixedinsert(p->ht, key, value);
+}
+
+void paraledtor(PARALLEL* p) {
+  dadtor(p->da);
+  htdtor(p->ht);
+  free(p);
+}
