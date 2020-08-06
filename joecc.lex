@@ -649,7 +649,6 @@ extern union {
       yyterminate();
     } else {
       yy_pop_state();
-      stmtover = 1;
       YYLTYPE* yl = dapop(locs);
       yylloc = *yl;
       free(yl);
@@ -658,12 +657,15 @@ extern union {
       //rmpair is a no-op if not in hash
     }
     struct arginfo* argi = dapop(ctx->argpp);
-    defname = argi->defname;
-    if(argi->argi) {
-      dstrdly = argi->argi;
-      paren_depth = argi->pdepth;
-      parg = argi->parg;
+    if(argi->defname) {
+      defname = argi->defname;
+      if(argi->argi) {
+        dstrdly = argi->argi;
+        paren_depth = argi->pdepth;
+        parg = argi->parg;
+      }
     }
+    free(argi);
     }
   . {fprintf(stderr, "Error: unexpected character in function macro call %s %d.%d-%d.%d\n", locprint(yylloc));}
 }
@@ -1133,7 +1135,17 @@ int check_type(char* symb, char frominitial) {
   if(macdef && (frominitial == 2 || !queryval(ctx->withindefines, symb))) {
     char* oldname = defname;
     defname = symb;
-    yy_push_state(frominitial ? INITIAL : WITHINIF);
+    switch(frominitial) {
+      case 0:
+        yy_push_state(WITHINIF);
+        break;
+      case 1:
+        yy_push_state(INITIAL);
+        break;
+      case 2:
+        yy_push_state(CALLMACRO);
+        break;
+    }
     if(macdef->args) {
       char c;
       while(1) {
@@ -1156,15 +1168,17 @@ int check_type(char* symb, char frominitial) {
       }
       whiledone:
       yy_push_state(CALLMACRO);
-      struct arginfo* argi;
       if(frominitial == 2) {
+        struct arginfo* argi;
+        argi = calloc(1, sizeof(struct arginfo));
+        dapush(ctx->argpp, argi);
         argi = malloc(sizeof(struct arginfo));
         argi->argi = dstrdly;
         argi->pdepth = paren_depth;
         argi->defname = oldname;
         argi->parg = parg;
+        dapush(ctx->argpp, argi);
       }
-      dapush(ctx->argpp, argi);
       paren_depth = 0;
       dstrdly = strctor(malloc(2048), 0, 2048);
       parg = dactor(64); 
