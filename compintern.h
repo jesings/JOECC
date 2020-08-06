@@ -137,6 +137,7 @@ struct lexctx {
   HASHTABLE* defines;
   HASHTABLE* withindefines;
   EXPRESSION* ifexpr;
+  DYNARR* argpp;
 };
 
 typedef struct {

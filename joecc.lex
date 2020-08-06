@@ -41,6 +41,13 @@ HASHTABLE* defargs = NULL;
 DYNSTR* dstrdly, * mdstrdly, * strcur;
 extern DYNARR* locs, * file2compile;
 
+struct arginfo {
+  DYNSTR* argi;
+  int pdepth;
+  char* defname;
+  DYNARR* parg;
+};
+
 extern union {
   unsigned long unum;
   EXPRESSION* exprvariant;
@@ -552,6 +559,7 @@ extern union {
         fprintf(stderr, "Error: Malformed function-like macro call %s %d.%d-%d.%d\n", locprint(yylloc));
         //error state
       } else if(parg->length != md->args->length) {
+        insert(ctx->withindefines, defname, NULL);
         if(md->args->length == 0 && parg->length == 1
            && *(((DYNSTR*) (parg->arr[0]))->strptr) == 0) {
           free(((DYNSTR*) (parg->arr[0]))->strptr);
@@ -570,6 +578,7 @@ extern union {
           //error state
         }
       } else {
+        insert(ctx->withindefines, defname, NULL);
         DYNARR* argn = md->args;
         //make hash table with keys as param names, values as arguments, make 
         //special lexer mode to parse this into string literal, use this as new buffer
@@ -595,9 +604,9 @@ extern union {
     }
 
   {IDENT} {
-    if(queryval(ctx->withindefines, yytext))
-      dsccat(dstrdly, '`');
-    dscat(dstrdly, yytext, yyleng);
+    if(check_type(yytext, 2) != -1) {
+      dscat(dstrdly, yytext, yyleng);
+    }
     }
   (0[bB]{BIN}+|0{OCT}+|[[:digit:]]+|0[xX][[:xdigit:]]+){INTSIZE}? {
     dscat(dstrdly, yytext, yyleng);
@@ -605,7 +614,7 @@ extern union {
   ([[:digit:]]+|[[:digit:]]*"."?|[[:digit:]]+"."?)[[:digit:]]*({EXP})?{FLOATSIZE}? {
     dscat(dstrdly, yytext, yyleng);
     }
-  [^\(\)\",[:alnum:]_]*[^[:space:]\(\)\",[:alnum:]_`] {/*"*/
+  [^\(\)\",[:alnum:]_]*[^[:space:]\(\)\",[:alnum:]_] {/*"*/
     dscat(dstrdly, yytext, yyleng);
     }
   \"(\\.|[^\\"]|\/[[:space:]]*\n)*\" {/*"*/
@@ -632,6 +641,28 @@ extern union {
     } else {
       dapush(parg, dstrdly);
       dstrdly = strctor(malloc(2048), 0, 2048);
+    }
+    }
+  <<EOF>> {
+    yypop_buffer_state();
+    if ( !YY_CURRENT_BUFFER ) {
+      yyterminate();
+    } else {
+      yy_pop_state();
+      stmtover = 1;
+      YYLTYPE* yl = dapop(locs);
+      yylloc = *yl;
+      free(yl);
+      char* ismac = dapop(file2compile);
+      rmpair(ctx->withindefines, ismac);
+      //rmpair is a no-op if not in hash
+    }
+    struct arginfo* argi = dapop(ctx->argpp);
+    defname = argi->defname;
+    if(argi->argi) {
+      dstrdly = argi->argi;
+      paren_depth = argi->pdepth;
+      parg = argi->parg;
     }
     }
   . {fprintf(stderr, "Error: unexpected character in function macro call %s %d.%d-%d.%d\n", locprint(yylloc));}
@@ -854,17 +885,6 @@ extern union {
         break;
     } 
   }
-  `{IDENT} {
-    char* ylstr = strdup(yytext + 1);
-    int mt = check_type(ylstr, 0);
-    switch(mt) {
-      default:
-        zzlval.unum = 0;
-        return UNSIGNED_LITERAL;
-      case -1:
-        break;
-    } 
-  }
   0[bB]{BIN}+{INTSIZE}? {zzlval.unum = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
                          return UNSIGNED_LITERAL;}
   0{OCT}+{INTSIZE}? {zzlval.unum = strtoul(yytext,NULL,8);//every intconst is 8 bytes
@@ -879,15 +899,6 @@ extern union {
 {IDENT} {
   char* ylstr = strdup(yytext);
   int mt = check_type(ylstr, 1);
-  switch(mt) {
-    case SYMBOL: case TYPE_NAME:
-      yylval.str = ylstr;
-      return mt;
-  } 
-}
-`{IDENT} {
-  char* ylstr = strdup(yytext + 1);
-  int mt = check_type(ylstr, 2);
   switch(mt) {
     case SYMBOL: case TYPE_NAME:
       yylval.str = ylstr;
@@ -1120,6 +1131,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
 int check_type(char* symb, char frominitial) {
   struct macrodef* macdef = search(ctx->defines, symb);
   if(macdef && (frominitial == 2 || !queryval(ctx->withindefines, symb))) {
+    char* oldname = defname;
     defname = symb;
     yy_push_state(frominitial ? INITIAL : WITHINIF);
     if(macdef->args) {
@@ -1144,9 +1156,19 @@ int check_type(char* symb, char frominitial) {
       }
       whiledone:
       yy_push_state(CALLMACRO);
+      struct arginfo* argi;
+      if(frominitial == 2) {
+        argi = malloc(sizeof(struct arginfo));
+        argi->argi = dstrdly;
+        argi->pdepth = paren_depth;
+        argi->defname = oldname;
+        argi->parg = parg;
+      }
+      dapush(ctx->argpp, argi);
       paren_depth = 0;
       dstrdly = strctor(malloc(2048), 0, 2048);
       parg = dactor(64); 
+
     } else {
       char* buf = malloc(256);
       snprintf(buf, 256, "%s", symb);
@@ -1159,8 +1181,13 @@ int check_type(char* symb, char frominitial) {
       YY_BUFFER_STATE yms = yy_create_buffer(fmemopen(macdef->text, 
       	strlen(macdef->text), "r"), YY_BUF_SIZE);// strlen is inefficient
       yypush_buffer_state(yms);
+      insert(ctx->withindefines, strdup(symb), NULL);
+      if(frominitial == 2) {
+        struct arginfo* argi = calloc(1, sizeof(struct arginfo));
+        argi->defname = oldname;
+        dapush(ctx->argpp, argi);
+      }
     }
-    insert(ctx->withindefines, strdup(symb), NULL);
     return -1;
   }
   nofcall:
