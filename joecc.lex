@@ -653,6 +653,13 @@ extern union {
       yylloc = *yl;
       free(yl);
       free(dapop(file2compile));
+      if(ctx->argpp->length) {
+      struct arginfo* argi = dapeek(ctx->argpp);
+      if(!argi->argi) {
+        defname = argi->defname;
+        free(dapop(ctx->argpp));
+      }
+      }
     }
     }
   . {fprintf(stderr, "Error: unexpected character in function macro call %s %d.%d-%d.%d\n", locprint(yylloc));}
@@ -1170,8 +1177,6 @@ int check_type(char* symb, char frominitial) {
       yy_push_state(CALLMACRO);
       if(frominitial == 2) {
         struct arginfo* argi;
-        argi = calloc(1, sizeof(struct arginfo));
-        dapush(ctx->argpp, argi);
         argi = malloc(sizeof(struct arginfo));
         argi->argi = dstrdly;
         argi->pdepth = paren_depth;
