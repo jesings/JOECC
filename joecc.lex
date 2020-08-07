@@ -6,6 +6,7 @@ FLOATSIZE (f|F|l|L)
 INTSIZE (u|U|l|L)*
 %{
 //TODO: computed include?
+//TODO: Fix self-referential macros in arg preparse?
 
 #include <math.h>
 #include <time.h>
@@ -648,24 +649,11 @@ extern union {
     if ( !YY_CURRENT_BUFFER ) {
       yyterminate();
     } else {
-      yy_pop_state();
       YYLTYPE* yl = dapop(locs);
       yylloc = *yl;
       free(yl);
-      char* ismac = dapop(file2compile);
-      rmpair(ctx->withindefines, ismac);
-      //rmpair is a no-op if not in hash
+      free(dapop(file2compile));
     }
-    struct arginfo* argi = dapop(ctx->argpp);
-    if(argi->defname) {
-      defname = argi->defname;
-      if(argi->argi) {
-        dstrdly = argi->argi;
-        paren_depth = argi->pdepth;
-        parg = argi->parg;
-      }
-    }
-    free(argi);
     }
   . {fprintf(stderr, "Error: unexpected character in function macro call %s %d.%d-%d.%d\n", locprint(yylloc));}
 }
@@ -753,6 +741,18 @@ extern union {
     yylloc.first_column = yylloc.last_column = 0;
     dapush(file2compile, strdup(buf));
     rmpair(ctx->withindefines, defname);
+    if(ctx->argpp->length) {
+      struct arginfo* argi = dapop(ctx->argpp);
+      if(argi->defname) {
+        defname = argi->defname;
+        if(argi->argi) {
+          dstrdly = argi->argi;
+          paren_depth = argi->pdepth;
+          parg = argi->parg;
+        }
+      }
+      free(argi);
+    }
     }
 }
 
@@ -1132,7 +1132,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
 %%
 int check_type(char* symb, char frominitial) {
   struct macrodef* macdef = search(ctx->defines, symb);
-  if(macdef && (frominitial == 2 || !queryval(ctx->withindefines, symb))) {
+  if(macdef && !queryval(ctx->withindefines, symb)) {
     char* oldname = defname;
     defname = symb;
     switch(frominitial) {
@@ -1143,7 +1143,7 @@ int check_type(char* symb, char frominitial) {
         yy_push_state(INITIAL);
         break;
       case 2:
-        yy_push_state(CALLMACRO);
+        //don't push callmacro
         break;
     }
     if(macdef->args) {
