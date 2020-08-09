@@ -244,7 +244,7 @@ initializer:
 | fullstruct ';' {$$ = dactor(0);}
 | fullenum ';' {$$ = dactor(0);}
 | fullunion ';' {$$ = dactor(0);};
-/*some garbage with checking whether already defined must be done*/
+/*TODO: some garbage with checking whether already defined must be done*/
 cs_inits:
   cs_inits ',' declarator '=' escoa {$$ = $1; dapush($$, geninit($3, $5));}
 | declarator '=' escoa {$$ = dactor(8); dapush($$, geninit($1, $3));}

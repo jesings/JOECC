@@ -654,11 +654,12 @@ extern union {
       free(yl);
       free(dapop(file2compile));
       if(ctx->argpp->length) {
-      struct arginfo* argi = dapeek(ctx->argpp);
-      if(!argi->argi) {
+        struct arginfo* argi = dapop(ctx->argpp);
+        //fprintf(stderr, "Popping %s from stack\n", argi->defname);
         defname = argi->defname;
-        free(dapop(ctx->argpp));
-      }
+        free(argi);
+      } else {
+        exit(-1);
       }
     }
     }
@@ -750,13 +751,12 @@ extern union {
     rmpair(ctx->withindefines, defname);
     if(ctx->argpp->length) {
       struct arginfo* argi = dapop(ctx->argpp);
-      if(argi->defname) {
-        defname = argi->defname;
-        if(argi->argi) {
-          dstrdly = argi->argi;
-          paren_depth = argi->pdepth;
-          parg = argi->parg;
-        }
+      //fprintf(stderr, "Popping %s from stack\n", argi->defname);
+      defname = argi->defname;
+      if(argi->argi) {
+        dstrdly = argi->argi;
+        paren_depth = argi->pdepth;
+        parg = argi->parg;
       }
       free(argi);
     }
@@ -1183,6 +1183,7 @@ int check_type(char* symb, char frominitial) {
         argi->defname = oldname;
         argi->parg = parg;
         dapush(ctx->argpp, argi);
+        //fprintf(stderr, "Pushing %s, fcall macro, to stack\n", argi->defname);
       }
       paren_depth = 0;
       dstrdly = strctor(malloc(2048), 0, 2048);
@@ -1205,6 +1206,7 @@ int check_type(char* symb, char frominitial) {
         struct arginfo* argi = calloc(1, sizeof(struct arginfo));
         argi->defname = oldname;
         dapush(ctx->argpp, argi);
+        //fprintf(stderr, "Pushing %s to stack\n", argi->defname);
       }
     }
     return -1;
