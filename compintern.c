@@ -230,6 +230,68 @@ void rfreexpr(EXPRESSION* e) {
   }
   free(e);
 }
+
+void rfreestate(STATEMENT* s) {
+  switch(s->type) {
+    case LBREAK: case LCONT: case DEFAULT: case NOPSTMT:
+      //We don't reduce case statement here
+      break;
+    case CASE: 
+      //TODO: fix this and switch
+    case JGOTO:  case LABEL:
+      free(s->glabel);
+      break;
+    case SWITCH: ;
+      DYNARR* da = htpairs(s->labeltable->ht);
+      for(int i = 0; i < da->length; i++) {
+        HASHPAIR* hp = daget(da, i);
+        EXPRESSION* ex = hp->value;
+        rfreexpr(ex);
+      }
+      paraledtor(s->labeltable);
+      dadtor(da);
+      //fall through
+    case WHILEL: case DOWHILEL:
+      rfreestate(s->body);
+      rfreexpr(s->cond);
+      break;
+    case CMPND:
+      //special case for initializers?
+      for(int i = 0; i < s->stmtsandinits->length; i++) {
+        SOI* soi = daget(s->stmtsandinits, i);
+        if(soi->isstmt) {
+          rfreestate(soi->state);
+        } else {
+          for(int j = 0; j < soi->init->length; j++) {
+            INITIALIZER* in = daget(soi->init, j);
+            if(in->expr) {
+              rfreexpr(in->expr);
+            }
+            free(in->decl->type);
+            free(in->decl->varname);
+            free(in->decl);
+            free(in);
+          }
+          dadtor(soi->init);
+        }
+        free(soi);
+      }
+      dadtor(s->stmtsandinits);
+      break;
+    case FRET:
+    case EXPR: 
+      rfreexpr(s->expression);
+      break;
+    case IFELSES:
+      rfreestate(s->elsecond);
+      //fall through
+    case IFS:
+      rfreestate(s->thencond);
+      rfreexpr(s->ifcond);
+      break;
+  }
+  free(s);
+}
 EXPRESSION* rclonexpr(EXPRESSION* e) {
   EXPRESSION* e2 = malloc(sizeof(EXPRESSION));
   memcpy(e2, e, sizeof(EXPRESSION));

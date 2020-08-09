@@ -294,6 +294,7 @@ char isglobal(struct lexctx* lct, char* ident);
 void wipestruct(STRUCT* strct);
 void freetype(IDTYPE* id);
 void rfreexpr(EXPRESSION* e);
+void rfreestate(STATEMENT* s);
 EXPRESSION* rclonexpr(EXPRESSION* e);
 DECLARATION* mkdeclaration(char* name);
 INITIALIZER* geninit(DECLARATION* decl, EXPRESSION* expr);

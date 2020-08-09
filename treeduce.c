@@ -1286,16 +1286,20 @@ char pleatstate(STATEMENT** stated) {
         SOI* soi = daget(st->stmtsandinits, i);
         if(soi->isstmt) {
           if(soi->state->type == FRET && i != st->stmtsandinits->length - 1) {
-            for(; i < st->stmtsandinits->length; i++) {
+            for(/*int last = i*/; i < st->stmtsandinits->length; i++) {
               //TODO: free statement recursively
               SOI* free2 = daget(st->stmtsandinits, i);
               if(soi->isstmt) {
-                free(free2->state);
+                if(soi->state->type == LABEL || soi->state->type == CASE || soi->state->type == DEFAULT) {
                   //TODO: if we find a label, stop freeing
+                }
+                free(free2->state);
               } else {
                 for(int j = 0; j < free2->init->length; j++) {
                   INITIALIZER* in = daget(free2->init, j);
-                  rfreexpr(in->expr);
+                  if(in->expr) {
+                    rfreexpr(in->expr);
+                  }
                   //TODO: free decl completely
                   free(in->decl);
                   free(in);
