@@ -383,6 +383,12 @@ STATEMENT* mkexprstmt(enum stmttype type, EXPRESSION* express) {
   return retval;
 }
 
+STATEMENT* mknopstmt(void) {
+  STATEMENT* retval = malloc(sizeof(STATEMENT));
+  retval->type = NOPSTMT;
+  return retval;
+}
+
 STATEMENT* mkgotostmt(char* gotoloc) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = JGOTO;

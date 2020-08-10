@@ -301,6 +301,7 @@ INITIALIZER* geninit(DECLARATION* decl, EXPRESSION* expr);
 SOI* sois(struct stmt* state);
 SOI* soii(DYNARR* init);
 STATEMENT* mkexprstmt(enum stmttype type, EXPRESSION* express);
+STATEMENT* mknopstmt(void);
 STATEMENT* mkgotostmt(char* gotoloc);
 STATEMENT* mkforstmt(EOI* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy);
 STATEMENT* mklsstmt(enum stmttype type, EXPRESSION* condition, STATEMENT* bdy);

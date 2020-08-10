@@ -667,7 +667,7 @@ statement:
 | "return" ';' {$$ = mkexprstmt(FRET,NULL);}
 | "return" expression ';' {$$ = mkexprstmt(FRET,$2);}
 | expression ';' {$$ = mkexprstmt(EXPR,$1);}
-| ';' {$$ = mkexprstmt(NOPSTMT, NULL);};
+| ';' {$$ = mknopstmt();};
 ee: 
   expression {$$ = $1;}
 | %empty {$$ = ct_nop_expr();};

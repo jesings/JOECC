@@ -1275,23 +1275,40 @@ char pleatstate(STATEMENT** stated) {
     case LBREAK: case JGOTO: case LCONT: case LABEL: case CASE: case DEFAULT: case NOPSTMT:
       //We don't reduce case statement here
       return 0;
-    case WHILEL: case DOWHILEL: case SWITCH:
+    case SWITCH: case DOWHILEL:
+      while(foldconst(&st->cond)) i = 1;
+      return i || pleatstate(&st->body);
+    case WHILEL:
       //for while and maybe do while do something different if cond evaluates to false
       while(foldconst(&st->cond)) i = 1;
+      switch(st->cond->type) {
+        case INT: case UINT: ;
+          if(st->cond->uintconst) {
+            //plain infinite loop
+          } else {
+            rfreestate(st);
+            *stated = mknopstmt();
+            return 1;
+          }
+          break;
+        default:
+          break;
+      }
       return i || pleatstate(&st->body);
     case CMPND:
       newsdyn = dactor(st->stmtsandinits->length);
-      //special case for initializers?
       for(int i = 0; i < st->stmtsandinits->length; i++) {
+        CMPNDLCONT: ;
         SOI* soi = daget(st->stmtsandinits, i);
         if(soi->isstmt) {
-          if(soi->state->type == FRET && i != st->stmtsandinits->length - 1) {
-            for(/*int last = i*/; i < st->stmtsandinits->length; i++) {
-              //TODO: free statement recursively
+          if((soi->state->type == FRET || soi->state->type == JGOTO) && i != st->stmtsandinits->length - 1) {
+            ++i;
+            for(; i < st->stmtsandinits->length; i++) {
+              rfreestate(st);
               SOI* free2 = daget(st->stmtsandinits, i);
               if(soi->isstmt) {
                 if(soi->state->type == LABEL || soi->state->type == CASE || soi->state->type == DEFAULT) {
-                  //TODO: if we find a label, stop freeing
+                  goto CMPNDLCONT;
                 }
                 free(free2->state);
               } else {
@@ -1300,7 +1317,8 @@ char pleatstate(STATEMENT** stated) {
                   if(in->expr) {
                     rfreexpr(in->expr);
                   }
-                  //TODO: free decl completely
+                  freetype(in->decl->type);
+                  free(in->decl->varname);
                   free(in->decl);
                   free(in);
                 }
@@ -1331,7 +1349,6 @@ char pleatstate(STATEMENT** stated) {
       while(foldconst(&st->expression)) i = 1;
       return i;
     case EXPR: 
-      //For EXPR, turn into nop if pure?
       while(foldconst(&st->expression)) i = 1;
       if(puritree(st->expression)) {
         rfreexpr(st->expression);
