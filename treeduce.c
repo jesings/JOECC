@@ -1284,7 +1284,7 @@ char pleatstate(STATEMENT** stated) {
       switch(st->cond->type) {
         case INT: case UINT: ;
           if(st->cond->uintconst) {
-            //plain infinite loop
+            //plain infinite loop, maybe optimize?
           } else {
             rfreestate(st);
             *stated = mknopstmt();
@@ -1356,10 +1356,39 @@ char pleatstate(STATEMENT** stated) {
       }
       return i;
     case IFELSES:
-      //check if condition resolves to true, discard other case
       while(foldconst(&st->ifcond)) i = 1;
+      switch(st->ifcond->type) {
+        case INT: case UINT:
+          if(st->ifcond->uintconst) {
+            rfreestate(st->elsecond);
+            *stated = st->thencond;
+          } else {
+            rfreestate(st->thencond);
+            *stated = st->elsecond;
+          }
+          free(st->ifcond);
+          free(st);
+          pleatstate(stated);
+          return 1;
+        default:
+          break;
+      }
       return i || pleatstate(&st->thencond) || pleatstate(&st->elsecond);
     case IFS:
+      switch(st->ifcond->type) {
+        case INT: case UINT:
+          if(st->ifcond->uintconst) {
+            *stated = st->thencond;
+          } else {
+            *stated = mknopstmt();
+          }
+          free(st->ifcond);
+          free(st);
+          pleatstate(stated);
+          return 1;
+        default:
+          break;
+      }
       return foldconst(&st->ifcond) || pleatstate(&st->thencond);
   }
   fprintf(stderr, "Error: reducing statement failed\n");
