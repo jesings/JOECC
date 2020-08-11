@@ -6,7 +6,6 @@ FLOATSIZE (f|F|l|L)
 INTSIZE (u|U|l|L)*
 %{
 //TODO: computed include?
-//TODO: Fix self-referential macros in arg preparse?
 
 #include <math.h>
 #include <time.h>

@@ -6,7 +6,6 @@
 #include "treeduce.h"
 #define EPARAM(EVA, IND) ((EXPRESSION*)((EVA)->params->arr[IND]))
 #define LPARAM(EVA, IND) ((EVA)->params->arr[IND])
-//TODO: Fix disgusting memory leaks for subexpr
 
 char puritree(EXPRESSION* cexpr) {
   switch(cexpr->type){
@@ -98,7 +97,6 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
               *exa = subexpr; \
               return 1  
 
-//TODO: CMPOP separate float case
 #define CMPOP(OP)  do {\
       subexpr = EPARAM(ex, 0); \
       rectexpr = EPARAM(ex, 1); \
@@ -629,14 +627,12 @@ char foldconst(EXPRESSION** exa) {
         *exa = rectexpr;
         return 1;
       }
-      //if first element is 0, transform into ADD if more than one other arg, wrap in NEG
-      //if one remaining param, remove SUB wrapper
       return rove;
     case MULT: 
       newdyn = dactor(32);
       rectexpr = ct_uintconst_expr(1);
       //TODO: destroy all pure (integer because NaN/inf) arguments when multiply by 0
-      //TODO: handle type
+      //TODO: handle type(?)
       rove = 0;
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
@@ -879,12 +875,13 @@ char foldconst(EXPRESSION** exa) {
                 free(ex);
                 dadtor(newdyn);
                 *exa = subexpr;
-              }
-              else {
+              } else {
                 dapush(newdyn, subexpr);
                 ex->params = newdyn;
               }
               return 1;
+            } else {
+              free(subexpr);
             }
             rove = 1;
             break;
@@ -894,27 +891,12 @@ char foldconst(EXPRESSION** exa) {
       if(newdyn->length <= 1) {
         if(newdyn->length == 0) {
           free(ex);
+          *exa = ct_intconst_expr(1);
           dadtor(newdyn);
-          *exa = subexpr;
           return 1;
+        } else {
+          dapush(newdyn, ct_intconst_expr(1));
         }
-        switch(subexpr->type) {
-          case INT: case UINT: case FLOAT:
-            break;
-          default:
-            free(ex);
-            EXPRESSION* p1 = newdyn->arr[0];
-            dadtor(newdyn);
-            *exa = p1;
-            return 1;
-        }
-      }
-      switch(subexpr->type) {
-        case INT: case UINT: case FLOAT:
-          dapush(newdyn, subexpr);
-          break;
-        default:
-          break;
       }
       ex->params = newdyn;
       return rove;
@@ -955,6 +937,8 @@ char foldconst(EXPRESSION** exa) {
                 ex->params = newdyn;
               }
               return 1;
+            } else {
+              free(subexpr);
             }
             rove = 1;
             break;
@@ -964,27 +948,12 @@ char foldconst(EXPRESSION** exa) {
       if(newdyn->length <= 1) {
         if(newdyn->length == 0) {
           free(ex);
+          *exa = ct_intconst_expr(1);
           dadtor(newdyn);
-          *exa = subexpr;
           return 1;
+        } else {
+          dapush(newdyn, ct_intconst_expr(1));
         }
-        switch(subexpr->type) {
-          case INT: case UINT: case FLOAT:
-            break;
-          default:
-            free(ex);
-            EXPRESSION* p1 = newdyn->arr[0];
-            dadtor(newdyn);
-            *exa = p1;
-            return 1;
-        }
-      }
-      switch(subexpr->type) {
-        case INT: case UINT: case FLOAT:
-          dapush(newdyn, subexpr);
-          break;
-        default:
-          break;
       }
       ex->params = newdyn;
       return rove;
@@ -1036,6 +1005,8 @@ char foldconst(EXPRESSION** exa) {
       }
       if(rectexpr->uintconst != -1UL) {
         dapush(newdyn, rectexpr);
+      } else {
+        free(rectexpr);
       }
 
       ex->params = newdyn;
@@ -1089,6 +1060,8 @@ char foldconst(EXPRESSION** exa) {
       }
       if(rectexpr->uintconst != 0) {
         dapush(newdyn, rectexpr);
+      } else {
+        free(rectexpr);
       }
 
       ex->params = newdyn;
@@ -1133,6 +1106,8 @@ char foldconst(EXPRESSION** exa) {
       }
       if(rectexpr->uintconst != 0) {
         dapush(newdyn, rectexpr);
+      } else {
+        free(rectexpr);
       }
 
       ex->params = newdyn;
@@ -1267,7 +1242,6 @@ char foldconst(EXPRESSION** exa) {
 
 //do the same as above but with statements
 char pleatstate(STATEMENT** stated) {
-  //TODO: optimize more here
   STATEMENT* st = *stated;
   DYNARR* newsdyn;
   int i = 0;
