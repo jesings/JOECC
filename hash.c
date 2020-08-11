@@ -74,6 +74,27 @@ void htdtorfr(HASHTABLE* ht) {
   free(ht);
 }
 
+static void hpdtorcfr(HASHPAIR* hp, void (*freep)(void*)) {
+  if(hp->next) {
+    free(hp->key);
+    freep(hp->value);
+    hpdtorcfr(hp->next, freep);
+  }
+  free(hp);
+}
+
+void htdtorcfr(HASHTABLE* ht, void (*freep)(void*)) {
+  for(int i = 0; i < HASHSIZE; i++) {
+    if(ht->pairs[i].key) {
+      free(ht->pairs[i].key);
+      freep(ht->pairs[i].value);
+    }
+    if(ht->pairs[i].next)
+      hpdtorcfr(ht->pairs[i].next, freep);
+  }
+  free(ht);
+}
+
 void insert(HASHTABLE* ht, const char* key, void* value) {
   unsigned long i = hash(key);
   HASHPAIR* hp = &(ht->pairs[i]);

@@ -22,6 +22,7 @@ HASHTABLE* htctor(void);
 HASHTABLE* htclone(HASHTABLE* ht);
 void htdtor(HASHTABLE* ht);
 void htdtorfr(HASHTABLE* ht);
+void htdtorcfr(HASHTABLE* ht, void (*freep)(void*));
 void insert(HASHTABLE* ht, const char* key, void* value);
 void insertfr(HASHTABLE* ht, const char* key, void* value);
 void* search(HASHTABLE* ht, const char* key);
