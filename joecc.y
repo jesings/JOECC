@@ -646,7 +646,7 @@ statement:
     }
 | "default" ':' {
     char* caselbl = malloc(128);
-    snprintf(caselbl, 128, "__joecc__%s__%d", ctx->func->name, (ctx->func->caseindex)++);
+    snprintf(caselbl, 128, "__joecc__%s__default", ctx->func->name);
     $$ = mkdefaultstmt(ctx, caselbl);
     }
 | "if" '(' expression ')' statement %prec THEN {$$ = mkifstmt($3, $5, NULL);}

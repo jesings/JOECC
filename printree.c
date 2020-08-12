@@ -277,10 +277,11 @@ static int statemeant(STATEMENT* stmt) {
       PARALLEL* pl = stmt->labeltable;
       for(int i = 0; i < pl->da->length; i++) {
         int scnn = nodenumber++;
-        char* lname = pl->da->arr[i];
+        unsigned long key = (unsigned long) pl->da->arr[i];
+        char* lname = pfsearch(pl, key);
         dprintf(funcfile, "n%d[label=\"%s\"];\n", scnn, lname);
         dprintf(funcfile, "n%d -> n%d [color=blue];\n", statenode, scnn); 
-        dprintf(funcfile, "n%d -> n%d;\n", scnn, treexpr(psearch(pl, lname))); 
+        dprintf(funcfile, "n%d -> n%ld;\n", scnn, key); 
       }
       //fall through
     case WHILEL: case DOWHILEL: 

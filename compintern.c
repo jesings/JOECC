@@ -236,8 +236,7 @@ void rfreestate(STATEMENT* s) {
     case LBREAK: case LCONT: case DEFAULT: case NOPSTMT:
       //We don't reduce case statement here
       break;
-    case CASE: 
-      //TODO: fix this and switch
+    case CASE: //maybe this needs to be freed from the labeltable
     case JGOTO:  case LABEL:
       free(s->glabel);
       break;
@@ -256,7 +255,6 @@ void rfreestate(STATEMENT* s) {
       rfreexpr(s->cond);
       break;
     case CMPND:
-      //special case for initializers?
       for(int i = 0; i < s->stmtsandinits->length; i++) {
         SOI* soi = daget(s->stmtsandinits, i);
         if(soi->isstmt) {
@@ -469,20 +467,25 @@ STATEMENT* mklblstmt(struct lexctx* lct, char* lblval) {
 
 STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label) {
   PARALLEL* pl = dapeek(lct->func->switchstack);
-  pinsert(pl, label, casexpr);//TODO reverse the order of these--expr rectified to int should point to label
+  while(foldconst(&casexpr)) ;
+  switch(casexpr->type) {
+    case INT: case UINT:
+      pfinsert(pl, casexpr->uintconst, label);
+      break;
+    default:
+      printf("Error: case has nonrectifiable value\n");
+      exit(-1);
+  }
   return mklblstmt(lct, label);
 }
 
 STATEMENT* mkdefaultstmt(struct lexctx* lct, char* label) {
-  PARALLEL* pl = dapeek(lct->func->switchstack);
-  pinsert(pl, label, ct_strconst_expr((char*)(unsigned long)"default"));//TODO reverse the order of these--expr rectified to int should point to label
   return mklblstmt(lct, label);
 }
 
 ENUMFIELD* genenumfield(char* name, EXPRESSION* value) {
   ENUMFIELD* retval = malloc(sizeof(ENUMFIELD));
   retval->name = name;
-  //confirm is expr that will resolve into something uintconstifiable that is known at compile time
   while(foldconst(&value)) ;
   switch(value->type) {
     case INT: case UINT:
