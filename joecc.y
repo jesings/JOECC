@@ -218,8 +218,15 @@ initializer:
     }
     if(!ac->decl->type->pointerstack->length ||
        (((struct declarator_part*) dapeek(ac->decl->type->pointerstack))->type != PARAMSSPEC)) {
-      if(ctx->func)
-        add2scope(ctx, ac->decl->varname, M_VARIABLE, ac->decl->type);
+      if(ctx->func) {
+        HASHTABLE* ht = scopepeek(ctx)->members;
+        SCOPEMEMBER* sm =  search(ht, ac->decl->varname);
+        if(!sm || (sm->mtype == M_VARIABLE && (sm->idi->type->tb & EXTERNNUM))) {
+          add2scope(ctx, ac->decl->varname, M_VARIABLE, ac->decl->type);
+        } else {
+          fprintf(stderr, "Error: redefinition of identifier %s in %s %d.%d-%d.%d\n", ac->decl->varname, locprint(@$));
+        }
+      }
     } else {
       insert(ctx->funcs, ac->decl->varname, NULL);
     }
@@ -244,7 +251,6 @@ initializer:
 | fullstruct ';' {$$ = dactor(0);}
 | fullenum ';' {$$ = dactor(0);}
 | fullunion ';' {$$ = dactor(0);};
-/*TODO: some garbage with checking whether already defined must be done*/
 cs_inits:
   cs_inits ',' declarator '=' escoa {$$ = $1; dapush($$, geninit($3, $5));}
 | declarator '=' escoa {$$ = dactor(8); dapush($$, geninit($1, $3));}

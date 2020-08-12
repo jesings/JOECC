@@ -649,7 +649,8 @@ char scopequeryval(struct lexctx* lct, enum membertype mt, char* key) {
 
 static void declmacro(HASHTABLE* ht, const char* macroname, const char* body) {
   struct macrodef* md = calloc(1, sizeof(struct macrodef));
-  md->text = (char*)(unsigned long) body;
+  if(body)
+    md->text = strctor((char*)(unsigned long) body, strlen(body), 0);
   insert(ht, macroname, md);
 }
 

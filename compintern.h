@@ -268,7 +268,7 @@ enum ifdefstate {
 };
 
 struct macrodef {
-  char* text;//will be a format string if function like
+  DYNSTR* text;
   DYNARR* args;//NULL if not function like
 };
 

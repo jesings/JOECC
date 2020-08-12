@@ -452,8 +452,7 @@ extern union {
     yy_pop_state();
     yy_pop_state();
     dsccat(mdstrdly, 0);
-    md->text = mdstrdly->strptr;
-    free(mdstrdly);
+    md->text = mdstrdly;
     insert(ctx->defines, defname, md);
     rmpair(ctx->withindefines, defname);
     }
@@ -566,7 +565,7 @@ extern union {
           free(parg->arr[0]);
           free(parg);
           yy_pop_state();
-          YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(defname, strlen(defname), "r"), YY_BUF_SIZE);//strlen inefficient
+          YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(defname, strlen(defname), "r"), YY_BUF_SIZE);//TODO: strlen inefficient
           yypush_buffer_state(ybs);
           char buf[256];
           snprintf(buf, 256, "%s", defname);
@@ -597,7 +596,7 @@ extern union {
         dapush(locs, ylt);
         yylloc.first_line = yylloc.last_line = 1;
         yylloc.first_column = yylloc.last_column = 0;
-        YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(md->text, strlen(md->text), "r"), YY_BUF_SIZE);//TODO: strlen inefficient
+        YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(md->text->strptr, md->text->lenstr, "r"), YY_BUF_SIZE);
         yypush_buffer_state(ybs);
       }
     }
@@ -658,6 +657,7 @@ extern union {
         defname = argi->defname;
         free(argi);
       } else {
+        fprintf(stderr, "ERROR: macrostack state corrupted within macro call %s %d.%d-%d.%d\n", locprint(yylloc));
         exit(-1);
       }
     }
@@ -1095,6 +1095,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
       break;
     default:
       yy_pop_state();
+      fprintf(stderr, "ERROR: subsidiary parser reduced if or elif into non-rectifiable expression %s %d.%d-%d.%d\n", locprint(yylloc));
       exit(-1);
   }
   dapush(ctx->definestack, rids);
@@ -1197,8 +1198,8 @@ int check_type(char* symb, char frominitial) {
       dapush(locs, ylt);
       yylloc.first_line = yylloc.last_line = 1;
       yylloc.first_column = yylloc.last_column = 0;
-      YY_BUFFER_STATE yms = yy_create_buffer(fmemopen(macdef->text, 
-      	strlen(macdef->text), "r"), YY_BUF_SIZE);// strlen is inefficient
+      YY_BUFFER_STATE yms = yy_create_buffer(fmemopen(macdef->text->strptr, macdef->text->lenstr, "r"), 
+                                             YY_BUF_SIZE);
       yypush_buffer_state(yms);
       insert(ctx->withindefines, strdup(symb), NULL);
       if(frominitial == 2) {
