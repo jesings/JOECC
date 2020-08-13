@@ -642,7 +642,7 @@ extern union {
       dstrdly = strctor(malloc(2048), 0, 2048);
     }
     }
-  "\0" {
+  \0 {
     yypop_buffer_state();
     if ( !YY_CURRENT_BUFFER ) {
       yyterminate();
@@ -659,7 +659,6 @@ extern union {
       } else {
         //fprintf(stderr, "ERROR: macrostack state corrupted within macro call %s %d.%d-%d.%d\n", locprint(yylloc));
         //exit(-1);
-        rmpair(ctx->withindefines, defname);
       }
     }
     }
