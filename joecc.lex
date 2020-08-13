@@ -613,7 +613,7 @@ extern union {
   ([[:digit:]]+|[[:digit:]]*"."?|[[:digit:]]+"."?)[[:digit:]]*({EXP})?{FLOATSIZE}? {
     dscat(dstrdly, yytext, yyleng);
     }
-  [^\(\)\",[:alnum:]_]*[^[:space:]\(\)\",[:alnum:]_] {/*"*/
+  [^\(\)\",[:alnum:]_\0]*[^[:space:]\(\)\",[:alnum:]_\0] {/*"*/
     dscat(dstrdly, yytext, yyleng);
     }
   \"(\\.|[^\\"]|\/[[:space:]]*\n)*\" {/*"*/
@@ -640,6 +640,27 @@ extern union {
     } else {
       dapush(parg, dstrdly);
       dstrdly = strctor(malloc(2048), 0, 2048);
+    }
+    }
+  "\0" {
+    yypop_buffer_state();
+    if ( !YY_CURRENT_BUFFER ) {
+      yyterminate();
+    } else {
+      YYLTYPE* yl = dapop(locs);
+      yylloc = *yl;
+      free(yl);
+      free(dapop(file2compile));
+      if(ctx->argpp->length) {
+        struct arginfo* argi = dapop(ctx->argpp);
+        //fprintf(stderr, "Popping %s from stack\n", argi->defname);
+        defname = argi->defname;
+        free(argi);
+      } else {
+        //fprintf(stderr, "ERROR: macrostack state corrupted within macro call %s %d.%d-%d.%d\n", locprint(yylloc));
+        //exit(-1);
+        rmpair(ctx->withindefines, defname);
+      }
     }
     }
   <<EOF>> {
