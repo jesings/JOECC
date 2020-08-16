@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include "dynstr.h"
 
 DYNSTR* strctor(char* strptr, int len, int maxlen) {
@@ -16,6 +17,7 @@ void strdtor(DYNSTR* ds) {
 }
 
 void dsmodsize(DYNSTR* ds, int len) {
+  assert(ds->maxlenstr > 1);
   if(ds->maxlenstr < (ds->lenstr += len)) {
     while(ds->maxlenstr < ds->lenstr) 
       ds->maxlenstr *= 1.5;

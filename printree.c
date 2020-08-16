@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <assert.h>
 #include "compintern.h"
 #include "printree.h"
 int funcfile;
@@ -41,11 +42,11 @@ static int structree(STRUCT* container) {
       } else if(field->type->tb & UNIONVAL) {
         memptr = (int (*) (void*)) uniontree;
       } else {
-        exit(-1);
+        assert(0);//better solution later
       }
       dprintf(funcfile, "n%d -> n%d;\n", structnode, memptr(field->type->structtype));
     } else  {
-      exit(-1);
+      assert(0);//better solution later
     }
   }
   return structnode;
@@ -78,11 +79,11 @@ static int uniontree(UNION* container) {
       } else if(field->type->tb & UNIONVAL) {
         memptr = (int (*) (void*)) uniontree;
       } else {
-        exit(-1);
+        assert(0);//better solution later
       }
       dprintf(funcfile, "n%d -> n%d;\n", unionnode, memptr(field->type->structtype));
     } else  {
-      exit(-1);
+      assert(0);//better solution later
     }
   }
   return unionnode;
@@ -309,7 +310,7 @@ static int statemeant(STATEMENT* stmt) {
     case NOPSTMT:
       break;
     default:
-      exit(-1);
+      assert(0);//better solution later
   }
   return statenode;
 }

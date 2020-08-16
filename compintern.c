@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <assert.h>
 #include "compintern.h"
 #include "treeduce.h"
 #include "joecc.tab.h"
@@ -151,10 +152,7 @@ EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = IDENT;
   retval->id = scopesearch(lct, M_VARIABLE, ident);
-  if(!retval->id) {
-    printf("Error: use of undefined variable %s at %s %d.%d-%d.%d\n", ident, locprint(yylloc));
-    exit(-1);
-  }
+  assert(retval->id || ! fprintf(stderr, "Error: use of undefined variable %s at %s %d.%d-%d.%d\n", ident, locprint(yylloc)));
   return retval;
 }
 
@@ -473,8 +471,7 @@ STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label) {
       pfinsert(pl, casexpr->uintconst, label);
       break;
     default:
-      printf("Error: case has nonrectifiable value\n");
-      exit(-1);
+      assert(!fprintf(stderr, "Error: case has nonrectifiable value\n"));
   }
   return mklblstmt(lct, label);
 }
@@ -491,8 +488,7 @@ ENUMFIELD* genenumfield(char* name, EXPRESSION* value) {
     case INT: case UINT:
       break;
     default:
-      printf("Error: enum has nonrectifiable value\n");
-      exit(-1);
+      assert(!fprintf(stderr,"Error: enum has nonrectifiable value\n"));
   }
   retval->value = value;
   return retval;
@@ -649,8 +645,10 @@ char scopequeryval(struct lexctx* lct, enum membertype mt, char* key) {
 
 static void declmacro(HASHTABLE* ht, const char* macroname, const char* body) {
   struct macrodef* md = calloc(1, sizeof(struct macrodef));
-  if(body)
-    md->text = strctor((char*)(unsigned long) body, strlen(body), 0);
+  if(body) {
+    int blen = strlen(body);
+    md->text = strctor((char*)(unsigned long) body, blen, blen);
+  }
   insert(ht, macroname, md);
 }
 

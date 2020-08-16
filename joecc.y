@@ -32,6 +32,7 @@
 %code requires{
   #include <stdint.h>
   #include <stdio.h>
+  #include <assert.h>
   #include "compintern.h"
   #include "dynarr.h"
   #include "parallel.h"
@@ -607,15 +608,10 @@ function:
       parammemb = dp->params;
     } else if(dp->type == NAMELESS_PARAMSSPEC) {
       IDTYPE* prm = dp->nameless_params->arr[0];
-      if(dp->nameless_params->length == 1 && (!prm->pointerstack || prm->pointerstack->length == 0) && prm->tb == VOIDNUM) {
-        parammemb = paralector();
-      } else {
-        fprintf (stderr, "Function has unnamed parameters at %s %d.%d-%d.%d\n", locprint(@1));
-        exit(-1);
-      }
+      assert((dp->nameless_params->length == 1 && (!prm->pointerstack || prm->pointerstack->length == 0) && prm->tb == VOIDNUM) || !fprintf (stderr, "Function has unnamed parameters at %s %d.%d-%d.%d\n", locprint(@1)));
+      parammemb = paralector();
     } else {
-        fprintf (stderr, "Function has malformed parameters at %s %d.%d-%d.%d\n", locprint(@1));
-        exit(-1);
+        assert(!fprintf(stderr, "Function has malformed parameters at %s %d.%d-%d.%d\n", locprint(@1)));
     }
     $$ = ct_function($2->varname, NULL, parammemb, $2->type);
     IDENTIFIERINFO* id = malloc(sizeof(IDENTIFIERINFO));
