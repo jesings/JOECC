@@ -1,5 +1,5 @@
-#ifndef 3AC_H
-#define 3AC_H
+#ifndef _3AC_H
+#define _3AC_H
 
 #define OPS_3AC \
   X(NOP_3), \
@@ -42,14 +42,19 @@
 
 #define X(s) s
 enum opcode_3ac {
-  OPS_3AC;
+  OPS_3AC
+};
+#undef X
+#define X(s) #s
+const char* opcode_3ac_names[] = {
+  OPS_3AC
 };
 #undef X
 
 typedef union {
-  unsigned long iregnum;
-  unsigned long fregnum;
-  unsigned long uintconst_64;
+  unsigned long iregnum; //integer register
+  unsigned long fregnum; //floating point register
+  unsigned long uintconst_64; //unsigned int 64 bit or pointer
   long intconst_64;
   unsigned int uintconst_32;
   int intconst_32;
@@ -57,7 +62,7 @@ typedef union {
   short intconst_16;
   unsigned char uintconst_8;
   char intconst_8;
-  long double floatconst_80;
+  long double floatconst_80; //not sure this will actually stay
   double floatconst_64;
   float floatconst_32;
   char* strconst;
@@ -85,5 +90,6 @@ typedef struct {
   ADDRESS addr2;
 } OPERATION;
 
+char linearitree(EXPRESSION* cexpr, DYNARR* prog);
 #endif
 

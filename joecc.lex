@@ -1216,6 +1216,7 @@ int check_type(char* symb, char frominitial) {
         argi->defname = oldname;
         dapush(ctx->argpp, argi);
         //fprintf(stderr, "Pushing %s to stack\n", argi->defname);
+        yy_push_state(CALLMACRO);
       }
     }
     return -1;
