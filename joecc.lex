@@ -9,7 +9,7 @@ INTSIZE (u|U|l|L)*
 
 #include <math.h>
 #include <time.h>
-#include <sys/stat.h>
+#include <assert.h>
 #include "joecc.tab.h"
 #include "compintern.h"
 #include "treeduce.h"
@@ -131,10 +131,7 @@ extern union {
   else {
     yy_pop_state();
     DYNARR* ds = ctx->definestack;
-    if(!ds->length) {
-      fprintf(stderr, "ERROR: else without preceding if %s %d.%d-%d.%d\n", locprint(yylloc));
-      exit(-1);
-    }
+    assert(ds->length || !fprintf(stderr, "ERROR: else without preceding if %s %d.%d-%d.%d\n", locprint(yylloc)));
     enum ifdefstate* ids = dapeek(ds);
     switch(*ids) {
       case IFANDTRUE: 
@@ -155,10 +152,7 @@ extern union {
   elif {
     yy_pop_state();
     DYNARR* ds = ctx->definestack;
-    if(!ds->length) {
-      fprintf(stderr, "ERROR: elif without preceding if %s %d.%d-%d.%d\n", locprint(yylloc));
-      exit(-1);
-    }
+    assert(ds->length || !fprintf(stderr, "ERROR: elif without preceding if %s %d.%d-%d.%d\n", locprint(yylloc)));
     enum ifdefstate* ids = dapeek(ds);
     switch(*ids) {
       case IFANDTRUE: 
@@ -230,8 +224,7 @@ extern union {
     yy_pop_state(); 
     yy_push_state(KILLUNTIL); 
     yytext[yyleng - 1] = '\0'; 
-    fprintf(stderr, "ERROR: %s\n", yytext + 1);
-    exit(-1);
+    assert(!fprintf(stderr, "ERROR: %s\n", yytext + 1));
     }
 
 <INCLUDE>{
@@ -647,18 +640,17 @@ extern union {
     if ( !YY_CURRENT_BUFFER ) {
       yyterminate();
     } else {
+      yy_pop_state();
       YYLTYPE* yl = dapop(locs);
       yylloc = *yl;
       free(yl);
       free(dapop(file2compile));
       if(ctx->argpp->length) {
+        rmpair(ctx->withindefines, defname);
         struct arginfo* argi = dapop(ctx->argpp);
         //fprintf(stderr, "Popping %s from stack\n", argi->defname);
         defname = argi->defname;
         free(argi);
-      } else {
-        //fprintf(stderr, "ERROR: macrostack state corrupted within macro call %s %d.%d-%d.%d\n", locprint(yylloc));
-        //exit(-1);
       }
     }
     }
@@ -667,19 +659,17 @@ extern union {
     if ( !YY_CURRENT_BUFFER ) {
       yyterminate();
     } else {
+      yy_pop_state();
       YYLTYPE* yl = dapop(locs);
       yylloc = *yl;
       free(yl);
       free(dapop(file2compile));
-      if(ctx->argpp->length) {
-        struct arginfo* argi = dapop(ctx->argpp);
-        //fprintf(stderr, "Popping %s from stack\n", argi->defname);
-        defname = argi->defname;
-        free(argi);
-      } else {
-        fprintf(stderr, "ERROR: macrostack state corrupted within macro call %s %d.%d-%d.%d\n", locprint(yylloc));
-        exit(-1);
-      }
+      assert(ctx->argpp->length || !fprintf(stderr, "ERROR: macrostack state corrupted within macro call %s %d.%d-%d.%d\n", locprint(yylloc)));
+      rmpair(ctx->withindefines, defname);
+      struct arginfo* argi = dapop(ctx->argpp);
+      //fprintf(stderr, "Popping %s from stack\n", argi->defname);
+      defname = argi->defname;
+      free(argi);
     }
     }
   . {fprintf(stderr, "Error: unexpected character in function macro call %s %d.%d-%d.%d\n", locprint(yylloc));}
@@ -1115,8 +1105,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
       break;
     default:
       yy_pop_state();
-      fprintf(stderr, "ERROR: subsidiary parser reduced if or elif into non-rectifiable expression %s %d.%d-%d.%d\n", locprint(yylloc));
-      exit(-1);
+      assert(!fprintf(stderr, "ERROR: subsidiary parser reduced if or elif into non-rectifiable expression %s %d.%d-%d.%d\n", locprint(yylloc)));
   }
   dapush(ctx->definestack, rids);
 }
@@ -1138,7 +1127,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
   }
 }
 
-"\0" {//same as EOF
+\0 {//same as EOF
   yypop_buffer_state();
   if ( !YY_CURRENT_BUFFER ) {
     yyterminate();
