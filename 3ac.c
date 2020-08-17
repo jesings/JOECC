@@ -57,6 +57,27 @@ OPERATION* linearitree(EXPRESSION* cexpr, DYNARR* prog) {
   return NULL;
 }
 
+ADDRTYPE cmptype(EXPRESSION* cmpexpr) {
+  switch(cmpexpr->type) {
+    case EQ:
+      return (ADDRTYPE) BEQ_I;//figure out signedness here or elsewhere
+    case NEQ:
+      return (ADDRTYPE) BNE_I;
+    case GT:
+      return (ADDRTYPE) BGT_I;
+    case LT:
+      return (ADDRTYPE) BLT_I;
+    case GTE:
+      return (ADDRTYPE) BGE_I;
+    case LTE:
+      return (ADDRTYPE) BLE_I;
+    case L_NOT:
+      return (ADDRTYPE) BEZ_3;
+    default:
+      return (ADDRTYPE) BNZ_3;
+  }
+}
+
 //store some state about enclosing switch statement and its labeltable (how to represent?), about enclosing loop as well (for continue)
 void solidstate(STATEMENT* cst, DYNARR* prog) {
   OPERATION* ret_op;
@@ -74,11 +95,17 @@ void solidstate(STATEMENT* cst, DYNARR* prog) {
     case WHILEL: 
     case DOWHILEL: 
     case IFS: case IFELSES:
-    case SWITCH: case CASE: case LABEL:
+    case SWITCH:
+      //TODO: figure out how to represent switch stmt!!! Either jump table or multiple ifs w/ goto but how to decide and how to represent jump table
+    case LABEL:
+      dapush(prog, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) cst->glabel));
+      return;
     case CMPND:  case EXPR: case DEFAULT:
       break;
     case NOPSTMT: 
       return;
+    case CASE: 
+      break; //should never see case
   }
   fprintf(stderr, "Error: reduction of statement to 3 address code failed\n");
 }

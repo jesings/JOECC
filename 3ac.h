@@ -2,7 +2,7 @@
 #define _3AC_H
 
 #define OPS_3AC \
-  X(NOP_3), \
+  X(NOP_3), X(LBL_3), \
   X(ADD_U), X(ADD_I), X(ADD_F), \
   X(SUB_U), X(SUB_I), X(SUB_F), \
   X(MULT_U), X(MULT_I), X(MULT_F), \
@@ -30,6 +30,7 @@
   X(BLE_U), X(BLE_I), X(BLE_F), \
   X(BGT_U), X(BGT_I), X(BGT_F), \
   X(BLT_U), X(BLT_I), X(BLT_F), \
+  X(BNZ_3), X(BEZ_3), \
   X(JMP_3), \
   X(MOV_3), \
   X(MOV_TO_PTR), X(MOV_FROM_PTR), \
@@ -90,12 +91,13 @@ typedef struct {
   ADDRESS dest;
 } OPERATION;
 
-OPERATION* linearitree(EXPRESSION* cexpr, DYNARR* prog);
 OPERATION* ct_3ac_op0(enum opcode_3ac opcode);
 OPERATION* ct_3ac_op1(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0);
 OPERATION* ct_3ac_op2(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0, ADDRTYPE dest_type, ADDRESS dest);
 OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0,
                       ADDRTYPE addr1_type, ADDRESS addr1, ADDRTYPE dest_type, ADDRESS dest);
+OPERATION* linearitree(EXPRESSION* cexpr, DYNARR* prog);
+ADDRTYPE cmptype(EXPRESSION* cmpexpr);
 void solidstate(STATEMENT* cst, DYNARR* prog);
 #endif
 
