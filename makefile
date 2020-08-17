@@ -34,6 +34,8 @@ printree.o: printree.c
 	$(CC) printree.c -c $(CFLAGS)
 parallel.o: parallel.c
 	$(CC) parallel.c -c $(CFLAGS)
+3ac.o: 3ac.c
+	$(CC) 3ac.c -c $(CFLAGS)
 
 clean:
 	-rm *.o

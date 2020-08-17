@@ -34,7 +34,7 @@
   X(MOV_3), \
   X(MOV_TO_PTR), X(MOV_FROM_PTR), \
   X(PARAM_3), /*Do this for each param for CALL, must be done immediately before CALL */\
-  X(CALL_3), \
+  X(CALL_3), X(RETURN_3), \
   X(FLOAT_TO_INT), X(INT_TO_FLOAT), \
   X(ARRAY_INDEX), /* pointer (uintconst_64 or regnum), index, result (index size impicit from result size) */\
   X(ARRAY_OFFSET), /*  pointer (uintconst_64 or regnum), index, result (index size impicit from result size) */\
@@ -62,7 +62,7 @@ typedef union {
   short intconst_16;
   unsigned char uintconst_8;
   char intconst_8;
-  long double floatconst_80; //not sure this will actually stay
+  long double* floatconst_80; //not sure this will actually stay
   double floatconst_64;
   float floatconst_32;
   char* strconst;
@@ -72,24 +72,30 @@ typedef union {
 
 //Extra information for SSA?
 
-enum addrtype {
+typedef enum {
   //bottom 6 bits used for size
   ISCONST = 0x40, //if not set, it's a register
   ISFLOAT = 0x80, //if not set it's an int
   ISLABEL = 0x100, //if not set it's not a label
   //string and array constants not handled yet
-};
+} ADDRTYPE;
 
 typedef struct {
   enum opcode_3ac opcode;
-  enum addrtype addr0_type;
+  ADDRTYPE addr0_type;
   ADDRESS addr0;
-  enum addrtype addr1_type;
+  ADDRTYPE addr1_type;
   ADDRESS addr1;
-  enum addrtype addr2_type;
-  ADDRESS addr2;
+  ADDRTYPE dest_type;
+  ADDRESS dest;
 } OPERATION;
 
-char linearitree(EXPRESSION* cexpr, DYNARR* prog);
+OPERATION* linearitree(EXPRESSION* cexpr, DYNARR* prog);
+OPERATION* ct_3ac_op0(enum opcode_3ac opcode);
+OPERATION* ct_3ac_op1(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0);
+OPERATION* ct_3ac_op2(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0, ADDRTYPE dest_type, ADDRESS dest);
+OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0,
+                      ADDRTYPE addr1_type, ADDRESS addr1, ADDRTYPE dest_type, ADDRESS dest);
+void solidstate(STATEMENT* cst, DYNARR* prog);
 #endif
 
