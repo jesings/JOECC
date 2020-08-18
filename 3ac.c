@@ -150,7 +150,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       return;
       }
     case SWITCH:
-      //TODO: figure out how to represent switch stmt!!! Either jump table or multiple ifs w/ goto but how to decide and how to represent jump table
+      //TODO: figure out how to represent switch stmt!!! Either jump table or multiple ifs w/ goto but how to decide and how to represent jump table-- put switch and hash in data?
       break;
     case LABEL:
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) cst->glabel));

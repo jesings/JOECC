@@ -10,6 +10,7 @@
 char puritree(EXPRESSION* cexpr) {
   switch(cexpr->type){
     case STRING: case INT: case UINT: case FLOAT: case NOP: case IDENT: case ARRAY_LIT: case SZOF: case MEMBER:
+      return 1;
     case NEG: case L_NOT: case B_NOT: case ADDR: case DEREF:
     case ADD: case SUB: case EQ: case NEQ: case GT: case LT: case GTE: case LTE: case MULT: case DIVI: 
     case MOD: case L_AND: case L_OR: case B_AND: case B_OR: case B_XOR: case SHL: case SHR: case COMMA:
@@ -68,13 +69,12 @@ char purestmt(STATEMENT* stmt) {
 //confirm function call is pure
 //Criteria: global var as lvalue of assign, or inc/dec
 //dereferencing of lvalue in assign or in inc/dec
-//arrow/dot op in lvalue
+//arrow in lvalue
 //loop or goto anywhere
 //A more sophisticated version of the above is possible but I won't do that work
 //The above will not balk at initializers, as those aren't considered assignment ops
-//maybe confirm identifier is local and not a param?
 //calling other function that is impure (or indirect function)
-//lots of work will need to be done in order to ignore circular dependencies
+//some work will need to be done in order to ignore circular dependencies
 
 char typequality(IDTYPE* t1, IDTYPE* t2) {
   if(t1->tb != t2->tb)
@@ -293,6 +293,83 @@ char foldconst(EXPRESSION** exa) {
     case IDENT: case INT: case UINT: case FLOAT: case STRING: case NOP: case ARRAY_LIT: case DOTOP: case ARROW:
       return 0;
     case CAST:
+      subexpr = EPARAM(ex, 0);
+      if(ex->vartype->pointerstack && ex->vartype->pointerstack->length) return 0;
+      //support for casting to union in 3ac
+      if(ex->vartype->tb & (UNIONVAL | STRUCTVAL | ENUMVAL)) return 0;
+      switch(subexpr->type) {
+        case INT:
+          if(ex->vartype->tb & FLOATNUM) {
+            float f = (float) subexpr->intconst;
+            rfreexpr(subexpr);
+            freetype(ex->vartype);
+            ex->type = FLOAT;
+            ex->floatconst = f;
+            return 1;
+          }
+          if(ex->vartype->tb & UNSIGNEDNUM) {
+            freetype(ex->vartype);
+            dadtor(ex->params);
+            *exa = subexpr;
+            free(ex);
+            subexpr->type = UINT;
+            return 1;
+          } else {
+            freetype(ex->vartype);
+            dadtor(ex->params);
+            *exa = subexpr;
+            free(ex);
+            return 1;
+          }
+        case UINT:
+          if(ex->vartype->tb & FLOATNUM) {
+            float f = (float) subexpr->uintconst;
+            rfreexpr(subexpr);
+            freetype(ex->vartype);
+            ex->type = FLOAT;
+            ex->floatconst = f;
+            return 1;
+          }
+          if(ex->vartype->tb & UNSIGNEDNUM) {
+            freetype(ex->vartype);
+            dadtor(ex->params);
+            *exa = subexpr;
+            free(ex);
+            return 1;
+          } else {
+            freetype(ex->vartype);
+            dadtor(ex->params);
+            *exa = subexpr;
+            free(ex);
+            subexpr->type = INT;
+            return 1;
+          }
+        case FLOAT:
+          if(ex->vartype->tb & FLOATNUM) {
+            freetype(ex->vartype);
+            dadtor(ex->params);
+            *exa = subexpr;
+            free(ex);
+            return 1;
+          }
+          if(ex->vartype->tb & UNSIGNEDNUM) {
+            unsigned long int u = (unsigned long int) subexpr->floatconst;
+            rfreexpr(subexpr);
+            freetype(ex->vartype);
+            ex->type = UINT;
+            ex->uintconst = u;
+            return 1;
+          } else {
+            long int i = (long int) subexpr->floatconst;
+            rfreexpr(subexpr);
+            freetype(ex->vartype);
+            ex->type = INT;
+            ex->uintconst = i;
+            return 1;
+          }
+        default: 
+          return 0;
+      }
     case MEMBER: 
       //get addr for deref, as struct should be fully populated at this point
       return 0;
