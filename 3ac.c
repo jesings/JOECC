@@ -38,7 +38,7 @@ OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
 }
 
 //returns destination for use in calling function
-OPERATION* linearitree(EXPRESSION* cexpr, DYNARR* prog) {
+OPERATION* linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   switch(cexpr->type){
     case STRING: case INT: case UINT: case FLOAT: case NOP: case IDENT: case ARRAY_LIT: case SZOF: case MEMBER:
     case NEG: case L_NOT: case B_NOT: case ADDR: case DEREF:
@@ -55,6 +55,12 @@ OPERATION* linearitree(EXPRESSION* cexpr, DYNARR* prog) {
   }
   fprintf(stderr, "Error: reduction of expression to 3 address code failed\n");
   return NULL;
+}
+
+char* proglabel(PROGRAM* prog) {
+  char* c = malloc(8);
+  snprintf(c, 8, ".L%d", (prog->labelcnt)++);
+  return c;
 }
 
 ADDRTYPE cmptype(EXPRESSION* cmpexpr) {
@@ -79,33 +85,87 @@ ADDRTYPE cmptype(EXPRESSION* cmpexpr) {
 }
 
 //store some state about enclosing switch statement and its labeltable (how to represent?), about enclosing loop as well (for continue)
-void solidstate(STATEMENT* cst, DYNARR* prog) {
+void solidstate(STATEMENT* cst, PROGRAM* prog) {
   OPERATION* ret_op;
   switch(cst->type){
     case FRET:
       ret_op = linearitree(cst->expression, prog);
       assert(ret_op);//assert its dest as well?
-      dapush(prog, ct_3ac_op1(RETURN_3, ret_op->dest_type, ret_op->dest));
+      dapush(prog->ops, ct_3ac_op1(RETURN_3, ret_op->dest_type, ret_op->dest));
       return;
-    case LBREAK: case LCONT:
-      break;
+    case LBREAK: //for break and continue we may need to do stack manipulation
+      dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, (ADDRESS) (char*) dapeek(prog->breaklabels)));
+      return;
+    case LCONT:
+      dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, (ADDRESS) (char*) dapeek(prog->continuelabels)));
+      return;
     case JGOTO:
-      dapush(prog, ct_3ac_op1(RETURN_3, ISCONST | ISLABEL, (ADDRESS) cst->glabel));
+      dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, (ADDRESS) cst->glabel));
       return;
-    case WHILEL: 
-    case DOWHILEL: 
-    case IFS: case IFELSES:
+    case WHILEL: {
+      char* contlabel = proglabel(prog);
+      char* brklabel = proglabel(prog);
+      dapush(prog->continuelabels, contlabel);
+      dapush(prog->breaklabels, brklabel);
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) contlabel));
+      //cmptype garbage
+      solidstate(cst->body, prog);
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) brklabel));
+      dapop(prog->continuelabels);
+      dapop(prog->breaklabels);
+      return;
+      }
+    case DOWHILEL: {
+      char* contlabel = proglabel(prog);
+      char* brklabel = proglabel(prog);
+      dapush(prog->continuelabels, contlabel);
+      dapush(prog->breaklabels, brklabel);
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) contlabel));
+      solidstate(cst->body, prog);
+      linearitree(cst->cond, prog);
+      //cmptype garbage
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) brklabel));
+      dapop(prog->continuelabels);
+      dapop(prog->breaklabels);
+      return;
+      }
+    case IFS: {
+      linearitree(cst->ifcond, prog);
+      char* afteriflbl = proglabel(prog);
+      //cmptype garbage, jump on condition
+      solidstate(cst->thencond, prog);
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) afteriflbl));
+      return;
+      }
+    case IFELSES: {
+      linearitree(cst->ifcond, prog);
+      char* afteriflbl = proglabel(prog);
+      char* afterelselbl = proglabel(prog);
+      //cmptype garbage, jump on condition
+      solidstate(cst->thencond, prog);
+      dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, (ADDRESS) afterelselbl));
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) afteriflbl));
+      solidstate(cst->elsecond, prog);
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) afterelselbl));
+      return;
+      }
     case SWITCH:
       //TODO: figure out how to represent switch stmt!!! Either jump table or multiple ifs w/ goto but how to decide and how to represent jump table
-    case LABEL:
-      dapush(prog, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) cst->glabel));
-      return;
-    case CMPND:  case EXPR: case DEFAULT:
       break;
+    case LABEL:
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) cst->glabel));
+      return;
+    case CMPND: 
+      solidstate(cst->body, prog);
+      //probably more stack stuff will need to be done here?
+      return;
+    case EXPR:
+      linearitree(cst->expression, prog);
+      return;
     case NOPSTMT: 
       return;
-    case CASE: 
-      break; //should never see case
+    case CASE: case DEFAULT:
+      break; //should never see case or default
   }
   fprintf(stderr, "Error: reduction of statement to 3 address code failed\n");
 }

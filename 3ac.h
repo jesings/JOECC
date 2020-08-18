@@ -91,13 +91,21 @@ typedef struct {
   ADDRESS dest;
 } OPERATION;
 
+typedef struct {
+  DYNARR* ops;
+  int labelcnt;
+  DYNARR* breaklabels;
+  DYNARR* continuelabels;
+} PROGRAM;
+
 OPERATION* ct_3ac_op0(enum opcode_3ac opcode);
 OPERATION* ct_3ac_op1(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0);
 OPERATION* ct_3ac_op2(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0, ADDRTYPE dest_type, ADDRESS dest);
 OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0,
                       ADDRTYPE addr1_type, ADDRESS addr1, ADDRTYPE dest_type, ADDRESS dest);
-OPERATION* linearitree(EXPRESSION* cexpr, DYNARR* prog);
+OPERATION* linearitree(EXPRESSION* cexpr, PROGRAM* prog);
+char* proglabel(PROGRAM* prog);
 ADDRTYPE cmptype(EXPRESSION* cmpexpr);
-void solidstate(STATEMENT* cst, DYNARR* prog);
+void solidstate(STATEMENT* cst, PROGRAM* prog);
 #endif
 
