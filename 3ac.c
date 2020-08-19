@@ -38,23 +38,51 @@ OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
 }
 
 //returns destination for use in calling function
-OPERATION* linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
+FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
+  FULLADDR curaddr;
   switch(cexpr->type){
-    case STRING: case INT: case UINT: case FLOAT: case NOP: case IDENT: case ARRAY_LIT: case SZOF: case MEMBER:
+    case STRING: ;
+      curaddr.addr_type = ISCONST | ISSTRCONST;
+      curaddr.addr.strconst = cexpr->strconst;
+      return curaddr;
+    case INT:
+      curaddr.addr_type = ISCONST | ISSIGNED | 0x40;
+      curaddr.addr.intconst_64 = cexpr->intconst;
+      return curaddr;
+    case UINT: 
+      curaddr.addr_type = ISCONST | 0x40;
+      curaddr.addr.uintconst_64 = cexpr->uintconst;
+      return curaddr;
+    case FLOAT:
+      curaddr.addr_type = ISCONST | ISFLOAT | 0x40;
+      curaddr.addr.floatconst_64 = cexpr->floatconst;
+      return curaddr;
+    case IDENT: case ARRAY_LIT: case SZOF: case MEMBER:
     case NEG: case L_NOT: case B_NOT: case ADDR: case DEREF:
     case ADD: case SUB: case EQ: case NEQ: case GT: case LT: case GTE: case LTE: case MULT: case DIVI: 
     case MOD: case L_AND: case L_OR: case B_AND: case B_OR: case B_XOR: case SHL: case SHR: case COMMA:
     case DOTOP: case ARROW:
     case SZOFEXPR: case CAST: 
     case TERNARY:
-    case FCALL:
     case ASSIGN: case PREINC: case PREDEC: case POSTINC: case POSTDEC:
     case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
     case XORASSIGN: case ORASSIGN: case DIVASSIGN: case MULTASSIGN: case MODASSIGN:
       break;
+    case NOP: 
+      break;
+    case FCALL: ;
+      DYNARR* params = dactor(cexpr->params->length);
+      EXPRESSION* fname = daget(cexpr->params, 0);
+      for(int i = 1; i < cexpr->params->length; ++i) {
+        curaddr = linearitree(daget(cexpr->params, i), prog);
+        dapush(params, ct_3ac_op1(PARAM_3, curaddr.addr_type, curaddr.addr));
+      }
+      damerge(prog->ops, params);
+      dapush(prog->ops, ct_3ac_op1(CALL_3, ISCONST | ISLABEL, (ADDRESS) fname->strconst));
+      //TODO: above shoud be an op with a target, which is the result. Check func return type and garbage?
   }
   fprintf(stderr, "Error: reduction of expression to 3 address code failed\n");
-  return NULL;
+  return curaddr;
 }
 
 char* proglabel(PROGRAM* prog) {
@@ -86,12 +114,11 @@ ADDRTYPE cmptype(EXPRESSION* cmpexpr) {
 
 //store some state about enclosing switch statement and its labeltable (how to represent?), about enclosing loop as well (for continue)
 void solidstate(STATEMENT* cst, PROGRAM* prog) {
-  OPERATION* ret_op;
+  FULLADDR ret_op;
   switch(cst->type){
     case FRET:
       ret_op = linearitree(cst->expression, prog);
-      assert(ret_op);//assert its dest as well?
-      dapush(prog->ops, ct_3ac_op1(RETURN_3, ret_op->dest_type, ret_op->dest));
+      dapush(prog->ops, ct_3ac_op1(RETURN_3, ret_op.addr_type, ret_op.addr));
       return;
     case LBREAK: //for break and continue we may need to do stack manipulation
       dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, (ADDRESS) (char*) dapeek(prog->breaklabels)));

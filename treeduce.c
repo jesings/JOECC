@@ -75,6 +75,7 @@ char purestmt(STATEMENT* stmt) {
 //The above will not balk at initializers, as those aren't considered assignment ops
 //calling other function that is impure (or indirect function)
 //some work will need to be done in order to ignore circular dependencies
+//This is left for later, for now no functions are pure
 
 char typequality(IDTYPE* t1, IDTYPE* t2) {
   if(t1->tb != t2->tb)

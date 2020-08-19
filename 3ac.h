@@ -57,15 +57,7 @@ typedef union {
   unsigned long fregnum; //floating point register
   unsigned long uintconst_64; //unsigned int 64 bit or pointer
   long intconst_64;
-  unsigned int uintconst_32;
-  int intconst_32;
-  unsigned short uintconst_16;
-  short intconst_16;
-  unsigned char uintconst_8;
-  char intconst_8;
-  long double* floatconst_80; //not sure this will actually stay
   double floatconst_64;
-  float floatconst_32;
   char* strconst;
   unsigned long* arrayconst;
   char* labelname;
@@ -76,8 +68,10 @@ typedef union {
 typedef enum {
   //bottom 6 bits used for size
   ISCONST = 0x40, //if not set, it's a register
-  ISFLOAT = 0x80, //if not set it's an int
-  ISLABEL = 0x100, //if not set it's not a label
+  ISSIGNED = 0x80, //if not set it's an int
+  ISFLOAT = 0x100, //if not set it's an int
+  ISLABEL = 0x200, //if not set it's not a label
+  ISSTRCONST = 0x300, //if not set it's not a string
   //string and array constants not handled yet
 } ADDRTYPE;
 
@@ -92,6 +86,11 @@ typedef struct {
 } OPERATION;
 
 typedef struct {
+  ADDRTYPE addr_type;
+  ADDRESS addr;
+} FULLADDR;
+
+typedef struct {
   DYNARR* ops;
   int labelcnt;
   DYNARR* breaklabels;
@@ -103,7 +102,7 @@ OPERATION* ct_3ac_op1(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
 OPERATION* ct_3ac_op2(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0, ADDRTYPE dest_type, ADDRESS dest);
 OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0,
                       ADDRTYPE addr1_type, ADDRESS addr1, ADDRTYPE dest_type, ADDRESS dest);
-OPERATION* linearitree(EXPRESSION* cexpr, PROGRAM* prog);
+FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog);
 char* proglabel(PROGRAM* prog);
 ADDRTYPE cmptype(EXPRESSION* cmpexpr);
 void solidstate(STATEMENT* cst, PROGRAM* prog);
