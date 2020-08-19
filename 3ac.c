@@ -39,7 +39,7 @@ OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
 
 //returns destination for use in calling function
 FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
-  FULLADDR curaddr;
+  FULLADDR curaddr, destaddr;
   switch(cexpr->type){
     case STRING: ;
       curaddr.addr_type = ISCONST | ISSTRCONST;
@@ -57,10 +57,32 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       curaddr.addr_type = ISCONST | ISFLOAT | 0x40;
       curaddr.addr.floatconst_64 = cexpr->floatconst;
       return curaddr;
-    case IDENT: case ARRAY_LIT: case SZOF: case MEMBER:
-    case NEG: case L_NOT: case B_NOT: case ADDR: case DEREF:
+    case IDENT: 
+    case ARRAY_LIT:
+    case NEG:
+      curaddr = linearitree(daget(cexpr->params, 0), prog);
+      destaddr.addr_type = curaddr.addr_type & ~ISCONST;
+      destaddr.addr = (ADDRESS) proglabel(prog);
+      dapush(prog->ops, ct_3ac_op2(destaddr.addr_type & ISFLOAT ? NEG_F : NEG_I,
+                                   curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+      return destaddr;
+    case L_NOT:
+    case B_NOT:
+      curaddr = linearitree(daget(cexpr->params, 0), prog);
+      destaddr.addr_type = curaddr.addr_type & ~ISCONST;
+      destaddr.addr = (ADDRESS) proglabel(prog);
+      dapush(prog->ops, ct_3ac_op2(destaddr.addr_type & ISFLOAT ? NOT_F : NOT_U,
+                                   curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+      return destaddr;
+    case ADDR:
+    case DEREF: //Turn deref of addition, subtraction, into array index?
     case ADD: case SUB: case EQ: case NEQ: case GT: case LT: case GTE: case LTE: case MULT: case DIVI: 
-    case MOD: case L_AND: case L_OR: case B_AND: case B_OR: case B_XOR: case SHL: case SHR: case COMMA:
+    case MOD: case L_AND: case L_OR: case B_AND: case B_OR: case B_XOR: case SHL: case SHR:
+    case COMMA:
+      for(int i = 0; i < cexpr->params->length - 1; i++) {
+        linearitree(daget(cexpr->params, i), prog);
+      }
+      return linearitree(daget(cexpr->params, cexpr->params->length - 1), prog);
     case DOTOP: case ARROW:
     case SZOFEXPR: case CAST: 
     case TERNARY:
@@ -68,7 +90,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
     case XORASSIGN: case ORASSIGN: case DIVASSIGN: case MULTASSIGN: case MODASSIGN:
       break;
-    case NOP: 
+    case NOP: case SZOF: case MEMBER:
       break;
     case FCALL: ;
       DYNARR* params = dactor(cexpr->params->length);
