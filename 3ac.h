@@ -72,7 +72,7 @@ typedef enum {
   ISFLOAT = 0x100, //if not set it's an int
   ISLABEL = 0x200, //if not set it's not a label
   ISSTRCONST = 0x300, //if not set it's not a string
-  //string and array constants not handled yet
+  //array constants not handled yet
 } ADDRTYPE;
 
 typedef struct {
@@ -93,9 +93,12 @@ typedef struct {
 typedef struct {
   DYNARR* ops;
   int labelcnt;
+  unsigned long iregcnt;
+  unsigned long fregcnt;
   DYNARR* breaklabels;
   DYNARR* continuelabels;
 } PROGRAM;
+
 
 OPERATION* ct_3ac_op0(enum opcode_3ac opcode);
 OPERATION* ct_3ac_op1(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0);
@@ -103,8 +106,16 @@ OPERATION* ct_3ac_op2(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
 OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0,
                       ADDRTYPE addr1_type, ADDRESS addr1, ADDRTYPE dest_type, ADDRESS dest);
 FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog);
-char* proglabel(PROGRAM* prog);
 ADDRTYPE cmptype(EXPRESSION* cmpexpr);
 void solidstate(STATEMENT* cst, PROGRAM* prog);
+FULLADDR implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
+                      ADDRTYPE addr1_type, ADDRESS addr1, PROGRAM* prog);
+
+inline char* proglabel(PROGRAM* prog) {
+  char* c = malloc(8);
+  snprintf(c, 8, ".L%d", (prog->labelcnt)++);
+  return c;
+}
+
 #endif
 

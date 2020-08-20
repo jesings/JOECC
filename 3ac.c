@@ -37,6 +37,60 @@ OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
   return retval;
 }
 
+FULLADDR implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
+                      ADDRTYPE addr1_type, ADDRESS addr1, PROGRAM* prog) {
+  ADDRTYPE retaddr_type;
+  char opmod;
+
+  if((addr0_type & ISFLOAT) && !(addr1_type & ISFLOAT)) {
+    if(addr1_type & ISCONST) {
+      if(addr1_type & ISSIGNED) {
+        addr1.floatconst_64 = (float) addr1.intconst_64;
+      } else {
+        addr1.floatconst_64 = (float) addr1.uintconst_64;
+      }
+    } else {
+      ADDRESS tmpaddr = (ADDRESS) prog->fregcnt++;
+      dapush(prog->ops, ct_3ac_op2(INT_TO_FLOAT, addr1_type, addr1, addr1_type | ISFLOAT | ISSIGNED, tmpaddr));
+      addr1 = tmpaddr;
+    }
+    addr1_type |= ISFLOAT | ISSIGNED; 
+    opmod = 2;
+    retaddr_type = addr0_type;
+  } else if (!(addr0_type & ISFLOAT) && (addr1_type & ISFLOAT)) {
+    if(addr0_type & ISCONST) {
+      if(addr1_type & ISSIGNED) {
+        addr0.floatconst_64 = (float) addr0.intconst_64;
+      } else {
+        addr0.floatconst_64 = (float) addr0.uintconst_64;
+      }
+    } else {
+      ADDRESS tmpaddr = (ADDRESS) prog->fregcnt++;
+      dapush(prog->ops, ct_3ac_op2(INT_TO_FLOAT, addr0_type, addr0, addr0_type | ISFLOAT | ISSIGNED, tmpaddr));
+      addr0 = tmpaddr;
+    }
+    addr0_type |= ISFLOAT | ISSIGNED; 
+    opmod = 2;
+    retaddr_type = addr1_type;
+  } else if ((addr0_type & ISSIGNED) || (addr1_type & ISSIGNED)) {
+    opmod = 1;
+    retaddr_type = addr0_type & 0x7f;
+    if(addr1_type & (0x7f > retaddr_type))
+      retaddr_type = addr1_type & 0x7f;
+    retaddr_type |= ISSIGNED;
+  } else {
+    opmod = 0;
+    retaddr_type = addr0_type & 0x7f;
+    if(addr1_type & (0x7f > retaddr_type))
+      retaddr_type= addr1_type & 0x7f;
+  }
+  ADDRESS retaddr = (opmod == 2) ? (ADDRESS) prog->fregcnt++ : (ADDRESS) prog->iregcnt++;
+  dapush(prog->ops, ct_3ac_op3(opcode_unsigned + opmod, addr0_type, addr0, addr1_type, addr1, retaddr_type, retaddr));
+  //maybe we'd rather return the operation? unlikely
+  FULLADDR retval = {retaddr_type, retaddr};
+  return retval;
+}
+
 //returns destination for use in calling function
 FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR curaddr, destaddr;
@@ -54,7 +108,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       curaddr.addr.uintconst_64 = cexpr->uintconst;
       return curaddr;
     case FLOAT:
-      curaddr.addr_type = ISCONST | ISFLOAT | 0x40;
+      curaddr.addr_type = ISCONST | ISFLOAT | ISSIGNED | 0x40;
       curaddr.addr.floatconst_64 = cexpr->floatconst;
       return curaddr;
     case IDENT: 
@@ -62,17 +116,25 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case NEG:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       destaddr.addr_type = curaddr.addr_type & ~ISCONST;
-      destaddr.addr = (ADDRESS) proglabel(prog);
-      dapush(prog->ops, ct_3ac_op2(destaddr.addr_type & ISFLOAT ? NEG_F : NEG_I,
-                                   curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+      if(destaddr.addr_type & ISFLOAT) {
+        destaddr.addr = (ADDRESS) prog->fregcnt++;
+        dapush(prog->ops, ct_3ac_op2(NEG_F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+      } else {
+        destaddr.addr = (ADDRESS) prog->iregcnt++;
+        dapush(prog->ops, ct_3ac_op2(NEG_I, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+      }
       return destaddr;
     case L_NOT:
     case B_NOT:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       destaddr.addr_type = curaddr.addr_type & ~ISCONST;
-      destaddr.addr = (ADDRESS) proglabel(prog);
-      dapush(prog->ops, ct_3ac_op2(destaddr.addr_type & ISFLOAT ? NOT_F : NOT_U,
-                                   curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+      if(destaddr.addr_type & ISFLOAT) {
+        destaddr.addr = (ADDRESS) prog->fregcnt++;
+        dapush(prog->ops, ct_3ac_op2(NOT_F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+      } else {
+        destaddr.addr = (ADDRESS) prog->iregcnt++;
+        dapush(prog->ops, ct_3ac_op2(NOT_U, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+      }
       return destaddr;
     case ADDR:
     case DEREF: //Turn deref of addition, subtraction, into array index?
@@ -105,12 +167,6 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   }
   fprintf(stderr, "Error: reduction of expression to 3 address code failed\n");
   return curaddr;
-}
-
-char* proglabel(PROGRAM* prog) {
-  char* c = malloc(8);
-  snprintf(c, 8, ".L%d", (prog->labelcnt)++);
-  return c;
 }
 
 ADDRTYPE cmptype(EXPRESSION* cmpexpr) {
