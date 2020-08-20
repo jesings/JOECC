@@ -68,7 +68,7 @@ typedef union {
 typedef enum {
   //bottom 6 bits used for size
   ISCONST = 0x40, //if not set, it's a register
-  ISSIGNED = 0x80, //if not set it's an int
+  ISSIGNED = 0x80, //if not set it's an unsigned int
   ISFLOAT = 0x100, //if not set it's an int
   ISLABEL = 0x200, //if not set it's not a label
   ISSTRCONST = 0x300, //if not set it's not a string

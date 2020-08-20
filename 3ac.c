@@ -93,7 +93,7 @@ FULLADDR implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, AD
 
 //returns destination for use in calling function
 FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
-  FULLADDR curaddr, destaddr;
+  FULLADDR curaddr, otheraddr, destaddr;
   switch(cexpr->type){
     case STRING: ;
       curaddr.addr_type = ISCONST | ISSTRCONST;
@@ -138,7 +138,32 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
     case ADDR:
     case DEREF: //Turn deref of addition, subtraction, into array index?
-    case ADD: case SUB: case EQ: case NEQ: case GT: case LT: case GTE: case LTE: case MULT: case DIVI: 
+    case ADD: case SUB: 
+    case EQ:
+      curaddr = linearitree(daget(cexpr->params, 0), prog);
+      otheraddr = linearitree(daget(cexpr->params, 1), prog);
+      return implicit_3ac_3(EQ_U, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog);
+    case NEQ: 
+      curaddr = linearitree(daget(cexpr->params, 0), prog);
+      otheraddr = linearitree(daget(cexpr->params, 1), prog);
+      return implicit_3ac_3(NE_U, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog);
+    case GT:
+      curaddr = linearitree(daget(cexpr->params, 0), prog);
+      otheraddr = linearitree(daget(cexpr->params, 1), prog);
+      return implicit_3ac_3(GT_U, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog);
+    case LT:
+      curaddr = linearitree(daget(cexpr->params, 0), prog);
+      otheraddr = linearitree(daget(cexpr->params, 1), prog);
+      return implicit_3ac_3(LT_U, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog);
+    case GTE:
+      curaddr = linearitree(daget(cexpr->params, 0), prog);
+      otheraddr = linearitree(daget(cexpr->params, 1), prog);
+      return implicit_3ac_3(GE_U, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog);
+    case LTE:       
+      curaddr = linearitree(daget(cexpr->params, 0), prog);
+      otheraddr = linearitree(daget(cexpr->params, 1), prog);
+      return implicit_3ac_3(LE_U, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog);
+    case MULT: case DIVI: 
     case MOD: case L_AND: case L_OR: case B_AND: case B_OR: case B_XOR: case SHL: case SHR:
     case COMMA:
       for(int i = 0; i < cexpr->params->length - 1; i++) {
@@ -146,7 +171,13 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       }
       return linearitree(daget(cexpr->params, cexpr->params->length - 1), prog);
     case DOTOP: case ARROW:
-    case SZOFEXPR: case CAST: 
+    case SZOFEXPR:
+      //TODO: handle structs properly
+      curaddr = linearitree(daget(cexpr->params, 0), prog);
+      destaddr.addr = (ADDRESS) (curaddr.addr_type & 0x7fL);
+      destaddr.addr_type = ISCONST;
+      return destaddr;
+    case CAST: 
     case TERNARY:
     case ASSIGN: case PREINC: case PREDEC: case POSTINC: case POSTDEC:
     case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
