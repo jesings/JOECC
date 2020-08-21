@@ -14,8 +14,8 @@
   X(OR_U), X(OR_F), \
   X(XOR_U), X(XOR_F), \
   X(NOT_U), X(NOT_F), \
-  X(INC_U), X(INC_I), \
-  X(DEC_U), X(DEC_I), \
+  X(INC_U), X(INC_I), X(INC_F), \
+  X(DEC_U), X(DEC_I), X(DEC_F), \
   X(NEG_I), X(NEG_F), \
   X(ADDR_U), X(ADDR_I), X(ADDR_F), \
   X(EQ_U), X(EQ_I), X(EQ_F), \
@@ -110,6 +110,8 @@ ADDRTYPE cmptype(EXPRESSION* cmpexpr);
 void solidstate(STATEMENT* cst, PROGRAM* prog);
 FULLADDR implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
                       ADDRTYPE addr1_type, ADDRESS addr1, PROGRAM* prog);
+FULLADDR implicit_nary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
+FULLADDR cmpret_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
 
 inline char* proglabel(PROGRAM* prog) {
   char* c = malloc(8);

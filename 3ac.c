@@ -91,6 +91,22 @@ FULLADDR implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, AD
   return retval;
 }
 
+FULLADDR implicit_nary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog) {
+  FULLADDR prevaddr = linearitree(daget(cexpr->params, 0), prog);
+  for(int i = 1; i < cexpr->params->length; i++) {
+    FULLADDR secondaddr = linearitree(daget(cexpr->params, 1), prog);
+    prevaddr = implicit_3ac_3(opcode_unsigned, prevaddr.addr_type, prevaddr.addr, secondaddr.addr_type, secondaddr.addr, prog);
+  }
+  return prevaddr;
+}
+
+FULLADDR cmpret_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog) {
+  FULLADDR curaddr = linearitree(daget(cexpr->params, 0), prog);
+  FULLADDR otheraddr = linearitree(daget(cexpr->params, 1), prog);
+  //Force return type to be int, probably unsigned
+  return implicit_3ac_3(opcode_unsigned, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog);
+}
+
 //returns destination for use in calling function
 FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR curaddr, otheraddr, destaddr;
@@ -113,6 +129,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return curaddr;
     case IDENT: 
     case ARRAY_LIT:
+
     case NEG:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       destaddr.addr_type = curaddr.addr_type & ~ISCONST;
@@ -125,6 +142,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       }
       return destaddr;
     case L_NOT:
+      break;
     case B_NOT:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       destaddr.addr_type = curaddr.addr_type & ~ISCONST;
@@ -138,39 +156,45 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
     case ADDR:
     case DEREF: //Turn deref of addition, subtraction, into array index?
-    case ADD: case SUB: 
+      break;
+
+    case ADD:
+      return implicit_nary_3(ADD_U, cexpr, prog);
+    case SUB: 
+      return implicit_nary_3(SUB_U, cexpr, prog);
+    case MULT:
+      return implicit_nary_3(MULT_U, cexpr, prog);
+    case DIVI: 
+      return implicit_nary_3(DIV_U, cexpr, prog);
+
     case EQ:
-      curaddr = linearitree(daget(cexpr->params, 0), prog);
-      otheraddr = linearitree(daget(cexpr->params, 1), prog);
-      return implicit_3ac_3(EQ_U, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog);
+      return cmpret_binary_3(EQ_U, cexpr, prog);
     case NEQ: 
-      curaddr = linearitree(daget(cexpr->params, 0), prog);
-      otheraddr = linearitree(daget(cexpr->params, 1), prog);
-      return implicit_3ac_3(NE_U, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog);
+      return cmpret_binary_3(NE_U, cexpr, prog);
     case GT:
-      curaddr = linearitree(daget(cexpr->params, 0), prog);
-      otheraddr = linearitree(daget(cexpr->params, 1), prog);
-      return implicit_3ac_3(GT_U, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog);
+      return cmpret_binary_3(GT_U, cexpr, prog);
     case LT:
-      curaddr = linearitree(daget(cexpr->params, 0), prog);
-      otheraddr = linearitree(daget(cexpr->params, 1), prog);
-      return implicit_3ac_3(LT_U, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog);
+      return cmpret_binary_3(LT_U, cexpr, prog);
     case GTE:
+      return cmpret_binary_3(GE_U, cexpr, prog);
+    case LTE:
+      return cmpret_binary_3(LE_U, cexpr, prog);
+
+    case MOD: //TODO: prevent float
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       otheraddr = linearitree(daget(cexpr->params, 1), prog);
-      return implicit_3ac_3(GE_U, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog);
-    case LTE:       
-      curaddr = linearitree(daget(cexpr->params, 0), prog);
-      otheraddr = linearitree(daget(cexpr->params, 1), prog);
-      return implicit_3ac_3(LE_U, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog);
-    case MULT: case DIVI: 
-    case MOD: case L_AND: case L_OR: case B_AND: case B_OR: case B_XOR: case SHL: case SHR:
+      return implicit_3ac_3(MOD_U, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog);
+
+    case L_AND: case L_OR: case B_AND: case B_OR: case B_XOR: case SHL: case SHR:
+
     case COMMA:
       for(int i = 0; i < cexpr->params->length - 1; i++) {
         linearitree(daget(cexpr->params, i), prog);
       }
       return linearitree(daget(cexpr->params, cexpr->params->length - 1), prog);
+
     case DOTOP: case ARROW:
+      break;
     case SZOFEXPR:
       //TODO: handle structs properly
       curaddr = linearitree(daget(cexpr->params, 0), prog);
@@ -194,7 +218,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       }
       damerge(prog->ops, params);
       dapush(prog->ops, ct_3ac_op1(CALL_3, ISCONST | ISLABEL, (ADDRESS) fname->strconst));
-      //TODO: above shoud be an op with a target, which is the result. Check func return type and garbage?
+      //TODO: above shoud be an op with a target, which is the result. Check func return type?
   }
   fprintf(stderr, "Error: reduction of expression to 3 address code failed\n");
   return curaddr;
