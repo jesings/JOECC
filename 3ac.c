@@ -201,7 +201,46 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       destaddr.addr = (ADDRESS) (curaddr.addr_type & 0x7fL);
       destaddr.addr_type = ISCONST;
       return destaddr;
-    case CAST: 
+    case CAST:
+      curaddr = linearitree(daget(cexpr->params, 0), prog);
+      if(cexpr->vartype->pointerstack && cexpr->vartype->pointerstack->length) {
+        break;
+        //move to unsigned int reg, make 64 bit, anything else?
+      } else if(cexpr->vartype->tb & INT) {
+        destaddr.addr_type = (cexpr->vartype->tb & 0x7f) | ISSIGNED;
+        destaddr.addr = (ADDRESS) prog->iregcnt++;
+        if(curaddr.addr_type & !(ISFLOAT | ISLABEL | ISSTRCONST | 0x7f)) {
+          dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+        } else if(curaddr.addr_type & ISFLOAT) {
+          dapush(prog->ops, ct_3ac_op2(FLOAT_TO_INT, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+        } else {
+          break;
+        }
+        return destaddr;
+      } else if(cexpr->vartype->tb & UINT) {
+        destaddr.addr_type = cexpr->vartype->tb & 0x7f;
+        destaddr.addr = (ADDRESS) prog->iregcnt++;
+        if(curaddr.addr_type & !(ISFLOAT | ISLABEL | ISSTRCONST | 0x7f)) {
+          dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+        } else if(curaddr.addr_type & ISFLOAT) {
+          dapush(prog->ops, ct_3ac_op2(FLOAT_TO_INT, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+        } else {
+          break;
+        }
+        return destaddr;
+      } else if(cexpr->vartype->tb & FLOAT) {
+        destaddr.addr_type = (cexpr->vartype->tb & 0x7f) | ISSIGNED | ISFLOAT;
+        destaddr.addr = (ADDRESS) prog->fregcnt++;
+        if(curaddr.addr_type & !(ISFLOAT | ISLABEL | ISSTRCONST | 0x7f)) {
+          dapush(prog->ops, ct_3ac_op2(INT_TO_FLOAT, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+        } else if(curaddr.addr_type & ISFLOAT) {
+          dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+        } else {
+          break;
+        }
+        return destaddr;
+      }
+      break;
     case TERNARY:
     case ASSIGN: case PREINC: case PREDEC: case POSTINC: case POSTDEC:
     case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
