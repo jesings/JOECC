@@ -2,6 +2,7 @@
 #include <assert.h>
 #include "compintern.h"
 #include "3ac.h"
+//TODO: For loops with continue don't work I think
 
 OPERATION* ct_3ac_op0(enum opcode_3ac opcode) {
   OPERATION* retval = malloc(sizeof(OPERATION));
@@ -264,47 +265,22 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   return curaddr;
 }
 
-OPERATION* cmptype(EXPRESSION* cmpexpr, char* addr2jmp, PROGRAM* prog) {
+OPERATION* cmptype(EXPRESSION* cmpexpr, char* addr2jmp, char negate, PROGRAM* prog) {
   OPERATION* dest_op;
   FULLADDR destaddr;
   //check if new register is assigned to in cmpret, decrement?
   switch(cmpexpr->type) {
-    case EQ:
-      dest_op = cmpret_binary_3(BEQ_U, cmpexpr, prog);//figure out signedness here or elsewhere
-      dest_op->dest_type = ISLABEL;
-      dest_op->dest = (ADDRESS) addr2jmp;
-      return dest_op;
-    case NEQ:
-      dest_op = cmpret_binary_3(BNE_U, cmpexpr, prog);//figure out signedness here or elsewhere
-      dest_op->dest_type = ISLABEL;
-      dest_op->dest = (ADDRESS) addr2jmp;
-      return dest_op;
-    case GT:
-      dest_op = cmpret_binary_3(BGT_U, cmpexpr, prog);//figure out signedness here or elsewhere
-      dest_op->dest_type = ISLABEL;
-      dest_op->dest = (ADDRESS) addr2jmp;
-      return dest_op;
-    case LT:
-      dest_op = cmpret_binary_3(BLT_U, cmpexpr, prog);//figure out signedness here or elsewhere
-      dest_op->dest_type = ISLABEL;
-      dest_op->dest = (ADDRESS) addr2jmp;
-      return dest_op;
-    case GTE:
-      dest_op = cmpret_binary_3(BGE_U, cmpexpr, prog);//figure out signedness here or elsewhere
-      dest_op->dest_type = ISLABEL;
-      dest_op->dest = (ADDRESS) addr2jmp;
-      return dest_op;
-    case LTE:
-      dest_op = cmpret_binary_3(BLE_U, cmpexpr, prog);//figure out signedness here or elsewhere
+    case EQ: case NEQ: case GT: case LT: case GTE: case LTE:
+      dest_op = cmpret_binary_3(cmp_osite(cmpexpr->type, negate), cmpexpr, prog);//figure out signedness here or elsewhere
       dest_op->dest_type = ISLABEL;
       dest_op->dest = (ADDRESS) addr2jmp;
       return dest_op;
     case L_NOT:
       destaddr = linearitree(daget(cmpexpr->params, 0), prog);
-      return ct_3ac_op2(BEZ_3, destaddr.addr_type, destaddr.addr, ISLABEL, (ADDRESS) addr2jmp);
+      return ct_3ac_op2(negate ? BNZ_3 : BEZ_3 , destaddr.addr_type, destaddr.addr, ISLABEL, (ADDRESS) addr2jmp);
     default:
       destaddr = linearitree(cmpexpr, prog);
-      return ct_3ac_op2(BNZ_3, destaddr.addr_type, destaddr.addr, ISLABEL, (ADDRESS) addr2jmp);
+      return ct_3ac_op2(negate ? BEZ_3 : BNZ_3 , destaddr.addr_type, destaddr.addr, ISLABEL, (ADDRESS) addr2jmp);
   }
 }
 
@@ -331,8 +307,9 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       dapush(prog->continuelabels, contlabel);
       dapush(prog->breaklabels, brklabel);
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) contlabel));
-      //cmptype garbage
+      dapush(prog->ops, cmptype(cst->cond, brklabel, 1, prog));
       solidstate(cst->body, prog);
+      dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, (ADDRESS) contlabel));
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) brklabel));
       dapop(prog->continuelabels);
       dapop(prog->breaklabels);
@@ -346,7 +323,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) contlabel));
       solidstate(cst->body, prog);
       linearitree(cst->cond, prog);
-      //cmptype garbage
+      dapush(prog->ops, cmptype(cst->cond, contlabel, 0, prog));
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) brklabel));
       dapop(prog->continuelabels);
       dapop(prog->breaklabels);
@@ -355,7 +332,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
     case IFS: {
       linearitree(cst->ifcond, prog);
       char* afteriflbl = proglabel(prog);
-      //cmptype garbage, jump on condition
+      dapush(prog->ops, cmptype(cst->cond, afteriflbl, 1, prog));
       solidstate(cst->thencond, prog);
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) afteriflbl));
       return;
@@ -364,7 +341,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       linearitree(cst->ifcond, prog);
       char* afteriflbl = proglabel(prog);
       char* afterelselbl = proglabel(prog);
-      //cmptype garbage, jump on condition
+      dapush(prog->ops, cmptype(cst->cond, afteriflbl, 1, prog));
       solidstate(cst->thencond, prog);
       dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, (ADDRESS) afterelselbl));
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) afteriflbl));
