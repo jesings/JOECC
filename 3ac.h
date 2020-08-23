@@ -106,17 +106,26 @@ OPERATION* ct_3ac_op2(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
 OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0,
                       ADDRTYPE addr1_type, ADDRESS addr1, ADDRTYPE dest_type, ADDRESS dest);
 FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog);
-ADDRTYPE cmptype(EXPRESSION* cmpexpr);
+OPERATION* cmptype(EXPRESSION* cmpexpr, char* addr2jmp, PROGRAM* prog);
 void solidstate(STATEMENT* cst, PROGRAM* prog);
-FULLADDR implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
+OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
                       ADDRTYPE addr1_type, ADDRESS addr1, PROGRAM* prog);
-FULLADDR implicit_nary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
-FULLADDR cmpret_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
+OPERATION* implicit_nary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
+OPERATION* cmpret_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
 
 inline char* proglabel(PROGRAM* prog) {
   char* c = malloc(8);
   snprintf(c, 8, ".L%d", (prog->labelcnt)++);
   return c;
+}
+inline FULLADDR op2addr(OPERATION* op) {
+  FULLADDR fa = {op->dest_type, op->dest};
+  return fa;
+}
+inline FULLADDR op2ret(DYNARR* da, OPERATION* op) {
+  dapush(da, op);
+  FULLADDR fa = {op->dest_type, op->dest};
+  return fa;
 }
 
 #endif

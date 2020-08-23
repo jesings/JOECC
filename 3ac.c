@@ -37,7 +37,7 @@ OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
   return retval;
 }
 
-FULLADDR implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
+OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
                       ADDRTYPE addr1_type, ADDRESS addr1, PROGRAM* prog) {
   ADDRTYPE retaddr_type;
   char opmod;
@@ -85,26 +85,28 @@ FULLADDR implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, AD
       retaddr_type= addr1_type & 0x7f;
   }
   ADDRESS retaddr = (opmod == 2) ? (ADDRESS) prog->fregcnt++ : (ADDRESS) prog->iregcnt++;
-  dapush(prog->ops, ct_3ac_op3(opcode_unsigned + opmod, addr0_type, addr0, addr1_type, addr1, retaddr_type, retaddr));
-  //maybe we'd rather return the operation? unlikely
-  FULLADDR retval = {retaddr_type, retaddr};
-  return retval;
+  return ct_3ac_op3(opcode_unsigned + opmod, addr0_type, addr0, addr1_type, addr1, retaddr_type, retaddr);
 }
 
-FULLADDR implicit_nary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog) {
+OPERATION* implicit_nary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR prevaddr = linearitree(daget(cexpr->params, 0), prog);
+  OPERATION* cur_op;
   for(int i = 1; i < cexpr->params->length; i++) {
     FULLADDR secondaddr = linearitree(daget(cexpr->params, 1), prog);
-    prevaddr = implicit_3ac_3(opcode_unsigned, prevaddr.addr_type, prevaddr.addr, secondaddr.addr_type, secondaddr.addr, prog);
+    cur_op = implicit_3ac_3(opcode_unsigned, prevaddr.addr_type, prevaddr.addr, secondaddr.addr_type, secondaddr.addr, prog);
+    prevaddr = op2addr(cur_op);
   }
-  return prevaddr;
+  return cur_op;
 }
 
-FULLADDR cmpret_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog) {
+OPERATION* cmpret_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR curaddr = linearitree(daget(cexpr->params, 0), prog);
   FULLADDR otheraddr = linearitree(daget(cexpr->params, 1), prog);
-  //Force return type to be int, probably unsigned
-  return implicit_3ac_3(opcode_unsigned, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog);
+  OPERATION* retop = implicit_3ac_3(opcode_unsigned, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog);
+  if(retop->dest_type & ISFLOAT) {
+    //Force return type to be int
+  }
+  return retop;
 }
 
 //returns destination for use in calling function
@@ -159,32 +161,31 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       break;
 
     case ADD:
-      return implicit_nary_3(ADD_U, cexpr, prog);
+      return op2ret(prog->ops, implicit_nary_3(ADD_U, cexpr, prog));
     case SUB: 
-      return implicit_nary_3(SUB_U, cexpr, prog);
+      return op2ret(prog->ops, implicit_nary_3(SUB_U, cexpr, prog));
     case MULT:
-      return implicit_nary_3(MULT_U, cexpr, prog);
+      return op2ret(prog->ops, implicit_nary_3(MULT_U, cexpr, prog));
     case DIVI: 
-      return implicit_nary_3(DIV_U, cexpr, prog);
+      return op2ret(prog->ops, implicit_nary_3(DIV_U, cexpr, prog));
 
     case EQ:
-      return cmpret_binary_3(EQ_U, cexpr, prog);
+      return op2ret(prog->ops, cmpret_binary_3(EQ_U, cexpr, prog));
     case NEQ: 
-      return cmpret_binary_3(NE_U, cexpr, prog);
+      return op2ret(prog->ops, cmpret_binary_3(NE_U, cexpr, prog));
     case GT:
-      return cmpret_binary_3(GT_U, cexpr, prog);
+      return op2ret(prog->ops, cmpret_binary_3(GT_U, cexpr, prog));
     case LT:
-      return cmpret_binary_3(LT_U, cexpr, prog);
+      return op2ret(prog->ops, cmpret_binary_3(LT_U, cexpr, prog));
     case GTE:
-      return cmpret_binary_3(GE_U, cexpr, prog);
+      return op2ret(prog->ops, cmpret_binary_3(GE_U, cexpr, prog));
     case LTE:
-      return cmpret_binary_3(LE_U, cexpr, prog);
+      return op2ret(prog->ops, cmpret_binary_3(LE_U, cexpr, prog));
 
     case MOD: //TODO: prevent float
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       otheraddr = linearitree(daget(cexpr->params, 1), prog);
-      return implicit_3ac_3(MOD_U, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog);
-
+      return op2ret(prog->ops, implicit_3ac_3(MOD_U, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog));
     case L_AND: case L_OR: case B_AND: case B_OR: case B_XOR: case SHL: case SHR:
 
     case COMMA:
@@ -263,24 +264,47 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   return curaddr;
 }
 
-ADDRTYPE cmptype(EXPRESSION* cmpexpr) {
+OPERATION* cmptype(EXPRESSION* cmpexpr, char* addr2jmp, PROGRAM* prog) {
+  OPERATION* dest_op;
+  FULLADDR destaddr;
+  //check if new register is assigned to in cmpret, decrement?
   switch(cmpexpr->type) {
     case EQ:
-      return (ADDRTYPE) BEQ_I;//figure out signedness here or elsewhere
+      dest_op = cmpret_binary_3(BEQ_U, cmpexpr, prog);//figure out signedness here or elsewhere
+      dest_op->dest_type = ISLABEL;
+      dest_op->dest = (ADDRESS) addr2jmp;
+      return dest_op;
     case NEQ:
-      return (ADDRTYPE) BNE_I;
+      dest_op = cmpret_binary_3(BNE_U, cmpexpr, prog);//figure out signedness here or elsewhere
+      dest_op->dest_type = ISLABEL;
+      dest_op->dest = (ADDRESS) addr2jmp;
+      return dest_op;
     case GT:
-      return (ADDRTYPE) BGT_I;
+      dest_op = cmpret_binary_3(BGT_U, cmpexpr, prog);//figure out signedness here or elsewhere
+      dest_op->dest_type = ISLABEL;
+      dest_op->dest = (ADDRESS) addr2jmp;
+      return dest_op;
     case LT:
-      return (ADDRTYPE) BLT_I;
+      dest_op = cmpret_binary_3(BLT_U, cmpexpr, prog);//figure out signedness here or elsewhere
+      dest_op->dest_type = ISLABEL;
+      dest_op->dest = (ADDRESS) addr2jmp;
+      return dest_op;
     case GTE:
-      return (ADDRTYPE) BGE_I;
+      dest_op = cmpret_binary_3(BGE_U, cmpexpr, prog);//figure out signedness here or elsewhere
+      dest_op->dest_type = ISLABEL;
+      dest_op->dest = (ADDRESS) addr2jmp;
+      return dest_op;
     case LTE:
-      return (ADDRTYPE) BLE_I;
+      dest_op = cmpret_binary_3(BLE_U, cmpexpr, prog);//figure out signedness here or elsewhere
+      dest_op->dest_type = ISLABEL;
+      dest_op->dest = (ADDRESS) addr2jmp;
+      return dest_op;
     case L_NOT:
-      return (ADDRTYPE) BEZ_3;
+      destaddr = linearitree(daget(cmpexpr->params, 0), prog);
+      return ct_3ac_op2(BEZ_3, destaddr.addr_type, destaddr.addr, ISLABEL, (ADDRESS) addr2jmp);
     default:
-      return (ADDRTYPE) BNZ_3;
+      destaddr = linearitree(cmpexpr, prog);
+      return ct_3ac_op2(BNZ_3, destaddr.addr_type, destaddr.addr, ISLABEL, (ADDRESS) addr2jmp);
   }
 }
 
