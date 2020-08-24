@@ -51,7 +51,8 @@ OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
         addr1.floatconst_64 = (float) addr1.uintconst_64;
       }
     } else {
-      ADDRESS tmpaddr = (ADDRESS) prog->fregcnt++;
+      ADDRESS tmpaddr;
+      tmpaddr.fregnum = prog->fregcnt++;
       dapush(prog->ops, ct_3ac_op2(INT_TO_FLOAT, addr1_type, addr1, addr1_type | ISFLOAT | ISSIGNED, tmpaddr));
       addr1 = tmpaddr;
     }
@@ -66,7 +67,8 @@ OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
         addr0.floatconst_64 = (float) addr0.uintconst_64;
       }
     } else {
-      ADDRESS tmpaddr = (ADDRESS) prog->fregcnt++;
+      ADDRESS tmpaddr;
+      tmpaddr.fregnum = prog->fregcnt++;
       dapush(prog->ops, ct_3ac_op2(INT_TO_FLOAT, addr0_type, addr0, addr0_type | ISFLOAT | ISSIGNED, tmpaddr));
       addr0 = tmpaddr;
     }
@@ -85,7 +87,11 @@ OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
     if(addr1_type & (0x7f > retaddr_type))
       retaddr_type= addr1_type & 0x7f;
   }
-  ADDRESS retaddr = (opmod == 2) ? (ADDRESS) prog->fregcnt++ : (ADDRESS) prog->iregcnt++;
+  ADDRESS retaddr;
+  if(opmod == 2) 
+    retaddr.fregnum = prog->fregcnt++;
+  else
+    retaddr.iregnum = prog->iregcnt++;
   return ct_3ac_op3(opcode_unsigned + opmod, addr0_type, addr0, addr1_type, addr1, retaddr_type, retaddr);
 }
 
@@ -111,7 +117,7 @@ OPERATION* cmpret_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, P
     }
     retop->dest_type |= curaddr.addr_type & otheraddr.addr_type & ISSIGNED;
     //free up float register???
-    retop->dest = (ADDRESS) prog->iregcnt++;
+    retop->dest.iregnum = prog->iregcnt++;
   }
   return retop;
 }
@@ -153,10 +159,10 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       destaddr.addr_type = curaddr.addr_type & ~ISCONST;
       if(destaddr.addr_type & ISFLOAT) {
-        destaddr.addr = (ADDRESS) prog->fregcnt++;
+        destaddr.addr.fregnum = prog->fregcnt++;
         dapush(prog->ops, ct_3ac_op2(NEG_F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       } else {
-        destaddr.addr = (ADDRESS) prog->iregcnt++;
+        destaddr.addr.iregnum = prog->iregcnt++;
         dapush(prog->ops, ct_3ac_op2(NEG_I, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       }
       return destaddr;
@@ -166,10 +172,10 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       destaddr.addr_type = curaddr.addr_type & ~ISCONST;
       if(destaddr.addr_type & ISFLOAT) {
-        destaddr.addr = (ADDRESS) prog->fregcnt++;
+        destaddr.addr.fregnum = prog->fregcnt++;
         dapush(prog->ops, ct_3ac_op2(NOT_F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       } else {
-        destaddr.addr = (ADDRESS) prog->iregcnt++;
+        destaddr.addr.iregnum = prog->iregcnt++;
         dapush(prog->ops, ct_3ac_op2(NOT_U, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       }
       return destaddr;
@@ -220,7 +226,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case SZOFEXPR:
       //TODO: handle structs properly
       curaddr = linearitree(daget(cexpr->params, 0), prog);
-      destaddr.addr = (ADDRESS) (curaddr.addr_type & 0x7fL);
+      destaddr.addr.uintconst_64 = curaddr.addr_type & 0x7fL;
       destaddr.addr_type = ISCONST;
       return destaddr;
     case CAST:
@@ -230,7 +236,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         //move to unsigned int reg, make 64 bit, anything else?
       } else if(cexpr->vartype->tb & INT) {
         destaddr.addr_type = (cexpr->vartype->tb & 0x7f) | ISSIGNED;
-        destaddr.addr = (ADDRESS) prog->iregcnt++;
+        destaddr.addr.iregnum = prog->iregcnt++;
         if(curaddr.addr_type & !(ISFLOAT | ISLABEL | ISSTRCONST | 0x7f)) {
           dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         } else if(curaddr.addr_type & ISFLOAT) {
@@ -241,7 +247,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         return destaddr;
       } else if(cexpr->vartype->tb & UINT) {
         destaddr.addr_type = cexpr->vartype->tb & 0x7f;
-        destaddr.addr = (ADDRESS) prog->iregcnt++;
+        destaddr.addr.iregnum = prog->iregcnt++;
         if(curaddr.addr_type & !(ISFLOAT | ISLABEL | ISSTRCONST | 0x7f)) {
           dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         } else if(curaddr.addr_type & ISFLOAT) {
@@ -252,7 +258,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         return destaddr;
       } else if(cexpr->vartype->tb & FLOAT) {
         destaddr.addr_type = (cexpr->vartype->tb & 0x7f) | ISSIGNED | ISFLOAT;
-        destaddr.addr = (ADDRESS) prog->fregcnt++;
+        destaddr.addr.fregnum = prog->fregcnt++;
         if(curaddr.addr_type & !(ISFLOAT | ISLABEL | ISSTRCONST | 0x7f)) {
           dapush(prog->ops, ct_3ac_op2(INT_TO_FLOAT, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         } else if(curaddr.addr_type & ISFLOAT) {
@@ -263,7 +269,42 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         return destaddr;
       }
       break;
-    case TERNARY:
+    case TERNARY: ;
+      //do more checking of other 
+      char* afteriflbl = proglabel(prog);
+      char* afterelselbl = proglabel(prog);
+      dapush(prog->ops, cmptype(daget(cexpr->params, 0), afteriflbl, 1, prog));
+      curaddr = linearitree(daget(cexpr->params, 1), prog);
+      OPERATION* fixlater = ct_3ac_op0(NOP_3);
+      dapush(prog->ops, fixlater);
+      dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, (ADDRESS) afterelselbl));
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) afteriflbl));
+      otheraddr = linearitree(daget(cexpr->params, 2), prog);
+      if(curaddr.addr_type & ISFLOAT) {
+        if((otheraddr.addr_type & ISFLOAT) && ((curaddr.addr_type & 0x7f) < (otheraddr.addr_type & 0x7f)))
+          destaddr.addr_type = (otheraddr.addr_type & 0x7f);
+        else
+          destaddr.addr_type = (curaddr.addr_type & 0x7f);
+        destaddr.addr_type |= ISFLOAT | ISSIGNED;
+        destaddr.addr.fregnum = prog->fregcnt++;
+      } else if(otheraddr.addr_type & ISFLOAT) {
+        destaddr.addr_type = ISFLOAT | ISSIGNED | (otheraddr.addr_type & 0x7f);
+        destaddr.addr.fregnum = prog->fregcnt++;
+      } else {
+        if((curaddr.addr_type & 0x7f) < (otheraddr.addr_type & 0x7f))
+          destaddr.addr_type = otheraddr.addr_type & 0x7f;
+        else
+          destaddr.addr_type = otheraddr.addr_type & 0x7f;
+        destaddr.addr_type |= (curaddr.addr_type & otheraddr.addr_type & ISSIGNED);
+        destaddr.addr.iregnum = prog->iregcnt++;
+      }
+      destaddr.addr = curaddr.addr;
+      *fixlater = *ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr);
+      dapush(prog->ops, ct_3ac_op2(MOV_3, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) afterelselbl));
+      return destaddr;
+      //confirm 2 addrs have same type or are coercible
+
     case ASSIGN: case PREINC: case PREDEC: case POSTINC: case POSTDEC:
     case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
     case XORASSIGN: case ORASSIGN: case DIVASSIGN: case MULTASSIGN: case MODASSIGN:
@@ -293,7 +334,7 @@ OPERATION* cmptype(EXPRESSION* cmpexpr, char* addr2jmp, char negate, PROGRAM* pr
     case EQ: case NEQ: case GT: case LT: case GTE: case LTE:
       dest_op = cmpret_binary_3(cmp_osite(cmpexpr->type, negate), cmpexpr, prog);//figure out signedness here or elsewhere
       dest_op->dest_type = ISLABEL;
-      dest_op->dest = (ADDRESS) addr2jmp;
+      dest_op->dest.labelname = addr2jmp;
       return dest_op;
     case L_NOT:
       destaddr = linearitree(daget(cmpexpr->params, 0), prog);
