@@ -8,8 +8,8 @@
   X(MULT_U), X(MULT_I), X(MULT_F), \
   X(DIV_U), X(DIV_I), X(DIV_F), \
   X(MOD_U), X(MOD_I), \
-  X(SHL_U), X(SHR_U), \
-  X(SHL_I), X(SHR_I), \
+  X(SHL_U), X(SHL_I), \
+  X(SHR_U), X(SHR_I), \
   X(AND_U), X(AND_F), \
   X(OR_U), X(OR_F), \
   X(XOR_U), X(XOR_F), \
@@ -112,6 +112,7 @@ OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
                       ADDRTYPE addr1_type, ADDRESS addr1, PROGRAM* prog);
 OPERATION* implicit_nary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
 OPERATION* cmpret_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
+OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
 
 inline char* proglabel(PROGRAM* prog) {
   char* c = malloc(8);
@@ -126,66 +127,6 @@ inline FULLADDR op2ret(DYNARR* da, OPERATION* op) {
   dapush(da, op);
   FULLADDR fa = {op->dest_type, op->dest};
   return fa;
-}
-inline enum opcode_3ac op_posite(enum opcode_3ac opc) {
-  switch(opc) {
-    case ADD_U: case ADD_I: case ADD_F:
-      return opc + 3;
-    case SUB_U: case SUB_I: case SUB_F:
-      return opc - 3;
-    case MULT_U: case MULT_I: case MULT_F:
-      return opc + 3;
-    case DIV_U: case DIV_I: case DIV_F:
-      return opc - 3;
-    case SHL_U: case SHR_U:
-      return opc + 3;
-    case SHL_I: case SHR_I:
-      return opc - 3;
-    case INC_U: case INC_I: case INC_F:
-      return opc + 3;
-    case DEC_U: case DEC_I: case DEC_F:
-      return opc - 3;
-    case ADDR_U: case ADDR_I: case ADDR_F:
-      return MOV_FROM_PTR;
-    case EQ_U: case EQ_I: case EQ_F:
-      return opc + 3;
-    case NE_U: case NE_I: case NE_F:
-      return opc - 3;
-    case GE_U: case GE_I: case GE_F:
-      return opc + 3;
-    case LE_U: case LE_I: case LE_F:
-      return opc - 3;
-    case GT_U: case GT_I: case GT_F:
-      return opc + 3;
-    case LT_U: case LT_I: case LT_F:
-      return opc - 3;
-    case BEQ_U: case BEQ_I: case BEQ_F:
-      return opc + 3;
-    case BNE_U: case BNE_I: case BNE_F:
-      return opc - 3;
-    case BGE_U: case BGE_I: case BGE_F:
-      return opc + 9;
-    case BLE_U: case BLE_I: case BLE_F:
-      return opc + 3;
-    case BGT_U: case BGT_I: case BGT_F:
-      return opc - 3;
-    case BLT_U: case BLT_I: case BLT_F:
-      return opc - 9;
-    case BNZ_3:
-      return BEZ_3;
-    case BEZ_3:
-      return BNZ_3;
-    case MOV_TO_PTR: 
-      return MOV_FROM_PTR;
-    case MOV_FROM_PTR:
-      return MOV_TO_PTR;
-    case FLOAT_TO_INT:
-      return INT_TO_FLOAT;
-    case INT_TO_FLOAT:
-      return FLOAT_TO_INT;
-    default:
-      return NOP_3;
-  }
 }
 inline enum opcode_3ac cmp_osite(EXPRTYPE coptype, char negate) {
   switch(coptype) {

@@ -105,9 +105,25 @@ OPERATION* cmpret_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, P
   FULLADDR otheraddr = linearitree(daget(cexpr->params, 1), prog);
   OPERATION* retop = implicit_3ac_3(opcode_unsigned, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog);
   if(retop->dest_type & ISFLOAT) {
-    //Force return type to be int
+    retop->dest_type = curaddr.addr_type & 0x7f;
+    if(retop->dest_type < (otheraddr.addr_type & 0x7f)) {
+      retop->dest_type = otheraddr.addr_type & 0x7f;
+    }
+    retop->dest_type |= curaddr.addr_type & otheraddr.addr_type & ISSIGNED;
+    //free up float register???
+    retop->dest = (ADDRESS) prog->iregcnt++;
   }
   return retop;
+}
+
+OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog) {
+  FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
+  FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog);
+  //check for no floats?
+  enum opcode_3ac shlop = opcode_unsigned + (a1.addr_type & ISSIGNED ? 1 : 0);
+  ADDRESS adr;
+  adr.iregnum = prog->iregcnt++;
+  return ct_3ac_op3(shlop, a1.addr_type, a1.addr, a2.addr_type, a2.addr, a1.addr_type, adr);
 }
 
 //returns destination for use in calling function
@@ -187,8 +203,12 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       otheraddr = linearitree(daget(cexpr->params, 1), prog);
       return op2ret(prog->ops, implicit_3ac_3(MOD_U, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog));
-    case L_AND: case L_OR: case B_AND: case B_OR: case B_XOR: case SHL: case SHR:
+    case L_AND: case L_OR: case B_AND: case B_OR: case B_XOR:
 
+    case SHL:
+      return op2ret(prog->ops, binshift_3(SHL_U, cexpr, prog));
+    case SHR:
+      return op2ret(prog->ops, binshift_3(SHR_U, cexpr, prog));
     case COMMA:
       for(int i = 0; i < cexpr->params->length - 1; i++) {
         linearitree(daget(cexpr->params, i), prog);
