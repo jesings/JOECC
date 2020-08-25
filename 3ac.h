@@ -109,8 +109,10 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog);
 OPERATION* cmptype(EXPRESSION* cmpexpr, char* addr2jmp, char negate, PROGRAM* prog);
 void solidstate(STATEMENT* cst, PROGRAM* prog);
 OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
-                      ADDRTYPE addr1_type, ADDRESS addr1, PROGRAM* prog);
+                          ADDRTYPE addr1_type, ADDRESS addr1, PROGRAM* prog);
 OPERATION* implicit_nary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
+FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, 
+                                 ADDRESS complete_val, ADDRESS shortcircuit_val, PROGRAM* prog);
 OPERATION* cmpret_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
 OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
 

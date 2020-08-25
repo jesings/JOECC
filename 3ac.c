@@ -99,11 +99,31 @@ OPERATION* implicit_nary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, P
   FULLADDR prevaddr = linearitree(daget(cexpr->params, 0), prog);
   OPERATION* cur_op;
   for(int i = 1; i < cexpr->params->length; i++) {
-    FULLADDR secondaddr = linearitree(daget(cexpr->params, 1), prog);
+    FULLADDR secondaddr = linearitree(daget(cexpr->params, i), prog);
+    dapush(prog->ops, cur_op);
     cur_op = implicit_3ac_3(opcode_unsigned, prevaddr.addr_type, prevaddr.addr, secondaddr.addr_type, secondaddr.addr, prog);
     prevaddr = op2addr(cur_op);
   }
   return cur_op;
+}
+
+FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, ADDRESS complete_val, ADDRESS shortcircuit_val, PROGRAM* prog) {
+  ADDRESS doneaddr, afterdoneaddr;
+  doneaddr.labelname = proglabel(prog);
+  afterdoneaddr.labelname = proglabel(prog);
+  for(int i = 0; i < cexpr->params->length; i++) {
+    FULLADDR addr2use = linearitree(daget(cexpr->params, i), prog);
+    dapush(prog->ops, ct_3ac_op2(op_to_cmp, addr2use.addr_type, addr2use.addr, ISLABEL | ISCONST, doneaddr));
+  }
+  FULLADDR destaddr;
+  destaddr.addr_type = 0;
+  destaddr.addr.iregnum = prog->iregcnt++;//TODO: maybe make it signed?
+  dapush(prog->ops, ct_3ac_op2(MOV_3, ISCONST, complete_val, destaddr.addr_type, destaddr.addr));
+  dapush(prog->ops, ct_3ac_op1(JMP_3, ISLABEL | ISCONST, afterdoneaddr));
+  dapush(prog->ops, ct_3ac_op1(LBL_3, ISLABEL | ISCONST, doneaddr));
+  dapush(prog->ops, ct_3ac_op2(MOV_3, ISCONST, shortcircuit_val, destaddr.addr_type, destaddr.addr));
+  dapush(prog->ops, ct_3ac_op1(LBL_3, ISLABEL | ISCONST, afterdoneaddr));
+  return destaddr;
 }
 
 OPERATION* cmpret_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog) {
@@ -135,6 +155,8 @@ OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRA
 //returns destination for use in calling function
 FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR curaddr, otheraddr, destaddr;
+  ADDRESS initlbl, scndlbl;
+
   switch(cexpr->type){
     case STRING: ;
       curaddr.addr_type = ISCONST | ISSTRCONST;
@@ -209,7 +231,13 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       otheraddr = linearitree(daget(cexpr->params, 1), prog);
       return op2ret(prog->ops, implicit_3ac_3(MOD_U, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog));
-    case L_AND: case L_OR: case B_AND: case B_OR: case B_XOR:
+
+    case L_AND:
+      return implicit_shortcircuit_3(BEZ_3, cexpr, (ADDRESS) 1ul, (ADDRESS) 0ul, prog);
+    case L_OR:
+      return implicit_shortcircuit_3(BNZ_3, cexpr, (ADDRESS) 0ul, (ADDRESS) 1ul, prog);
+
+    case B_AND: case B_OR: case B_XOR:
 
     case SHL:
       return op2ret(prog->ops, binshift_3(SHL_U, cexpr, prog));
@@ -269,16 +297,16 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         return destaddr;
       }
       break;
-    case TERNARY: ;
+    case TERNARY:
       //do more checking of other 
-      char* afteriflbl = proglabel(prog);
-      char* afterelselbl = proglabel(prog);
-      dapush(prog->ops, cmptype(daget(cexpr->params, 0), afteriflbl, 1, prog));
+      initlbl.labelname = proglabel(prog);
+      scndlbl.labelname = proglabel(prog);
+      dapush(prog->ops, cmptype(daget(cexpr->params, 0), initlbl.labelname, 1, prog));
       curaddr = linearitree(daget(cexpr->params, 1), prog);
       OPERATION* fixlater = ct_3ac_op0(NOP_3);
       dapush(prog->ops, fixlater);
-      dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, (ADDRESS) afterelselbl));
-      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) afteriflbl));
+      dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, scndlbl));
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, initlbl));
       otheraddr = linearitree(daget(cexpr->params, 2), prog);
       if(curaddr.addr_type & ISFLOAT) {
         if((otheraddr.addr_type & ISFLOAT) && ((curaddr.addr_type & 0x7f) < (otheraddr.addr_type & 0x7f)))
@@ -301,7 +329,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       destaddr.addr = curaddr.addr;
       *fixlater = *ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr);
       dapush(prog->ops, ct_3ac_op2(MOV_3, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
-      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) afterelselbl));
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) scndlbl));
       return destaddr;
       //confirm 2 addrs have same type or are coercible
 
@@ -348,6 +376,7 @@ OPERATION* cmptype(EXPRESSION* cmpexpr, char* addr2jmp, char negate, PROGRAM* pr
 //store some state about enclosing switch statement and its labeltable (how to represent?), about enclosing loop as well (for continue)
 void solidstate(STATEMENT* cst, PROGRAM* prog) {
   FULLADDR ret_op;
+  ADDRESS contlabel, brklabel;
   switch(cst->type){
     case FRET:
       ret_op = linearitree(cst->expression, prog);
@@ -362,54 +391,50 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
     case JGOTO:
       dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, (ADDRESS) cst->glabel));
       return;
-    case WHILEL: {
-      char* contlabel = proglabel(prog);
-      char* brklabel = proglabel(prog);
-      dapush(prog->continuelabels, contlabel);
-      dapush(prog->breaklabels, brklabel);
-      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) contlabel));
-      dapush(prog->ops, cmptype(cst->cond, brklabel, 1, prog));
+    case WHILEL:
+      contlabel.labelname = proglabel(prog);
+      brklabel.labelname = proglabel(prog);
+      dapush(prog->continuelabels, contlabel.labelname);
+      dapush(prog->breaklabels, brklabel.labelname);
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, contlabel));
+      dapush(prog->ops, cmptype(cst->cond, brklabel.labelname, 1, prog));
       solidstate(cst->body, prog);
-      dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, (ADDRESS) contlabel));
-      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) brklabel));
+      dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, contlabel));
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, brklabel));
       dapop(prog->continuelabels);
       dapop(prog->breaklabels);
       return;
-      }
-    case DOWHILEL: {
-      char* contlabel = proglabel(prog);
-      char* brklabel = proglabel(prog);
-      dapush(prog->continuelabels, contlabel);
-      dapush(prog->breaklabels, brklabel);
-      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) contlabel));
+    case DOWHILEL:
+      contlabel.labelname = proglabel(prog);
+      brklabel.labelname = proglabel(prog);
+      dapush(prog->continuelabels, contlabel.labelname);
+      dapush(prog->breaklabels, brklabel.labelname);
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, contlabel));
       solidstate(cst->body, prog);
       linearitree(cst->cond, prog);
-      dapush(prog->ops, cmptype(cst->cond, contlabel, 0, prog));
-      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) brklabel));
+      dapush(prog->ops, cmptype(cst->cond, contlabel.labelname, 0, prog));
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, brklabel));
       dapop(prog->continuelabels);
       dapop(prog->breaklabels);
       return;
-      }
-    case IFS: {
+    case IFS:
       linearitree(cst->ifcond, prog);
-      char* afteriflbl = proglabel(prog);
-      dapush(prog->ops, cmptype(cst->cond, afteriflbl, 1, prog));
+      brklabel.labelname = proglabel(prog);
+      dapush(prog->ops, cmptype(cst->cond, brklabel.labelname, 1, prog));
       solidstate(cst->thencond, prog);
-      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) afteriflbl));
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, brklabel));
       return;
-      }
-    case IFELSES: {
+    case IFELSES:
       linearitree(cst->ifcond, prog);
-      char* afteriflbl = proglabel(prog);
-      char* afterelselbl = proglabel(prog);
-      dapush(prog->ops, cmptype(cst->cond, afteriflbl, 1, prog));
+      contlabel.labelname = proglabel(prog);
+      brklabel.labelname = proglabel(prog);
+      dapush(prog->ops, cmptype(cst->cond, contlabel.labelname, 1, prog));
       solidstate(cst->thencond, prog);
-      dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, (ADDRESS) afterelselbl));
-      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) afteriflbl));
+      dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, brklabel));
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, contlabel));
       solidstate(cst->elsecond, prog);
-      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) afterelselbl));
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, brklabel));
       return;
-      }
     case SWITCH:
       //TODO: figure out how to represent switch stmt!!! Either jump table or multiple ifs w/ goto but how to decide and how to represent jump table-- put switch and hash in data?
       break;
