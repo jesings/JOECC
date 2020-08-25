@@ -43,22 +43,29 @@ OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
   ADDRTYPE retaddr_type;
   char opmod;
 
-  if((addr0_type & ISFLOAT) && !(addr1_type & ISFLOAT)) {
-    if(addr1_type & ISCONST) {
-      if(addr1_type & ISSIGNED) {
-        addr1.floatconst_64 = (float) addr1.intconst_64;
+  if((addr0_type & ISFLOAT)) {
+    if(!(addr1_type & ISFLOAT)) {
+      if(addr1_type & ISCONST) {
+        if(addr1_type & ISSIGNED) {
+          addr1.floatconst_64 = (float) addr1.intconst_64;
+        } else {
+          addr1.floatconst_64 = (float) addr1.uintconst_64;
+        }
       } else {
-        addr1.floatconst_64 = (float) addr1.uintconst_64;
+        ADDRESS tmpaddr;
+        tmpaddr.fregnum = prog->fregcnt++;
+        dapush(prog->ops, ct_3ac_op2(INT_TO_FLOAT, addr1_type, addr1, addr1_type | ISFLOAT | ISSIGNED, tmpaddr));
+        addr1 = tmpaddr;
       }
+      addr1_type |= ISFLOAT | ISSIGNED; 
+      retaddr_type = addr0_type;
     } else {
-      ADDRESS tmpaddr;
-      tmpaddr.fregnum = prog->fregcnt++;
-      dapush(prog->ops, ct_3ac_op2(INT_TO_FLOAT, addr1_type, addr1, addr1_type | ISFLOAT | ISSIGNED, tmpaddr));
-      addr1 = tmpaddr;
+      retaddr_type = addr0_type & 0x7f;
+      if(addr1_type & (0x7f > retaddr_type))
+        retaddr_type= addr1_type & 0x7f;
+      retaddr_type |= ISFLOAT | ISSIGNED; 
     }
-    addr1_type |= ISFLOAT | ISSIGNED; 
     opmod = 2;
-    retaddr_type = addr0_type;
   } else if (!(addr0_type & ISFLOAT) && (addr1_type & ISFLOAT)) {
     if(addr0_type & ISCONST) {
       if(addr1_type & ISSIGNED) {
@@ -88,7 +95,40 @@ OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
       retaddr_type= addr1_type & 0x7f;
   }
   ADDRESS retaddr;
-  if(opmod == 2) 
+  if(retaddr_type & ISFLOAT) 
+    retaddr.fregnum = prog->fregcnt++;
+  else
+    retaddr.iregnum = prog->iregcnt++;
+  return ct_3ac_op3(opcode_unsigned + opmod, addr0_type, addr0, addr1_type, addr1, retaddr_type, retaddr);
+}
+
+OPERATION* nocoerce_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
+                          ADDRTYPE addr1_type, ADDRESS addr1, PROGRAM* prog) {
+  ADDRTYPE retaddr_type;
+  char opmod;
+
+  if((addr0_type & ISFLOAT) && (addr1_type & ISFLOAT)) {
+    opmod = 1;
+    retaddr_type = addr0_type & 0x7f;
+    if(addr1_type & (0x7f > retaddr_type))
+      retaddr_type = addr1_type & 0x7f;
+    retaddr_type |= ISFLOAT | ISSIGNED;
+  } else if((addr0_type & ISFLOAT) || (addr1_type & ISFLOAT)) {
+    //TODO: error
+  } else if ((addr0_type & ISSIGNED) || (addr1_type & ISSIGNED)) {
+    opmod = 0;
+    retaddr_type = addr0_type & 0x7f;
+    if(addr1_type & (0x7f > retaddr_type))
+      retaddr_type = addr1_type & 0x7f;
+    retaddr_type |= ISSIGNED;
+  } else {
+    opmod = 0;
+    retaddr_type = addr0_type & 0x7f;
+    if(addr1_type & (0x7f > retaddr_type))
+      retaddr_type= addr1_type & 0x7f;
+  }
+  ADDRESS retaddr;
+  if(retaddr_type & ISFLOAT) 
     retaddr.fregnum = prog->fregcnt++;
   else
     retaddr.iregnum = prog->iregcnt++;
@@ -102,6 +142,18 @@ OPERATION* implicit_nary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, P
     FULLADDR secondaddr = linearitree(daget(cexpr->params, i), prog);
     dapush(prog->ops, cur_op);
     cur_op = implicit_3ac_3(opcode_unsigned, prevaddr.addr_type, prevaddr.addr, secondaddr.addr_type, secondaddr.addr, prog);
+    prevaddr = op2addr(cur_op);
+  }
+  return cur_op;
+}
+
+OPERATION* nocoerce_nary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog) {
+  FULLADDR prevaddr = linearitree(daget(cexpr->params, 0), prog);
+  OPERATION* cur_op;
+  for(int i = 1; i < cexpr->params->length; i++) {
+    FULLADDR secondaddr = linearitree(daget(cexpr->params, i), prog);
+    dapush(prog->ops, cur_op);
+    cur_op = nocoerce_3ac_3(opcode_unsigned, prevaddr.addr_type, prevaddr.addr, secondaddr.addr_type, secondaddr.addr, prog);
     prevaddr = op2addr(cur_op);
   }
   return cur_op;
@@ -237,7 +289,12 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case L_OR:
       return implicit_shortcircuit_3(BNZ_3, cexpr, (ADDRESS) 0ul, (ADDRESS) 1ul, prog);
 
-    case B_AND: case B_OR: case B_XOR:
+    case B_AND:
+      return op2ret(prog->ops, implicit_nary_3(AND_U, cexpr, prog));
+    case B_OR:
+      return op2ret(prog->ops, implicit_nary_3(OR_U, cexpr, prog));
+    case B_XOR:
+      return op2ret(prog->ops, implicit_nary_3(XOR_U, cexpr, prog));
 
     case SHL:
       return op2ret(prog->ops, binshift_3(SHL_U, cexpr, prog));
