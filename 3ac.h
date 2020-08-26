@@ -17,7 +17,7 @@
   X(INC_U), X(INC_I), X(INC_F), \
   X(DEC_U), X(DEC_I), X(DEC_F), \
   X(NEG_I), X(NEG_F), \
-  X(ADDR_U), X(ADDR_I), X(ADDR_F), \
+  X(ADDR_U), X(ADDR_I), X(ADDR_F), /*not sure if I is needed*/\
   X(EQ_U), X(EQ_I), X(EQ_F), \
   X(NE_U), X(NE_I), X(NE_F), \
   X(GE_U), X(GE_I), X(GE_F), \
@@ -52,6 +52,8 @@ const char* opcode_3ac_names[] = {
 };
 #undef X
 
+struct ptaddress;
+
 typedef union {
   unsigned long iregnum; //integer register
   unsigned long fregnum; //floating point register
@@ -61,6 +63,7 @@ typedef union {
   char* strconst;
   unsigned long* arrayconst;
   char* labelname;
+  struct ptaddress* ptaddr;
 } ADDRESS;
 
 //Extra information for SSA?
@@ -71,9 +74,17 @@ typedef enum {
   ISSIGNED = 0x80, //if not set it's an unsigned int
   ISFLOAT = 0x100, //if not set it's an int
   ISLABEL = 0x200, //if not set it's not a label
-  ISSTRCONST = 0x300, //if not set it's not a string
+  ISSTRCONST = 0x400, //if not set it's not a string
+  ISPOINTER = 0x800, //needs regnum and pointer type?
   //array constants not handled yet
 } ADDRTYPE;
+
+typedef struct ptaddress {
+  unsigned long iregnum; //integer register
+  int pointersize;
+  int pointerdepth;
+  ADDRTYPE adt;
+} POINTADDR;
 
 typedef struct {
   enum opcode_3ac opcode;

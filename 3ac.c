@@ -254,6 +254,25 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       }
       return destaddr;
     case ADDR:
+      curaddr = linearitree(daget(cexpr->params, 0), prog);
+      destaddr.addr_type = ISPOINTER;
+      destaddr.addr.ptaddr = malloc(sizeof(POINTADDR));
+      if (curaddr.addr_type & ISPOINTER) {
+        destaddr.addr.ptaddr->pointerdepth = curaddr.addr.ptaddr->pointerdepth + 1;
+        destaddr.addr.ptaddr->adt = curaddr.addr.ptaddr->adt;
+        destaddr.addr.ptaddr->pointersize = curaddr.addr.ptaddr->pointersize;
+      } else {
+        destaddr.addr.ptaddr->pointerdepth = 1;
+        destaddr.addr.ptaddr->adt = curaddr.addr_type & ~ISCONST;
+        destaddr.addr.ptaddr->pointersize = curaddr.addr_type & 0x7f;
+      }
+      destaddr.addr.ptaddr->iregnum = prog->iregcnt++;
+      if(destaddr.addr_type & ISFLOAT) {
+        dapush(prog->ops, ct_3ac_op2(ADDR_F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+      } else {
+        dapush(prog->ops, ct_3ac_op2(ADDR_U, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+      }
+      return destaddr;
     case DEREF: //Turn deref of addition, subtraction, into array index?
       break;
 
