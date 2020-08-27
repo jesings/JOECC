@@ -38,6 +38,25 @@ OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
   return retval;
 }
 
+ADDRTYPE conv_type_type(IDTYPE* idt) {
+  if(idt->pointerstack && idt->pointerstack->length) {
+    return 64 | ISPOINTER;
+  }
+  if(idt->tb & ENUMVAL) {
+    return 64 | ISSIGNED;
+  }
+  if(idt->tb & (STRUCTVAL | UNIONVAL)) {
+    return 64 | ISSTRUCT;
+  }
+  if(idt->tb & FLOATNUM) {
+    return (idt->tb & 0x7f) | ISSIGNED | ISFLOAT;
+  }
+  if(idt->tb & UNSIGNEDNUM) {
+    return (idt->tb & 0x7f);
+  }
+  return (idt->tb & 0x7f) | ISSIGNED;
+}
+
 OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
                       ADDRTYPE addr1_type, ADDRESS addr1, PROGRAM* prog) {
   ADDRTYPE retaddr_type;
@@ -303,7 +322,6 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       }
       dapush(prog->ops, ct_3ac_op2(MOV_FROM_PTR, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       return destaddr;
-      break;
 
     case ADD:
       return op2ret(prog->ops, implicit_nary_3(ADD_U, cexpr, prog));
