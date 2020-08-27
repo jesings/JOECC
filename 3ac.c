@@ -3,6 +3,11 @@
 #include "compintern.h"
 #include "3ac.h"
 //TODO: For loops with continue don't work I think
+#define X(s) #s
+const char* opcode_3ac_names[] = {
+  OPS_3AC
+};
+#undef X
 
 OPERATION* ct_3ac_op0(enum opcode_3ac opcode) {
   OPERATION* retval = malloc(sizeof(OPERATION));
@@ -577,4 +582,54 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       break; //should never see case or default
   }
   fprintf(stderr, "Error: reduction of statement to 3 address code failed\n");
+}
+
+void printprog(PROGRAM* prog) {
+  DYNARR* pd = prog->ops;
+  for(int i = 0; i < pd->length; i++) {
+    OPERATION* op = daget(pd, i);
+    printf("%s", opcode_3ac_names[op->opcode]);
+    switch(op->opcode) {
+      case NOP_3: case LBL_3: 
+      case ADD_U: case ADD_I: case ADD_F: 
+      case SUB_U: case SUB_I: case SUB_F: 
+      case MULT_U: case MULT_I: case MULT_F: 
+      case DIV_U: case DIV_I: case DIV_F: 
+      case MOD_U: case MOD_I: 
+      case SHL_U: case SHL_I: 
+      case SHR_U: case SHR_I: 
+      case AND_U: case AND_F: 
+      case OR_U: case OR_F: 
+      case XOR_U: case XOR_F: 
+      case NOT_U: case NOT_F: 
+      case INC_U: case INC_I: case INC_F: 
+      case DEC_U: case DEC_I: case DEC_F: 
+      case NEG_I: case NEG_F: 
+      case ADDR_U: case ADDR_I: case ADDR_F: /*not sure if I is needed*/
+      case EQ_U: case EQ_I: case EQ_F: 
+      case NE_U: case NE_I: case NE_F: 
+      case GE_U: case GE_I: case GE_F: 
+      case LE_U: case LE_I: case LE_F: 
+      case GT_U: case GT_I: case GT_F: 
+      case LT_U: case LT_I: case LT_F: 
+      case BEQ_U: case BEQ_I: case BEQ_F: 
+      case BNE_U: case BNE_I: case BNE_F: 
+      case BGE_U: case BGE_I: case BGE_F: 
+      case BLE_U: case BLE_I: case BLE_F: 
+      case BGT_U: case BGT_I: case BGT_F: 
+      case BLT_U: case BLT_I: case BLT_F: 
+      case BNZ_3: case BEZ_3: 
+      case JMP_3: 
+      case MOV_3: 
+      case MOV_TO_PTR: case MOV_FROM_PTR: 
+      case PARAM_3:
+      case CALL_3: case RETURN_3: 
+      case FLOAT_TO_INT: case INT_TO_FLOAT: 
+      case ARRAY_INDEX:
+      case ARRAY_OFFSET: 
+      case INIT_3:
+        break;
+    }
+  }
+  return;
 }

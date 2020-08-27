@@ -46,11 +46,6 @@ enum opcode_3ac {
   OPS_3AC
 };
 #undef X
-#define X(s) #s
-const char* opcode_3ac_names[] = {
-  OPS_3AC
-};
-#undef X
 
 struct ptaddress;
 
@@ -131,6 +126,7 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr,
                                  ADDRESS complete_val, ADDRESS shortcircuit_val, PROGRAM* prog);
 OPERATION* cmpret_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
 OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
+void printprog(PROGRAM* prog);
 
 inline char* proglabel(PROGRAM* prog) {
   char* c = malloc(8);
