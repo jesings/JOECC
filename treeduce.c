@@ -97,7 +97,7 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
               *exa = subexpr; \
               return 1  
 
-#define CMPOP(OP)  do {\
+#define CMPOP(OP, CMPEQVAL)  do {\
       subexpr = EPARAM(ex, 0); \
       rectexpr = EPARAM(ex, 1); \
       switch(subexpr->type) { \
@@ -124,10 +124,23 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
               return 0; \
           } \
         default: \
+          switch(rectexpr->type) { \
+            case UINT: case INT: case FLOAT: \
+              return 0; \
+            default: \
+              if(puritree(subexpr) && treequals(subexpr, rectexpr)) { \
+                rfreexpr(subexpr); \
+                rfreexpr(rectexpr); \
+                dadtor(ex->params); \
+                ex->type = INT; \
+                ex->intconst = 0; \
+                return CMPEQVAL; \
+              } \
+          } \
           return 0; \
       } } while (0)
 
-#define CMPOP2(OP)  do {\
+#define CMPOP2(OP, CMPEQVAL)  do {\
       subexpr = EPARAM(ex, 0); \
       rectexpr = EPARAM(ex, 1); \
       switch(subexpr->type) { \
@@ -177,7 +190,20 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
           } \
           break; \
         default: \
-          return 0; \
+          switch(rectexpr->type) { \
+            case UINT: case INT: case FLOAT: \
+              return 0; \
+            default: \
+              if(puritree(subexpr) && treequals(subexpr, rectexpr)) { \
+                rfreexpr(subexpr); \
+                rfreexpr(rectexpr); \
+                dadtor(ex->params); \
+                ex->type = INT; \
+                ex->intconst = 0; \
+                return CMPEQVAL; \
+              } \
+              return 0; \
+          } \
       }\
       FREE2RET; \
     } while (0)
@@ -1234,22 +1260,22 @@ char foldconst(EXPRESSION** exa) {
       //adopt/flatten in subexprs, remove pure exprs except the last one
       //if impure call to pure function, extract out impure params, and eval those only????
     case EQ: //should be kept binary
-      CMPOP(==);
+      CMPOP(==, 1);
       return 1;
     case NEQ:
-      CMPOP(!=);
+      CMPOP(!=, 0);
       return 1;
     case GT: 
-      CMPOP2(>);
+      CMPOP2(>, 0);
       return 1;
     case LT:
-      CMPOP2(<);
+      CMPOP2(<, 0);
       return 1;
     case GTE: 
-      CMPOP2(>=);
+      CMPOP2(>=, 1);
       return 1;
     case LTE: 
-      CMPOP2(<=);
+      CMPOP2(<=, 0);
       return 1;
     case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case XORASSIGN: case ORASSIGN:  //0 is identity case 
     case ANDASSIGN: case MODASSIGN: //no identity case (for our purposes)
