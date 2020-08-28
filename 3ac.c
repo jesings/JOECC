@@ -584,34 +584,74 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
   fprintf(stderr, "Error: reduction of statement to 3 address code failed\n");
 }
 
+#define PRINTOP(op) do { \
+  } while(0);
+
+
 void printprog(PROGRAM* prog) {
   DYNARR* pd = prog->ops;
   for(int i = 0; i < pd->length; i++) {
     OPERATION* op = daget(pd, i);
     printf("%s", opcode_3ac_names[op->opcode]);
     switch(op->opcode) {
-      case NOP_3: case LBL_3: 
+      case NOP_3:
+        break;
+      case LBL_3: 
+        printf("%s", op->addr1.labelname);
+        break;
       case ADD_U: case ADD_I: case ADD_F: 
+        PRINTOP(+);
+        break;
       case SUB_U: case SUB_I: case SUB_F: 
+        PRINTOP(-);
+        break;
       case MULT_U: case MULT_I: case MULT_F: 
+        PRINTOP(*);
+        break;
       case DIV_U: case DIV_I: case DIV_F: 
+        PRINTOP(/);
+        break;
       case MOD_U: case MOD_I: 
+        PRINTOP(%);
+        break;
       case SHL_U: case SHL_I: 
+        PRINTOP(>>);
+        break;
       case SHR_U: case SHR_I: 
+        PRINTOP(<<);
+        break;
       case AND_U: case AND_F: 
+        PRINTOP(&);
+        break;
       case OR_U: case OR_F: 
+        PRINTOP(|);
+        break;
       case XOR_U: case XOR_F: 
+        PRINTOP(^);
+        break;
       case NOT_U: case NOT_F: 
       case INC_U: case INC_I: case INC_F: 
       case DEC_U: case DEC_I: case DEC_F: 
       case NEG_I: case NEG_F: 
       case ADDR_U: case ADDR_I: case ADDR_F: /*not sure if I is needed*/
       case EQ_U: case EQ_I: case EQ_F: 
+        PRINTOP(==);
+        break;
       case NE_U: case NE_I: case NE_F: 
+        PRINTOP(!=);
+        break;
       case GE_U: case GE_I: case GE_F: 
+        PRINTOP(>=);
+        break;
       case LE_U: case LE_I: case LE_F: 
+        PRINTOP(<=);
+        break;
       case GT_U: case GT_I: case GT_F: 
+        PRINTOP(>);
+        break;
       case LT_U: case LT_I: case LT_F: 
+        PRINTOP(<);
+        break;
       case BEQ_U: case BEQ_I: case BEQ_F: 
       case BNE_U: case BNE_I: case BNE_F: 
       case BGE_U: case BGE_I: case BGE_F: 
