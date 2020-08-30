@@ -84,18 +84,18 @@ OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
       }
       addr1_type |= ISFLOAT | ISSIGNED; 
       retaddr_type = addr0_type & ~ISCONST;
-      if(addr0 & ISCONST) {
+      if(addr0_type & ISCONST) {
         retaddr.fregnum = prog->fregcnt++;
       } else {
-        retaddr.fregnum = addr0;
+        retaddr = addr0;
       }
     } else {
       retaddr_type = addr0_type & 0x7f;
       if(addr1_type & (0x7f > retaddr_type))
         retaddr_type= addr1_type & 0x7f;
       retaddr_type |= ISFLOAT | ISSIGNED; 
-      if(addr0 & ISCONST) {
-        if(addr1 & INTCONST) {
+      if(addr0_type & ISCONST) {
+        if(addr1_type & ISCONST) {
           retaddr.fregnum = prog->fregcnt++;
         } else {
           retaddr.fregnum = addr1.fregnum;
@@ -121,10 +121,10 @@ OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
     addr0_type |= ISFLOAT | ISSIGNED; 
     opmod = 2;
     retaddr_type = addr1_type;
-    if(addr1 & ISCONST) {
+    if(addr1_type & ISCONST) {
       retaddr.fregnum = prog->fregcnt++;
     } else {
-      retaddr.fregnum = addr1;
+      retaddr = addr1;
     }
   } else if ((addr0_type & ISSIGNED) || (addr1_type & ISSIGNED)) {
     opmod = 1;
@@ -132,11 +132,11 @@ OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
     if(addr1_type & (0x7f > retaddr_type))
       retaddr_type = addr1_type & 0x7f;
     retaddr_type |= ISSIGNED;
-    if(addr0 & ISCONST) {
-      if(addr1 & INTCONST) {
+    if(addr0_type & ISCONST) {
+      if(addr1_type & ISCONST) {
         retaddr.iregnum = prog->iregcnt++;
       } else {
-        retaddr.iregnum = addr1.iregnum;
+        retaddr = addr1;
       }
     } else {
       retaddr.iregnum = addr0.iregnum;
@@ -146,11 +146,11 @@ OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
     retaddr_type = addr0_type & 0x7f;
     if(addr1_type & (0x7f > retaddr_type))
       retaddr_type= addr1_type & 0x7f;
-    if(addr0 & ISCONST) {
-      if(addr1 & INTCONST) {
+    if(addr0_type & ISCONST) {
+      if(addr1_type & ISCONST) {
         retaddr.iregnum = prog->iregcnt++;
       } else {
-        retaddr.iregnum = addr1.iregnum;
+        retaddr = addr1;
       }
     } else {
       retaddr.iregnum = addr0.iregnum;
@@ -171,8 +171,8 @@ OPERATION* nocoerce_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
     if(addr1_type & (0x7f > retaddr_type))
       retaddr_type = addr1_type & 0x7f;
     retaddr_type |= ISFLOAT | ISSIGNED;
-    if(addr0 & ISCONST) {
-      if(addr1 & INTCONST) {
+    if(addr0_type & ISCONST) {
+      if(addr1_type & ISCONST) {
         retaddr.fregnum = prog->fregcnt++;
       } else {
         retaddr.fregnum = addr1.fregnum;
@@ -188,11 +188,11 @@ OPERATION* nocoerce_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
     if(addr1_type & (0x7f > retaddr_type))
       retaddr_type = addr1_type & 0x7f;
     retaddr_type |= ISSIGNED;
-    if(addr0 & ISCONST) {
-      if(addr1 & INTCONST) {
+    if(addr0_type & ISCONST) {
+      if(addr1_type & ISCONST) {
         retaddr.iregnum = prog->iregcnt++;
       } else {
-        retaddr.iregnum = addr1.iregnum;
+        retaddr = addr1;
       }
     } else {
       retaddr.iregnum = addr0.iregnum;
@@ -202,8 +202,8 @@ OPERATION* nocoerce_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
     retaddr_type = addr0_type & 0x7f;
     if(addr1_type & (0x7f > retaddr_type))
       retaddr_type= addr1_type & 0x7f;
-    if(addr0 & ISCONST) {
-      if(addr1 & INTCONST) {
+    if(addr0_type & ISCONST) {
+      if(addr1_type & ISCONST) {
         retaddr.iregnum = prog->iregcnt++;
       } else {
         retaddr.iregnum = addr1.iregnum;
@@ -211,6 +211,7 @@ OPERATION* nocoerce_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
     } else {
       retaddr.iregnum = addr0.iregnum;
     }
+  }
   
   return ct_3ac_op3(opcode_unsigned + opmod, addr0_type, addr0, addr1_type, addr1, retaddr_type, retaddr);
 }
@@ -248,16 +249,17 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
     addr2use = linearitree(daget(cexpr->params, i), prog);
     dapush(prog->ops, ct_3ac_op2(op_to_cmp, addr2use.addr_type, addr2use.addr, ISLABEL | ISCONST, doneaddr));
   }
-  FULLADDR destaddr;
-  destaddr.addr_type = 1;//TODO: maybe make it signed?
+  if(addr2use.addr_type & ISCONST || addr2use.addr_type & ISFLOAT) {
+    addr2use.addr.iregnum = prog->iregcnt++; //do it more intelligently here
+  }
+  addr2use.addr_type = 1;//TODO: maybe make it signed?
   //perhaps we can make the last one a flat assignment rather than a jump and garbage?
-  //destaddr.addr.iregnum = prog->iregcnt++;
-  dapush(prog->ops, ct_3ac_op2(MOV_3, ISCONST, complete_val, destaddr.addr_type, destaddr.addr));
+  dapush(prog->ops, ct_3ac_op2(MOV_3, ISCONST, complete_val, addr2use.addr_type, addr2use.addr));
   dapush(prog->ops, ct_3ac_op1(JMP_3, ISLABEL | ISCONST, afterdoneaddr));
   dapush(prog->ops, ct_3ac_op1(LBL_3, ISLABEL | ISCONST, doneaddr));
-  dapush(prog->ops, ct_3ac_op2(MOV_3, ISCONST, shortcircuit_val, destaddr.addr_type, destaddr.addr));
+  dapush(prog->ops, ct_3ac_op2(MOV_3, ISCONST, shortcircuit_val, addr2use.addr_type, addr2use.addr));
   dapush(prog->ops, ct_3ac_op1(LBL_3, ISLABEL | ISCONST, afterdoneaddr));
-  return destaddr;
+  return addr2use;
 }
 
 OPERATION* cmpret_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog) {
@@ -270,8 +272,15 @@ OPERATION* cmpret_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, P
       retop->dest_type = otheraddr.addr_type & 0x7f;
     }
     retop->dest_type |= curaddr.addr_type & otheraddr.addr_type & ISSIGNED;
-    //free up float register???
-    retop->dest.iregnum = prog->iregcnt++;
+    if(curaddr.addr_type & ISFLOAT || curaddr.addr_type & ISCONST) {
+      if(otheraddr.addr_type & ISFLOAT || otheraddr.addr_type & ISCONST) {
+        retop->dest.iregnum = prog->iregcnt++;
+      } else {
+        retop->dest = otheraddr.addr;
+      }
+    } else {
+      retop->dest = curaddr.addr;
+    }
   }
   return retop;
 }
@@ -282,7 +291,15 @@ OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRA
   //check for no floats?
   enum opcode_3ac shlop = opcode_unsigned + (a1.addr_type & ISSIGNED ? 1 : 0);
   ADDRESS adr;
-  adr.iregnum = prog->iregcnt++;
+  if(a1.addr_type & ISCONST) {
+    if(a2.addr_type & ISCONST) {
+      adr.iregnum = prog->iregcnt++;
+    } else {
+      adr = a2.addr;
+    }
+  } else {
+    adr = a1.addr;
+  }
   return ct_3ac_op3(shlop, a1.addr_type, a1.addr, a2.addr_type, a2.addr, a1.addr_type, adr);
 }
 
