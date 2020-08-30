@@ -65,6 +65,7 @@ ADDRTYPE conv_type_type(IDTYPE* idt) {
 OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
                       ADDRTYPE addr1_type, ADDRESS addr1, PROGRAM* prog) {
   ADDRTYPE retaddr_type;
+  ADDRESS retaddr;
   char opmod;
 
   if((addr0_type & ISFLOAT)) {
@@ -82,15 +83,29 @@ OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
         addr1 = tmpaddr;
       }
       addr1_type |= ISFLOAT | ISSIGNED; 
-      retaddr_type = addr0_type;
+      retaddr_type = addr0_type & ~ISCONST;
+      if(addr0 & ISCONST) {
+        retaddr.fregnum = prog->fregcnt++;
+      } else {
+        retaddr.fregnum = addr0;
+      }
     } else {
       retaddr_type = addr0_type & 0x7f;
       if(addr1_type & (0x7f > retaddr_type))
         retaddr_type= addr1_type & 0x7f;
       retaddr_type |= ISFLOAT | ISSIGNED; 
+      if(addr0 & ISCONST) {
+        if(addr1 & INTCONST) {
+          retaddr.fregnum = prog->fregcnt++;
+        } else {
+          retaddr.fregnum = addr1.fregnum;
+        }
+      } else {
+        retaddr.fregnum = addr0.fregnum;
+      }
     }
     opmod = 2;
-  } else if (!(addr0_type & ISFLOAT) && (addr1_type & ISFLOAT)) {
+  } else if (addr1_type & ISFLOAT) {
     if(addr0_type & ISCONST) {
       if(addr1_type & ISSIGNED) {
         addr0.floatconst_64 = (float) addr0.intconst_64;
@@ -106,23 +121,41 @@ OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
     addr0_type |= ISFLOAT | ISSIGNED; 
     opmod = 2;
     retaddr_type = addr1_type;
+    if(addr1 & ISCONST) {
+      retaddr.fregnum = prog->fregcnt++;
+    } else {
+      retaddr.fregnum = addr1;
+    }
   } else if ((addr0_type & ISSIGNED) || (addr1_type & ISSIGNED)) {
     opmod = 1;
     retaddr_type = addr0_type & 0x7f;
     if(addr1_type & (0x7f > retaddr_type))
       retaddr_type = addr1_type & 0x7f;
     retaddr_type |= ISSIGNED;
+    if(addr0 & ISCONST) {
+      if(addr1 & INTCONST) {
+        retaddr.iregnum = prog->iregcnt++;
+      } else {
+        retaddr.iregnum = addr1.iregnum;
+      }
+    } else {
+      retaddr.iregnum = addr0.iregnum;
+    }
   } else {
     opmod = 0;
     retaddr_type = addr0_type & 0x7f;
     if(addr1_type & (0x7f > retaddr_type))
       retaddr_type= addr1_type & 0x7f;
+    if(addr0 & ISCONST) {
+      if(addr1 & INTCONST) {
+        retaddr.iregnum = prog->iregcnt++;
+      } else {
+        retaddr.iregnum = addr1.iregnum;
+      }
+    } else {
+      retaddr.iregnum = addr0.iregnum;
+    }
   }
-  ADDRESS retaddr;
-  if(retaddr_type & ISFLOAT) 
-    retaddr.fregnum = prog->fregcnt++;
-  else
-    retaddr.iregnum = prog->iregcnt++;
   return ct_3ac_op3(opcode_unsigned + opmod, addr0_type, addr0, addr1_type, addr1, retaddr_type, retaddr);
 }
 
@@ -130,6 +163,7 @@ OPERATION* nocoerce_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
                           ADDRTYPE addr1_type, ADDRESS addr1, PROGRAM* prog) {
   ADDRTYPE retaddr_type;
   char opmod;
+  ADDRESS retaddr;
 
   if((addr0_type & ISFLOAT) && (addr1_type & ISFLOAT)) {
     opmod = 1;
@@ -137,6 +171,15 @@ OPERATION* nocoerce_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
     if(addr1_type & (0x7f > retaddr_type))
       retaddr_type = addr1_type & 0x7f;
     retaddr_type |= ISFLOAT | ISSIGNED;
+    if(addr0 & ISCONST) {
+      if(addr1 & INTCONST) {
+        retaddr.fregnum = prog->fregcnt++;
+      } else {
+        retaddr.fregnum = addr1.fregnum;
+      }
+    } else {
+      retaddr.fregnum = addr0.fregnum;
+    }
   } else if((addr0_type & ISFLOAT) || (addr1_type & ISFLOAT)) {
     //TODO: error
   } else if ((addr0_type & ISSIGNED) || (addr1_type & ISSIGNED)) {
@@ -145,17 +188,30 @@ OPERATION* nocoerce_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
     if(addr1_type & (0x7f > retaddr_type))
       retaddr_type = addr1_type & 0x7f;
     retaddr_type |= ISSIGNED;
+    if(addr0 & ISCONST) {
+      if(addr1 & INTCONST) {
+        retaddr.iregnum = prog->iregcnt++;
+      } else {
+        retaddr.iregnum = addr1.iregnum;
+      }
+    } else {
+      retaddr.iregnum = addr0.iregnum;
+    }
   } else {
     opmod = 0;
     retaddr_type = addr0_type & 0x7f;
     if(addr1_type & (0x7f > retaddr_type))
       retaddr_type= addr1_type & 0x7f;
-  }
-  ADDRESS retaddr;
-  if(retaddr_type & ISFLOAT) 
-    retaddr.fregnum = prog->fregcnt++;
-  else
-    retaddr.iregnum = prog->iregcnt++;
+    if(addr0 & ISCONST) {
+      if(addr1 & INTCONST) {
+        retaddr.iregnum = prog->iregcnt++;
+      } else {
+        retaddr.iregnum = addr1.iregnum;
+      }
+    } else {
+      retaddr.iregnum = addr0.iregnum;
+    }
+  
   return ct_3ac_op3(opcode_unsigned + opmod, addr0_type, addr0, addr1_type, addr1, retaddr_type, retaddr);
 }
 
@@ -187,13 +243,15 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
   ADDRESS doneaddr, afterdoneaddr;
   doneaddr.labelname = proglabel(prog);
   afterdoneaddr.labelname = proglabel(prog);
+  FULLADDR addr2use;
   for(int i = 0; i < cexpr->params->length; i++) {
-    FULLADDR addr2use = linearitree(daget(cexpr->params, i), prog);
+    addr2use = linearitree(daget(cexpr->params, i), prog);
     dapush(prog->ops, ct_3ac_op2(op_to_cmp, addr2use.addr_type, addr2use.addr, ISLABEL | ISCONST, doneaddr));
   }
   FULLADDR destaddr;
-  destaddr.addr_type = 0;
-  destaddr.addr.iregnum = prog->iregcnt++;//TODO: maybe make it signed?
+  destaddr.addr_type = 1;//TODO: maybe make it signed?
+  //perhaps we can make the last one a flat assignment rather than a jump and garbage?
+  //destaddr.addr.iregnum = prog->iregcnt++;
   dapush(prog->ops, ct_3ac_op2(MOV_3, ISCONST, complete_val, destaddr.addr_type, destaddr.addr));
   dapush(prog->ops, ct_3ac_op1(JMP_3, ISLABEL | ISCONST, afterdoneaddr));
   dapush(prog->ops, ct_3ac_op1(LBL_3, ISLABEL | ISCONST, doneaddr));
