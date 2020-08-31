@@ -326,27 +326,27 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       curaddr.addr.floatconst_64 = cexpr->floatconst;
       return curaddr;
     case IDENT: {
-      IDTYPE* idt = cexpr->idi->type;
+      IDTYPE* idt = cexpr->id->type;
       if(idt->pointerstack && idt->pointerstack->length) {
         //logic to handle pointer
-      } else if(idt & (STRUCTVAL | UNIONVAL)) {
+      } else if(idt->tb & (STRUCTVAL | UNIONVAL)) {
         //maybe above shouldn't be else if
         //logic to handle struct/union--convert to pointer likely?
-      } else if(idt & FLOATNUM) {
+      } else if(idt->tb & FLOATNUM) {
         //logic to handle float
       } else {
-        !(idt & UNSIGNEDNUM);
+        //!(idt->tb & UNSIGNEDNUM);
         //logic to handle int, check if signed or not
       }
-      if(idt & (STATICNUM | EXTERNNUM)) {
+      if(idt->tb & (STATICNUM | EXTERNNUM)) {
         //logic to handle global (but doesn't handle globals directly? maybe move to index check)
         break;
-      } else if(idt & PARAMNUM){
+      } else if(idt->tb & PARAMNUM){
         //logic to handle params
       } else {
         //logic to handle standard variables
       }
-      if(cexpr->idi->index == -1) {
+      if(cexpr->id->index == -1) {
         //global
       }
       break;
@@ -684,8 +684,31 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
   fprintf(stderr, "Error: reduction of statement to 3 address code failed\n");
 }
 
-#define PRINTOP(op) do { \
-  } while(0);
+static void printaddr(ADDRESS addr, ADDRTYPE addr_type) {
+  if(addr_type & ISLABEL) {
+    printf("%s", addr.labelname);
+  } else if(addr_type & ISCONST) {
+    if(addr_type & ISSTRUCT) 
+      printf("WIP");
+    else if(addr_type & ISSTRCONST) 
+      printf("WIP");
+    else if(addr_type & ISFLOAT) 
+      printf("%lf", addr.floatconst_64);
+    else if(addr_type & ISSIGNED) 
+      printf("%ld", addr.intconst_64);
+    else
+      printf("%lu", addr.intconst_64);
+  } else {
+    if(addr_type & ISFLOAT) 
+      printf("freg%lu", addr.fregnum);
+    else if(addr_type & ISSIGNED) 
+      printf("ireg%lu", addr.iregnum);
+  }
+}
+
+#define PRINTOP(opsymb) do { \
+    printaddr(op->addr0, op->addr0_type); \
+  } while(0)
 
 
 void printprog(PROGRAM* prog) {
@@ -697,7 +720,7 @@ void printprog(PROGRAM* prog) {
       case NOP_3:
         break;
       case LBL_3: 
-        printf("%s", op->addr1.labelname);
+        printf("%s:", op->addr1.labelname);
         break;
       case ADD_U: case ADD_I: case ADD_F: 
         PRINTOP(+);
