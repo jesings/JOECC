@@ -325,7 +325,32 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       curaddr.addr_type = ISCONST | ISFLOAT | ISSIGNED | 0x40;
       curaddr.addr.floatconst_64 = cexpr->floatconst;
       return curaddr;
-    case IDENT: 
+    case IDENT: {
+      IDTYPE* idt = cexpr->idi->type;
+      if(idt->pointerstack && idt->pointerstack->length) {
+        //logic to handle pointer
+      } else if(idt & (STRUCTVAL | UNIONVAL)) {
+        //maybe above shouldn't be else if
+        //logic to handle struct/union--convert to pointer likely?
+      } else if(idt & FLOATNUM) {
+        //logic to handle float
+      } else {
+        !(idt & UNSIGNEDNUM);
+        //logic to handle int, check if signed or not
+      }
+      if(idt & (STATICNUM | EXTERNNUM)) {
+        //logic to handle global (but doesn't handle globals directly? maybe move to index check)
+        break;
+      } else if(idt & PARAMNUM){
+        //logic to handle params
+      } else {
+        //logic to handle standard variables
+      }
+      if(cexpr->idi->index == -1) {
+        //global
+      }
+      break;
+      }
     case ARRAY_LIT:
 
     case NEG:
