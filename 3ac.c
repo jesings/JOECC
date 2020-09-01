@@ -686,7 +686,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
 
 static void printaddr(ADDRESS addr, ADDRTYPE addr_type) {
   if(addr_type & ISLABEL) {
-    printf("%s", addr.labelname);
+    printf("<<%s>>", addr.labelname);
   } else if(addr_type & ISCONST) {
     if(addr_type & ISSTRUCT) 
       printf("WIP");
@@ -706,8 +706,23 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type) {
   }
 }
 
-#define PRINTOP(opsymb) do { \
+#define PRINTOP3(opsymb) do { \
+    printf("\t"); \
     printaddr(op->addr0, op->addr0_type); \
+    printf(" " #opsymb " "); \
+    printaddr(op->addr1, op->addr1_type); \
+    printf(" →  "); \
+    printaddr(op->dest, op->dest_type); \
+    printf("\n"); \
+  } while(0)
+
+#define PRINTOP2(opsymb) do { \
+    printf("\t"); \
+    printf(#opsymb " "); \
+    printaddr(op->addr0, op->addr0_type); \
+    printf(" →  "); \
+    printaddr(op->dest, op->dest_type); \
+    printf("\n"); \
   } while(0)
 
 
@@ -723,57 +738,67 @@ void printprog(PROGRAM* prog) {
         printf("%s:", op->addr1.labelname);
         break;
       case ADD_U: case ADD_I: case ADD_F: 
-        PRINTOP(+);
+        PRINTOP3(+);
         break;
       case SUB_U: case SUB_I: case SUB_F: 
-        PRINTOP(-);
+        PRINTOP3(-);
         break;
       case MULT_U: case MULT_I: case MULT_F: 
-        PRINTOP(*);
+        PRINTOP3(*);
         break;
       case DIV_U: case DIV_I: case DIV_F: 
-        PRINTOP(/);
+        PRINTOP3(/);
         break;
       case MOD_U: case MOD_I: 
-        PRINTOP(%);
+        PRINTOP3(%%);
         break;
       case SHL_U: case SHL_I: 
-        PRINTOP(>>);
+        PRINTOP3(>>);
         break;
       case SHR_U: case SHR_I: 
-        PRINTOP(<<);
+        PRINTOP3(<<);
         break;
       case AND_U: case AND_F: 
-        PRINTOP(&);
+        PRINTOP3(&);
         break;
       case OR_U: case OR_F: 
-        PRINTOP(|);
+        PRINTOP3(|);
         break;
       case XOR_U: case XOR_F: 
-        PRINTOP(^);
+        PRINTOP3(^);
         break;
       case NOT_U: case NOT_F: 
+        PRINTOP2(~);
+        break;
       case INC_U: case INC_I: case INC_F: 
+        PRINTOP2(++);
+        break;
       case DEC_U: case DEC_I: case DEC_F: 
+        PRINTOP2(--);
+        break;
       case NEG_I: case NEG_F: 
+        PRINTOP2(-);
+        break;
       case ADDR_U: case ADDR_I: case ADDR_F: /*not sure if I is needed*/
+        PRINTOP2(&);
+        break;
       case EQ_U: case EQ_I: case EQ_F: 
-        PRINTOP(==);
+        PRINTOP3(==);
         break;
       case NE_U: case NE_I: case NE_F: 
-        PRINTOP(!=);
+        PRINTOP3(!=);
         break;
       case GE_U: case GE_I: case GE_F: 
-        PRINTOP(>=);
+        PRINTOP3(>=);
         break;
       case LE_U: case LE_I: case LE_F: 
-        PRINTOP(<=);
+        PRINTOP3(<=);
         break;
       case GT_U: case GT_I: case GT_F: 
-        PRINTOP(>);
+        PRINTOP3(>);
         break;
       case LT_U: case LT_I: case LT_F: 
-        PRINTOP(<);
+        PRINTOP3(<);
         break;
       case BEQ_U: case BEQ_I: case BEQ_F: 
       case BNE_U: case BNE_I: case BNE_F: 
