@@ -713,7 +713,6 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type) {
     printaddr(op->addr1, op->addr1_type); \
     printf(" →  "); \
     printaddr(op->dest, op->dest_type); \
-    printf("\n"); \
   } while(0)
 
 #define PRINTOP2(opsymb) do { \
@@ -722,7 +721,11 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type) {
     printaddr(op->addr0, op->addr0_type); \
     printf(" →  "); \
     printaddr(op->dest, op->dest_type); \
-    printf("\n"); \
+  } while(0)
+
+#define PRINTOP1() do { \
+    printf("\t"); \
+    printaddr(op->addr0, op->addr0_type); \
   } while(0)
 
 
@@ -808,16 +811,26 @@ void printprog(PROGRAM* prog) {
       case BLT_U: case BLT_I: case BLT_F: 
       case BNZ_3: case BEZ_3: 
       case JMP_3: 
+        PRINTOP1();
+        break;
       case MOV_3: 
+        PRINTOP2( );
+        break;
       case MOV_TO_PTR: case MOV_FROM_PTR: 
-      case PARAM_3:
-      case CALL_3: case RETURN_3: 
+        PRINTOP2( ); //perhaps use deref later, not vital
+        break;
+      case PARAM_3: case CALL_3: case RETURN_3: 
+        PRINTOP1();
+        break;
       case FLOAT_TO_INT: case INT_TO_FLOAT: 
+        PRINTOP2( ); //perhaps use cast later, not vital
+        break;
       case ARRAY_INDEX:
       case ARRAY_OFFSET: 
       case INIT_3:
         break;
     }
+    putchar('\n');
   }
   return;
 }
