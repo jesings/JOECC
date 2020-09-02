@@ -11,6 +11,7 @@ STRUCT* structor(char* name, DYNARR* fields) {
     STRUCT* retval = malloc(sizeof(STRUCT));
     retval->name = name;
     retval->fields = fields;
+    retval->offsets = NULL;
     return retval;
 }
 
@@ -18,6 +19,7 @@ UNION* unionctor(char* name, DYNARR* fields) {
     UNION* retval = malloc(sizeof(UNION));
     retval->name = name;
     retval->fields = fields;
+    retval->offsets = NULL;
     return retval;
 }
 

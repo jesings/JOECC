@@ -317,7 +317,23 @@ char foldconst(EXPRESSION** exa) {
       break;
   }
   switch(ex->type) {
-    case IDENT: case INT: case UINT: case FLOAT: case STRING: case NOP: case ARRAY_LIT: case DOTOP: case ARROW:
+    case IDENT: case INT: case UINT: case FLOAT: case STRING: case NOP: case ARRAY_LIT:
+      return 0;
+    case DOTOP: case ARROW:
+      subexpr = EPARAM(ex, 0);
+      rectexpr = EPARAM(ex, 1);
+      char* poignant = rectexpr->memberval;
+      //IDTYPE* idt = typex(subexpr);
+      //if(idt->structtype->offsets) {
+      //  long off = (long) search(idt->structtype->offsets, poignant);
+      //  figure out how to represent variable, type, whatever
+      //}
+      //if(idt->tb & STRUCTVAL) {
+      //} else if(idt->tb & UNIONVAL) {
+      //  add library function to populate struct
+      //} else {
+      //  error
+      //}
       return 0;
     case CAST:
       subexpr = EPARAM(ex, 0);

@@ -72,10 +72,12 @@ struct stmt;
 typedef struct {
   DYNARR* fields;//Each entry is a struct that contains a full identifier and a size
   char* name;
+  HASHTABLE* offsets;
 } STRUCT;
 typedef struct {
   DYNARR* fields;//Each entry is a struct that contains a full identifier and a size
   char* name;
+  HASHTABLE* offsets;
 } UNION;
 typedef struct {
   DYNARR* fields;
