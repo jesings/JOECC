@@ -561,9 +561,27 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
       //confirm 2 addrs have same type or are coercible
 
-    case ASSIGN: case PREINC: case PREDEC: case POSTINC: case POSTDEC:
+    case ASSIGN:
+      curaddr = linearitree(daget(cexpr->params, 1), prog);
+      destaddr = linearitree(daget(cexpr->params, 0), prog);
+      //implicit type coercion needed
+      dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+      return destaddr;
+    case PREINC:
+      destaddr = linearitree(daget(cexpr->params, 0), prog);
+      //implicit type coercion needed
+      dapush(prog->ops, ct_3ac_op2(INC_U, destaddr.addr_type, destaddr.addr, destaddr.addr_type, destaddr.addr));
+      return destaddr;
+    case PREDEC:
+      destaddr = linearitree(daget(cexpr->params, 0), prog);
+      //implicit type coercion needed
+      dapush(prog->ops, ct_3ac_op2(INC_U, destaddr.addr_type, destaddr.addr, destaddr.addr_type, destaddr.addr));
+      return destaddr;
+     case POSTINC: case POSTDEC:
+       //scratch register returned, but type coercion stupid and unclear
     case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
     case XORASSIGN: case ORASSIGN: case DIVASSIGN: case MULTASSIGN: case MODASSIGN:
+       //type coercion stupid and unclear
       break;
     case NOP: case SZOF: case MEMBER:
       break;
@@ -575,7 +593,10 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         dapush(params, ct_3ac_op1(PARAM_3, curaddr.addr_type, curaddr.addr));
       }
       damerge(prog->ops, params);
-      dapush(prog->ops, ct_3ac_op1(CALL_3, ISCONST | ISLABEL, (ADDRESS) fname->strconst));
+      destaddr.addr_type = conv_type_type(fname->id->type);
+      destaddr.addr.iregnum = (destaddr.addr_type & ISFLOAT) ? prog->fregcnt++ : prog->iregcnt++;
+      dapush(prog->ops, ct_3ac_op2(CALL_3, ISCONST | ISLABEL, (ADDRESS) fname->id->name, destaddr.addr_type, destaddr.addr));
+      return destaddr;
       //TODO: above shoud be an op with a target, which is the result. Check func return type?
   }
   fprintf(stderr, "Error: reduction of expression to 3 address code failed\n");
