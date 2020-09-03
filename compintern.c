@@ -761,4 +761,26 @@ TOPBLOCK* gtb(char isfunc, void* assign) {
 }
 
 void feedstruct(STRUCT* s) {
+  switch(s->fed) {
+    case 0:
+      //actually populate struct, input length
+      //iterate through struct members, etc
+    case -1:
+      //circular structs!!!!!
+    case 1:
+      //struct already fed
+      return;
+  }
+}
+
+void unionlen(UNION* u) {
+  switch(u->size) {
+    case 0:
+      //actually populate struct, input length
+    case -1:
+      //circular union!!!!!
+    case 1:
+      //struct already fed
+      return;
+  }
 }
