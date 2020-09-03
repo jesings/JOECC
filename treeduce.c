@@ -322,15 +322,16 @@ char foldconst(EXPRESSION** exa) {
     case DOTOP: case ARROW:
       subexpr = EPARAM(ex, 0);
       rectexpr = EPARAM(ex, 1);
-      char* poignant = rectexpr->memberval;
-      //IDTYPE* idt = typex(subexpr);
-      //if(idt->structtype->offsets) {
+      char* poignant = rectexpr->member;
+      //if(idt->tb & STRUCTVAL) {
+      //  IDTYPE* idt = typex(subexpr);
+      //  if(!idt->structtype->offsets) {
+      //    feedstruct(some garbage)
+      //  }
       //  long off = (long) search(idt->structtype->offsets, poignant);
       //  figure out how to represent variable, type, whatever
-      //}
-      //if(idt->tb & STRUCTVAL) {
       //} else if(idt->tb & UNIONVAL) {
-      //  add library function to populate struct
+      //  add library function to find size of union
       //} else {
       //  error
       //}
@@ -1358,6 +1359,8 @@ char foldconst(EXPRESSION** exa) {
   fprintf(stderr, "Error: reducing expression failed\n");
   return 0;
 }
+
+//initializer needs to be handled too
 
 //do the same as above but with statements
 char pleatstate(STATEMENT** stated) {

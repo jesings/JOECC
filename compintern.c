@@ -12,6 +12,7 @@ STRUCT* structor(char* name, DYNARR* fields) {
     retval->name = name;
     retval->fields = fields;
     retval->offsets = NULL;
+    retval->fed = 0;
     return retval;
 }
 
@@ -19,7 +20,7 @@ UNION* unionctor(char* name, DYNARR* fields) {
     UNION* retval = malloc(sizeof(UNION));
     retval->name = name;
     retval->fields = fields;
-    retval->offsets = NULL;
+    retval->size = 0;
     return retval;
 }
 
@@ -757,4 +758,7 @@ TOPBLOCK* gtb(char isfunc, void* assign) {
   retval->isfunc = isfunc;
   retval->garbage = assign;
   return retval;
+}
+
+void feedstruct(STRUCT* s) {
 }

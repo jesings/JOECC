@@ -73,11 +73,12 @@ typedef struct {
   DYNARR* fields;//Each entry is a struct that contains a full identifier and a size
   char* name;
   HASHTABLE* offsets;
+  int fed;
 } STRUCT;
 typedef struct {
   DYNARR* fields;//Each entry is a struct that contains a full identifier and a size
   char* name;
-  HASHTABLE* offsets;
+  int size;
 } UNION;
 typedef struct {
   DYNARR* fields;
@@ -330,6 +331,7 @@ char scopequeryval(struct lexctx* lct, enum membertype mt, char* key);
 void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, void* assignval);
 void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* memberval);
 TOPBLOCK* gtb(char isfunc, void* assign);
+void feedstruct(STRUCT* s);
 
 #define locprint(lv) (char*) dapeek(file2compile), lv.first_line, lv.first_column, lv.last_line, lv.last_column
 #endif
