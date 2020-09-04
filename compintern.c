@@ -776,21 +776,26 @@ void feedstruct(STRUCT* s) {
 
 int unionlen(UNION* u) {
   DYNARR* mm = u->fields;
+  usize = -1;
   switch(u->size) {
     case 0:
       for(int i = 0; i < mm->length; i++) {
         DECLARATION* mmi= daget(mm, i);
-        TYPEBITS mtb = mmi->type->tb;
         int esize;
-        if(mtb & STRUCTVAL) {
-          feedstruct(mmi->type->structtype);
-          esize = mmi->type->structtype->size;
-        } else if(mtb & UNIONVAL) {
-          unionlen(mmi->type->uniontype);
-          esize = mmi->type->uniontype->size;
+        if(mmi->type->pointerstack && mmi->type->pointerstack->length) {
+          esize = sizeof(uintptr_t);
         } else {
-          //TODO: unique enum case?
-          esize = mtb & 0x7f;
+          TYPEBITS mtb = mmi->type->tb;
+          if(mtb & STRUCTVAL) {
+            feedstruct(mmi->type->structtype);
+            esize = mmi->type->structtype->size;
+          } else if(mtb & UNIONVAL) {
+            unionlen(mmi->type->uniontype);
+            esize = mmi->type->uniontype->size;
+          } else {
+            //TODO: unique enum case?
+            esize = mtb & 0x7f;
+          }
         }
         if(esize > u->size)
           u->size = esize;
