@@ -13,6 +13,7 @@ STRUCT* structor(char* name, DYNARR* fields) {
     retval->fields = fields;
     retval->offsets = NULL;
     retval->fed = 0;
+    retval->size = 0;
     return retval;
 }
 
@@ -773,14 +774,32 @@ void feedstruct(STRUCT* s) {
   }
 }
 
-void unionlen(UNION* u) {
+int unionlen(UNION* u) {
+  DYNARR* mm = u->fields;
   switch(u->size) {
     case 0:
-      //actually populate struct, input length
+      for(int i = 0; i < mm->length; i++) {
+        DECLARATION* mmi= daget(mm, i);
+        TYPEBITS mtb = mmi->type->tb;
+        int esize;
+        if(mtb & STRUCTVAL) {
+          feedstruct(mmi->type->structtype);
+          esize = mmi->type->structtype->size;
+        } else if(mtb & UNIONVAL) {
+          unionlen(mmi->type->uniontype);
+          esize = mmi->type->uniontype->size;
+        } else {
+          //TODO: unique enum case?
+          esize = mtb & 0x7f;
+        }
+        if(esize > u->size)
+          u->size = esize;
+      }
     case -1:
       //circular union!!!!!
-    case 1:
-      //struct already fed
-      return;
+      //TODO: error out
+    default:
+      break;
   }
+  return u->size;
 }
