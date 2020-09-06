@@ -35,6 +35,13 @@ int main(int argc, char** argv) {
     dup2(STDIN_FILENO, inval);
     close(inval);
   }
+  //do some kind of scopestack traversal
+  //for(int i = 0; i < ctx->structs->length; i++) {
+  //  feedstruct(daget(ctx->structs, i));
+  //}
+  //for(int i = 0; i < ctx->unions->length; i++) {
+  //  unionlen(daget(ctx->unions, i));
+  //}
   chdir("./functions");
   DYNARR* funcky = htpairs(ctx->funcs);
   puts("Functions defined:");
