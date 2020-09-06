@@ -74,7 +74,6 @@ typedef struct {
   char* name;
   HASHTABLE* offsets;
   int size;
-  char fed;
 } STRUCT;
 typedef struct {
   DYNARR* fields;//Each entry is a struct that contains a full identifier and a size

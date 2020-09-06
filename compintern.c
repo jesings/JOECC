@@ -12,7 +12,6 @@ STRUCT* structor(char* name, DYNARR* fields) {
     retval->name = name;
     retval->fields = fields;
     retval->offsets = NULL;
-    retval->fed = 0;
     retval->size = 0;
     return retval;
 }
@@ -762,23 +761,51 @@ TOPBLOCK* gtb(char isfunc, void* assign) {
 }
 
 void feedstruct(STRUCT* s) {
-  switch(s->fed) {
+  switch(s->size) {
     case 0:
-      //actually populate struct, input length
-      //iterate through struct members, etc
+      if(!s->offsets)
+        return;
+      s->offsets = htctor();
+      s->size = -1;
+      DYNARR* mm = s->fields;
+      long totalsize = 0;
+      for(int i = 0; i < mm->length; i++) {
+        DECLARATION* mmi= daget(mm, i);
+        int esize;
+        if(mmi->type->pointerstack && mmi->type->pointerstack->length) {
+          esize = sizeof(uintptr_t);
+        } else {
+          TYPEBITS mtb = mmi->type->tb;
+          if(mtb & STRUCTVAL) {
+            feedstruct(mmi->type->structtype);
+            esize = mmi->type->structtype->size;
+          } else if(mtb & UNIONVAL) {
+            unionlen(mmi->type->uniontype);
+            esize = mmi->type->uniontype->size;
+          } else {
+            //TODO: unique enum case?
+            esize = mtb & 0x7f;
+          }
+        }
+        int padding = esize > 64 ? 64 : esize;
+        totalsize = (totalsize + padding - 8) & ~padding;
+        insert(s->offsets, mmi->varname, (void*) totalsize);
+        totalsize += esize;
+      }
     case -1:
       //circular structs!!!!!
-    case 1:
+      //TODO: error out
+    default:
       //struct already fed
       return;
   }
 }
 
 int unionlen(UNION* u) {
-  DYNARR* mm = u->fields;
-  usize = -1;
   switch(u->size) {
     case 0:
+      u->size = -1;
+      DYNARR* mm = u->fields;
       for(int i = 0; i < mm->length; i++) {
         DECLARATION* mmi= daget(mm, i);
         int esize;
@@ -800,6 +827,7 @@ int unionlen(UNION* u) {
         if(esize > u->size)
           u->size = esize;
       }
+      break;
     case -1:
       //circular union!!!!!
       //TODO: error out
