@@ -298,6 +298,12 @@ char treequals(EXPRESSION* e1, EXPRESSION* e2) {
   return 0;
 }
 
+IDTYPE* typex(EXPRESSION* ex) {
+  //rectify type of expression
+  //Do some garbage for casts
+  return NULL;
+}
+
 char foldconst(EXPRESSION** exa) {
   EXPRESSION* ex = *exa;
   EXPRESSION* subexpr;
@@ -331,7 +337,6 @@ char foldconst(EXPRESSION** exa) {
       //  long off = (long) search(idt->structtype->offsets, poignant);
       //  figure out how to represent variable, type, whatever
       //} else if(idt->tb & UNIONVAL) {
-      //  add library function to find size of union
       //} else {
       //  error
       //}
