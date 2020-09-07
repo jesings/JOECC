@@ -792,6 +792,7 @@ void feedstruct(STRUCT* s) {
         insert(s->offsets, mmi->varname, (void*) totalsize);
         totalsize += esize;
       }
+      s->size = totalsize;
     case -1:
       //circular structs!!!!!
       //TODO: error out

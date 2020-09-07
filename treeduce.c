@@ -419,7 +419,16 @@ char foldconst(EXPRESSION** exa) {
       return 0;
     case SZOF:
       //turn into intconst
-      return 0;
+      if(ex->vartype->pointerstack && ex->vartype->pointerstack->length) {
+        return 64;//handle this better?
+      } else if(ex->vartype->tb & STRUCTVAL) {
+        feedstruct(ex->vartype->structtype);
+        return ex->vartype->structtype->size;
+      } else if(ex->vartype->tb & UNIONVAL) {
+        return unionlen(ex->vartype->uniontype);
+      } else {
+        return ex->vartype->tb & 0x7f;
+      }
     case NEG:
       subexpr = EPARAM(ex, 0);
       switch(subexpr->type) {

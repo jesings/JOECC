@@ -128,7 +128,6 @@ typedef struct expr {
     double floatconst;
     IDENTIFIERINFO* id;//for identifier expressions?
     DYNARR* dynvals;//?
-    /*possible struct const for later struct initializations*/
   };
 } EXPRESSION;
 
