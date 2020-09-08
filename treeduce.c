@@ -1,6 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 #include "dynarr.h"
 #include "compintern.h"
 #include "treeduce.h"
@@ -298,10 +299,48 @@ char treequals(EXPRESSION* e1, EXPRESSION* e2) {
   return 0;
 }
 
-IDTYPE* typex(EXPRESSION* ex) {
-  //rectify type of expression
-  //Do some garbage for casts
-  return NULL;
+IDTYPE typex(EXPRESSION* ex) {
+  IDTYPE idt;
+  idt.pointerstack = NULL;
+  struct declarator_part* dclp;
+  switch(ex->type) {
+    case NOP: case MEMBER:
+      //error out
+      assert(0);
+    case SZOF: case SZOFEXPR: //maybe these should be signed
+    case UINT:
+      idt.tb = 8 | UNSIGNEDNUM;
+      break;
+    case INT:
+      idt.tb = 8;
+      break;
+    case FLOAT:
+      idt.tb = 8 | FLOATNUM;
+      break;
+    case STRING:
+      idt.tb = 1;
+      idt.pointerstack = dactor(1);
+      dclp = malloc(sizeof(struct declarator_part));
+      dclp->type = POINTERSPEC;
+      dapush(idt.pointerstack, dclp);
+      break;
+    case ARRAY_LIT:
+      idt.tb = 1;//perhaps different size for pointer
+      idt.pointerstack = dactor(1);
+      dclp = malloc(sizeof(struct declarator_part));
+      dclp->type = POINTERSPEC;
+      dapush(idt.pointerstack, dclp);
+      break;
+    case IDENT:
+      idt = *ex->id->type;
+      break;
+    case CAST:
+      idt = *ex->vartype;
+      break;
+    default:
+      //not done yet
+  }
+  return idt;
 }
 
 char foldconst(EXPRESSION** exa) {
