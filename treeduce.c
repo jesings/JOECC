@@ -299,6 +299,23 @@ char treequals(EXPRESSION* e1, EXPRESSION* e2) {
   return 0;
 }
 
+static IDTYPE simplbinprec(IDTYPE id1, IDTYPE id2) {
+  if(id1.pointerstack && id1.pointerstack->length) {
+    return id1;
+  } else if(id2.pointerstack && id2.pointerstack->length) {
+    return id2;
+  } else if(id1.tb & FLOATNUM) {
+    //handle float case
+  } else if(id2.tb & FLOATNUM) {
+  } else if((id1.tb & 0x7f) > (id2.tb & 0x7f)) {
+  } else if((id1.tb & 0x7f) == (id2.tb & 0x7f)) {
+  } else {
+    //less than
+  }
+  //this probably should be moved out to compintern and exported for use in 3ac
+  assert(0);
+}
+
 IDTYPE typex(EXPRESSION* ex) {
   IDTYPE idt;
   idt.pointerstack = NULL;
@@ -319,14 +336,14 @@ IDTYPE typex(EXPRESSION* ex) {
       break;
     case STRING:
       idt.tb = 1;
-      idt.pointerstack = dactor(1);
+      idt.pointerstack = dactor(2);
       dclp = malloc(sizeof(struct declarator_part));
       dclp->type = POINTERSPEC;
       dapush(idt.pointerstack, dclp);
       break;
     case ARRAY_LIT:
       idt.tb = 1;//perhaps different size for pointer
-      idt.pointerstack = dactor(1);
+      idt.pointerstack = dactor(2);
       dclp = malloc(sizeof(struct declarator_part));
       dclp->type = POINTERSPEC;
       dapush(idt.pointerstack, dclp);
@@ -337,8 +354,11 @@ IDTYPE typex(EXPRESSION* ex) {
     case CAST:
       idt = *ex->vartype;
       break;
+    case ADDR:
+    case DEREF:
     default:
       //not done yet
+      assert(0);
   }
   return idt;
 }
