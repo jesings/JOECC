@@ -364,7 +364,16 @@ IDTYPE typex(EXPRESSION* ex) {
     case CAST:
       idt = *ex->vartype;
       break;
+    case ADD: case SUB:
+      return simplbinprec(typex(daget(ex->params, 0)), typex(daget(ex->params, 1)));
+    //for mult, div, etc. disallow pointers
+
     case ADDR:
+      idt = typex(daget(ex->params, 0));
+      idt.pointerstack = daclone(idt.pointerstack);
+      dapush(idt.pointerstack, mkdeclpart(POINTERSPEC, 0)); //not restrict or volatile or anything
+      return idt;
+
     case DEREF:
     default:
       //not done yet
