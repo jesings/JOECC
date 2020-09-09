@@ -305,15 +305,25 @@ static IDTYPE simplbinprec(IDTYPE id1, IDTYPE id2) {
   } else if(id2.pointerstack && id2.pointerstack->length) {
     return id2;
   } else if(id1.tb & FLOATNUM) {
-    //handle float case
+    if(id2.tb & FLOATNUM) {
+      if((id1.tb & 0x7f) >= (id2.tb & 0x7f)) {
+        return id1;
+      }
+      return id2;
+    }
+    return id1;
   } else if(id2.tb & FLOATNUM) {
+    return id2;
   } else if((id1.tb & 0x7f) > (id2.tb & 0x7f)) {
+    return id1;
   } else if((id1.tb & 0x7f) == (id2.tb & 0x7f)) {
+    IDTYPE idt = id1;
+    idt.tb |= id2.tb & UNSIGNEDNUM;
+    return idt;
   } else {
-    //less than
+    return id2;
   }
   //this probably should be moved out to compintern and exported for use in 3ac
-  assert(0);
 }
 
 IDTYPE typex(EXPRESSION* ex) {
