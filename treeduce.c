@@ -334,6 +334,7 @@ IDTYPE typex(EXPRESSION* ex) {
     case NOP: case MEMBER:
       //error out
       assert(0);
+    case L_AND: case L_OR: case L_NOT: //logical operators return long unsigned? not final
     case EQ: case NEQ: case GT: case LT: case GTE: case LTE: //comparisons return long unsigned? not final
     case SZOF: case SZOFEXPR: //maybe these should be signed
     case UINT:
@@ -365,9 +366,12 @@ IDTYPE typex(EXPRESSION* ex) {
     case CAST:
       idt = *ex->vartype;
       break;
+    case B_AND: case B_OR: case B_XOR: //pointers allowed in bitwise?
     case ADD: case SUB:
       return simplbinprec(typex(daget(ex->params, 0)), typex(daget(ex->params, 1)));
-    //for mult, div, etc. disallow pointers
+    //for mult, div, etc. disallow pointers also ternary
+    case NEG:
+      return typex(daget(ex->params, 0));
 
     case ADDR:
       idt = typex(daget(ex->params, 0));
@@ -381,9 +385,11 @@ IDTYPE typex(EXPRESSION* ex) {
       free(dapop(idt.pointerstack));
       return idt;
 
-    case L_AND: case L_OR: 
-    case B_AND: case B_OR: case B_XOR: 
     case COMMA:
+      return typex(dapeek(ex->params));
+
+
+    case DOTOP: case ARROW:
 
     default:
       //not done yet
