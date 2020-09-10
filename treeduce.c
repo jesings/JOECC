@@ -334,6 +334,7 @@ IDTYPE typex(EXPRESSION* ex) {
     case NOP: case MEMBER:
       //error out
       assert(0);
+    case EQ: case NEQ: case GT: case LT: case GTE: case LTE: //comparisons return long unsigned? not final
     case SZOF: case SZOFEXPR: //maybe these should be signed
     case UINT:
       idt.tb = 8 | UNSIGNEDNUM;
@@ -375,6 +376,15 @@ IDTYPE typex(EXPRESSION* ex) {
       return idt;
 
     case DEREF:
+      idt = typex(daget(ex->params, 0));
+      idt.pointerstack = daclone(idt.pointerstack);
+      free(dapop(idt.pointerstack));
+      return idt;
+
+    case L_AND: case L_OR: 
+    case B_AND: case B_OR: case B_XOR: 
+    case COMMA:
+
     default:
       //not done yet
       assert(0);
