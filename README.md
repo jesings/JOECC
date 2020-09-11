@@ -5,14 +5,14 @@ JOECC is intended to be ANSI-opinionated, mostly conforming to C99, C11, etc. ho
 
 NOTE: JOECC is a work-in progress, and currently cannot fully compile code
 
-- [ ] Lexer
-- [ ] Parser
-- [ ] Preprocessor (part of lexer)
-- [ ] AST generation
-- [ ] AST optimization
-- [ ] AST display using graphviz
-- [ ] AST type annotation
-- [ ] 3 address code generation
+- [x] Lexer
+- [x] Parser
+- [ ] Preprocessor (part of lexer) (bugfixing [with macro preparsing])
+- [x] AST generation
+- [x] AST optimization
+- [x] AST display using graphviz
+- [ ] AST type annotation (in progress)
+- [ ] 3 address code generation (in progress)
 - [ ] Static Single Assignment conversion
 - [ ] General Optimizations (to be enumerated later)
 - [ ] Register Renaming
