@@ -390,7 +390,13 @@ IDTYPE typex(EXPRESSION* ex) {
 
 
     case DOTOP: case ARROW:
-
+      idt = typex(daget(ex->params, 0));
+      if(idt.tb & (STRUCTVAL | UNIONVAL)) {
+        idt.structtype;
+      } else {
+        //TODO: error
+      }
+      break;
     default:
       //not done yet
       assert(0);

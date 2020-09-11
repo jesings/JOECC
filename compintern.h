@@ -70,14 +70,15 @@ enum declpart_info {
 struct stmt;
 
 typedef struct {
-  DYNARR* fields;//Each entry is a struct that contains a full identifier and a size
+  DYNARR* fields;//Each entry is a struct that contains a full identifier
   char* name;
-  HASHTABLE* offsets;
+  HASHTABLE* offsets; //each entry is a struct that contains a full identifier and offset
   int size;
 } STRUCT;
 typedef struct {
-  DYNARR* fields;//Each entry is a struct that contains a full identifier and a size
+  DYNARR* fields;//Each entry is a struct that contains a full identifier
   char* name;
+  HASHTABLE* hfields;//Each entry is an idtype
   int size;
 } UNION;
 typedef struct {
