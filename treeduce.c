@@ -306,7 +306,7 @@ static IDTYPE simplbinprec(IDTYPE id1, IDTYPE id2) {
     return id2;
   } else if(id1.tb & FLOATNUM) {
     if(id2.tb & FLOATNUM) {
-      if((id1.tb & 0x7f) >= (id2.tb & 0x7f)) {
+      if((id1.tb & 0xf) >= (id2.tb & 0xf)) {
         return id1;
       }
       return id2;
@@ -314,9 +314,34 @@ static IDTYPE simplbinprec(IDTYPE id1, IDTYPE id2) {
     return id1;
   } else if(id2.tb & FLOATNUM) {
     return id2;
-  } else if((id1.tb & 0x7f) > (id2.tb & 0x7f)) {
+  } else if((id1.tb & 0xf) > (id2.tb & 0xf)) {
     return id1;
-  } else if((id1.tb & 0x7f) == (id2.tb & 0x7f)) {
+  } else if((id1.tb & 0xf) == (id2.tb & 0xf)) {
+    IDTYPE idt = id1;
+    idt.tb |= id2.tb & UNSIGNEDNUM;
+    return idt;
+  } else {
+    return id2;
+  }
+  //this probably should be moved out to compintern and exported for use in 3ac
+}
+
+static IDTYPE simplbinprecnoptr(IDTYPE id1, IDTYPE id2) {
+  if((id1.pointerstack && id1.pointerstack->length) || (id2.pointerstack && id2.pointerstack->length)) {
+    assert(0);
+  } else if(id1.tb & FLOATNUM) {
+    if(id2.tb & FLOATNUM) {
+      if((id1.tb & 0xf) >= (id2.tb & 0xf)) {
+        return id1;
+      }
+      return id2;
+    }
+    return id1;
+  } else if(id2.tb & FLOATNUM) {
+    return id2;
+  } else if((id1.tb & 0xf) > (id2.tb & 0xf)) {
+    return id1;
+  } else if((id1.tb & 0xf) == (id2.tb & 0xf)) {
     IDTYPE idt = id1;
     idt.tb |= id2.tb & UNSIGNEDNUM;
     return idt;
@@ -367,9 +392,14 @@ IDTYPE typex(EXPRESSION* ex) {
       idt = *ex->vartype;
       break;
     case B_AND: case B_OR: case B_XOR: //pointers allowed in bitwise?
-    case ADD: case SUB:
+    case SHR: case SHL: //pointers allowed in bitshift?
+    case ADD: case SUB://how to do this with flattened expr trees
       return simplbinprec(typex(daget(ex->params, 0)), typex(daget(ex->params, 1)));
     //for mult, div, etc. disallow pointers also ternary
+    case MULT: case DIVI: case MOD: //how to do this with flattened expr trees
+      return simplbinprecnoptr(typex(daget(ex->params, 0)), typex(daget(ex->params, 1)));
+    case TERNARY:
+      return simplbinprecnoptr(typex(daget(ex->params, 1)), typex(daget(ex->params, 2)));
     case NEG:
       return typex(daget(ex->params, 0));
 
@@ -388,15 +418,14 @@ IDTYPE typex(EXPRESSION* ex) {
     case COMMA:
       return typex(dapeek(ex->params));
 
-
     case DOTOP: case ARROW:
       idt = typex(daget(ex->params, 0));
       if(idt.tb & (STRUCTVAL | UNIONVAL)) {
-        idt.structtype;
       } else {
         //TODO: error
       }
       break;
+    case FCALL:
     default:
       //not done yet
       assert(0);
