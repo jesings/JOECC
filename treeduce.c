@@ -416,7 +416,17 @@ IDTYPE typex(EXPRESSION* ex) {
     case TERNARY:
       return simplbinprecnoptr(typex(daget(ex->params, 1)), typex(daget(ex->params, 2)));
     case NEG:
+    case B_NOT:
+    case POSTINC: case POSTDEC:
+    case PREINC: case PREDEC:
+    case ASSIGN: case ADDASSIGN: case SUBASSIGN:
+    case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
+    case XORASSIGN: case ORASSIGN: case DIVASSIGN:
+    case MULTASSIGN: case MODASSIGN:
       return typex(daget(ex->params, 0));
+
+
+
 
     case ADDR:
       idt = typex(daget(ex->params, 0));
@@ -441,7 +451,7 @@ IDTYPE typex(EXPRESSION* ex) {
       }
       break;
     case FCALL:
-    default:
+      //we should really include return type in fcall expression?
       //not done yet
       assert(0);
   }
