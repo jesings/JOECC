@@ -351,6 +351,18 @@ static IDTYPE simplbinprecnoptr(IDTYPE id1, IDTYPE id2) {
   //this probably should be moved out to compintern and exported for use in 3ac
 }
 
+#define FUNCPRECITER(funcnamebase) \
+  static IDTYPE funcnamebase ## iter(DYNARR* da) { \
+    IDTYPE tmptype = typex(daget(da, 0)); /*we likely should be more precise and unflatten additions for type annotation */\
+    for(int i = 1; i < da->length; i++) { \
+      tmptype = funcnamebase(tmptype, typex(daget(da, i))); \
+    } \
+    return tmptype; \
+  }
+
+FUNCPRECITER(simplbinprec)
+FUNCPRECITER(simplbinprecnoptr)
+
 IDTYPE typex(EXPRESSION* ex) {
   IDTYPE idt;
   idt.pointerstack = NULL;
@@ -392,11 +404,14 @@ IDTYPE typex(EXPRESSION* ex) {
       idt = *ex->vartype;
       break;
     case B_AND: case B_OR: case B_XOR: //pointers allowed in bitwise?
-    case SHR: case SHL: //pointers allowed in bitshift?
     case ADD: case SUB://how to do this with flattened expr trees
+      return simplbinpreciter(ex->params);
+    case SHR: case SHL: //pointers allowed in bitshift?
       return simplbinprec(typex(daget(ex->params, 0)), typex(daget(ex->params, 1)));
     //for mult, div, etc. disallow pointers also ternary
-    case MULT: case DIVI: case MOD: //how to do this with flattened expr trees
+    case MULT: case DIVI: //how to do this with flattened expr trees
+      return simplbinprecnoptriter(ex->params);
+    case MOD:
       return simplbinprecnoptr(typex(daget(ex->params, 0)), typex(daget(ex->params, 1)));
     case TERNARY:
       return simplbinprecnoptr(typex(daget(ex->params, 1)), typex(daget(ex->params, 2)));
