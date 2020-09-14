@@ -363,6 +363,13 @@ static IDTYPE simplbinprecnoptr(IDTYPE id1, IDTYPE id2) {
 FUNCPRECITER(simplbinprec)
 FUNCPRECITER(simplbinprecnoptr)
 
+//maybe export below function 
+static void funcunflatten(EXPRESSION* ex) {
+  if(ex->params->length > 2) {
+    EXPRESSION* ex1 = daget(ex->params,0);
+  }
+}
+
 IDTYPE typex(EXPRESSION* ex) {
   IDTYPE idt;
   idt.pointerstack = NULL;
@@ -424,9 +431,6 @@ IDTYPE typex(EXPRESSION* ex) {
     case XORASSIGN: case ORASSIGN: case DIVASSIGN:
     case MULTASSIGN: case MODASSIGN:
       return typex(daget(ex->params, 0));
-
-
-
 
     case ADDR:
       idt = typex(daget(ex->params, 0));
