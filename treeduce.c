@@ -351,22 +351,17 @@ static IDTYPE simplbinprecnoptr(IDTYPE id1, IDTYPE id2) {
   //this probably should be moved out to compintern and exported for use in 3ac
 }
 
-#define FUNCPRECITER(funcnamebase) \
-  static IDTYPE funcnamebase ## iter(DYNARR* da) { \
-    IDTYPE tmptype = typex(daget(da, 0)); /*we likely should be more precise and unflatten additions for type annotation */\
-    for(int i = 1; i < da->length; i++) { \
-      tmptype = funcnamebase(tmptype, typex(daget(da, i))); \
-    } \
-    return tmptype; \
-  }
-
-FUNCPRECITER(simplbinprec)
-FUNCPRECITER(simplbinprecnoptr)
-
 //maybe export below function 
-static void funcunflatten(EXPRESSION* ex) {
+static void exunflatten(EXPRESSION* ex) {
   if(ex->params->length > 2) {
-    EXPRESSION* ex1 = daget(ex->params,0);
+    EXPRESSION* ex1 = daget(ex->params, ex->params->length - 1);
+    EXPRESSION* ex2 = daget(ex->params, ex->params->length - 2);
+    for(int i = ex->params->length - 3; i >= 0; i--) {
+      ex2 = ct_binary_expr(ex->type, ex1, ex2);
+      ex1 = daget(ex->params, i);
+    }
+    daget(ex->params, 1) = ex1;
+    ex->params->length = 2;
   }
 }
 
@@ -411,13 +406,15 @@ IDTYPE typex(EXPRESSION* ex) {
       idt = *ex->vartype;
       break;
     case B_AND: case B_OR: case B_XOR: //pointers allowed in bitwise?
-    case ADD: case SUB://how to do this with flattened expr trees
-      return simplbinpreciter(ex->params);
+    case ADD: case SUB://really unflatten?
+      exunflatten(ex);
+      //fall through
     case SHR: case SHL: //pointers allowed in bitshift?
       return simplbinprec(typex(daget(ex->params, 0)), typex(daget(ex->params, 1)));
     //for mult, div, etc. disallow pointers also ternary
-    case MULT: case DIVI: //how to do this with flattened expr trees
-      return simplbinprecnoptriter(ex->params);
+    case MULT: case DIVI: //really unflatten?
+      exunflatten(ex);
+      //fall through
     case MOD:
       return simplbinprecnoptr(typex(daget(ex->params, 0)), typex(daget(ex->params, 1)));
     case TERNARY:
