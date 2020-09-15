@@ -96,13 +96,19 @@ EXPRESSION* ct_ternary_expr(EXPRESSION* param1, EXPRESSION* param2, EXPRESSION* 
 EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = FCALL;
-  if(!(func->type & IDENT)) {
-    //error
-  }
-  if(func->id->type->pointerstack && func->id->type->pointerstack->length) {
+  assert(func->type & IDENT);
+  DYNARR* ptrs = func->id->type->pointerstack;
+  assert(ptrs && (ptrs->length >= 2));
+
+  if((((struct declarator_part*) dapeek(ptrs))->type == POINTERSPEC)) {
+    if(((struct declarator_part*) daget(ptrs, ptrs->length - 2))->type == PARAMSSPEC ||
+    ((struct declarator_part*) daget(ptrs, ptrs->length - 2))->type == NAMELESS_PARAMSSPEC) {
+    }
     //calculate rettype from function pointer
+    //clone pointer stack, remove function type from it, remove 
   } else {
-    //calculate rettype for normal function
+    retval->rettype = func->id->type;
+    //clone pointer stack, remove function type from it
   }
   DYNARR* dd = dactor(1);
   dapush(dd, func);
