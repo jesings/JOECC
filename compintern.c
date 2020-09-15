@@ -96,7 +96,14 @@ EXPRESSION* ct_ternary_expr(EXPRESSION* param1, EXPRESSION* param2, EXPRESSION* 
 EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = FCALL;
-  retval->rettype = NULL;
+  if(!(func->type & IDENT)) {
+    //error
+  }
+  if(func->id->type->pointerstack && func->id->type->pointerstack->length) {
+    //calculate rettype from function pointer
+  } else {
+    //calculate rettype for normal function
+  }
   DYNARR* dd = dactor(1);
   dapush(dd, func);
   retval->params = damerge(dd, params);
@@ -521,7 +528,6 @@ FUNC* ct_function(char* name, STATEMENT* body, PARALLEL* params, IDTYPE* retrn) 
   func->switchstack = dactor(8);
   func->caseindex = 0;
   func->numvars = 0;
-  func->purity = -1;
   return func;
 }
 

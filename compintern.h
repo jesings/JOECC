@@ -113,7 +113,6 @@ typedef struct {
   DYNARR* switchstack;
   int caseindex;
   int numvars;
-  char purity;
 } FUNC;
 
 typedef struct expr {
