@@ -31,6 +31,13 @@ ENUM* enumctor(char* name, DYNARR* fields) {
     return retval;
 }
 
+static IDTYPE* fcid(IDTYPE* idt) {
+  IDTYPE* idr = malloc(sizeof(IDTYPE));
+  memcpy(idr, idt, sizeof(IDTYPE));
+  idr->pointerstack = daclone(idt->pointerstack);
+  return idr;
+}
+
 EXPRESSION* cloneexpr(EXPRESSION* orig) {
   EXPRESSION* clone = malloc(sizeof(EXPRESSION));
   memcpy(clone, orig, sizeof(EXPRESSION));
@@ -100,16 +107,19 @@ EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params) {
   DYNARR* ptrs = func->id->type->pointerstack;
   assert(ptrs && (ptrs->length >= 2));
 
+  IDTYPE* retid = fcid(func->id->type);
   if((((struct declarator_part*) dapeek(ptrs))->type == POINTERSPEC)) {
     if(((struct declarator_part*) daget(ptrs, ptrs->length - 2))->type == PARAMSSPEC ||
     ((struct declarator_part*) daget(ptrs, ptrs->length - 2))->type == NAMELESS_PARAMSSPEC) {
+      retid->pointerstack->length -= 2; //shorten but no pop needed
+    } else {
+      assert(0);
     }
-    //calculate rettype from function pointer
-    //clone pointer stack, remove function type from it, remove 
   } else {
-    retval->rettype = func->id->type;
+    dapop(retid->pointerstack);
     //clone pointer stack, remove function type from it
   }
+  retval->rettype = retid;
   DYNARR* dd = dactor(1);
   dapush(dd, func);
   retval->params = damerge(dd, params);
