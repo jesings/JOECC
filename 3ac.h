@@ -64,15 +64,15 @@ typedef union {
 //Extra information for SSA?
 
 typedef enum {
-  //bottom 6 bits used for size
-  ISCONST = 0x40, //if not set, it's a register
-  ISSIGNED = 0x80, //if not set it's an unsigned int
-  ISFLOAT = 0x100, //if not set it's an int
-  ISLABEL = 0x200, //if not set it's not a label
-  ISSTRCONST = 0x400, //if not set it's not a string
-  ISPOINTER = 0x800, //needs regnum and pointer type?
-  ISSTRUCT = 0x800, //needs regnum and pointer type?
-  //array constants not handled yet
+  //bottom 3 bits used for size
+  ISCONST = 0x10, //if not set, it's a register
+  ISSIGNED = 0x20, //if not set it's an unsigned int
+  ISFLOAT = 0x40, //if not set it's an int
+  ISLABEL = 0x80, //if not set it's not a label
+  ISSTRCONST = 0x100, //if not set it's not a string
+  ISPOINTER = 0x200, //needs regnum and pointer type?
+  //isstruct not necessary because of how we type struct exprs
+  //array constants not necessary to handle here
 } ADDRTYPE;
 
 typedef struct ptaddress {
