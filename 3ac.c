@@ -596,6 +596,12 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       destaddr.addr_type = conv_type_type(fname->id->type);
       destaddr.addr.iregnum = (destaddr.addr_type & ISFLOAT) ? prog->fregcnt++ : prog->iregcnt++;
       dapush(prog->ops, ct_3ac_op2(CALL_3, ISCONST | ISLABEL, (ADDRESS) fname->id->name, destaddr.addr_type, destaddr.addr));
+      IDTYPE* frettype = cexpr->rettype;
+      //struct type as well?
+      if(frettype->pointerstack && frettype->pointerstack->length) {
+      } else if(frettype->tb & FLOATNUM) {
+      } else if(frettype->tb & UNSIGNEDNUM) {
+      }
       return destaddr;
       //TODO: above shoud be an op with a target, which is the result. Check func return type?
   }

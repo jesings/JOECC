@@ -64,7 +64,7 @@ typedef union {
 //Extra information for SSA?
 
 typedef enum {
-  //bottom 3 bits used for size
+  //bottom 4 bits used for size
   ISCONST = 0x10, //if not set, it's a register
   ISSIGNED = 0x20, //if not set it's an unsigned int
   ISFLOAT = 0x40, //if not set it's an int
