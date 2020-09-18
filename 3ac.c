@@ -863,3 +863,18 @@ void printprog(PROGRAM* prog) {
   }
   return;
 }
+
+char remove_nops(PROGRAM* prog) {
+  DYNARR* da = prog->ops;
+  OPERATION** adr = (OPERATION**) da->arr;
+  int newlen = 0;
+  for(int i = 0; i < da->length; i++) {
+    OPERATION* cad = adr[i];
+    if(cad->opcode != NOP_3) {
+      adr[newlen] = cad;
+      newlen++;
+    }
+  }
+  int prevlen = da->length;
+  return prevlen == (da->length = newlen);
+}

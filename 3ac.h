@@ -162,6 +162,6 @@ inline enum opcode_3ac cmp_osite(EXPRTYPE coptype, char negate) {
       return negate ? BEZ_3 : BNZ_3;
   }
 }
+char remove_nops(PROGRAM* prog);
 
 #endif
-
