@@ -50,6 +50,9 @@ ADDRTYPE conv_type_type(IDTYPE* idt) {
   if(idt->tb & ENUMVAL) {
     return 8 | ISSIGNED;
   }
+  if(idt->tb & (STRUCTVAL | UNIONVAL)) {
+    return 64 | ISSTRUCT;
+  }
   if(idt->tb & FLOATNUM) {
     return (idt->tb & 0xf) | ISSIGNED | ISFLOAT;
   }
@@ -590,22 +593,15 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         dapush(params, ct_3ac_op1(PARAM_3, curaddr.addr_type, curaddr.addr));
       }
       damerge(prog->ops, params);
+      destaddr.addr_type = conv_type_type(fname->id->type);
+      destaddr.addr.iregnum = (destaddr.addr_type & ISFLOAT) ? prog->fregcnt++ : prog->iregcnt++;
+      dapush(prog->ops, ct_3ac_op2(CALL_3, ISCONST | ISLABEL, (ADDRESS) fname->id->name, destaddr.addr_type, destaddr.addr));
       IDTYPE* frettype = cexpr->rettype;
       //struct type as well?
       if(frettype->pointerstack && frettype->pointerstack->length) {
-        destaddr.addr_type = ISPOINTER | 8;
-        destaddr.addr.iregnum = prog->iregcnt++;
       } else if(frettype->tb & FLOATNUM) {
-        destaddr.addr_type = ISFLOAT | (frettype->tb & 0xf);
-        destaddr.addr.fregnum = prog->fregcnt++;
       } else if(frettype->tb & UNSIGNEDNUM) {
-        destaddr.addr_type = (frettype->tb & 0xf);
-        destaddr.addr.iregnum = prog->iregcnt++;
-      } else {
-        destaddr.addr_type = ISSIGNED | (frettype->tb & 0xf);
-        destaddr.addr.iregnum = prog->iregcnt++;
       }
-      dapush(prog->ops, ct_3ac_op2(CALL_3, ISCONST | ISLABEL, (ADDRESS) fname->id->name, destaddr.addr_type, destaddr.addr));
       return destaddr;
       //TODO: above shoud be an op with a target, which is the result. Check func return type?
   }
@@ -719,7 +715,9 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type) {
   if(addr_type & ISLABEL) {
     printf("<<%s>>", addr.labelname);
   } else if(addr_type & ISCONST) {
-    if(addr_type & ISSTRCONST) 
+    if(addr_type & ISSTRUCT) 
+      printf("WIP");
+    else if(addr_type & ISSTRCONST) 
       printf("WIP");
     else if(addr_type & ISFLOAT) 
       printf("%lf", addr.floatconst_64);
