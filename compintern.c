@@ -47,6 +47,7 @@ EXPRESSION* cloneexpr(EXPRESSION* orig) {
 EXPRESSION* ct_nop_expr(void) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = NOP;
+  retval->rettype = NULL;
   return retval;
 }
 
@@ -129,7 +130,7 @@ EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params) {
 EXPRESSION* ct_strconst_expr(const char* str) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = STRING;
-  retval->rettype = NULL;
+  retval->rettype = NULL;//TODO: prepopulate rettype
   retval->strconst = (char*)(unsigned long) str;
   return retval;
 }
@@ -137,7 +138,7 @@ EXPRESSION* ct_strconst_expr(const char* str) {
 EXPRESSION* ct_intconst_expr(long num) { 
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = INT;
-  retval->rettype = NULL;
+  retval->rettype = NULL;//TODO: prepopulate rettype
   retval->intconst = num;
   return retval;
 }
@@ -145,7 +146,7 @@ EXPRESSION* ct_intconst_expr(long num) {
 EXPRESSION* ct_uintconst_expr(unsigned long num) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = INT;
-  retval->rettype = NULL;
+  retval->rettype = NULL;//TODO: prepopulate rettype
   retval->uintconst = num;
   return retval;
 }
@@ -153,7 +154,7 @@ EXPRESSION* ct_uintconst_expr(unsigned long num) {
 EXPRESSION* ct_floatconst_expr(double num) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));\
   retval->type = FLOAT;
-  retval->rettype = NULL;
+  retval->rettype = NULL;//TODO: prepopulate rettype
   retval->floatconst = num;
   return retval;
 }
@@ -161,7 +162,7 @@ EXPRESSION* ct_floatconst_expr(double num) {
 EXPRESSION* ct_array_lit(DYNARR* da) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));\
   retval->type = ARRAY_LIT;
-  retval->rettype = NULL;
+  retval->rettype = NULL;//TODO: prepopulate rettype
   retval->dynvals = da;
   return retval;
 }
@@ -179,6 +180,7 @@ EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident) {
   retval->type = IDENT;
   retval->id = scopesearch(lct, M_VARIABLE, ident);
   assert(retval->id || ! fprintf(stderr, "Error: use of undefined variable %s at %s %d.%d-%d.%d\n", ident, locprint(yylloc)));
+  retval->rettype = NULL;//TODO: prepopulate rettype
   return retval;
 }
 
