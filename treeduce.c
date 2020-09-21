@@ -366,6 +366,9 @@ static void exunflatten(EXPRESSION* ex) {
 }
 
 IDTYPE typex(EXPRESSION* ex) {
+  if(ex->rettype) {
+    return *ex->rettype;
+  }
   IDTYPE idt;
   idt.pointerstack = NULL;
   struct declarator_part* dclp;
@@ -410,15 +413,18 @@ IDTYPE typex(EXPRESSION* ex) {
       exunflatten(ex);
       //fall through
     case SHR: case SHL: //pointers allowed in bitshift?
-      return simplbinprec(typex(daget(ex->params, 0)), typex(daget(ex->params, 1)));
+      idt =  simplbinprec(typex(daget(ex->params, 0)), typex(daget(ex->params, 1)));
+      break;
     //for mult, div, etc. disallow pointers also ternary
     case MULT: case DIVI: //really unflatten?
       exunflatten(ex);
       //fall through
     case MOD:
-      return simplbinprecnoptr(typex(daget(ex->params, 0)), typex(daget(ex->params, 1)));
+      idt =  simplbinprecnoptr(typex(daget(ex->params, 0)), typex(daget(ex->params, 1)));
+      break;
     case TERNARY:
-      return simplbinprecnoptr(typex(daget(ex->params, 1)), typex(daget(ex->params, 2)));
+      idt =  simplbinprecnoptr(typex(daget(ex->params, 1)), typex(daget(ex->params, 2)));
+      break;
     case NEG:
     case B_NOT:
     case POSTINC: case POSTDEC:
@@ -427,22 +433,24 @@ IDTYPE typex(EXPRESSION* ex) {
     case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
     case XORASSIGN: case ORASSIGN: case DIVASSIGN:
     case MULTASSIGN: case MODASSIGN:
-      return typex(daget(ex->params, 0));
+      idt = typex(daget(ex->params, 0));
+      break;
 
     case ADDR:
       idt = typex(daget(ex->params, 0));
       idt.pointerstack = daclone(idt.pointerstack);
       dapush(idt.pointerstack, mkdeclpart(POINTERSPEC, 0)); //not restrict or volatile or anything
-      return idt;
+      break;
 
     case DEREF:
       idt = typex(daget(ex->params, 0));
       idt.pointerstack = daclone(idt.pointerstack);
       free(dapop(idt.pointerstack));
-      return idt;
+      break;
 
     case COMMA:
-      return typex(dapeek(ex->params));
+      idt = typex(dapeek(ex->params));
+      break;
 
     case DOTOP: case ARROW:
       idt = typex(daget(ex->params, 0));
@@ -452,10 +460,9 @@ IDTYPE typex(EXPRESSION* ex) {
       }
       break;
     case FCALL:
-      //we should really include return type in fcall expression?
-      //not done yet
-      assert(0);
+      assert(0); //fcall must be prepopulated
   }
+  *ex->rettype = idt;
   return idt;
 }
 
