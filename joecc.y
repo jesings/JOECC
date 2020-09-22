@@ -648,14 +648,14 @@ statement:
     }
 | "default" ':' {
     char* caselbl = malloc(128);
-    snprintf(caselbl, 128, "__joecc__%s__default", ctx->func->name);
+    snprintf(caselbl, 128, "__joecc__%s__default_%d", ctx->func->name, (ctx->func->caseindex)++);
     $$ = mkdefaultstmt(ctx, caselbl);
     }
 | "if" '(' expression ')' statement %prec THEN {$$ = mkifstmt($3, $5, NULL);}
 | "if" '(' expression ')' statement "else" statement {$$ = mkifstmt($3, $5, $7);}
 | "switch" '(' expression ')' switch_midrule compound_statement {
-    PARALLEL* pll = dapop(ctx->func->switchstack);
-    $$ = mkswitchstmt($3, $6, pll);
+    SWITCHINFO* swi = dapop(ctx->func->switchstack);
+    $$ = mkswitchstmt($3, $6, swi);
     //pop from switchstack, differentiate statement with case hashtable for ints
     }
 | "while" '(' expression ')' statement {$$ = mklsstmt(WHILEL, $3, $5);}
@@ -694,7 +694,9 @@ soiorno:
 | %empty {$$ = NULL;};
 switch_midrule:
   %empty {
-    dapush(ctx->func->switchstack, paralector());
+    SWITCHINFO* swi = calloc(1, sizeof(SWITCHINFO));
+    swi->cases = paralector();
+    dapush(ctx->func->switchstack, swi);
     };
 
 generic_symbol:

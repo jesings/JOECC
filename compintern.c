@@ -457,12 +457,13 @@ STATEMENT* mklsstmt(enum stmttype type, EXPRESSION* condition, STATEMENT* bdy) {
   return retval;
 }
 
-STATEMENT* mkswitchstmt(EXPRESSION* contingent, STATEMENT* bdy, PARALLEL* lbltbl) {
+STATEMENT* mkswitchstmt(EXPRESSION* contingent, STATEMENT* bdy, SWITCHINFO* swi) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = SWITCH;
   retval->cond = contingent;
   retval->body = bdy;
-  retval->labeltable = lbltbl;
+  retval->labeltable = swi->cases;
+  retval->defaultlbl = swi->defaultval;
   return retval;
 }
 
@@ -492,7 +493,7 @@ STATEMENT* mklblstmt(struct lexctx* lct, char* lblval) {
 }
 
 STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label) {
-  PARALLEL* pl = dapeek(lct->func->switchstack);
+  PARALLEL* pl = ((SWITCHINFO*) dapeek(lct->func->switchstack))->cases;
   while(foldconst(&casexpr)) ;
   switch(casexpr->type) {
     case INT: case UINT:
@@ -505,6 +506,7 @@ STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label) {
 }
 
 STATEMENT* mkdefaultstmt(struct lexctx* lct, char* label) {
+  ((SWITCHINFO*) dapeek(lct->func->switchstack))->defaultval = label;
   return mklblstmt(lct, label);
 }
 

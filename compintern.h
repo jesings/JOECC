@@ -159,10 +159,11 @@ typedef struct stmt {
       struct stmt* thencond;
       struct stmt* elsecond;
     };
-    struct { //while or dowhile (both w/o labeltable) or switch(?)
+    struct { //while or dowhile, switch
       EXPRESSION* cond;
       struct stmt* body;
       PARALLEL* labeltable;
+      char* defaultlbl;
     };
     struct { //for
       EOI* init;
@@ -219,6 +220,11 @@ struct intinfo {
   long num;
   char sign;
 }; 
+
+typedef struct {
+  PARALLEL* cases;
+  char* defaultval;
+} SWITCHINFO;
 
 typedef struct {
   char isfunc;
@@ -307,7 +313,7 @@ STATEMENT* mknopstmt(void);
 STATEMENT* mkgotostmt(char* gotoloc);
 STATEMENT* mkforstmt(EOI* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy);
 STATEMENT* mklsstmt(enum stmttype type, EXPRESSION* condition, STATEMENT* bdy);
-STATEMENT* mkswitchstmt(EXPRESSION* contingent, STATEMENT* bdy, PARALLEL* lbltbl);
+STATEMENT* mkswitchstmt(EXPRESSION* contingent, STATEMENT* bdy, SWITCHINFO* swi);
 STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy);
 STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits);
 STATEMENT* mklblstmt(struct lexctx* lct, char* lblval);
