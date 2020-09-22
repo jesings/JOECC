@@ -156,6 +156,12 @@ OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
   return ct_3ac_op3(opcode_unsigned + opmod, addr0_type, addr0, addr1_type, addr1, retaddr_type, retaddr);
 }
 
+OPERATION* implicit_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
+  FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
+  FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog);
+  return implicit_3ac_3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, prog);
+}
+
 OPERATION* nocoerce_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
                           ADDRTYPE addr1_type, ADDRESS addr1, PROGRAM* prog) {
   ADDRTYPE retaddr_type;
@@ -213,28 +219,11 @@ OPERATION* nocoerce_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
   return ct_3ac_op3(opcode_unsigned + opmod, addr0_type, addr0, addr1_type, addr1, retaddr_type, retaddr);
 }
 
-OPERATION* implicit_nary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog) {
-  FULLADDR prevaddr = linearitree(daget(cexpr->params, 0), prog);
-  OPERATION* cur_op;
-  for(int i = 1; i < cexpr->params->length; i++) {
-    FULLADDR secondaddr = linearitree(daget(cexpr->params, i), prog);
-    dapush(prog->ops, cur_op);
-    cur_op = implicit_3ac_3(opcode_unsigned, prevaddr.addr_type, prevaddr.addr, secondaddr.addr_type, secondaddr.addr, prog);
-    prevaddr = op2addr(cur_op);
-  }
-  return cur_op;
-}
-
-OPERATION* nocoerce_nary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog) {
-  FULLADDR prevaddr = linearitree(daget(cexpr->params, 0), prog);
-  OPERATION* cur_op;
-  for(int i = 1; i < cexpr->params->length; i++) {
-    FULLADDR secondaddr = linearitree(daget(cexpr->params, i), prog);
-    dapush(prog->ops, cur_op);
-    cur_op = nocoerce_3ac_3(opcode_unsigned, prevaddr.addr_type, prevaddr.addr, secondaddr.addr_type, secondaddr.addr, prog);
-    prevaddr = op2addr(cur_op);
-  }
-  return cur_op;
+OPERATION* implicit_nocoerce_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
+  FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
+  FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog);
+  return nocoerce_3ac_3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, prog);
+  //maybe this need not be seperate
 }
 
 FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, ADDRESS complete_val, ADDRESS shortcircuit_val, PROGRAM* prog) {
@@ -426,13 +415,13 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
 
     case ADD:
-      return op2ret(prog->ops, implicit_nary_3(ADD_U, cexpr, prog));
+      return op2ret(prog->ops, implicit_binary_3(ADD_U, cexpr, prog));
     case SUB: 
-      return op2ret(prog->ops, implicit_nary_3(SUB_U, cexpr, prog));
+      return op2ret(prog->ops, implicit_binary_3(SUB_U, cexpr, prog));
     case MULT:
-      return op2ret(prog->ops, implicit_nary_3(MULT_U, cexpr, prog));
+      return op2ret(prog->ops, implicit_binary_3(MULT_U, cexpr, prog));
     case DIVI: 
-      return op2ret(prog->ops, implicit_nary_3(DIV_U, cexpr, prog));
+      return op2ret(prog->ops, implicit_binary_3(DIV_U, cexpr, prog));
 
     case EQ:
       return op2ret(prog->ops, cmpret_binary_3(EQ_U, cexpr, prog));
@@ -458,11 +447,11 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return implicit_shortcircuit_3(BNZ_3, cexpr, (ADDRESS) 0ul, (ADDRESS) 1ul, prog);
 
     case B_AND:
-      return op2ret(prog->ops, implicit_nary_3(AND_U, cexpr, prog));
+      return op2ret(prog->ops, implicit_binary_3(AND_U, cexpr, prog));
     case B_OR:
-      return op2ret(prog->ops, implicit_nary_3(OR_U, cexpr, prog));
+      return op2ret(prog->ops, implicit_binary_3(OR_U, cexpr, prog));
     case B_XOR:
-      return op2ret(prog->ops, implicit_nary_3(XOR_U, cexpr, prog));
+      return op2ret(prog->ops, implicit_binary_3(XOR_U, cexpr, prog));
 
     case SHL:
       return op2ret(prog->ops, binshift_3(SHL_U, cexpr, prog));
