@@ -685,6 +685,29 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       return;
     case SWITCH:
       //TODO: figure out how to represent switch stmt!!! Either jump table or multiple ifs w/ goto but how to decide and how to represent jump table-- put switch and hash in data?
+      //check cases, if they're all within 1024 of each other, construct jump table, else make if else with jumps, current solution
+      brklabel.labelname = proglabel(prog);
+      FULLADDR fad = linearitree(cst->cond, prog);
+      dapush(prog->breaklabels, brklabel.labelname);
+      DYNARR* cll = cst->labeltable->da;
+      HASHTABLE* htl = cst->labeltable->ht;
+      for(int i = 0; i < cll->length; i++) {
+        ADDRESS cadre, padre;
+        cadre.intconst_64 = (long) daget(cll, i);
+        padre.labelname = fixedsearch(htl, cadre.intconst_64);
+        //maybe signed is unnecessary
+        dapush(prog->ops, ct_3ac_op3(BEQ_I, fad.addr_type, fad.addr, ISCONST | ISSIGNED, cadre,
+                                     ISCONST | ISLABEL, padre));
+      }
+      if(cst->defaultlbl) {
+        ADDRESS deflbl;
+        deflbl.labelname = cst->defaultlbl;
+        dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, deflbl));
+      } else {
+        dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, brklabel));
+      }
+      solidstate(cst->body, prog);
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, brklabel));
       break;
     case LABEL:
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) cst->glabel));
