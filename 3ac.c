@@ -351,7 +351,15 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       }
       return destaddr;
     case L_NOT:
-      break;
+      //TODO: validate lots of types
+      curaddr = linearitree(daget(cexpr->params, 0), prog);
+      destaddr.addr_type = (curaddr.addr_type & ~(ISCONST | 0xf)) | 1;
+      //logical not only makes sense for ints
+      otheraddr.addr.uintconst_64 = 0.0;
+      destaddr.addr = curaddr.addr;
+      dapush(prog->ops, ct_3ac_op3(EQ_U, curaddr.addr_type, curaddr.addr, curaddr.addr_type, otheraddr.addr,
+                                   destaddr.addr_type, destaddr.addr));
+      return destaddr;
     case B_NOT:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       destaddr.addr_type = curaddr.addr_type & ~ISCONST;
