@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include "compintern.h"
+#include "treeduce.h"
 #include "3ac.h"
 //TODO: For loops with continue don't work I think
 #define X(s) #s
@@ -573,12 +574,29 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
      case POSTINC: case POSTDEC:
        //scratch register returned, but type coercion stupid and unclear
+       //confirm argument is lvalue?
     case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
     case XORASSIGN: case ORASSIGN: case DIVASSIGN: case MULTASSIGN: case MODASSIGN:
+       //confirm argument is lvalue?
        //type coercion stupid and unclear
       break;
-    case NOP: case SZOF: case MEMBER:
+    case NOP: case MEMBER:
       break;
+    case SZOF:;
+      IDTYPE idt = typex(daget(cexpr->params, 0));
+      destaddr.addr_type = ISCONST | 8;
+      if(idt.pointerstack && idt.pointerstack->length) {
+        destaddr.addr.intconst_64 = 8;
+      } else {
+        if(idt.tb & STRUCTVAL) {
+          destaddr.addr.intconst_64 = idt.structtype->size;
+        } else if(idt.tb & UNIONVAL) {
+          destaddr.addr.intconst_64 = idt.uniontype->size;
+        } else {
+          destaddr.addr.intconst_64 = idt.tb & 0xf;
+        }
+      }
+      return destaddr;
     case FCALL: ;
       DYNARR* params = dactor(cexpr->params->length);
       EXPRESSION* fname = daget(cexpr->params, 0);
