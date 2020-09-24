@@ -914,5 +914,6 @@ char remove_nops(PROGRAM* prog) {
     }
   }
   int prevlen = da->length;
-  return prevlen == (da->length = newlen);
+  da->length = newlen;
+  return prevlen == newlen;
 }
