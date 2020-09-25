@@ -160,7 +160,80 @@ OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
 OPERATION* implicit_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
   FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog);
-  return implicit_3ac_3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, prog);
+  IDTYPE arg1id = typex(daget(cexpr->params, 0));
+  IDTYPE arg2id = typex(daget(cexpr->params, 1));
+  IDTYPE retid = typex(cexpr);
+  FULLADDR desta;
+  if(retid.pointerstack && retid.pointerstack->length) {
+    desta.addr_type = ISPOINTER | 8;
+    //perhaps save regnum here?
+    desta.addr.iregnum = prog->iregcnt++;
+  } else if(retid.tb & FLOATNUM) {
+    op += 2;
+    if(!(arg1id.tb & FLOATNUM)) {
+      FULLADDR fad;
+      fad.addr_type = ISFLOAT | (retid.tb & 0xf);
+      fad.addr.fregnum = prog->fregcnt++;
+      dapush(prog->ops, ct_3ac_op2(INT_TO_FLOAT, a1.addr_type, a1.addr, fad.addr_type, fad.addr));
+      a1 = fad;
+    } 
+    if(!(arg2id.tb & FLOATNUM)) {
+      FULLADDR fad;
+      fad.addr_type = ISFLOAT | (retid.tb & 0xf);
+      fad.addr.fregnum = prog->fregcnt++;
+      dapush(prog->ops, ct_3ac_op2(INT_TO_FLOAT, a2.addr_type, a2.addr, fad.addr_type, fad.addr));
+      a2 = fad;
+    }
+    desta.addr_type = ISFLOAT | (retid.tb & 0xf);
+    //perhaps save regnum here?
+    desta.addr.fregnum = prog->fregcnt++;
+  } else if(retid.tb & UNSIGNEDNUM) {
+    desta.addr_type = retid.tb & 0xf;
+    //perhaps save regnum here?
+    desta.addr.iregnum = prog->iregcnt++;
+  } else {
+    op += 1;
+    desta.addr_type = (retid.tb & 0xf) | ISSIGNED;
+    desta.addr.iregnum = prog->iregcnt++;
+  }
+
+  return ct_3ac_op3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, desta.addr_type, desta.addr);
+  //return implicit_3ac_3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, prog);
+}
+
+OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
+  FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
+  IDTYPE arg1id = typex(daget(cexpr->params, 0));
+  IDTYPE retid = typex(cexpr);
+  FULLADDR desta;
+  if(retid.pointerstack && retid.pointerstack->length) {
+    desta.addr_type = ISPOINTER | 8;
+    //perhaps save regnum here?
+    desta.addr.iregnum = prog->iregcnt++;
+  } else if(retid.tb & FLOATNUM) {
+    op += 2;
+    if(!(arg1id.tb & FLOATNUM)) {
+      FULLADDR fad;
+      fad.addr_type = ISFLOAT | (retid.tb & 0xf);
+      fad.addr.fregnum = prog->fregcnt++;
+      dapush(prog->ops, ct_3ac_op2(INT_TO_FLOAT, a1.addr_type, a1.addr, fad.addr_type, fad.addr));
+      a1 = fad;
+    } 
+    desta.addr_type = ISFLOAT | (retid.tb & 0xf);
+    //perhaps save regnum here?
+    desta.addr.fregnum = prog->fregcnt++;
+  } else if(retid.tb & UNSIGNEDNUM) {
+    desta.addr_type = retid.tb & 0xf;
+    //perhaps save regnum here?
+    desta.addr.iregnum = prog->iregcnt++;
+  } else {
+    op += 1;
+    desta.addr_type = (retid.tb & 0xf) | ISSIGNED;
+    desta.addr.iregnum = prog->iregcnt++;
+  }
+
+  return ct_3ac_op2(op, a1.addr_type, a1.addr, desta.addr_type, desta.addr);
+  //return implicit_3ac_3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, prog);
 }
 
 OPERATION* nocoerce_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
@@ -374,54 +447,12 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
 
     case ADDR:
-      curaddr = linearitree(daget(cexpr->params, 0), prog);
-      destaddr.addr_type = ISPOINTER | 0x40;
-      destaddr.addr.ptaddr = malloc(sizeof(POINTADDR));
-      if (curaddr.addr_type & ISPOINTER) {
-        destaddr.addr.ptaddr->pointerdepth = curaddr.addr.ptaddr->pointerdepth + 1;
-        destaddr.addr.ptaddr->adt = curaddr.addr.ptaddr->adt;
-        destaddr.addr.ptaddr->pointersize = curaddr.addr.ptaddr->pointersize;
-      } else {
-        destaddr.addr.ptaddr->pointerdepth = 1;
-        destaddr.addr.ptaddr->adt = curaddr.addr_type & ~ISCONST;
-        destaddr.addr.ptaddr->pointersize = curaddr.addr_type & 0xf;
-      }
-      destaddr.addr.ptaddr->iregnum = prog->iregcnt++;
-      if(destaddr.addr_type & ISFLOAT) {
-        dapush(prog->ops, ct_3ac_op2(ADDR_F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-      } else {
-        dapush(prog->ops, ct_3ac_op2(ADDR_U, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-      }
-      return destaddr;
+      return op2ret(prog->ops, implicit_unary_2(ADDR_U, cexpr, prog));
 
     case DEREF: //Turn deref of addition, subtraction, into array index?
       //TODO: not sure if this is right
-      curaddr = linearitree(daget(cexpr->params, 0), prog);
-      if (curaddr.addr_type & ISPOINTER) {
-        if(curaddr.addr.ptaddr->pointerdepth > 1) {
-          destaddr.addr_type = ISPOINTER;
-          destaddr.addr.ptaddr = malloc(sizeof(POINTADDR));
-          destaddr.addr.ptaddr->pointerdepth = curaddr.addr.ptaddr->pointerdepth + 1;
-          destaddr.addr.ptaddr->adt = curaddr.addr.ptaddr->adt;
-          destaddr.addr.ptaddr->pointersize = curaddr.addr.ptaddr->pointersize;
-        } else {
-          destaddr.addr_type = curaddr.addr.ptaddr->adt;
-        }
-      } else {
-        //error
-      }
-      //only for rvalue
-      if(destaddr.addr_type & ISFLOAT) {
-        destaddr.addr.fregnum = prog->fregcnt++;
-      } else {
-        if(destaddr.addr_type & ISPOINTER) {
-          destaddr.addr.ptaddr->iregnum = prog->iregcnt++;
-        } else {
-          destaddr.addr.iregnum = prog->iregcnt++;
-        }
-      }
-      dapush(prog->ops, ct_3ac_op2(MOV_FROM_PTR, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-      return destaddr;
+      //TODO: actually include lvalue
+      return op2ret(prog->ops, implicit_unary_2(MFP_U, cexpr, prog));
 
     case ADD:
       return op2ret(prog->ops, implicit_binary_3(ADD_U, cexpr, prog));
@@ -883,7 +914,8 @@ void printprog(PROGRAM* prog) {
       case MOV_3: 
         PRINTOP2( );
         break;
-      case MOV_TO_PTR: case MOV_FROM_PTR: 
+      case MTP_U: case MTP_I: case MTP_F:
+      case MFP_U: case MFP_I: case MFP_F:
         PRINTOP2( ); //perhaps use deref later, not vital
         break;
       case PARAM_3: case CALL_3: case RETURN_3: 

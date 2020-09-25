@@ -33,7 +33,8 @@
   X(BNZ_3), X(BEZ_3), \
   X(JMP_3), \
   X(MOV_3), \
-  X(MOV_TO_PTR), X(MOV_FROM_PTR), \
+  X(MTP_U), X(MTP_I), X(MTP_F), /*move to pointer*/\
+  X(MFP_U), X(MFP_I), X(MFP_F), /*move from pointer*/\
   X(PARAM_3), /*Do this for each param for CALL, must be done immediately before CALL */\
   X(CALL_3), X(RETURN_3), \
   X(FLOAT_TO_INT), X(INT_TO_FLOAT), \
@@ -75,13 +76,6 @@ typedef enum {
   //array constants not necessary to handle here
 } ADDRTYPE;
 
-typedef struct ptaddress {
-  unsigned long iregnum; //integer register
-  int pointersize;
-  int pointerdepth;
-  ADDRTYPE adt;
-} POINTADDR;
-
 typedef struct {
   enum opcode_3ac opcode;
   ADDRTYPE addr0_type;
@@ -121,6 +115,7 @@ OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
 OPERATION* nocoerce_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
                           ADDRTYPE addr1_type, ADDRESS addr1, PROGRAM* prog);
 OPERATION* implicit_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
+OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog);
 OPERATION* implicit_nocoerce_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
 FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, 
                                  ADDRESS complete_val, ADDRESS shortcircuit_val, PROGRAM* prog);
