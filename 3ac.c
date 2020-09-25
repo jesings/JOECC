@@ -44,22 +44,6 @@ OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
   return retval;
 }
 
-ADDRTYPE conv_type_type(IDTYPE* idt) {
-  if(idt->pointerstack && idt->pointerstack->length) {
-    return 8 | ISPOINTER;
-  }
-  if(idt->tb & ENUMVAL) {
-    return 8 | ISSIGNED;
-  }
-  if(idt->tb & FLOATNUM) {
-    return (idt->tb & 0xf) | ISSIGNED | ISFLOAT;
-  }
-  if(idt->tb & UNSIGNEDNUM) {
-    return (idt->tb & 0xf);
-  }
-  return (idt->tb & 0xf) | ISSIGNED;
-}
-
 OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
                       ADDRTYPE addr1_type, ADDRESS addr1, PROGRAM* prog) {
   ADDRTYPE retaddr_type;
