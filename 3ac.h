@@ -98,6 +98,7 @@ typedef struct {
   unsigned long fregcnt;
   DYNARR* breaklabels;
   DYNARR* continuelabels;
+  HASHTABLE* fixedvars;
 } PROGRAM;
 
 

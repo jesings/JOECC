@@ -209,12 +209,13 @@ struct declarator_part {
 typedef struct {
   char* varname;
   IDTYPE* type;
+  long varid;
 } DECLARATION;
 
 typedef struct {
   DECLARATION* decl;
   EXPRESSION* expr;
-} INITIALIZER;//?
+} INITIALIZER;
 
 struct intinfo {
   long num;
