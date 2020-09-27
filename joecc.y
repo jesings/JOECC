@@ -224,6 +224,7 @@ initializer:
         SCOPEMEMBER* sm =  search(ht, ac->decl->varname);
         if(!sm || (sm->mtype == M_VARIABLE && (sm->idi->type->tb & EXTERNNUM))) {
           add2scope(ctx, ac->decl->varname, M_VARIABLE, ac->decl->type);
+          ac->decl->varid = ctx->func->numvars--;
         } else {
           fprintf(stderr, "Error: redefinition of identifier %s in %s %d.%d-%d.%d\n", ac->decl->varname, locprint(@$));
         }
@@ -630,6 +631,7 @@ function:
     for(int i = 0; i < par->da->length; i++) {
       char* pname = daget(par->da, i);
       add2scope(ctx, pname, M_VARIABLE, NULL);
+      //TODO: add variable index to param
     }
     }
     '{' soiorno '}' {

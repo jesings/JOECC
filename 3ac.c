@@ -662,6 +662,13 @@ OPERATION* cmptype(EXPRESSION* cmpexpr, char* addr2jmp, char negate, PROGRAM* pr
   }
 }
 
+void initializestate(INITIALIZER* i) {
+  if(i->expr) {
+    FULLADDR lastemp = linearitree(i->expr);
+  } else {
+  }
+}
+
 //store some state about enclosing switch statement and its labeltable (how to represent?), about enclosing loop as well (for continue)
 void solidstate(STATEMENT* cst, PROGRAM* prog) {
   FULLADDR ret_op;
