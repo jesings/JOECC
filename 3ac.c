@@ -662,10 +662,16 @@ OPERATION* cmptype(EXPRESSION* cmpexpr, char* addr2jmp, char negate, PROGRAM* pr
   }
 }
 
-void initializestate(INITIALIZER* i) {
+void initializestate(INITIALIZER* i, PROGRAM* prog) {
+  FULLADDR newa;
+  newa.addr_type;//addrtype should be determined from initializer type, helper function
+  newa.addr.iregnum = prog->iregcnt++;
+  //check if iregnum or fregnum
+  dapush(prog->ops, ct_3ac_op1(INIT_3, newa.addr_type, newa.addr));
   if(i->expr) {
-    FULLADDR lastemp = linearitree(i->expr);
-  } else {
+    FULLADDR lastemp = linearitree(i->expr, prog);
+    //force float conversion in mov if necessary?
+    dapush(prog->ops, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa.addr_type, newa.addr));
   }
 }
 
