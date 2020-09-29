@@ -664,14 +664,23 @@ OPERATION* cmptype(EXPRESSION* cmpexpr, char* addr2jmp, char negate, PROGRAM* pr
 
 void initializestate(INITIALIZER* i, PROGRAM* prog) {
   FULLADDR newa;
-  newa.addr_type;//addrtype should be determined from initializer type, helper function
-  newa.addr.iregnum = prog->iregcnt++;
-  //check if iregnum or fregnum
+  newa.addr_type = addrconv(i->decl->type);//addrtype should be determined from initializer type, helper function
+  if(newa.addr_type & ISFLOAT) {
+    newa.addr.iregnum = prog->iregcnt++;
+  } else {
+    newa.addr.fregnum = prog->fregcnt++;
+  }
   dapush(prog->ops, ct_3ac_op1(INIT_3, newa.addr_type, newa.addr));
   if(i->expr) {
     FULLADDR lastemp = linearitree(i->expr, prog);
-    //force float conversion in mov if necessary?
-    dapush(prog->ops, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa.addr_type, newa.addr));
+    if((lastemp.addr_type & ISFLOAT) && !(newa.addr_type & ISFLOAT)) {
+      dapush(prog->ops, ct_3ac_op2(FLOAT_TO_INT, lastemp.addr_type, lastemp.addr, newa.addr_type, newa.addr));
+    } else if(!(lastemp.addr_type & ISFLOAT) && (newa.addr_type & ISFLOAT)) {
+      dapush(prog->ops, ct_3ac_op2(INT_TO_FLOAT, lastemp.addr_type, lastemp.addr, newa.addr_type, newa.addr));
+    } else {
+      //force float conversion in mov if necessary?
+      dapush(prog->ops, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa.addr_type, newa.addr));
+    }
   }
 }
 

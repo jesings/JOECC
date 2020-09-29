@@ -160,4 +160,20 @@ inline enum opcode_3ac cmp_osite(EXPRTYPE coptype, char negate) {
 }
 char remove_nops(PROGRAM* prog);
 
+inline ADDRTYPE addrconv(IDTYPE* idt) {
+  ADDRTYPE adt;
+  if(idt->pointerstack && idt->pointerstack->length) {
+    adt = ISPOINTER;
+  } else if(idt->tb & (STRUCTVAL | UNIONVAL)) {
+    adt = ISPOINTER;
+  } else if(idt->tb & FLOATNUM) {
+    adt = ISFLOAT | (idt->tb & 0xf);
+  } else if(idt->tb & UNSIGNEDNUM) {
+    adt = (idt->tb & 0xf);
+  } else {
+    adt = ISSIGNED | (idt->tb & 0xf);
+  }
+  return adt;
+}
+
 #endif
