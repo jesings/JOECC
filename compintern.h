@@ -166,7 +166,7 @@ typedef struct stmt {
       char* defaultlbl;
     };
     struct { //for
-      EOI* init;
+      EOI* forinit;
       EXPRESSION* forcond;
       EXPRESSION* increment;
       struct stmt* forbody;

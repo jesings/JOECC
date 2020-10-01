@@ -422,30 +422,10 @@ STATEMENT* mkgotostmt(char* gotoloc) {
 
 STATEMENT* mkforstmt(EOI* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
-  retval->type = CMPND;
-  retval->stmtsandinits = dactor(8);
-  if(e1->isE) {
-    dapush(retval->stmtsandinits, sois(mkexprstmt(EXPR, e1->E)));
-  } else {
-    dapush(retval->stmtsandinits, soii(e1->I));
-  }
-  free(e1);
-  STATEMENT* subloop = malloc(sizeof(STATEMENT));
-  subloop->type = WHILEL;
-  subloop->cond = e2;
-  if(bdy->type == CMPND && bdy->stmtsandinits) {
-    dapush(bdy->stmtsandinits, sois(mkexprstmt(EXPR, e3)));
-    subloop->body = bdy;
-  } else {
-    STATEMENT* loopbdy = malloc(sizeof(STATEMENT));
-    loopbdy->type = CMPND;
-    loopbdy->stmtsandinits = dactor(2);
-    dapush(loopbdy->stmtsandinits, sois(bdy));
-    dapush(loopbdy->stmtsandinits, sois(mkexprstmt(EXPR, e3)));
-    subloop->body = loopbdy;
-  }
-  dapush(retval->stmtsandinits, sois(subloop));
-
+  retval->forinit = e1;
+  retval->forcond = e2;
+  retval->increment = e3;
+  retval->body = bdy;
   return retval;
 }
 
