@@ -625,12 +625,11 @@ function:
     free($2);
     ctx->func = $$;
 
-    /*check that it is in fact a param spec*/
-    PARALLEL* par = $$->params;
     scopepush(ctx);
-    for(int i = 0; i < par->da->length; i++) {
-      char* pname = daget(par->da, i);
-      add2scope(ctx, pname, M_VARIABLE, NULL);
+    for(int i = 0; i < parammemb->da->length; i++) {
+      char* pname = daget(parammemb->da, i);
+      DECLARATION* declwhole = (DECLARATION*) search(parammemb->ht, pname);
+      add2scope(ctx, pname, M_VARIABLE, declwhole->type);
       //TODO: add variable index to param
     }
     }
