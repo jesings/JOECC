@@ -773,6 +773,16 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
   fprintf(stderr, "Error: reduction of statement to 3 address code failed\n");
 }
 
+void linefunc(FUNC* f) {
+  PROGRAM* prog = calloc(sizeof(PROGRAM), 1);
+  prog->ops = dactor(1024);
+  prog->breaklabels = dactor(8);
+  prog->continuelabels = dactor(8);
+  prog->fixedvars = htctor();
+  //initialize params
+  solidstate(f->body, prog);
+}
+
 static void printaddr(ADDRESS addr, ADDRTYPE addr_type) {
   if(addr_type & ISLABEL) {
     printf("<<%s>>", addr.labelname);
