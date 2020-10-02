@@ -759,8 +759,19 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) cst->glabel));
       return;
     case CMPND: 
-      solidstate(cst->body, prog);
       //probably more stack stuff will need to be done here?
+      for(int i = 0; i < cst->stmtsandinits->length; i++) {
+        SOI* s = (SOI*) daget(cst->stmtsandinits, i);
+        if(s->isstmt) {
+          solidstate(s->state, prog);
+        } else {
+          for(int j = 0; j < s->init->length; j++) {
+            INITIALIZER* in = daget(s->init, j);
+            initializestate(in, prog);
+          }
+        }
+        
+      }
       return;
     case EXPR:
       linearitree(cst->expression, prog);
@@ -780,6 +791,8 @@ void linefunc(FUNC* f) {
   prog->continuelabels = dactor(8);
   prog->fixedvars = htctor();
   //initialize params
+  for(int i = 0; i < f->params->da->length; i++) {
+  }
   solidstate(f->body, prog);
 }
 
