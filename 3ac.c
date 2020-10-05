@@ -605,7 +605,18 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       dapush(prog->ops, ct_3ac_op2(enop, destaddr.addr_type, destaddr.addr, destaddr.addr_type, destaddr.addr));
       return curaddr;
        //confirm argument is lvalue?
-    case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
+    case ADDASSIGN:
+      curaddr = linearitree(daget(cexpr->params, 1), prog);
+      destaddr = linearitree(daget(cexpr->params, 0), prog);
+      //implicit type coercion needed
+      if(destaddr.addr_type & ISFLOAT) {
+        enop = ADD_F;
+      } else {
+        enop = destaddr.addr_type & ISSIGNED ? ADD_I : ADD_U;
+      }
+      dapush(prog->ops, ct_3ac_op2(enop, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+      return destaddr;
+    case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
     case XORASSIGN: case ORASSIGN: case DIVASSIGN: case MULTASSIGN: case MODASSIGN:
        //confirm argument is lvalue?
        //type coercion stupid and unclear
