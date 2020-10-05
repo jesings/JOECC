@@ -351,6 +351,7 @@ OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRA
 FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR curaddr, otheraddr, destaddr;
   ADDRESS initlbl, scndlbl;
+  enum opcode_3ac enop;
 
   switch(cexpr->type){
     case STRING: ;
@@ -561,16 +562,48 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
     case PREINC:
       destaddr = linearitree(daget(cexpr->params, 0), prog);
-      //implicit type coercion needed
+      if(destaddr.addr_type & ISFLOAT) {
+        enop = INC_F;
+      } else {
+        enop = destaddr.addr_type & ISSIGNED ? INC_I : INC_U;
+      }
       dapush(prog->ops, ct_3ac_op2(INC_U, destaddr.addr_type, destaddr.addr, destaddr.addr_type, destaddr.addr));
       return destaddr;
     case PREDEC:
       destaddr = linearitree(daget(cexpr->params, 0), prog);
-      //implicit type coercion needed
+      if(destaddr.addr_type & ISFLOAT) {
+        enop = DEC_F;
+      } else {
+        enop = destaddr.addr_type & ISSIGNED ? DEC_I : DEC_U;
+      }
       dapush(prog->ops, ct_3ac_op2(INC_U, destaddr.addr_type, destaddr.addr, destaddr.addr_type, destaddr.addr));
       return destaddr;
-     case POSTINC: case POSTDEC:
-       //scratch register returned, but type coercion stupid and unclear
+     case POSTINC:
+      destaddr = linearitree(daget(cexpr->params, 0), prog);
+      curaddr.addr_type = destaddr.addr_type;
+      if(destaddr.addr_type & ISFLOAT) {
+        curaddr.addr.fregnum = prog->fregcnt++;
+        enop = INC_F;
+      } else {
+        curaddr.addr.iregnum = prog->iregcnt++;
+        enop = destaddr.addr_type & ISSIGNED ? INC_I : INC_U;
+      }
+      dapush(prog->ops, ct_3ac_op2(MOV_3, destaddr.addr_type, destaddr.addr, curaddr.addr_type, curaddr.addr));
+      dapush(prog->ops, ct_3ac_op2(enop, destaddr.addr_type, destaddr.addr, destaddr.addr_type, destaddr.addr));
+      return curaddr;
+     case POSTDEC:
+      destaddr = linearitree(daget(cexpr->params, 0), prog);
+      curaddr.addr_type = destaddr.addr_type;
+      if(destaddr.addr_type & ISFLOAT) {
+        curaddr.addr.fregnum = prog->fregcnt++;
+        enop = DEC_F;
+      } else {
+        curaddr.addr.iregnum = prog->iregcnt++;
+        enop = destaddr.addr_type & ISSIGNED ? DEC_I : DEC_U;
+      }
+      dapush(prog->ops, ct_3ac_op2(MOV_3, destaddr.addr_type, destaddr.addr, curaddr.addr_type, curaddr.addr));
+      dapush(prog->ops, ct_3ac_op2(enop, destaddr.addr_type, destaddr.addr, destaddr.addr_type, destaddr.addr));
+      return curaddr;
        //confirm argument is lvalue?
     case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
     case XORASSIGN: case ORASSIGN: case DIVASSIGN: case MULTASSIGN: case MODASSIGN:
