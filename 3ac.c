@@ -44,103 +44,6 @@ OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
   return retval;
 }
 
-OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
-                      ADDRTYPE addr1_type, ADDRESS addr1, PROGRAM* prog) {
-  ADDRTYPE retaddr_type;
-  ADDRESS retaddr;
-  char opmod;
-
-  if((addr0_type & ISFLOAT)) {
-    if(!(addr1_type & ISFLOAT)) {
-      if(addr1_type & ISCONST) {
-        if(addr1_type & ISSIGNED) {
-          addr1.floatconst_64 = (float) addr1.intconst_64;
-        } else {
-          addr1.floatconst_64 = (float) addr1.uintconst_64;
-        }
-      } else {
-        ADDRESS tmpaddr;
-        tmpaddr.fregnum = prog->fregcnt++;
-        dapush(prog->ops, ct_3ac_op2(INT_TO_FLOAT, addr1_type, addr1, addr1_type | ISFLOAT | ISSIGNED, tmpaddr));
-        addr1 = tmpaddr;
-      }
-      addr1_type |= ISFLOAT | ISSIGNED; 
-      retaddr_type = addr0_type & ~ISCONST;
-      if(addr0_type & ISCONST) {
-        retaddr.fregnum = prog->fregcnt++;
-      } else {
-        retaddr = addr0;
-      }
-    } else {
-      retaddr_type = addr0_type & 0xf;
-      if(addr1_type & (0xf > retaddr_type))
-        retaddr_type= addr1_type & 0xf;
-      retaddr_type |= ISFLOAT | ISSIGNED; 
-      if(addr0_type & ISCONST) {
-        if(addr1_type & ISCONST) {
-          retaddr.fregnum = prog->fregcnt++;
-        } else {
-          retaddr.fregnum = addr1.fregnum;
-        }
-      } else {
-        retaddr.fregnum = addr0.fregnum;
-      }
-    }
-    opmod = 2;
-  } else if (addr1_type & ISFLOAT) {
-    if(addr0_type & ISCONST) {
-      if(addr1_type & ISSIGNED) {
-        addr0.floatconst_64 = (float) addr0.intconst_64;
-      } else {
-        addr0.floatconst_64 = (float) addr0.uintconst_64;
-      }
-    } else {
-      ADDRESS tmpaddr;
-      tmpaddr.fregnum = prog->fregcnt++;
-      dapush(prog->ops, ct_3ac_op2(INT_TO_FLOAT, addr0_type, addr0, addr0_type | ISFLOAT | ISSIGNED, tmpaddr));
-      addr0 = tmpaddr;
-    }
-    addr0_type |= ISFLOAT | ISSIGNED; 
-    opmod = 2;
-    retaddr_type = addr1_type;
-    if(addr1_type & ISCONST) {
-      retaddr.fregnum = prog->fregcnt++;
-    } else {
-      retaddr = addr1;
-    }
-  } else if ((addr0_type & ISSIGNED) || (addr1_type & ISSIGNED)) {
-    opmod = 1;
-    retaddr_type = addr0_type & 0xf;
-    if(addr1_type & (0xf > retaddr_type))
-      retaddr_type = addr1_type & 0xf;
-    retaddr_type |= ISSIGNED;
-    if(addr0_type & ISCONST) {
-      if(addr1_type & ISCONST) {
-        retaddr.iregnum = prog->iregcnt++;
-      } else {
-        retaddr = addr1;
-      }
-    } else {
-      retaddr.iregnum = addr0.iregnum;
-    }
-  } else {
-    opmod = 0;
-    retaddr_type = addr0_type & 0xf;
-    if(addr1_type & (0xf > retaddr_type))
-      retaddr_type= addr1_type & 0xf;
-    if(addr0_type & ISCONST) {
-      if(addr1_type & ISCONST) {
-        retaddr.iregnum = prog->iregcnt++;
-      } else {
-        retaddr = addr1;
-      }
-    } else {
-      retaddr.iregnum = addr0.iregnum;
-    }
-  }
-  return ct_3ac_op3(opcode_unsigned + opmod, addr0_type, addr0, addr1_type, addr1, retaddr_type, retaddr);
-}
-
 OPERATION* implicit_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
   FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog);
@@ -182,7 +85,6 @@ OPERATION* implicit_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* pro
   }
 
   return ct_3ac_op3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, desta.addr_type, desta.addr);
-  //return implicit_3ac_3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, prog);
 }
 
 OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
@@ -217,7 +119,6 @@ OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog
   }
 
   return ct_3ac_op2(op, a1.addr_type, a1.addr, desta.addr_type, desta.addr);
-  //return implicit_3ac_3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, prog);
 }
 
 OPERATION* nocoerce_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
@@ -306,27 +207,36 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
   return addr2use;
 }
 
-OPERATION* cmpret_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog) {
-  FULLADDR curaddr = linearitree(daget(cexpr->params, 0), prog);
-  FULLADDR otheraddr = linearitree(daget(cexpr->params, 1), prog);
-  OPERATION* retop = implicit_3ac_3(opcode_unsigned, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog);
-  if(retop->dest_type & ISFLOAT) {
-    retop->dest_type = curaddr.addr_type & 0xf;
-    if(retop->dest_type < (otheraddr.addr_type & 0xf)) {
-      retop->dest_type = otheraddr.addr_type & 0xf;
+OPERATION* cmpret_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
+  FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
+  FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog);
+  IDTYPE arg1id = typex(daget(cexpr->params, 0));
+  IDTYPE arg2id = typex(daget(cexpr->params, 1));
+  IDTYPE retid = typex(cexpr);
+  FULLADDR desta;
+  desta.addr_type =  (retid.tb & 0xf) | (retid.tb & UNSIGNEDNUM ? 0 : ISSIGNED);//unsigned
+  desta.addr.iregnum = prog->iregcnt++;
+  if(arg1id.tb & FLOATNUM) {
+    op += 2;
+    if(!(arg2id.tb & FLOATNUM)) {
+      FULLADDR fad;
+      fad.addr_type = ISFLOAT | (arg1id.tb & 0xf);
+      fad.addr.fregnum = prog->fregcnt++;
+      dapush(prog->ops, ct_3ac_op2(INT_TO_FLOAT, a2.addr_type, a2.addr, fad.addr_type, fad.addr));
+      a2 = fad;
     }
-    retop->dest_type |= curaddr.addr_type & otheraddr.addr_type & ISSIGNED;
-    if(curaddr.addr_type & ISFLOAT || curaddr.addr_type & ISCONST) {
-      if(otheraddr.addr_type & ISFLOAT || otheraddr.addr_type & ISCONST) {
-        retop->dest.iregnum = prog->iregcnt++;
-      } else {
-        retop->dest = otheraddr.addr;
-      }
-    } else {
-      retop->dest = curaddr.addr;
-    }
+  } else if(arg2id.tb & FLOATNUM) {
+    op += 2;
+    FULLADDR fad;
+    fad.addr_type = ISFLOAT | (arg2id.tb & 0xf);
+    fad.addr.fregnum = prog->fregcnt++;
+    dapush(prog->ops, ct_3ac_op2(INT_TO_FLOAT, a1.addr_type, a1.addr, fad.addr_type, fad.addr));
+    a2 = fad;
+  } else if(!((arg1id.tb & UNSIGNEDNUM) || (arg2id.tb & UNSIGNEDNUM))) {
+    op += 1;
   }
-  return retop;
+
+  return ct_3ac_op3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, desta.addr_type, desta.addr);
 }
 
 OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog) {
@@ -361,6 +271,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case INT:
       curaddr.addr_type = ISCONST | ISSIGNED | 0x40;
       curaddr.addr.intconst_64 = cexpr->intconst;
+
       return curaddr;
     case UINT: 
       curaddr.addr_type = ISCONST | 0x40;
@@ -444,9 +355,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return op2ret(prog->ops, cmpret_binary_3(LE_U, cexpr, prog));
 
     case MOD: //TODO: prevent float
-      curaddr = linearitree(daget(cexpr->params, 0), prog);
-      otheraddr = linearitree(daget(cexpr->params, 1), prog);
-      return op2ret(prog->ops, implicit_3ac_3(MOD_U, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, prog));
+      return op2ret(prog->ops, cmpret_binary_3(MOD_U, cexpr, prog));
 
     case L_AND:
       return implicit_shortcircuit_3(BEZ_3, cexpr, (ADDRESS) 1ul, (ADDRESS) 0ul, prog);
