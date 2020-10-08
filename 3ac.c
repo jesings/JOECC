@@ -262,6 +262,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR curaddr, otheraddr, destaddr;
   ADDRESS initlbl, scndlbl;
   enum opcode_3ac enop;
+  char prevval = prog->lval;
+  prog->lval = 0;
 
   switch(cexpr->type){
     case STRING: ;
@@ -330,6 +332,11 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case DEREF: //Turn deref of addition, subtraction, into array index?
       //TODO: not sure if this is right
       //TODO: actually include lvalue
+      if(prevval) {
+        FULLADDR fad = linearitree(daget(cexpr->params, 0), prog);
+        prog->fderef = 1;
+        return fad;
+      }
       return op2ret(prog->ops, implicit_unary_2(MFP_U, cexpr, prog));
 
     case ADD:
@@ -465,9 +472,15 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
 
     case ASSIGN:
       curaddr = linearitree(daget(cexpr->params, 1), prog);
+      prog->lval = 1;
+      prog->fderef = 0;
       destaddr = linearitree(daget(cexpr->params, 0), prog);
-      //implicit type coercion needed
-      dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+      if(prog->fderef) {
+        dapush(prog->ops, implicit_mtp_2(MTP_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog));
+      } else {
+        //implicit type coercion needed
+        dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+      }
       return destaddr;
     case PREINC:
       destaddr = linearitree(daget(cexpr->params, 0), prog);
@@ -765,6 +778,7 @@ void linefunc(FUNC* f) {
   prog->breaklabels = dactor(8);
   prog->continuelabels = dactor(8);
   prog->fixedvars = htctor();
+  prog->lval = 0;
   //initialize params
   for(int i = 0; i < f->params->da->length; i++) {
   }

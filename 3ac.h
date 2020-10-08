@@ -93,6 +93,8 @@ typedef struct {
 
 typedef struct {
   DYNARR* ops;
+  char lval;
+  char fderef;
   int labelcnt;
   unsigned long iregcnt;
   unsigned long fregcnt;
@@ -118,6 +120,7 @@ OPERATION* nocoerce_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, 
 OPERATION* implicit_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
 OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog);
 OPERATION* implicit_nocoerce_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
+OPERATION* implicit_mtp_2(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* fromexpr, PROGRAM* prog);
 FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, 
                                  ADDRESS complete_val, ADDRESS shortcircuit_val, PROGRAM* prog);
 OPERATION* cmpret_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
