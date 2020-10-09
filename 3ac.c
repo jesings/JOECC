@@ -72,11 +72,9 @@ OPERATION* implicit_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* pro
       a2 = fad;
     }
     desta.addr_type = ISFLOAT | (retid.tb & 0xf);
-    //perhaps save regnum here?
     desta.addr.fregnum = prog->fregcnt++;
   } else if(retid.tb & UNSIGNEDNUM) {
     desta.addr_type = retid.tb & 0xf;
-    //perhaps save regnum here?
     desta.addr.iregnum = prog->iregcnt++;
   } else {
     op += 1;
@@ -85,6 +83,43 @@ OPERATION* implicit_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* pro
   }
 
   return ct_3ac_op3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, desta.addr_type, desta.addr);
+}
+
+OPERATION* implicit_mtp_2(EXPRESSION* destexpr, EXPRESSION* fromexpr, FULLADDR a1, FULLADDR a2, PROGRAM* prog) {
+  enum opcode_3ac op = MTP_U;
+  IDTYPE destidt = typex(destexpr);
+  IDTYPE srcidt = typex(fromexpr);
+  if(destidt.pointerstack && destidt.pointerstack->length) {
+    assert(srcidt.pointerstack && srcidt.pointerstack->length);
+  } else if(destidt.tb & FLOATNUM) {
+    op += 2;
+    if(!(srcidt.tb & FLOATNUM)) {
+      FULLADDR fad;
+      fad.addr_type = ISFLOAT | (destidt.tb & 0xf);
+      fad.addr.fregnum = prog->fregcnt++;
+      dapush(prog->ops, ct_3ac_op2(INT_TO_FLOAT, a2.addr_type, a2.addr, fad.addr_type, fad.addr));
+      a2 = fad;
+    }
+  } else if(destidt.tb & UNSIGNEDNUM) {
+    if(srcidt.tb & FLOATNUM) {
+      FULLADDR fad;
+      fad.addr_type = destidt.tb & 0xf;
+      fad.addr.iregnum = prog->iregcnt++;
+      dapush(prog->ops, ct_3ac_op2(FLOAT_TO_INT, a2.addr_type, a2.addr, fad.addr_type, fad.addr));
+      a2 = fad;
+    }
+  } else {
+    op += 1;
+    if(srcidt.tb & FLOATNUM) {
+      FULLADDR fad;
+      fad.addr_type = (destidt.tb & 0xf) | ISSIGNED;
+      fad.addr.iregnum = prog->iregcnt++;
+      dapush(prog->ops, ct_3ac_op2(FLOAT_TO_INT, a2.addr_type, a2.addr, fad.addr_type, fad.addr));
+      a2 = fad;
+    }
+  }
+
+  return ct_3ac_op2(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr);
 }
 
 OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
@@ -476,7 +511,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       prog->fderef = 0;
       destaddr = linearitree(daget(cexpr->params, 0), prog);
       if(prog->fderef) {
-        dapush(prog->ops, implicit_mtp_2(MTP_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog));
+        dapush(prog->ops, implicit_mtp_2(daget(cexpr->params, 0), daget(cexpr->params, 1), destaddr, curaddr, prog));
       } else {
         //implicit type coercion needed
         dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
