@@ -141,11 +141,9 @@ OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog
       a1 = fad;
     } 
     desta.addr_type = ISFLOAT | (retid.tb & 0xf);
-    //perhaps save regnum here?
     desta.addr.fregnum = prog->fregcnt++;
   } else if(retid.tb & UNSIGNEDNUM) {
     desta.addr_type = retid.tb & 0xf;
-    //perhaps save regnum here?
     desta.addr.iregnum = prog->iregcnt++;
   } else {
     op += 1;
@@ -474,31 +472,36 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       initlbl.labelname = proglabel(prog);
       scndlbl.labelname = proglabel(prog);
       dapush(prog->ops, cmptype(daget(cexpr->params, 0), initlbl.labelname, 1, prog));
+      IDTYPE t0t = typex(daget(cexpr->params, 0));
+      IDTYPE t1t = typex(daget(cexpr->params, 1));
+      IDTYPE t2t = typex(daget(cexpr->params, 2));
+      IDTYPE t3t = typex(cexpr);
       curaddr = linearitree(daget(cexpr->params, 1), prog);
+        if(!(t1t.tb & FLOATNUM) && (t2t.tb & FLOATNUM)) {
+        FULLADDR ad2;
+        ad2.addr.fregnum = prog->fregcnt++;
+        ad2.addr_type = (t0t.tb & 0xf) | ISFLOAT | ISSIGNED;
+        dapush(prog->ops, ct_3ac_op2(INT_TO_FLOAT, curaddr.addr_type, curaddr.addr, ad2.addr_type, ad2.addr));
+        curaddr = ad2;
+      }
       OPERATION* fixlater = ct_3ac_op0(NOP_3);
       dapush(prog->ops, fixlater);
       dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, scndlbl));
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, initlbl));
       otheraddr = linearitree(daget(cexpr->params, 2), prog);
-      if(curaddr.addr_type & ISFLOAT) {
-        if((otheraddr.addr_type & ISFLOAT) && ((curaddr.addr_type & 0xf) < (otheraddr.addr_type & 0xf)))
-          destaddr.addr_type = (otheraddr.addr_type & 0xf);
-        else
-          destaddr.addr_type = (curaddr.addr_type & 0xf);
-        destaddr.addr_type |= ISFLOAT | ISSIGNED;
-        destaddr.addr.fregnum = prog->fregcnt++;
-      } else if(otheraddr.addr_type & ISFLOAT) {
-        destaddr.addr_type = ISFLOAT | ISSIGNED | (otheraddr.addr_type & 0xf);
+      if((t1t.tb & FLOATNUM) && !(t2t.tb & FLOATNUM)) {
+        FULLADDR ad2;
+        ad2.addr.fregnum = prog->fregcnt++;
+        ad2.addr_type = (t0t.tb & 0xf) | ISFLOAT | ISSIGNED;
+        dapush(prog->ops, ct_3ac_op2(INT_TO_FLOAT, otheraddr.addr_type, otheraddr.addr, ad2.addr_type, ad2.addr));
+        otheraddr = ad2;
+      }
+      destaddr.addr_type = addrconv(&t3t);
+      if(destaddr.addr_type & ISFLOAT) {
         destaddr.addr.fregnum = prog->fregcnt++;
       } else {
-        if((curaddr.addr_type & 0xf) < (otheraddr.addr_type & 0xf))
-          destaddr.addr_type = otheraddr.addr_type & 0xf;
-        else
-          destaddr.addr_type = otheraddr.addr_type & 0xf;
-        destaddr.addr_type |= (curaddr.addr_type & otheraddr.addr_type & ISSIGNED);
         destaddr.addr.iregnum = prog->iregcnt++;
       }
-      destaddr.addr = curaddr.addr;
       *fixlater = *ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr);
       dapush(prog->ops, ct_3ac_op2(MOV_3, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) scndlbl));

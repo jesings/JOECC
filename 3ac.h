@@ -167,9 +167,9 @@ char remove_nops(PROGRAM* prog);
 inline ADDRTYPE addrconv(IDTYPE* idt) {
   ADDRTYPE adt;
   if(idt->pointerstack && idt->pointerstack->length) {
-    adt = ISPOINTER;
+    adt = ISPOINTER | 0x8;
   } else if(idt->tb & (STRUCTVAL | UNIONVAL)) {
-    adt = ISPOINTER;
+    adt = ISPOINTER | 0x8;
   } else if(idt->tb & FLOATNUM) {
     adt = ISFLOAT | (idt->tb & 0xf);
   } else if(idt->tb & UNSIGNEDNUM) {
