@@ -224,7 +224,8 @@ extern union {
     yy_pop_state(); 
     yy_push_state(KILLUNTIL); 
     yytext[yyleng - 1] = '\0'; 
-    assert(!fprintf(stderr, "ERROR: %s\n", yytext + 1));
+    fprintf(stderr, "ERROR: %s\n", yytext + 1);
+    assert(0);
     }
 
 <INCLUDE>{
@@ -1105,7 +1106,8 @@ L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
       break;
     default:
       yy_pop_state();
-      assert(!fprintf(stderr, "ERROR: subsidiary parser reduced if or elif into non-rectifiable expression %s %d.%d-%d.%d\n", locprint(yylloc)));
+      fprintf(stderr, "ERROR: subsidiary parser reduced if or elif into non-rectifiable expression %s %d.%d-%d.%d\n", locprint(yylloc));
+      assert(0);
   }
   dapush(ctx->definestack, rids);
 }

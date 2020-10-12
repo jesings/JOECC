@@ -480,7 +480,8 @@ STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label) {
       pfinsert(pl, casexpr->uintconst, label);
       break;
     default:
-      assert(!fprintf(stderr, "Error: case has nonrectifiable value\n"));
+      fprintf(stderr, "Error: case has nonrectifiable value\n");
+      assert(0);
   }
   return mklblstmt(lct, label);
 }
@@ -498,7 +499,8 @@ ENUMFIELD* genenumfield(char* name, EXPRESSION* value) {
     case INT: case UINT:
       break;
     default:
-      assert(!fprintf(stderr,"Error: enum has nonrectifiable value\n"));
+      fprintf(stderr,"Error: enum has nonrectifiable value\n");
+      assert(0);
   }
   retval->value = value;
   return retval;

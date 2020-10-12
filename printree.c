@@ -309,8 +309,6 @@ static int statemeant(STATEMENT* stmt) {
       break;
     case NOPSTMT:
       break;
-    default:
-      assert(0);//better solution later
   }
   return statenode;
 }

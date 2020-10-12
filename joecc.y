@@ -612,7 +612,8 @@ function:
       assert((dp->nameless_params->length == 1 && (!prm->pointerstack || prm->pointerstack->length == 0) && prm->tb == VOIDNUM) || !fprintf (stderr, "Function has unnamed parameters at %s %d.%d-%d.%d\n", locprint(@1)));
       parammemb = paralector();
     } else {
-        assert(!fprintf(stderr, "Function has malformed parameters at %s %d.%d-%d.%d\n", locprint(@1)));
+        fprintf(stderr, "Function has malformed parameters at %s %d.%d-%d.%d\n", locprint(@1));
+        assert(0);
     }
     $$ = ct_function($2->varname, NULL, parammemb, $2->type);
     IDENTIFIERINFO* id = malloc(sizeof(IDENTIFIERINFO));

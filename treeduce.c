@@ -354,13 +354,13 @@ static IDTYPE simplbinprecnoptr(IDTYPE id1, IDTYPE id2) {
 //maybe export below function 
 static void exunflatten(EXPRESSION* ex) {
   if(ex->params->length > 2) {
-    EXPRESSION* ex1 = daget(ex->params, ex->params->length - 1);
-    EXPRESSION* ex2 = daget(ex->params, ex->params->length - 2);
+    EXPRESSION* ex1 = daget(ex->params, ex->params->length - 2);
+    EXPRESSION* ex2 = daget(ex->params, ex->params->length - 1);
     for(int i = ex->params->length - 3; i >= 0; i--) {
       ex2 = ct_binary_expr(ex->type, ex1, ex2);
       ex1 = daget(ex->params, i);
     }
-    daget(ex->params, 1) = ex1;
+    daget(ex->params, 1) = ex2;
     ex->params->length = 2;
   }
 }
@@ -376,7 +376,7 @@ IDTYPE typex(EXPRESSION* ex) {
     case NOP: case MEMBER:
       //error out
       assert(0);
-    case L_AND: case L_OR: case L_NOT: //logical operators return long unsigned? not final
+    case L_AND: case L_OR: case L_NOT: //logical operators return long unsigned? not final--will not unflatten
     case EQ: case NEQ: case GT: case LT: case GTE: case LTE: //comparisons return long unsigned? not final
     case SZOF: case SZOFEXPR: //maybe these should be signed
     case UINT:
@@ -420,10 +420,10 @@ IDTYPE typex(EXPRESSION* ex) {
       exunflatten(ex);
       //fall through
     case MOD:
-      idt =  simplbinprecnoptr(typex(daget(ex->params, 0)), typex(daget(ex->params, 1)));
+      idt = simplbinprecnoptr(typex(daget(ex->params, 0)), typex(daget(ex->params, 1)));
       break;
     case TERNARY:
-      idt =  simplbinprecnoptr(typex(daget(ex->params, 1)), typex(daget(ex->params, 2)));
+      idt = simplbinprecnoptr(typex(daget(ex->params, 1)), typex(daget(ex->params, 2)));
       break;
     case NEG:
     case B_NOT:
