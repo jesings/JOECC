@@ -603,15 +603,17 @@ char foldconst(EXPRESSION** exa) {
           //free expr and subexpr
           subexpr = EPARAM(subexpr, 0);
           foldconst((EXPRESSION**) &LPARAM(subexpr, 0));
+          free(ex);
+          free(EPARAM(ex, 0));
           break;
         case INT: case UINT:
-          //free expr
           subexpr->intconst = -subexpr->intconst;
           subexpr->type = INT;
+          free(ex);
           break;
         case FLOAT:
-          //free expr
           subexpr->floatconst = -subexpr->floatconst;
+          free(ex);
           break;
         case COMMA:
           //look at end of expr
