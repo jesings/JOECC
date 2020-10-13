@@ -115,11 +115,8 @@ OPERATION* cmptype(EXPRESSION* cmpexpr, char* addr2jmp, char negate, PROGRAM* pr
 void solidstate(STATEMENT* cst, PROGRAM* prog);
 OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
                           ADDRTYPE addr1_type, ADDRESS addr1, PROGRAM* prog);
-OPERATION* nocoerce_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
-                          ADDRTYPE addr1_type, ADDRESS addr1, PROGRAM* prog);
 OPERATION* implicit_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
 OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog);
-OPERATION* implicit_nocoerce_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
 OPERATION* implicit_mtp_2(EXPRESSION* destexpr, EXPRESSION* fromexpr, FULLADDR a1, FULLADDR a2, PROGRAM* prog);
 FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, 
                                  ADDRESS complete_val, ADDRESS shortcircuit_val, PROGRAM* prog);

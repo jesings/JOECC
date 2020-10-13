@@ -154,70 +154,6 @@ OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog
   return ct_3ac_op2(op, a1.addr_type, a1.addr, desta.addr_type, desta.addr);
 }
 
-OPERATION* nocoerce_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
-                          ADDRTYPE addr1_type, ADDRESS addr1, PROGRAM* prog) {
-  ADDRTYPE retaddr_type;
-  char opmod;
-  ADDRESS retaddr;
-
-  if((addr0_type & ISFLOAT) && (addr1_type & ISFLOAT)) {
-    opmod = 1;
-    retaddr_type = addr0_type & 0xf;
-    if(addr1_type & (0xf > retaddr_type))
-      retaddr_type = addr1_type & 0xf;
-    retaddr_type |= ISFLOAT | ISSIGNED;
-    if(addr0_type & ISCONST) {
-      if(addr1_type & ISCONST) {
-        retaddr.fregnum = prog->fregcnt++;
-      } else {
-        retaddr.fregnum = addr1.fregnum;
-      }
-    } else {
-      retaddr.fregnum = addr0.fregnum;
-    }
-  } else if((addr0_type & ISFLOAT) || (addr1_type & ISFLOAT)) {
-    //TODO: error
-  } else if ((addr0_type & ISSIGNED) || (addr1_type & ISSIGNED)) {
-    opmod = 0;
-    retaddr_type = addr0_type & 0xf;
-    if(addr1_type & (0xf > retaddr_type))
-      retaddr_type = addr1_type & 0xf;
-    retaddr_type |= ISSIGNED;
-    if(addr0_type & ISCONST) {
-      if(addr1_type & ISCONST) {
-        retaddr.iregnum = prog->iregcnt++;
-      } else {
-        retaddr = addr1;
-      }
-    } else {
-      retaddr.iregnum = addr0.iregnum;
-    }
-  } else {
-    opmod = 0;
-    retaddr_type = addr0_type & 0xf;
-    if(addr1_type & (0xf > retaddr_type))
-      retaddr_type= addr1_type & 0xf;
-    if(addr0_type & ISCONST) {
-      if(addr1_type & ISCONST) {
-        retaddr.iregnum = prog->iregcnt++;
-      } else {
-        retaddr.iregnum = addr1.iregnum;
-      }
-    } else {
-      retaddr.iregnum = addr0.iregnum;
-    }
-  }
-  
-  return ct_3ac_op3(opcode_unsigned + opmod, addr0_type, addr0, addr1_type, addr1, retaddr_type, retaddr);
-}
-
-OPERATION* implicit_nocoerce_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
-  FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
-  FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog);
-  return nocoerce_3ac_3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, prog);
-  //maybe this need not be seperate
-}
-
 FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, ADDRESS complete_val, ADDRESS shortcircuit_val, PROGRAM* prog) {
   ADDRESS doneaddr, afterdoneaddr;
   doneaddr.labelname = proglabel(prog);
@@ -231,7 +167,6 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
     addr2use.addr.iregnum = prog->iregcnt++; //do it more intelligently here
   }
   addr2use.addr_type = 1;//TODO: maybe make it signed?
-  //perhaps we can make the last one a flat assignment rather than a jump and garbage?
   dapush(prog->ops, ct_3ac_op2(MOV_3, ISCONST, complete_val, addr2use.addr_type, addr2use.addr));
   dapush(prog->ops, ct_3ac_op1(JMP_3, ISLABEL | ISCONST, afterdoneaddr));
   dapush(prog->ops, ct_3ac_op1(LBL_3, ISLABEL | ISCONST, doneaddr));
