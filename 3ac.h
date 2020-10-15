@@ -48,8 +48,6 @@ enum opcode_3ac {
 };
 #undef X
 
-struct ptaddress;
-
 typedef union {
   unsigned long iregnum; //integer register
   unsigned long fregnum; //floating point register
@@ -59,7 +57,6 @@ typedef union {
   char* strconst;
   unsigned long* arrayconst;
   char* labelname;
-  struct ptaddress* ptaddr;
 } ADDRESS;
 
 //Extra information for SSA?
