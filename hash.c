@@ -251,3 +251,28 @@ DYNARR* htpairs(HASHTABLE* ht) {
   }
   return da;
 }
+
+void intsert(HASHTABLE* ht, const char* key, long value) {
+  unsigned long i = hash(key);
+  HASHPAIR* hp = &(ht->pairs[i]);
+  if(!(hp->key)) {
+    hp->key = strdup(key);
+    hp->ivalue = value;
+  } else {
+    for(; hp->next; hp = hp->next) {
+      if(!strcmp(hp->key, key)) {
+        hp->ivalue = value;
+        return;
+      }
+    }
+    if(!strcmp(hp->key, key)) {
+      hp->ivalue = value;
+      return;
+    }
+    HASHPAIR* newpair = calloc(1, sizeof(HASHPAIR));
+    newpair->key = strdup(key);
+    newpair->ivalue = value;
+    hp->next = newpair;
+  }
+  ++ht->keys;
+}

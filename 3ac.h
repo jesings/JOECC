@@ -98,6 +98,7 @@ typedef struct {
   DYNARR* breaklabels;
   DYNARR* continuelabels;
   HASHTABLE* fixedvars;
+  HASHTABLE* labeloffsets;
 } PROGRAM;
 
 

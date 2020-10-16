@@ -161,6 +161,7 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
   FULLADDR addr2use;
   for(int i = 0; i < cexpr->params->length; i++) {
     addr2use = linearitree(daget(cexpr->params, i), prog);
+    intsert(prog->labeloffsets, doneaddr.labelname, prog->ops->length);
     dapush(prog->ops, ct_3ac_op2(op_to_cmp, addr2use.addr_type, addr2use.addr, ISLABEL | ISCONST, doneaddr));
   }
   if(addr2use.addr_type & ISCONST || addr2use.addr_type & ISFLOAT) {
@@ -169,8 +170,10 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
   addr2use.addr_type = 1;//TODO: maybe make it signed?
   dapush(prog->ops, ct_3ac_op2(MOV_3, ISCONST, complete_val, addr2use.addr_type, addr2use.addr));
   dapush(prog->ops, ct_3ac_op1(JMP_3, ISLABEL | ISCONST, afterdoneaddr));
+  intsert(prog->labeloffsets, doneaddr.labelname, prog->ops->length);
   dapush(prog->ops, ct_3ac_op1(LBL_3, ISLABEL | ISCONST, doneaddr));
   dapush(prog->ops, ct_3ac_op2(MOV_3, ISCONST, shortcircuit_val, addr2use.addr_type, addr2use.addr));
+  intsert(prog->labeloffsets, afterdoneaddr.labelname, prog->ops->length);
   dapush(prog->ops, ct_3ac_op1(LBL_3, ISLABEL | ISCONST, afterdoneaddr));
   return addr2use;
 }
@@ -422,6 +425,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       OPERATION* fixlater = ct_3ac_op0(NOP_3);
       dapush(prog->ops, fixlater);
       dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, scndlbl));
+      intsert(prog->labeloffsets, initlbl.labelname, prog->ops->length);
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, initlbl));
       otheraddr = linearitree(daget(cexpr->params, 2), prog);
       if((t1t.tb & FLOATNUM) && !(t2t.tb & FLOATNUM)) {
@@ -439,6 +443,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       }
       *fixlater = *ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr);
       dapush(prog->ops, ct_3ac_op2(MOV_3, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
+      intsert(prog->labeloffsets, scndlbl.labelname, prog->ops->length);
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) scndlbl));
       return destaddr;
       //confirm 2 addrs have same type or are coercible
@@ -580,7 +585,6 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       }
       dapush(prog->ops, ct_3ac_op2(CALL_3, ISCONST | ISLABEL, (ADDRESS) fname->id->name, destaddr.addr_type, destaddr.addr));
       return destaddr;
-      //TODO: above shoud be an op with a target, which is the result. Check func return type?
   }
   fprintf(stderr, "Error: reduction of expression to 3 address code failed\n");
   return curaddr;
@@ -651,10 +655,12 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       brklabel.labelname = proglabel(prog);
       dapush(prog->continuelabels, contlabel.labelname);
       dapush(prog->breaklabels, brklabel.labelname);
+      intsert(prog->labeloffsets, contlabel.labelname, prog->ops->length);
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, contlabel));
       dapush(prog->ops, cmptype(cst->cond, brklabel.labelname, 1, prog));
       solidstate(cst->body, prog);
       dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, contlabel));
+      intsert(prog->labeloffsets, brklabel.labelname, prog->ops->length);
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, brklabel));
       dapop(prog->continuelabels);
       dapop(prog->breaklabels);
@@ -664,10 +670,12 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       brklabel.labelname = proglabel(prog);
       dapush(prog->continuelabels, contlabel.labelname);
       dapush(prog->breaklabels, brklabel.labelname);
+      intsert(prog->labeloffsets, contlabel.labelname, prog->ops->length);
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, contlabel));
       solidstate(cst->body, prog);
       linearitree(cst->cond, prog);
       dapush(prog->ops, cmptype(cst->cond, contlabel.labelname, 0, prog));
+      intsert(prog->labeloffsets, brklabel.labelname, prog->ops->length);
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, brklabel));
       dapop(prog->continuelabels);
       dapop(prog->breaklabels);
@@ -677,6 +685,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       brklabel.labelname = proglabel(prog);
       dapush(prog->ops, cmptype(cst->cond, brklabel.labelname, 1, prog));
       solidstate(cst->thencond, prog);
+      intsert(prog->labeloffsets, brklabel.labelname, prog->ops->length);
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, brklabel));
       return;
     case IFELSES:
@@ -686,8 +695,10 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       dapush(prog->ops, cmptype(cst->cond, contlabel.labelname, 1, prog));
       solidstate(cst->thencond, prog);
       dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, brklabel));
+      intsert(prog->labeloffsets, contlabel.labelname, prog->ops->length);
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, contlabel));
       solidstate(cst->elsecond, prog);
+      intsert(prog->labeloffsets, brklabel.labelname, prog->ops->length);
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, brklabel));
       return;
     case SWITCH:
@@ -714,9 +725,11 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
         dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, brklabel));
       }
       solidstate(cst->body, prog);
+      intsert(prog->labeloffsets, brklabel.labelname, prog->ops->length);
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, brklabel));
       break;
     case LABEL:
+      intsert(prog->labeloffsets, cst->glabel, prog->ops->length);
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) cst->glabel));
       return;
     case CMPND: 
@@ -751,6 +764,7 @@ void linefunc(FUNC* f) {
   prog->breaklabels = dactor(8);
   prog->continuelabels = dactor(8);
   prog->fixedvars = htctor();
+  prog->labeloffsets = htctor();
   prog->lval = 0;
   //initialize params
   for(int i = 0; i < f->params->da->length; i++) {

@@ -10,7 +10,10 @@ typedef struct hp{
     char* key;
     long fixedkey;
   };
-  void* value;
+  union {
+    void* value;
+    long ivalue;
+  };
   struct hp* next;
 } HASHPAIR;
 typedef struct{
@@ -35,5 +38,6 @@ unsigned long fixedhash(const char* data, char lbits);
 void fixedinsert(HASHTABLE* ht, long fixedkey, void* value);
 void* fixedsearch(HASHTABLE* ht, long fixedkey);
 char fixedqueryval(HASHTABLE* ht, long fixedkey);
+void intsert(HASHTABLE* ht, const char* key, long value);
 #endif
 
