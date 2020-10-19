@@ -50,6 +50,13 @@ void dadtorfr(DYNARR* da) {
   free(da);
 }
 
+void dadtorcfr(DYNARR* da, void (*freep)(void*)) {
+  for(int i = 0; i<da->length; i++)
+    freep((da->arr)[i]);
+  free(da->arr);
+  free(da);
+}
+
 void dainsert(DYNARR* da, void* val) {
   if(da->length == da->maxlength)
     da->arr = reallocarray(da->arr, da->maxlength *= 1.5, sizeof(void*));

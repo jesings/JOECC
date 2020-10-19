@@ -257,6 +257,16 @@ void rfreexpr(EXPRESSION* e) {
   free(e);
 }
 
+void freeinit(INITIALIZER* i) {
+  if(i->expr) {
+    rfreexpr(i->expr);
+  }
+  free(i->decl->varname);
+  freetype(i->decl->type);
+  free(i->decl);
+  free(i);
+}
+
 void rfreestate(STATEMENT* s) {
   switch(s->type) {
     case LBREAK: case LCONT: case DEFAULT: case NOPSTMT:
@@ -287,8 +297,7 @@ void rfreestate(STATEMENT* s) {
       if(s->forinit->isE) {
         rfreexpr(s->forinit->E);
       } else {
-        //TODO: freeinit
-        freeinit(s->forinit->I);
+        dadtorcfr(s->forinit->I, (void (*)(void*)) freeinit);
       }
       free(s->forinit);
       break;

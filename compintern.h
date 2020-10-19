@@ -302,6 +302,7 @@ EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident);
 char isglobal(struct lexctx* lct, char* ident);
 void wipestruct(STRUCT* strct);
 void freetype(IDTYPE* id);
+void freeinit(INITIALIZER* i);
 void rfreexpr(EXPRESSION* e);
 void rfreestate(STATEMENT* s);
 EXPRESSION* rclonexpr(EXPRESSION* e);

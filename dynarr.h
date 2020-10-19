@@ -11,6 +11,7 @@ DYNARR* damerge(DYNARR* arr1, DYNARR* arr2);
 DYNARR* daclone(DYNARR* orig);
 void dadtor(DYNARR* da);
 void dadtorfr(DYNARR* da);
+void dadtorcfr(DYNARR* da, void (*freep)(void*));
 
 void dainsert(DYNARR* da, void* val);
 #define dapush dainsert
