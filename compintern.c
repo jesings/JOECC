@@ -280,6 +280,18 @@ void rfreestate(STATEMENT* s) {
       rfreestate(s->body);
       rfreexpr(s->cond);
       break;
+    case FORL:
+      rfreestate(s->forbody);
+      rfreexpr(s->forcond);
+      rfreexpr(s->increment);
+      if(s->forinit->isE) {
+        rfreexpr(s->forinit->E);
+      } else {
+        //TODO: freeinit
+        freeinit(s->forinit->I);
+      }
+      free(s->forinit);
+      break;
     case CMPND:
       for(int i = 0; i < s->stmtsandinits->length; i++) {
         SOI* soi = daget(s->stmtsandinits, i);
@@ -422,6 +434,7 @@ STATEMENT* mkgotostmt(char* gotoloc) {
 
 STATEMENT* mkforstmt(EOI* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
+  retval->type = FORL;
   retval->forinit = e1;
   retval->forcond = e2;
   retval->increment = e3;

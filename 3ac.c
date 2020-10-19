@@ -709,6 +709,32 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       dapop(prog->continuelabels);
       dapop(prog->breaklabels);
       return;
+    case FORL:
+      if(cst->forinit->isE) {
+        linearitree(cst->forinit->E, prog);
+      } else {
+        for(int i = 0; i < cst->forinit->I->length; i++) {
+          initializestate((INITIALIZER*) daget(cst->forinit->I, i), prog);
+        }
+      }
+      contlabel.labelname = proglabel(prog);
+      brklabel.labelname = proglabel(prog);
+      ADDRESS toplabel;
+      toplabel.labelname = proglabel(prog);
+      dapush(prog->continuelabels, contlabel.labelname);
+      dapush(prog->breaklabels, brklabel.labelname);
+      intsert(prog->labeloffsets, contlabel.labelname, prog->ops->length);
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, toplabel));
+      dapush(prog->ops, cmptype(cst->forcond, brklabel.labelname, 1, prog));
+      solidstate(cst->forbody, prog);
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, contlabel));
+      linearitree(cst->increment, prog);
+      dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, toplabel));
+      intsert(prog->labeloffsets, brklabel.labelname, prog->ops->length);
+      dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, brklabel));
+      dapop(prog->continuelabels);
+      dapop(prog->breaklabels);
+      return;
     case DOWHILEL:
       contlabel.labelname = proglabel(prog);
       brklabel.labelname = proglabel(prog);
