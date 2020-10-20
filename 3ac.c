@@ -675,7 +675,6 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
   fixedinsert(prog->fixedvars, i->decl->varid, newa);
 }
 
-//store some state about enclosing switch statement and its labeltable (how to represent?), about enclosing loop as well (for continue)
 void solidstate(STATEMENT* cst, PROGRAM* prog) {
   FULLADDR ret_op;
   ADDRESS contlabel, brklabel;
@@ -771,7 +770,6 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, brklabel));
       return;
     case SWITCH:
-      //TODO: figure out how to represent switch stmt!!! Either jump table or multiple ifs w/ goto but how to decide and how to represent jump table-- put switch and hash in data?
       //check cases, if they're all within 1024 of each other, construct jump table, else make if else with jumps, current solution
       brklabel.labelname = proglabel(prog);
       FULLADDR fad = linearitree(cst->cond, prog);
@@ -836,7 +834,17 @@ void linefunc(FUNC* f) {
   prog->labeloffsets = htctor();
   prog->lval = 0;
   //initialize params
+  //TODO: params may not have number
   for(int i = 0; i < f->params->da->length; i++) {
+    FULLADDR* newa = malloc(sizeof(FULLADDR));
+    newa->addr_type = addrconv(((DECLARATION*) daget(f->params->da, i))->type);
+    if(newa->addr_type & ISFLOAT) {
+      newa->addr.iregnum = prog->iregcnt++;
+    } else {
+      newa->addr.fregnum = prog->fregcnt++;
+    }
+    dapush(prog->ops, ct_3ac_op1(INIT_3, newa->addr_type, newa->addr));
+    fixedinsert(prog->fixedvars, ((DECLARATION*) daget(f->params->da, i))->varid, newa);
   }
   solidstate(f->body, prog);
 }
