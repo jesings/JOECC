@@ -3,7 +3,6 @@
 #include "compintern.h"
 #include "treeduce.h"
 #include "3ac.h"
-//TODO: For loops with continue don't work I think
 #define X(s) #s
 const char* opcode_3ac_names[] = {
   OPS_3AC
