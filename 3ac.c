@@ -607,6 +607,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       DYNARR* params = dactor(cexpr->params->length);
       EXPRESSION* fname = daget(cexpr->params, 0);
       for(int i = 1; i < cexpr->params->length; ++i) {
+        //sequence point?
         curaddr = linearitree(daget(cexpr->params, i), prog);
         dapush(params, ct_3ac_op1(PARAM_3, curaddr.addr_type, curaddr.addr));
       }
@@ -777,12 +778,12 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       DYNARR* cll = cst->labeltable->da;
       HASHTABLE* htl = cst->labeltable->ht;
       for(int i = 0; i < cll->length; i++) {
-        ADDRESS cadre, padre;
-        cadre.intconst_64 = (long) daget(cll, i);
-        padre.labelname = fixedsearch(htl, cadre.intconst_64);
+        ADDRESS caseval, caselbl;
+        caseval.intconst_64 = (long) daget(cll, i);
+        caselbl.labelname = fixedsearch(htl, caseval.intconst_64);
         //maybe signed is unnecessary
-        dapush(prog->ops, ct_3ac_op3(BEQ_I, fad.addr_type, fad.addr, ISCONST | ISSIGNED, cadre,
-                                     ISCONST | ISLABEL, padre));
+        dapush(prog->ops, ct_3ac_op3(BEQ_I, fad.addr_type, fad.addr, ISCONST | ISSIGNED, caseval,
+                                     ISCONST | ISLABEL, caselbl));
       }
       if(cst->defaultlbl) {
         ADDRESS deflbl;
