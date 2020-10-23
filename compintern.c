@@ -130,7 +130,10 @@ EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params) {
 EXPRESSION* ct_strconst_expr(const char* str) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = STRING;
-  retval->rettype = NULL;//TODO: prepopulate rettype
+  retval->rettype = malloc(sizeof(IDTYPE));
+  retval->rettype->pointerstack = dactor(1);
+  dapush(retval->rettype->pointerstack, mkdeclpart(POINTERSPEC, 0));
+  retval->rettype->tb = 1 | UNSIGNEDNUM;
   retval->strconst = (char*)(unsigned long) str;
   return retval;
 }
@@ -138,7 +141,9 @@ EXPRESSION* ct_strconst_expr(const char* str) {
 EXPRESSION* ct_intconst_expr(long num) { 
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = INT;
-  retval->rettype = NULL;//TODO: prepopulate rettype
+  retval->rettype = malloc(sizeof(IDTYPE));
+  retval->rettype->pointerstack = NULL;
+  retval->rettype->tb = 8;
   retval->intconst = num;
   return retval;
 }
@@ -146,7 +151,9 @@ EXPRESSION* ct_intconst_expr(long num) {
 EXPRESSION* ct_uintconst_expr(unsigned long num) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = INT;
-  retval->rettype = NULL;//TODO: prepopulate rettype
+  retval->rettype = malloc(sizeof(IDTYPE));
+  retval->rettype->pointerstack = NULL;
+  retval->rettype->tb = 8 | UNSIGNEDNUM;
   retval->uintconst = num;
   return retval;
 }
@@ -154,7 +161,9 @@ EXPRESSION* ct_uintconst_expr(unsigned long num) {
 EXPRESSION* ct_floatconst_expr(double num) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));\
   retval->type = FLOAT;
-  retval->rettype = NULL;//TODO: prepopulate rettype
+  retval->rettype = malloc(sizeof(IDTYPE));
+  retval->rettype->pointerstack = NULL;
+  retval->rettype->tb = 8 | FLOATNUM;
   retval->floatconst = num;
   return retval;
 }
