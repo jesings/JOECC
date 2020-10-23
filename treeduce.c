@@ -40,7 +40,7 @@ char purestmt(STATEMENT* stmt) {
       return puritree(stmt->expression);
     case LBREAK: case LCONT: case LABEL: case CASE: case NOPSTMT: case DEFAULT:
       return 1;
-    case JGOTO: case WHILEL: case DOWHILEL:
+    case JGOTO: case WHILEL: case DOWHILEL: case FORL:
       return 0;
     case CMPND:
       for(int i = 0; i < stmt->stmtsandinits->length; i++) {
@@ -454,10 +454,8 @@ IDTYPE typex(EXPRESSION* ex) {
 
     case DOTOP: case ARROW:
       idt = typex(daget(ex->params, 0));
-      if(idt.tb & (STRUCTVAL | UNIONVAL)) {
-      } else {
-        //TODO: error
-      }
+      assert(idt.tb & (STRUCTVAL | UNIONVAL));
+      //TODO: complete type
       break;
     case FCALL:
       assert(0); //fcall must be prepopulated
@@ -490,7 +488,7 @@ char foldconst(EXPRESSION** exa) {
     case DOTOP: case ARROW:
       subexpr = EPARAM(ex, 0);
       rectexpr = EPARAM(ex, 1);
-      char* poignant = rectexpr->member;
+      //char* poignant = rectexpr->member;
       //if(idt->tb & STRUCTVAL) {
       //  IDTYPE* idt = typex(subexpr);
       //  if(!idt->structtype->offsets) {
@@ -600,7 +598,6 @@ char foldconst(EXPRESSION** exa) {
       subexpr = EPARAM(ex, 0);
       switch(subexpr->type) {
         case NEG:
-          //free expr and subexpr
           subexpr = EPARAM(subexpr, 0);
           foldconst((EXPRESSION**) &LPARAM(subexpr, 0));
           free(ex);
@@ -929,7 +926,6 @@ char foldconst(EXPRESSION** exa) {
     case MULT: 
       newdyn = dactor(32);
       rectexpr = ct_uintconst_expr(1);
-      //TODO: destroy all pure (integer because NaN/inf) arguments when multiply by 0
       //TODO: handle type(?)
       rove = 0;
       for(int i = 0; i < ex->params->length; i++) {
@@ -1141,7 +1137,7 @@ char foldconst(EXPRESSION** exa) {
       return rove;
     case MOD: 
       INTOP(%=);
-      //we don't flatten mods--that can happen in SSA and also chaining lots of modulos
+      //we don't handle mods--that can happen in SSA and also chaining lots of modulos
       //is not a case that is realistic or one I will handle
       return 1; //If it reaches the end of this block, it's definitely changed
     case L_AND:
@@ -1568,6 +1564,12 @@ char pleatstate(STATEMENT** stated) {
         default:
           break;
       }
+      return i || pleatstate(&st->body);
+    case FORL: 
+      while(foldconst(&st->forcond)) i = 1;
+      while(foldconst(&st->increment)) i = 1;
+      //optimize forcond type like while loop
+      //optimize EOI forinit
       return i || pleatstate(&st->body);
     case CMPND:
       newsdyn = dactor(st->stmtsandinits->length);

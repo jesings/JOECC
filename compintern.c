@@ -189,7 +189,7 @@ EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident) {
   retval->type = IDENT;
   retval->id = scopesearch(lct, M_VARIABLE, ident);
   assert(retval->id || ! fprintf(stderr, "Error: use of undefined variable %s at %s %d.%d-%d.%d\n", ident, locprint(yylloc)));
-  retval->rettype = NULL;//TODO: prepopulate rettype
+  retval->rettype = retval->id->type;
   return retval;
 }
 
