@@ -237,9 +237,9 @@ extern union {
       yytext[yyleng - 1] = '\0'; //ignore closing >
       char pathbuf[2048];
       static const char* searchpath[] = {
-        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.1.0/include",
+        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.2.0/include",
         "/usr/local/include",
-        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.1.0/include-fixed",
+        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.2.0/include-fixed",
         "/usr/include",
         };
       yy_pop_state();

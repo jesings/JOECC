@@ -1568,8 +1568,29 @@ char pleatstate(STATEMENT** stated) {
     case FORL: 
       while(foldconst(&st->forcond)) i = 1;
       while(foldconst(&st->increment)) i = 1;
-      //optimize forcond type like while loop
-      //optimize EOI forinit
+      if(st->forinit->isE) {
+        while(foldconst(&st->forinit->E)) i = 1;
+      } else {
+        for(int i = 0; i < st->forinit->I->length; i++) {
+          INITIALIZER* indinit = daget(st->forinit->I, i);
+          if(indinit->expr) {
+            while(foldconst(&indinit->expr)) i = 1;
+          }
+        }
+      }
+      switch(st->forcond->type) {
+        case INT: case UINT: ;
+          if(st->forcond->uintconst) {
+            //plain infinite loop, maybe optimize?
+          } else {
+            rfreestate(st);
+            *stated = mknopstmt();
+            return 1;
+          }
+          break;
+        default:
+          break;
+      }
       return i || pleatstate(&st->body);
     case CMPND:
       newsdyn = dactor(st->stmtsandinits->length);

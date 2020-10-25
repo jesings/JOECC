@@ -11,8 +11,8 @@ NOTE: JOECC is a work-in progress, and currently cannot fully compile code
 - [x] AST generation
 - [x] AST optimization
 - [x] AST display using graphviz
-- [ ] AST type annotation (in progress)
-- [ ] 3 address code generation (in progress)
+- [x] AST type annotation
+- [ ] 3 address code generation (bugfixing)
 - [ ] Static Single Assignment conversion
 - [ ] General Optimizations (to be enumerated later)
 - [ ] Register Renaming
