@@ -76,7 +76,7 @@ eseq:
 escmp:
   escmp "<<" essh {$$ = ct_binary_expr(SHL, $1, $3);}
 | escmp ">>" essh {$$ = ct_binary_expr(SHR, $1, $3);}
-| essh;
+| essh {$$ = $1;};
 essh:
   essh '+' esas {$$ = ct_binary_expr(ADD, $1, $3);}
 | essh '-' esas {$$ = ct_binary_expr(SUB, $1, $3);}

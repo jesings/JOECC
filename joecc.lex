@@ -1148,6 +1148,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
 <*>. {fprintf(stderr, "Unexpected character encountered: %c %d %s %d.%d-%d.%d\n", *yytext, *yytext, locprint(yylloc));}
 <*>\n {fprintf(stderr, "Unexpected newline encountered:  %s %d.%d-%d.%d\n", locprint(yylloc));}
 %%
+
 int check_type(char* symb, char frominitial) {
   struct macrodef* macdef = search(ctx->defines, symb);
   if(macdef && !queryval(ctx->withindefines, symb)) {
@@ -1209,7 +1210,7 @@ int check_type(char* symb, char frominitial) {
       dapush(locs, ylt);
       yylloc.first_line = yylloc.last_line = 1;
       yylloc.first_column = yylloc.last_column = 0;
-      YY_BUFFER_STATE yms = yy_create_buffer(fmemopen(macdef->text->strptr, macdef->text->lenstr, "r"), 
+      YY_BUFFER_STATE yms = yy_create_buffer(fmemopen(macdef->text->strptr, macdef->text->lenstr, "r"),
                                              YY_BUF_SIZE);
       yypush_buffer_state(yms);
       insert(ctx->withindefines, strdup(symb), NULL);
