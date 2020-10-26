@@ -289,6 +289,15 @@ static int statemeant(STATEMENT* stmt) {
       dprintf(funcfile, "n%d -> n%d [color=red];\n", statenode, treexpr(stmt->cond)); 
       dprintf(funcfile, "n%d -> n%d [color=green];\n", statenode, statemeant(stmt->body)); 
       break;
+    case FORL:
+      if(stmt->forinit->isE) {
+        dprintf(funcfile, "n%d -> n%d [color=yellow];\n", statenode, treexpr(stmt->forinit->E)); 
+      } else {
+        prinit(stmt->forinit->I);
+      }
+      dprintf(funcfile, "n%d -> n%d [color=green];\n", statenode, treexpr(stmt->forcond)); 
+      dprintf(funcfile, "n%d -> n%d [color=yellow];\n", statenode, treexpr(stmt->increment)); 
+      dprintf(funcfile, "n%d -> n%d [color=blue];\n", statenode, statemeant(stmt->forbody));
     case LBREAK: case LCONT: case DEFAULT:
       break;
     case FRET: 
