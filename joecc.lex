@@ -179,7 +179,7 @@ extern union {
       switch(*ids) {
         case IFANDTRUE: case ELSEANDFALSE:
           break;
-        default: //case IFANDFALSE: case ELSEANDTRUE: case IFDEFDUMMY:
+        case IFANDFALSE: case ELSEANDTRUE: case IFDEFDUMMY:
           yy_pop_state();
           break;
       }
@@ -649,7 +649,6 @@ extern union {
       if(ctx->argpp->length) {
         rmpair(ctx->withindefines, defname);
         struct arginfo* argi = dapop(ctx->argpp);
-        //fprintf(stderr, "Popping %s from stack\n", argi->defname);
         defname = argi->defname;
         free(argi);
       }
@@ -668,7 +667,6 @@ extern union {
       assert(ctx->argpp->length || !fprintf(stderr, "ERROR: macrostack state corrupted within macro call %s %d.%d-%d.%d\n", locprint(yylloc)));
       rmpair(ctx->withindefines, defname);
       struct arginfo* argi = dapop(ctx->argpp);
-      //fprintf(stderr, "Popping %s from stack\n", argi->defname);
       defname = argi->defname;
       free(argi);
     }
@@ -761,7 +759,6 @@ extern union {
     rmpair(ctx->withindefines, defname);
     if(ctx->argpp->length) {
       struct arginfo* argi = dapop(ctx->argpp);
-      //fprintf(stderr, "Popping %s from stack\n", argi->defname);
       defname = argi->defname;
       if(argi->argi) {
         dstrdly = argi->argi;
@@ -1195,7 +1192,6 @@ int check_type(char* symb, char frominitial) {
         argi->defname = oldname;
         argi->parg = parg;
         dapush(ctx->argpp, argi);
-        //fprintf(stderr, "Pushing %s, fcall macro, to stack\n", argi->defname);
       }
       paren_depth = 0;
       dstrdly = strctor(malloc(2048), 0, 2048);
@@ -1218,7 +1214,6 @@ int check_type(char* symb, char frominitial) {
         struct arginfo* argi = calloc(1, sizeof(struct arginfo));
         argi->defname = oldname;
         dapush(ctx->argpp, argi);
-        //fprintf(stderr, "Pushing %s to stack\n", argi->defname);
         yy_push_state(CALLMACRO);
       }
     }
