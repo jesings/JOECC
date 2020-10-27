@@ -164,7 +164,7 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
     dapush(prog->ops, ct_3ac_op2(op_to_cmp, addr2use.addr_type, addr2use.addr, ISLABEL | ISCONST, doneaddr));
   }
   if(addr2use.addr_type & ISCONST || addr2use.addr_type & ISFLOAT) {
-    addr2use.addr.iregnum = prog->iregcnt++; //do it more intelligently here
+    addr2use.addr.iregnum = prog->iregcnt++;
   }
   addr2use.addr_type = 1;//TODO: maybe make it signed?
   dapush(prog->ops, ct_3ac_op2(MOV_3, ISCONST, complete_val, addr2use.addr_type, addr2use.addr));
@@ -894,6 +894,7 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type) {
 
 
 void printprog(PROGRAM* prog) {
+  //maybe we want to color?
   DYNARR* pd = prog->ops;
   for(int i = 0; i < pd->length; i++) {
     OPERATION* op = daget(pd, i);
