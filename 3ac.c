@@ -227,7 +227,6 @@ OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRA
   return ct_3ac_op3(shlop, a1.addr_type, a1.addr, a2.addr_type, a2.addr, a1.addr_type, adr);
 }
 
-//returns destination for use in calling function
 FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR curaddr, otheraddr, destaddr;
   ADDRESS initlbl, scndlbl;
@@ -420,7 +419,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         dapush(prog->ops, ct_3ac_op2(INT_TO_FLOAT, curaddr.addr_type, curaddr.addr, ad2.addr_type, ad2.addr));
         curaddr = ad2;
       }
-      OPERATION* fixlater = ct_3ac_op0(NOP_3);
+      //MOV_3 is an op2 but we don't have the second address yet so we leave it as a blank in an op1
+      OPERATION* fixlater = ct_3ac_op1(MOV_3, curaddr.addr_type, curaddr.addr);
       dapush(prog->ops, fixlater);
       dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, scndlbl));
       intsert(prog->labeloffsets, initlbl.labelname, prog->ops->length);
@@ -439,7 +439,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       } else {
         destaddr.addr.iregnum = prog->iregcnt++;
       }
-      *fixlater = *ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr);
+      fixlater->dest_type = destaddr.addr_type;
+      fixlater->dest = destaddr.addr;
       dapush(prog->ops, ct_3ac_op2(MOV_3, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
       intsert(prog->labeloffsets, scndlbl.labelname, prog->ops->length);
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) scndlbl));
