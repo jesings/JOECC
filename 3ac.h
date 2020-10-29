@@ -120,24 +120,24 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr,
                                  ADDRESS complete_val, ADDRESS shortcircuit_val, PROGRAM* prog);
 OPERATION* cmpret_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
 OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
-void linefunc(FUNC* f);
+PROGRAM* linefunc(FUNC* f);
 void printprog(PROGRAM* prog);
 
-inline char* proglabel(PROGRAM* prog) {
+static inline char* proglabel(PROGRAM* prog) {
   char* c = malloc(8);
   snprintf(c, 8, ".L%d", (prog->labelcnt)++);
   return c;
 }
-inline FULLADDR op2addr(OPERATION* op) {
+static inline FULLADDR op2addr(OPERATION* op) {
   FULLADDR fa = {op->dest_type, op->dest};
   return fa;
 }
-inline FULLADDR op2ret(DYNARR* da, OPERATION* op) {
+static inline FULLADDR op2ret(DYNARR* da, OPERATION* op) {
   dapush(da, op);
   FULLADDR fa = {op->dest_type, op->dest};
   return fa;
 }
-inline enum opcode_3ac cmp_osite(EXPRTYPE coptype, char negate) {
+static inline enum opcode_3ac cmp_osite(EXPRTYPE coptype, char negate) {
   switch(coptype) {
     case EQ:
       return negate ? BNE_U : BEQ_U;
@@ -159,7 +159,7 @@ inline enum opcode_3ac cmp_osite(EXPRTYPE coptype, char negate) {
 }
 char remove_nops(PROGRAM* prog);
 
-inline ADDRTYPE addrconv(IDTYPE* idt) {
+static inline ADDRTYPE addrconv(IDTYPE* idt) {
   ADDRTYPE adt;
   if(idt->pointerstack && idt->pointerstack->length) {
     adt = ISPOINTER | 0x8;

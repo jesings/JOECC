@@ -827,7 +827,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
   fprintf(stderr, "Error: reduction of statement to 3 address code failed\n");
 }
 
-void linefunc(FUNC* f) {
+PROGRAM* linefunc(FUNC* f) {
   PROGRAM* prog = calloc(sizeof(PROGRAM), 1);
   prog->ops = dactor(1024);
   prog->breaklabels = dactor(8);
@@ -849,6 +849,7 @@ void linefunc(FUNC* f) {
     fixedinsert(prog->fixedvars, ((DECLARATION*) daget(f->params->da, i))->varid, newa);
   }
   solidstate(f->body, prog);
+  return prog;
 }
 
 static void printaddr(ADDRESS addr, ADDRTYPE addr_type) {

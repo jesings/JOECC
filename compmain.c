@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "compintern.h"
 #include "printree.h"
+#include "3ac.h"
 struct lexctx* ctx;
 int yylex(void);
 int yyparse(void);
@@ -50,6 +51,7 @@ int main(int argc, char** argv) {
     if(pairthere->value) {
       puts(pairthere->key);
       treefunc(pairthere->value);
+      PROGRAM* prog = linefunc(pairthere->value);
     }
   }
 }
