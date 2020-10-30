@@ -36,10 +36,10 @@
   X(MTP_U), X(MTP_I), X(MTP_F), /*move to pointer*/\
   X(MFP_U), X(MFP_I), X(MFP_F), /*move from pointer*/\
   X(PARAM_3), /*Do this for each param for CALL, must be done immediately before CALL */\
-  X(CALL_3), X(RETURN_3), \
-  X(FLOAT_TO_INT), X(INT_TO_FLOAT), \
-  X(ARRAY_INDEX), /* pointer (uintconst_64 or regnum), index, result (index size impicit from result size) */\
-  X(ARRAY_OFFSET), /*  pointer (uintconst_64 or regnum), index, result (index size impicit from result size) */\
+  X(CALL_3), X(RET_3), \
+  X(F2I), X(I2F), \
+  X(ARRIND), /* pointer (uintconst_64 or regnum), index, result (index size impicit from result size) */\
+  X(ARROFF), /*  pointer (uintconst_64 or regnum), index, result (index size impicit from result size) */\
   X(INIT_3), /*we need to add to symbol table on encountering it, 2 params: size, regnum */
 
 #define X(s) s

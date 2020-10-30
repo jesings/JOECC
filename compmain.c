@@ -52,6 +52,7 @@ int main(int argc, char** argv) {
       puts(pairthere->key);
       treefunc(pairthere->value);
       PROGRAM* prog = linefunc(pairthere->value);
+      printprog(prog);
     }
   }
 }
