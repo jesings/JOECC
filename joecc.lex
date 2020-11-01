@@ -479,9 +479,11 @@ extern union {
       enum ifdefstate contval = ds->length ? *(enum ifdefstate*) dapeek(ds) : IFANDTRUE;
       switch(contval) {
         case IFANDTRUE: case ELSEANDFALSE:
+          fprintf(stderr, "Value of identifier %s is %d at %s %d.%d-%d.%d\n", defname, queryval(ctx->defines, defname), locprint(yylloc));
           if(queryval(ctx->defines, defname)) {
             *rids = IFANDTRUE;
           } else {
+            fprintf(stderr, "skipping pp\n");
             *rids = IFANDFALSE;
             yy_push_state(PPSKIP);
           }
@@ -774,6 +776,7 @@ extern union {
   [[:blank:]]*\) {yy_pop_state();}
   {IDENT}/[[:blank:]]*\) {
     zzlval.unum = queryval(ctx->defines, yytext);
+    fprintf(stderr, "Value of identifier %s is %lu at %s %d.%d-%d.%d\n", yytext, zzlval.unum, locprint(yylloc));
     return UNSIGNED_LITERAL;
     }
 }
@@ -782,6 +785,7 @@ extern union {
   {IDENT} {
     yy_pop_state();
     zzlval.unum = queryval(ctx->defines, yytext);
+    fprintf(stderr, "Value of identifier %s is %lu at %s %d.%d-%d.%d\n", yytext, zzlval.unum, locprint(yylloc));
     return UNSIGNED_LITERAL;
     }
 }
@@ -1090,6 +1094,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
   enum ifdefstate* rids;
   switch(ctx->ifexpr->type) {
     case INT: case UINT:
+      fprintf(stderr, "exprval %ld %s %d.%d-%d.%d\n", ctx->ifexpr->intconst, locprint(yylloc));
       if(ctx->ifexpr->intconst != 0) {
         rids = malloc(sizeof(enum ifdefstate));
         *rids = IFANDTRUE;
@@ -1126,7 +1131,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
   }
 }
 
-\0 {//same as EOF
+<*>\0 {//same as EOF
   yypop_buffer_state();
   if ( !YY_CURRENT_BUFFER ) {
     yyterminate();
@@ -1142,7 +1147,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
   }
 }
 
-<*>. {fprintf(stderr, "Unexpected character encountered: %c %d %s %d.%d-%d.%d\n", *yytext, *yytext, locprint(yylloc));}
+<*>. {fprintf(stderr, "Unexpected character encountered: '%c' %d %s %d.%d-%d.%d\n", *yytext, *yytext, locprint(yylloc));}
 <*>\n {fprintf(stderr, "Unexpected newline encountered:  %s %d.%d-%d.%d\n", locprint(yylloc));}
 %%
 

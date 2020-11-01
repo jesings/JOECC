@@ -1176,29 +1176,32 @@ char foldconst(EXPRESSION** exa) {
               return 1;
             } else {
               free(subexpr);
+              if(((i + 1) == ex->params->length) && (newdyn->length == 0)) {
+                dadtor(ex->params);
+                free(ex);
+                *exa = ct_intconst_expr(0);
+                dadtor(newdyn);
+                return 1;
+              }
             }
             rove = 1;
             break;
         }
       }
       dadtor(ex->params);
-      if(newdyn->length <= 1) {
-        if(newdyn->length == 0) {
-          free(ex);
-          *exa = ct_intconst_expr(1);
-          dadtor(newdyn);
-          return 1;
-        } else {
-          dapush(newdyn, ct_intconst_expr(1));
-        }
+      if(newdyn->length == 0) {
+        free(ex);
+        *exa = ct_intconst_expr(1);
+        dadtor(newdyn);
+        return 1;
       }
       ex->params = newdyn;
       return rove;
     case L_OR:
       newdyn = dactor(32);
+      rove = 0;
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
-        rove = 0;
         switch(subexpr->type) {
           case L_OR:
             for(int j = 0; j < subexpr->params->length; j++) {
@@ -1225,29 +1228,31 @@ char foldconst(EXPRESSION** exa) {
                 free(ex);
                 dadtor(newdyn);
                 *exa = subexpr;
-              }
-              else {
+              } else {
                 dapush(newdyn, subexpr);
                 ex->params = newdyn;
               }
               return 1;
             } else {
               free(subexpr);
+              if(((i + 1) == ex->params->length) && (newdyn->length == 0)) {
+                dadtor(ex->params);
+                free(ex);
+                *exa = ct_intconst_expr(0);
+                dadtor(newdyn);
+                return 1;
+              }
             }
             rove = 1;
             break;
         }
       }
       dadtor(ex->params);
-      if(newdyn->length <= 1) {
-        if(newdyn->length == 0) {
-          free(ex);
-          *exa = ct_intconst_expr(1);
-          dadtor(newdyn);
-          return 1;
-        } else {
-          dapush(newdyn, ct_intconst_expr(1));
-        }
+      if(newdyn->length == 0) {
+        free(ex);
+        *exa = ct_intconst_expr(1);
+        dadtor(newdyn);
+        return 1;
       }
       ex->params = newdyn;
       return rove;
