@@ -1174,16 +1174,8 @@ char foldconst(EXPRESSION** exa) {
                 ex->params = newdyn;
               }
               return 1;
-            } else {
-              free(subexpr);
-              if(((i + 1) == ex->params->length) && (newdyn->length == 0)) {
-                dadtor(ex->params);
-                free(ex);
-                *exa = ct_intconst_expr(0);
-                dadtor(newdyn);
-                return 1;
-              }
             }
+            free(subexpr);
             rove = 1;
             break;
         }
@@ -1233,16 +1225,8 @@ char foldconst(EXPRESSION** exa) {
                 ex->params = newdyn;
               }
               return 1;
-            } else {
-              free(subexpr);
-              if(((i + 1) == ex->params->length) && (newdyn->length == 0)) {
-                dadtor(ex->params);
-                free(ex);
-                *exa = ct_intconst_expr(0);
-                dadtor(newdyn);
-                return 1;
-              }
             }
+            free(subexpr);
             rove = 1;
             break;
         }
@@ -1250,7 +1234,7 @@ char foldconst(EXPRESSION** exa) {
       dadtor(ex->params);
       if(newdyn->length == 0) {
         free(ex);
-        *exa = ct_intconst_expr(1);
+        *exa = ct_intconst_expr(0);
         dadtor(newdyn);
         return 1;
       }
