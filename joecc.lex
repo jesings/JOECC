@@ -40,6 +40,7 @@ DYNARR* parg;
 HASHTABLE* defargs = NULL;
 DYNSTR* dstrdly, * mdstrdly, * strcur;
 extern DYNARR* locs, * file2compile;
+extern int ppdebug;
 
 struct arginfo {
   DYNSTR* argi;
@@ -61,7 +62,7 @@ extern union {
 %option noyywrap
 %option stack
 
-%option debug
+/*%option debug*/
 %option warn
 %option nodefault
 
@@ -479,11 +480,11 @@ extern union {
       enum ifdefstate contval = ds->length ? *(enum ifdefstate*) dapeek(ds) : IFANDTRUE;
       switch(contval) {
         case IFANDTRUE: case ELSEANDFALSE:
-          fprintf(stderr, "Value of identifier %s is %d at %s %d.%d-%d.%d\n", defname, queryval(ctx->defines, defname), locprint(yylloc));
+          if(ppdebug) 
+              fprintf(stderr, "Value of identifier %s is %d at %s %d.%d-%d.%d\n", defname, queryval(ctx->defines, defname), locprint(yylloc));
           if(queryval(ctx->defines, defname)) {
             *rids = IFANDTRUE;
           } else {
-            fprintf(stderr, "skipping pp\n");
             *rids = IFANDFALSE;
             yy_push_state(PPSKIP);
           }
@@ -776,7 +777,8 @@ extern union {
   [[:blank:]]*\) {yy_pop_state();}
   {IDENT}/[[:blank:]]*\) {
     zzlval.unum = queryval(ctx->defines, yytext);
-    fprintf(stderr, "Value of identifier %s is %lu at %s %d.%d-%d.%d\n", yytext, zzlval.unum, locprint(yylloc));
+    if(ppdebug) 
+      fprintf(stderr, "Value of identifier %s is %lu at %s %d.%d-%d.%d\n", yytext, zzlval.unum, locprint(yylloc));
     return UNSIGNED_LITERAL;
     }
 }
@@ -785,7 +787,8 @@ extern union {
   {IDENT} {
     yy_pop_state();
     zzlval.unum = queryval(ctx->defines, yytext);
-    fprintf(stderr, "Value of identifier %s is %lu at %s %d.%d-%d.%d\n", yytext, zzlval.unum, locprint(yylloc));
+    if(ppdebug) 
+      fprintf(stderr, "Value of identifier %s is %lu at %s %d.%d-%d.%d\n", yytext, zzlval.unum, locprint(yylloc));
     return UNSIGNED_LITERAL;
     }
 }
@@ -1094,7 +1097,8 @@ L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
   enum ifdefstate* rids;
   switch(ctx->ifexpr->type) {
     case INT: case UINT:
-      fprintf(stderr, "exprval %ld %s %d.%d-%d.%d\n", ctx->ifexpr->intconst, locprint(yylloc));
+      if(ppdebug)
+        fprintf(stderr, "exprval %ld %s %d.%d-%d.%d\n", ctx->ifexpr->intconst, locprint(yylloc));
       if(ctx->ifexpr->intconst != 0) {
         rids = malloc(sizeof(enum ifdefstate));
         *rids = IFANDTRUE;

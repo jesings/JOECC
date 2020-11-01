@@ -9,6 +9,7 @@ int yylex(void);
 int yyparse(void);
 DYNARR* locs;
 DYNARR* file2compile;
+int ppdebug;
 //TODO: Variadic macros?
 int main(int argc, char** argv) {
   ctx = ctxinit();
@@ -30,6 +31,7 @@ int main(int argc, char** argv) {
   extern int zzdebug;
   zzdebug = 0;
   yydebug = 0;
+  ppdebug = 0;
   yyparse();
   if(argc > 1) {
     close(compilefile);
