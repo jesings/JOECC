@@ -62,7 +62,7 @@ extern union {
 %option noyywrap
 %option stack
 
-/*%option debug*/
+%option debug
 %option warn
 %option nodefault
 

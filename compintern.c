@@ -106,7 +106,7 @@ EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params) {
   retval->type = FCALL;
   assert(func->type & IDENT);
   DYNARR* ptrs = func->id->type->pointerstack;
-  assert(ptrs && (ptrs->length >= 2));
+  assert(ptrs);
 
   IDTYPE* retid = fcid(func->id->type);
   if((((struct declarator_part*) dapeek(ptrs))->type == POINTERSPEC)) {
