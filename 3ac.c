@@ -839,14 +839,15 @@ PROGRAM* linefunc(FUNC* f) {
   //TODO: params may not have number
   for(int i = 0; i < f->params->da->length; i++) {
     FULLADDR* newa = malloc(sizeof(FULLADDR));
-    newa->addr_type = addrconv(((DECLARATION*) daget(f->params->da, i))->type);
+    DECLARATION* pdec = pget(f->params, i);
+    newa->addr_type = addrconv(pdec->type);
     if(newa->addr_type & ISFLOAT) {
       newa->addr.iregnum = prog->iregcnt++;
     } else {
       newa->addr.fregnum = prog->fregcnt++;
     }
     dapush(prog->ops, ct_3ac_op1(INIT_3, newa->addr_type, newa->addr));
-    fixedinsert(prog->fixedvars, ((DECLARATION*) daget(f->params->da, i))->varid, newa);
+    fixedinsert(prog->fixedvars, pdec->varid, newa);
   }
   solidstate(f->body, prog);
   return prog;

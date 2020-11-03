@@ -15,5 +15,6 @@ void* pfsearch(PARALLEL* p, long unsigned key);
 char pfquery(PARALLEL* p, long unsigned key);
 void pfinsert(PARALLEL* p, long unsigned key, void* value);
 void paraledtor(PARALLEL* p);
+#define pget(p, i) search(p->ht, daget(p->da, i))
 #endif
 
