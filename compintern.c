@@ -65,7 +65,7 @@ EXPRESSION* ct_sztype(IDTYPE* whichtype) {
     return ct_intconst_expr(whichtype->tb & 0xf);
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = SZOF;
-  retval->rettype = NULL;
+  retval->rettype = NULL;//TODO: prepopulate here
   retval->vartype = whichtype;
   return retval;
 }

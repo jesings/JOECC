@@ -590,7 +590,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case NOP: case MEMBER:
       break;
     case SZOF:;
-      IDTYPE idt = typex(daget(cexpr->params, 0));
+      IDTYPE idt = *cexpr->vartype;
       destaddr.addr_type = ISCONST | 8;
       if(idt.pointerstack && idt.pointerstack->length) {
         destaddr.addr.intconst_64 = 8;
@@ -612,7 +612,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         curaddr = linearitree(daget(cexpr->params, i), prog);
         dapush(params, ct_3ac_op1(PARAM_3, curaddr.addr_type, curaddr.addr));
       }
-      damerge(prog->ops, params);
+      prog->ops = damerge(prog->ops, params);
       IDTYPE* frettype = cexpr->rettype;
       //struct type as well?
       if(frettype->pointerstack && frettype->pointerstack->length) {
