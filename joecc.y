@@ -286,7 +286,7 @@ declname:
     dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));
     };
 fptr:
-  '(' abstract_ptr SYMBOL ')' {$$ = mkdeclaration($3); damerge($$->type->pointerstack, $2);}
+  '(' abstract_ptr SYMBOL ')' {$$ = mkdeclaration($3); $$->type->pointerstack = damerge($$->type->pointerstack, $2);}
 | '(' fptr ')' {$$ = $2;}
 | fptr'[' ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, NULL));}
 | fptr'[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, $3));/*foldconst*/}

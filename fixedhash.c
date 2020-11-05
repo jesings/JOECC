@@ -1,13 +1,12 @@
 #include "hash.h"
-unsigned long fixedhash(const char* data, char lbits) {    /*courtesy of http://www.cse.yorku.ca/~oz/hash.html */
-  unsigned long hash = 5381;
-  int c;
-  while(c = *data++, --lbits >= 0)
-    hash = ((hash << 5) + hash) ^ c;    /* hash* 33 + c */
-  return hash % HASHSIZE;
+static unsigned long fixedhash(long data, char lbits) {    /*courtesy of http://www.cse.yorku.ca/~oz/hash.html */
+  data = (data ^ (data >> 30)) * 0xbf58476d1ce4e5b9l;
+  data = (data ^ (data >> 27)) * 0x94d049bb133111ebl;
+  data = data ^ (data >> 31);
+  return data % HASHSIZE;
 }
 void fixedinsert(HASHTABLE* ht, long fixedkey, void* value) {
-  unsigned long i = fixedhash((char*) &fixedkey, sizeof(fixedkey));
+  unsigned long i = fixedhash(fixedkey, sizeof(fixedkey));
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!hp->next) {
     hp->fixedkey = fixedkey;
@@ -34,7 +33,7 @@ void fixedinsert(HASHTABLE* ht, long fixedkey, void* value) {
   ++ht->keys;
 }
 void* fixedsearch(HASHTABLE* ht, long fixedkey) {
-  unsigned long i = fixedhash((char*) &fixedkey, sizeof(fixedkey));
+  unsigned long i = fixedhash(fixedkey, sizeof(fixedkey));
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!hp->next)
     return NULL;
@@ -46,7 +45,7 @@ void* fixedsearch(HASHTABLE* ht, long fixedkey) {
 }
 
 char fixedqueryval(HASHTABLE* ht, long fixedkey) {
-  unsigned long i = fixedhash((char*) &fixedkey, sizeof(fixedkey));
+  unsigned long i = fixedhash(fixedkey, sizeof(fixedkey));
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!hp->next)
     return 0;
