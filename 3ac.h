@@ -175,4 +175,26 @@ static inline ADDRTYPE addrconv(IDTYPE* idt) {
   return adt;
 }
 
+static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
+  FULLADDR destad;
+  ADDRESS sz;
+  if(retidt.tb & (STRUCTVAL | UNIONVAL)) {
+    sz.uintconst_64 = retidt.structtype->size;
+  } else {
+    sz.uintconst_64 = retidt.tb & 0xf;
+  }
+  destad.addr.iregnum = prog->iregcnt++;
+  destad.addr_type = 8 | ISPOINTER;
+
+  switch(sz.uintconst_64) {
+    case 1: case 2: case 4: case 8:
+      dapush(prog->ops, ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr));
+      break;
+    default:
+      dapush(prog->ops, ct_3ac_op3(MULT_U, fadt.addr_type, fadt.addr, ISCONST | 4, sz, destad.addr_type, destad.addr));
+      break;
+  }
+  return destad;
+}
+
 #endif

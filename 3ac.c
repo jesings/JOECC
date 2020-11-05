@@ -51,6 +51,13 @@ OPERATION* implicit_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* pro
   IDTYPE retid = typex(cexpr);
   FULLADDR desta;
   if(retid.pointerstack && retid.pointerstack->length) {
+    if((arg1id.pointerstack && arg1id.pointerstack->length) &&
+       !(arg2id.pointerstack && arg2id.pointerstack->length)) {
+      a2 = ptarith(retid, a2, prog);
+    } else if((arg2id.pointerstack && arg2id.pointerstack->length) && 
+              !(arg1id.pointerstack && arg1id.pointerstack->length)) {
+      a1 = ptarith(retid, a1, prog);
+    }
     desta.addr_type = ISPOINTER | 8;
     //perhaps save regnum here?
     desta.addr.iregnum = prog->iregcnt++;
