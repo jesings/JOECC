@@ -454,7 +454,19 @@ IDTYPE typex(EXPRESSION* ex) {
 
     case DOTOP: case ARROW:
       idt = typex(daget(ex->params, 0));
-      assert(idt.tb & (STRUCTVAL | UNIONVAL));
+      if(idt.tb & STRUCTVAL) {
+        STRUCT* ids = idt.structtype;
+        HASHTABLE* htb = ids->offsets;
+        EXPRESSION* memex = daget(ex->params, 1);
+        //IDTYPE* typified = search(htb, memex->memberval);
+      } else if(idt.tb & UNIONVAL) {
+        UNION* idu = idt.uniontype;
+        HASHTABLE* htb = idu->hfields;
+        EXPRESSION* memex = daget(ex->params, 1);
+        //IDTYPE* typified = search(htb, memex->memberval);
+      } else {
+        assert(0);
+      }
       //TODO: complete type
       break;
     case FCALL:
