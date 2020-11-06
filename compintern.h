@@ -97,6 +97,11 @@ typedef struct {
 } IDTYPE;
 
 typedef struct {
+  long offset;
+  IDTYPE* type;
+} STRUCTFIELD;
+
+typedef struct {
   //int index;//index of type within scope (i.e. parameter index)
   //value perhaps?
   IDTYPE* type;

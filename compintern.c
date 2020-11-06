@@ -809,8 +809,9 @@ void feedstruct(STRUCT* s) {
       DYNARR* mm = s->fields;
       long totalsize = 0;
       for(int i = 0; i < mm->length; i++) {
-        DECLARATION* mmi= daget(mm, i);
+        DECLARATION* mmi = daget(mm, i);
         int esize;
+        //TODO: handle bitfield
         if(mmi->type->pointerstack && mmi->type->pointerstack->length) {
           esize = sizeof(uintptr_t);
         } else {
@@ -828,13 +829,17 @@ void feedstruct(STRUCT* s) {
         }
         int padding = esize > 64 ? 64 : esize;
         totalsize = (totalsize + padding - 8) & ~padding;
-        insert(s->offsets, mmi->varname, (void*) totalsize);
+        STRUCTFIELD* sf = malloc(sizeof(STRUCTFIELD));
+        sf->type = mmi->type;
+        sf->offset = totalsize;
+        insert(s->offsets, mmi->varname, sf);
         totalsize += esize;
       }
       s->size = totalsize;
+      return;
     case -1:
       //circular structs!!!!!
-      //TODO: error out
+      assert(0);
     default:
       //struct already fed
       return;
@@ -847,7 +852,7 @@ int unionlen(UNION* u) {
       u->size = -1;
       DYNARR* mm = u->fields;
       for(int i = 0; i < mm->length; i++) {
-        DECLARATION* mmi= daget(mm, i);
+        DECLARATION* mmi = daget(mm, i);
         int esize;
         if(mmi->type->pointerstack && mmi->type->pointerstack->length) {
           esize = sizeof(uintptr_t);
@@ -866,6 +871,7 @@ int unionlen(UNION* u) {
         }
         if(esize > u->size)
           u->size = esize;
+        insert(u->hfields, mmi->varname, mmi->type);
       }
       break;
     case -1:
