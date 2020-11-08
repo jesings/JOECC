@@ -458,16 +458,16 @@ IDTYPE typex(EXPRESSION* ex) {
         STRUCT* ids = idt.structtype;
         HASHTABLE* htb = ids->offsets;
         EXPRESSION* memex = daget(ex->params, 1);
-        //IDTYPE* typified = search(htb, memex->memberval);
+        STRUCTFIELD* typified = search(htb, memex->member);
+        idt = *typified->type;
       } else if(idt.tb & UNIONVAL) {
         UNION* idu = idt.uniontype;
         HASHTABLE* htb = idu->hfields;
         EXPRESSION* memex = daget(ex->params, 1);
-        //IDTYPE* typified = search(htb, memex->memberval);
+        idt = *(IDTYPE*) search(htb, memex->member);
       } else {
         assert(0);
       }
-      //TODO: complete type
       break;
     case FCALL:
       assert(0); //fcall must be prepopulated

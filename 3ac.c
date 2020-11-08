@@ -364,9 +364,16 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case DOTOP: case ARROW:
       break;
     case SZOFEXPR:
-      //TODO: handle structs properly
       curaddr = linearitree(daget(cexpr->params, 0), prog);
-      destaddr.addr.uintconst_64 = curaddr.addr_type & 0xf;
+      if(cexpr->rettype->pointerstack && cexpr->rettype->pointerstack->length) {
+        destaddr.addr.uintconst_64 = 8;
+      } else {
+        if(cexpr->rettype->tb & (STRUCTVAL | UNIONVAL)) {
+          destaddr.addr.uintconst_64 = cexpr->rettype->structtype->size;
+        } else {
+          destaddr.addr.uintconst_64 = curaddr.addr_type & 0xf;
+        }
+      }
       destaddr.addr_type = ISCONST;
       return destaddr;
     case CAST:
