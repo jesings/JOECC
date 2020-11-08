@@ -287,6 +287,7 @@ declname:
     };
 fptr:
   '(' abstract_ptr SYMBOL ')' {$$ = mkdeclaration($3); $$->type->pointerstack = damerge($$->type->pointerstack, $2);}
+| '(' '(' abstract_ptr ')' SYMBOL ')' {$$ = mkdeclaration($5); $$->type->pointerstack = damerge($$->type->pointerstack, $3);}
 | '(' fptr ')' {$$ = $2;}
 | fptr'[' ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, NULL));}
 | fptr'[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, $3));/*foldconst*/}
@@ -520,6 +521,41 @@ esm:
     idt->pointerstack = $3;
   }
   $$ = ct_cast_expr(idt, $5);}
+| '(' type fptr ')' esm {
+  IDTYPE* idt = malloc(sizeof(IDTYPE));
+  memcpy(idt, $2, sizeof(IDTYPE));
+  if(idt->pointerstack) {
+    idt->pointerstack = damerge(daclone(idt->pointerstack), $3->type->pointerstack);
+  } else {
+    idt->pointerstack = $3->type->pointerstack;
+  }
+  free($3->type);
+  free($3);
+  $$ = ct_cast_expr(idt, $5);}
+| '(' type abstract_ptr fptr ')' esm {
+  IDTYPE* idt = malloc(sizeof(IDTYPE));
+  memcpy(idt, $2, sizeof(IDTYPE));
+  if(idt->pointerstack) {
+    idt->pointerstack = damerge(daclone(idt->pointerstack), $3);
+  } else {
+    idt->pointerstack = $3;
+  }
+  idt->pointerstack = damerge(daclone(idt->pointerstack), $4->type->pointerstack);
+  free($4->type);
+  free($4);
+  $$ = ct_cast_expr(idt, $6);}
+| '(' type '(' abstract_ptr ')' fptr ')' esm {
+  IDTYPE* idt = malloc(sizeof(IDTYPE));
+  memcpy(idt, $2, sizeof(IDTYPE));
+  if(idt->pointerstack) {
+    idt->pointerstack = damerge(daclone(idt->pointerstack), $4);
+  } else {
+    idt->pointerstack = $4;
+  }
+  idt->pointerstack = damerge(daclone(idt->pointerstack), $6->type->pointerstack);
+  free($6->type);
+  free($6);
+  $$ = ct_cast_expr(idt, $8);}
 | esca {$$ = $1;};
 esca:
   "++" esca {$$ = ct_unary_expr(PREINC, $2);}

@@ -23,7 +23,6 @@ const char* name_MEMBERTYPE[] = {
 #undef X
 
 static int pdecl(DECLARATION* decl);
-int treexpr(EXPRESSION* expr);
 static int structree(STRUCT* container);
 //static int enumtree(ENUM* container);
 static int uniontree(UNION* container);
