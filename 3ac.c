@@ -91,6 +91,21 @@ OPERATION* implicit_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* pro
   return ct_3ac_op3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, desta.addr_type, desta.addr);
 }
 
+FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srcexpr, PROGRAM* prog) {
+  IDTYPE destidt = typex(destexpr);
+  IDTYPE srcidt = typex(srcexpr);
+  FULLADDR srcaddr = linearitree(srcexpr, prog);
+  FULLADDR destaddr = linearitree(destexpr, prog);
+  if(destidt.pointerstack && destidt.pointerstack->length) {
+    //pointer arithmetic
+  } else {
+    assert(!(srcidt.pointerstack && srcidt.pointerstack->length));
+    dapush(prog->ops, ct_3ac_op3(op, destaddr.addr_type, destaddr.addr, srcaddr.addr_type, 
+                                 srcaddr.addr, destaddr.addr_type, destaddr.addr));
+  }
+  return destaddr;
+}
+
 OPERATION* implicit_mtp_2(EXPRESSION* destexpr, EXPRESSION* fromexpr, FULLADDR a1, FULLADDR a2, PROGRAM* prog) {
   enum opcode_3ac op = MTP_U;
   IDTYPE destidt = typex(destexpr);
