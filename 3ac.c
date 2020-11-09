@@ -96,13 +96,30 @@ FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srce
   IDTYPE srcidt = typex(srcexpr);
   FULLADDR srcaddr = linearitree(srcexpr, prog);
   FULLADDR destaddr = linearitree(destexpr, prog);
+  char recover = 0; //no need to make 2 instructions unless int times float or something like it
+  //do some implicit binary stuff
   if(destidt.pointerstack && destidt.pointerstack->length) {
     //pointer arithmetic
   } else {
     assert(!(srcidt.pointerstack && srcidt.pointerstack->length));
-    dapush(prog->ops, ct_3ac_op3(op, destaddr.addr_type, destaddr.addr, srcaddr.addr_type, 
-                                 srcaddr.addr, destaddr.addr_type, destaddr.addr));
+    if(destidt.tb & ISFLOAT) {
+      op += 2;
+      if(!(srcidt.tb & ISFLOAT)) {
+        //allocate new float reg, I2F
+        FULLADDR fad;
+        fad.addr_type = ISFLOAT | (srcid.tb & 0xf);
+        fad.addr.fregnum = prog->fregcnt++;
+        dapush(prog->ops, ct_3ac_op2(I2F, srcaddr.addr_type, srcaddr.addr, fad.addr_type, fad.addr));
+        srcaddr = fad;
+      }
+    } else if(srcidt.tb & ISFLOAT) {
+      //use temporary variable
+      recover = 1;
+    } else {
+    }
   }
+  dapush(prog->ops, ct_3ac_op3(op, destaddr.addr_type, destaddr.addr, srcaddr.addr_type, 
+                               srcaddr.addr, destaddr.addr_type, destaddr.addr));
   return destaddr;
 }
 
