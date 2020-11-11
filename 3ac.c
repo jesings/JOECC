@@ -98,7 +98,26 @@ FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srce
   FULLADDR destaddr = linearitree(destexpr, prog);
   //do some implicit binary stuff
   if(destidt.pointerstack && destidt.pointerstack->length) {
-    //pointer arithmetic
+    if(srcidt.pointerstack && srcidt.pointerstack->length) {
+      switch(op) {
+        case ADD_U: case SUB_U: case AND_U: case OR_U: case XOR_U:
+          break;
+        case SHL_U: case SHR_U: case MOD_U: case MUL_U: case DIV_U:
+          //pointer to integer without cast
+          assert(0);
+        default:
+          assert(0);
+      }
+    } else {
+      switch(op) {
+        case ADD_U: case SUB_U:
+          srcaddr = ptarith(destidt, srcaddr, prog);
+          break;
+        default:
+          //integer to pointer w/o cast
+          assert(0);
+      }
+    }
   } else {
     assert(!(srcidt.pointerstack && srcidt.pointerstack->length));
     if(destidt.tb & ISFLOAT) {
