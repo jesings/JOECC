@@ -102,7 +102,7 @@ FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srce
       switch(op) {
         case ADD_U: case SUB_U: case AND_U: case OR_U: case XOR_U:
           break;
-        case SHL_U: case SHR_U: case MOD_U: case MUL_U: case DIV_U:
+        case SHL_U: case SHR_U: case MOD_U: case MULT_U: case DIV_U:
           //pointer to integer without cast
           assert(0);
         default:
@@ -621,40 +621,25 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return curaddr;
        //confirm argument is lvalue?
     case ADDASSIGN:
-      curaddr = linearitree(daget(cexpr->params, 1), prog);
-      destaddr = linearitree(daget(cexpr->params, 0), prog);
-      //implicit type coercion needed
-      if(destaddr.addr_type & ISFLOAT) {
-        enop = ADD_F;
-      } else {
-        enop = destaddr.addr_type & ISSIGNED ? ADD_I : ADD_U;
-      }
-      dapush(prog->ops, ct_3ac_op2(enop, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-      return destaddr;
+      return cmpnd_assign(ADD_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
     case SUBASSIGN:
-      curaddr = linearitree(daget(cexpr->params, 1), prog);
-      destaddr = linearitree(daget(cexpr->params, 0), prog);
-      //implicit type coercion needed
-      if(destaddr.addr_type & ISFLOAT) {
-        enop = SUB_F;
-      } else {
-        enop = destaddr.addr_type & ISSIGNED ? SUB_I : SUB_U;
-      }
-      dapush(prog->ops, ct_3ac_op2(enop, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-      return destaddr;
+      return cmpnd_assign(SUB_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
     case DIVASSIGN: 
-      curaddr = linearitree(daget(cexpr->params, 1), prog);
-      destaddr = linearitree(daget(cexpr->params, 0), prog);
-      //implicit type coercion needed
-      if(destaddr.addr_type & ISFLOAT) {
-        enop = DIV_F;
-      } else {
-        enop = destaddr.addr_type & ISSIGNED ? DIV_I : DIV_U;
-      }
-      dapush(prog->ops, ct_3ac_op2(enop, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-      return destaddr;
-    case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
-    case XORASSIGN: case ORASSIGN: case MULTASSIGN: case MODASSIGN:
+      return cmpnd_assign(DIV_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
+    case SHLASSIGN:
+      return cmpnd_assign(SHL_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
+    case SHRASSIGN:
+      return cmpnd_assign(SHR_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
+    case ANDASSIGN:
+      return cmpnd_assign(AND_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
+    case XORASSIGN:
+      return cmpnd_assign(XOR_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
+    case ORASSIGN:
+      return cmpnd_assign(OR_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
+    case MULTASSIGN:
+      return cmpnd_assign(MULT_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
+    case MODASSIGN:
+      return cmpnd_assign(MOD_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
        //confirm argument is lvalue?
        //type coercion stupid and unclear
       break;
