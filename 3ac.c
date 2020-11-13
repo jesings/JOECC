@@ -892,17 +892,25 @@ PROGRAM* linefunc(FUNC* f) {
   prog->labeloffsets = htctor();
   prog->lval = 0;
   //initialize params
-  //TODO: params may not have number
+  //TODO: params may not have number, move params in to first n variables
   for(int i = 0; i < f->params->da->length; i++) {
     FULLADDR* newa = malloc(sizeof(FULLADDR));
     DECLARATION* pdec = pget(f->params, i);
     newa->addr_type = addrconv(pdec->type);
     if(newa->addr_type & ISFLOAT) {
-      newa->addr.iregnum = prog->iregcnt++;
-    } else {
       newa->addr.fregnum = prog->fregcnt++;
+    } else {
+      newa->addr.iregnum = prog->iregcnt++;
     }
     dapush(prog->ops, ct_3ac_op1(INIT_3, newa->addr_type, newa->addr));
+    if(!(pdec->type->pointerstack && pdec->type->pointerstack->length) && (pdec->type->tb & STRUCTVAL)) {
+      ADDRESS tmpaddr, tmpaddr2;
+      tmpaddr.intconst_64 = pdec->type->structtype->size;
+      tmpaddr2.iregnum = prog->iregcnt++;
+      dapush(prog->ops, ct_3ac_op2(ALOC_3, ISCONST, tmpaddr, newa->addr_type, tmpaddr2));
+      //do struct copy here
+      dapush(prog->ops, ct_3ac_op3(MOV_3, newa->addr_type, tmpaddr2, newa->addr_type, newa->addr));
+    } 
     fixedinsert(prog->fixedvars, pdec->varid, newa);
   }
   solidstate(f->body, prog);

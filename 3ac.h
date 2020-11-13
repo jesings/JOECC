@@ -38,8 +38,9 @@
   X(PARAM_3), /*Do this for each param for CALL, must be done immediately before CALL */\
   X(CALL_3), X(RET_3), \
   X(F2I), X(I2F), \
-  X(ARRIND), /* pointer (uintconst_64 or regnum), index, result (index size impicit from result size) */\
-  X(ARROFF), /*  pointer (uintconst_64 or regnum), index, result (index size impicit from result size) */\
+  X(ARRIND), /*pointer (uintconst_64 or regnum), index, result (index size impicit from result size) */\
+  X(ARROFF), /*pointer (uintconst_64 or regnum), index, result (index size impicit from result size) */\
+  X(ALOC_3), /*Allocate stack memory for struct, op2, takes size, and outputs start index*/\
   X(INIT_3), /*we need to add to symbol table on encountering it, 2 params: size, regnum */
 
 #define X(s) s
