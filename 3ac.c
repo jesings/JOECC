@@ -291,6 +291,18 @@ OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRA
   return ct_3ac_op3(shlop, a1.addr_type, a1.addr, a2.addr_type, a2.addr, a1.addr_type, adr);
 }
 
+FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
+  FULLADDR sead = linearitree(daget(cexpr->params, 0), prog);
+  IDTYPE seaty = typex(daget(cexpr->params, 0));
+  char* memname = ((EXPRESSION*) daget(cexpr->params, 0))->member;
+  assert(!seaty.pointerstack || seaty.pointerstack->length <= 1);
+  assert(seaty.tb & (STRUCTVAL | UNIONVAL));
+  if(seaty.tb & STRUCTVAL) {
+  } else {
+  }
+  assert(0);
+}
+
 FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR curaddr, otheraddr, destaddr;
   ADDRESS initlbl, scndlbl;
@@ -431,8 +443,14 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       }
       return linearitree(daget(cexpr->params, cexpr->params->length - 1), prog);
 
-    case DOTOP: case ARROW:
-      break;
+    case DOTOP: 
+      varty = typex(daget(cexpr->params, 0));
+      assert(!(varty.pointerstack && varty.pointerstack->length));
+      return smemrec(cexpr, prog);
+    case ARROW:
+      varty = typex(daget(cexpr->params, 0));
+      assert(varty.pointerstack && (varty.pointerstack->length == 1));
+      return smemrec(cexpr, prog);
     case SZOFEXPR:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       if(cexpr->rettype->pointerstack && cexpr->rettype->pointerstack->length) {
