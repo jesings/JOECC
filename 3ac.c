@@ -294,6 +294,7 @@ OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRA
 FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR curaddr, otheraddr, destaddr;
   ADDRESS initlbl, scndlbl;
+  IDTYPE varty;
   enum opcode_3ac enop;
   char prevval = prog->lval;
   prog->lval = 0;
@@ -360,17 +361,29 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
 
     case ADDR:
+      varty = typex(daget(cexpr->params, 0));
+      if(!(varty.pointerstack && varty.pointerstack->length) && (varty.tb & STRUCTVAL)) {
+        return linearitree(daget(cexpr->params, 0), prog);//addr should be a no-op for single pointers to structs
+      }
       return op2ret(prog->ops, implicit_unary_2(ADDR_U, cexpr, prog));
 
     case DEREF: //Turn deref of addition, subtraction, into array index?
       //TODO: not sure if this is right
+      varty = typex(daget(cexpr->params, 0));
+      assert(varty.pointerstack && varty.pointerstack->length);
+      if(varty.pointerstack->length == 1 && (varty.tb & STRUCTVAL)) {
+        FULLADDR fad = linearitree(daget(cexpr->params, 0), prog);
+        if(prevval) {
+          prog->fderef = 1; //TODO: need some way to copy over whole struct in ASSIGN
+        }
+        return fad; //dereferencing single pointer to struct should be a no-op
+      }
       if(prevval) {
         FULLADDR fad = linearitree(daget(cexpr->params, 0), prog);
         prog->fderef = 1;
         return fad;
       }
       return op2ret(prog->ops, implicit_unary_2(MFP_U, cexpr, prog));
-
     case ADD:
       return op2ret(prog->ops, implicit_binary_3(ADD_U, cexpr, prog));
     case SUB: 
@@ -909,7 +922,7 @@ PROGRAM* linefunc(FUNC* f) {
       tmpaddr2.iregnum = prog->iregcnt++;
       dapush(prog->ops, ct_3ac_op2(ALOC_3, ISCONST, tmpaddr, newa->addr_type, tmpaddr2));
       //do struct copy here
-      dapush(prog->ops, ct_3ac_op3(MOV_3, newa->addr_type, tmpaddr2, newa->addr_type, newa->addr));
+      dapush(prog->ops, ct_3ac_op2(MOV_3, newa->addr_type, tmpaddr2, newa->addr_type, newa->addr));
     } 
     fixedinsert(prog->fixedvars, pdec->varid, newa);
   }
@@ -1045,7 +1058,7 @@ void printprog(PROGRAM* prog) {
       case JMP_3: 
         PRINTOP1( );
         break;
-      case MOV_3: 
+      case MOV_3: case ALOC_3:
         PRINTOP2( );
         break;
       case MTP_U: case MTP_I: case MTP_F:
