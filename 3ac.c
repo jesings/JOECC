@@ -294,11 +294,19 @@ OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRA
 FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR sead = linearitree(daget(cexpr->params, 0), prog);
   IDTYPE seaty = typex(daget(cexpr->params, 0));
+  IDTYPE retty = typex(cexpr);
   char* memname = ((EXPRESSION*) daget(cexpr->params, 0))->member;
   assert(!seaty.pointerstack || seaty.pointerstack->length <= 1);
   assert(seaty.tb & (STRUCTVAL | UNIONVAL));
-  if(seaty.tb & STRUCTVAL) {
-  } else {
+  FULLADDR retaddr;
+  retaddr.addr.iregnum = prog->iregcnt++;
+  retaddr.addr_type = addrconv(&retty);
+  ADDRESS offaddr;
+  offaddr.uintconst_64 = 0;
+  //offset needed, maybe need separate register to store intermediate addr for non struct struct members
+  //need to handle lvalues
+  dapush(prog->ops, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, retaddr.addr_type, retaddr.addr));
+  if(!(seaty.tb & STRUCTVAL)) {
   }
   assert(0);
 }
