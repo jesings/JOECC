@@ -295,18 +295,28 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR sead = linearitree(daget(cexpr->params, 0), prog);
   IDTYPE seaty = typex(daget(cexpr->params, 0));
   IDTYPE retty = typex(cexpr);
+  assert(((EXPRESSION*) daget(cexpr->params, 0))->type == MEMBER);
   char* memname = ((EXPRESSION*) daget(cexpr->params, 0))->member;
   assert(!seaty.pointerstack || seaty.pointerstack->length <= 1);
   assert(seaty.tb & (STRUCTVAL | UNIONVAL));
   FULLADDR retaddr;
   retaddr.addr.iregnum = prog->iregcnt++;
   retaddr.addr_type = addrconv(&retty);
-  ADDRESS offaddr;
-  offaddr.uintconst_64 = 0;
-  //offset needed, maybe need separate register to store intermediate addr for non struct struct members
-  //need to handle lvalues
-  dapush(prog->ops, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, retaddr.addr_type, retaddr.addr));
-  if(!(seaty.tb & STRUCTVAL)) {
+  if(seaty.tb & UNIONVAL) {
+    HASHTABLE* fids = seaty.uniontype->hfields;
+    IDTYPE* fid = search(fids, memname);
+    if(fid->tb & (STRUCTVAL | UNIONVAL)) {
+    }
+  } else {
+    ADDRESS offaddr;
+    HASHTABLE* ofs = seaty.structtype->offsets;
+    STRUCTFIELD* sf = search(ofs, memname);
+    offaddr.intconst_64 = sf->offset;
+    if(sf->type->tb & (STRUCTVAL | UNIONVAL)) {
+    }
+    dapush(prog->ops, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, retaddr.addr_type, retaddr.addr));
+    //maybe need separate register to store intermediate addr for non struct struct members
+    //need to handle lvalues
   }
   assert(0);
 }
