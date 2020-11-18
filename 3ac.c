@@ -291,7 +291,7 @@ OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRA
   return ct_3ac_op3(shlop, a1.addr_type, a1.addr, a2.addr_type, a2.addr, a1.addr_type, adr);
 }
 
-FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
+FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char lvalval) {
   FULLADDR sead = linearitree(daget(cexpr->params, 0), prog);
   IDTYPE seaty = typex(daget(cexpr->params, 0));
   IDTYPE retty = typex(cexpr);
@@ -302,20 +302,27 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR retaddr;
   retaddr.addr.iregnum = prog->iregcnt++;
   retaddr.addr_type = addrconv(&retty);
+  //Doesn't handle float members
   if(seaty.tb & UNIONVAL) {
     HASHTABLE* fids = seaty.uniontype->hfields;
     IDTYPE* fid = search(fids, memname);
-    if(fid->tb & (STRUCTVAL | UNIONVAL)) {
+    if(!(fid->pointerstack && fid->pointerstack->length) &&  fid->tb & (STRUCTVAL | UNIONVAL)) {
+      dapush(prog->ops, ct_3ac_op2(MOV_3, sead.addr_type, sead.addr, retaddr.addr_type, retaddr.addr));
+      //simple MOV_3
+    } else {
+      //MOV_3 and DEREF_3
     }
   } else {
     ADDRESS offaddr;
     HASHTABLE* ofs = seaty.structtype->offsets;
     STRUCTFIELD* sf = search(ofs, memname);
     offaddr.intconst_64 = sf->offset;
-    if(sf->type->tb & (STRUCTVAL | UNIONVAL)) {
+    if(!(sf->type->pointerstack && sf->type->pointerstack->length) &&  sf->type->tb & (STRUCTVAL | UNIONVAL)) {
+      dapush(prog->ops, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, retaddr.addr_type, retaddr.addr));
+      //simple ADD_3
+    } else {
+      //ADD_3 and DEREF_3
     }
-    dapush(prog->ops, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, retaddr.addr_type, retaddr.addr));
-    //maybe need separate register to store intermediate addr for non struct struct members
     //need to handle lvalues
   }
   assert(0);
@@ -464,11 +471,11 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case DOTOP: 
       varty = typex(daget(cexpr->params, 0));
       assert(!(varty.pointerstack && varty.pointerstack->length));
-      return smemrec(cexpr, prog);
+      return smemrec(cexpr, prog, prevval);
     case ARROW:
       varty = typex(daget(cexpr->params, 0));
       assert(varty.pointerstack && (varty.pointerstack->length == 1));
-      return smemrec(cexpr, prog);
+      return smemrec(cexpr, prog, prevval);
     case SZOFEXPR:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       if(cexpr->rettype->pointerstack && cexpr->rettype->pointerstack->length) {
