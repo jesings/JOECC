@@ -8,6 +8,14 @@ const char* opcode_3ac_names[] = {
   OPS_3AC
 };
 #undef X
+#define FILLIREG(addrvar, type) do { \
+    (addrvar).addr.iregnum = prog->iregcnt++; \
+    (addrvar).addr_type = (type); \
+  } while(0)
+#define FILLFREG(addrvar, type) do { \
+    (addrvar).addr.fregnum = prog->fregcnt++; \
+    (addrvar).addr_type = (type); \
+  } while(0)
 
 OPERATION* ct_3ac_op0(enum opcode_3ac opcode) {
   OPERATION* retval = malloc(sizeof(OPERATION));
@@ -58,34 +66,28 @@ OPERATION* implicit_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* pro
               !(arg1id.pointerstack && arg1id.pointerstack->length)) {
       a1 = ptarith(retid, a1, prog);
     }
-    desta.addr_type = ISPOINTER | 8;
+    FILLIREG(desta, ISPOINTER | 8);
     //perhaps save regnum here?
-    desta.addr.iregnum = prog->iregcnt++;
   } else if(retid.tb & FLOATNUM) {
     op += 2;
     if(!(arg1id.tb & FLOATNUM)) {
       FULLADDR fad;
-      fad.addr_type = ISFLOAT | (retid.tb & 0xf);
-      fad.addr.fregnum = prog->fregcnt++;
+      FILLFREG(fad, ISFLOAT | (retid.tb & 0xf));
       dapush(prog->ops, ct_3ac_op2(I2F, a1.addr_type, a1.addr, fad.addr_type, fad.addr));
       a1 = fad;
     } 
     if(!(arg2id.tb & FLOATNUM)) {
       FULLADDR fad;
-      fad.addr_type = ISFLOAT | (retid.tb & 0xf);
-      fad.addr.fregnum = prog->fregcnt++;
+      FILLFREG(fad, ISFLOAT | (retid.tb & 0xf));
       dapush(prog->ops, ct_3ac_op2(I2F, a2.addr_type, a2.addr, fad.addr_type, fad.addr));
       a2 = fad;
     }
-    desta.addr_type = ISFLOAT | (retid.tb & 0xf);
-    desta.addr.fregnum = prog->fregcnt++;
+    FILLFREG(desta, ISFLOAT | (retid.tb & 0xf));
   } else if(retid.tb & UNSIGNEDNUM) {
-    desta.addr_type = retid.tb & 0xf;
-    desta.addr.iregnum = prog->iregcnt++;
+    FILLIREG(desta, retid.tb & 0xf);
   } else {
     op += 1;
-    desta.addr_type = (retid.tb & 0xf) | ISSIGNED;
-    desta.addr.iregnum = prog->iregcnt++;
+    FILLIREG(desta, (retid.tb & 0xf) | ISSIGNED);
   }
 
   return ct_3ac_op3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, desta.addr_type, desta.addr);
@@ -124,15 +126,13 @@ FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srce
       op += 2;
       if(!(srcidt.tb & ISFLOAT)) {
         FULLADDR fad;
-        fad.addr_type = ISFLOAT | (srcidt.tb & 0xf);
-        fad.addr.fregnum = prog->fregcnt++;
+        FILLFREG(fad, ISFLOAT | (srcidt.tb & 0xf));
         dapush(prog->ops, ct_3ac_op2(I2F, srcaddr.addr_type, srcaddr.addr, fad.addr_type, fad.addr));
         srcaddr = fad;
       }
     } else if(srcidt.tb & ISFLOAT) {
         FULLADDR fad;
-        fad.addr_type = ISFLOAT | (srcidt.tb & 0xf);
-        fad.addr.fregnum = prog->fregcnt++;
+        FILLFREG(fad, ISFLOAT | (srcidt.tb & 0xf));
         dapush(prog->ops, ct_3ac_op2(I2F, destaddr.addr_type, destaddr.addr, fad.addr_type, fad.addr));
         dapush(prog->ops, ct_3ac_op3(op, fad.addr_type, fad.addr, srcaddr.addr_type, 
                                      srcaddr.addr, fad.addr_type, fad.addr));
@@ -158,16 +158,14 @@ OPERATION* implicit_mtp_2(EXPRESSION* destexpr, EXPRESSION* fromexpr, FULLADDR a
     op += 2;
     if(!(srcidt.tb & FLOATNUM)) {
       FULLADDR fad;
-      fad.addr_type = ISFLOAT | (destidt.tb & 0xf);
-      fad.addr.fregnum = prog->fregcnt++;
+      FILLFREG(fad, ISFLOAT | (destidt.tb & 0xf));
       dapush(prog->ops, ct_3ac_op2(I2F, a2.addr_type, a2.addr, fad.addr_type, fad.addr));
       a2 = fad;
     }
   } else if(destidt.tb & UNSIGNEDNUM) {
     if(srcidt.tb & FLOATNUM) {
       FULLADDR fad;
-      fad.addr_type = destidt.tb & 0xf;
-      fad.addr.iregnum = prog->iregcnt++;
+      FILLIREG(fad, destidt.tb & 0xf);
       dapush(prog->ops, ct_3ac_op2(F2I, a2.addr_type, a2.addr, fad.addr_type, fad.addr));
       a2 = fad;
     }
@@ -175,8 +173,7 @@ OPERATION* implicit_mtp_2(EXPRESSION* destexpr, EXPRESSION* fromexpr, FULLADDR a
     op += 1;
     if(srcidt.tb & FLOATNUM) {
       FULLADDR fad;
-      fad.addr_type = (destidt.tb & 0xf) | ISSIGNED;
-      fad.addr.iregnum = prog->iregcnt++;
+      FILLIREG(fad, (destidt.tb & 0xf) | ISSIGNED);
       dapush(prog->ops, ct_3ac_op2(F2I, a2.addr_type, a2.addr, fad.addr_type, fad.addr));
       a2 = fad;
     }
@@ -191,27 +188,22 @@ OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog
   IDTYPE retid = typex(cexpr);
   FULLADDR desta;
   if(retid.pointerstack && retid.pointerstack->length) {
-    desta.addr_type = ISPOINTER | 8;
+    FILLIREG(desta, ISPOINTER | 8);
     //perhaps save regnum here?
-    desta.addr.iregnum = prog->iregcnt++;
   } else if(retid.tb & FLOATNUM) {
     op += 2;
     if(!(arg1id.tb & FLOATNUM)) {
       FULLADDR fad;
-      fad.addr_type = ISFLOAT | (retid.tb & 0xf);
-      fad.addr.fregnum = prog->fregcnt++;
+      FILLFREG(fad, ISFLOAT | (retid.tb & 0xf));
       dapush(prog->ops, ct_3ac_op2(I2F, a1.addr_type, a1.addr, fad.addr_type, fad.addr));
       a1 = fad;
     } 
-    desta.addr_type = ISFLOAT | (retid.tb & 0xf);
-    desta.addr.fregnum = prog->fregcnt++;
+    FILLFREG(desta, ISFLOAT | (retid.tb & 0xf));
   } else if(retid.tb & UNSIGNEDNUM) {
-    desta.addr_type = retid.tb & 0xf;
-    desta.addr.iregnum = prog->iregcnt++;
+    FILLIREG(desta, retid.tb & 0xf);
   } else {
     op += 1;
-    desta.addr_type = (retid.tb & 0xf) | ISSIGNED;
-    desta.addr.iregnum = prog->iregcnt++;
+    FILLIREG(desta, (retid.tb & 0xf) | ISSIGNED);
   }
 
   return ct_3ac_op2(op, a1.addr_type, a1.addr, desta.addr_type, desta.addr);
@@ -248,22 +240,19 @@ OPERATION* cmpret_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog)
   IDTYPE arg2id = typex(daget(cexpr->params, 1));
   IDTYPE retid = typex(cexpr);
   FULLADDR desta;
-  desta.addr_type =  (retid.tb & 0xf) | (retid.tb & UNSIGNEDNUM ? 0 : ISSIGNED);//unsigned
-  desta.addr.iregnum = prog->iregcnt++;
+  FILLIREG(desta, (retid.tb & 0xf) | (retid.tb & UNSIGNEDNUM ? 0 : ISSIGNED));//unsigned
   if(arg1id.tb & FLOATNUM) {
     op += 2;
     if(!(arg2id.tb & FLOATNUM)) {
       FULLADDR fad;
-      fad.addr_type = ISFLOAT | (arg1id.tb & 0xf);
-      fad.addr.fregnum = prog->fregcnt++;
+      FILLFREG(fad, ISFLOAT | (arg1id.tb & 0xf));
       dapush(prog->ops, ct_3ac_op2(I2F, a2.addr_type, a2.addr, fad.addr_type, fad.addr));
       a2 = fad;
     }
   } else if(arg2id.tb & FLOATNUM) {
     op += 2;
     FULLADDR fad;
-    fad.addr_type = ISFLOAT | (arg2id.tb & 0xf);
-    fad.addr.fregnum = prog->fregcnt++;
+    FILLFREG(fad, ISFLOAT | (arg2id.tb & 0xf));
     dapush(prog->ops, ct_3ac_op2(I2F, a1.addr_type, a1.addr, fad.addr_type, fad.addr));
     a2 = fad;
   } else if(!((arg1id.tb & UNSIGNEDNUM) || (arg2id.tb & UNSIGNEDNUM))) {
@@ -300,17 +289,22 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char lvalval) {
   assert(!seaty.pointerstack || seaty.pointerstack->length <= 1);
   assert(seaty.tb & (STRUCTVAL | UNIONVAL));
   FULLADDR retaddr;
-  retaddr.addr.iregnum = prog->iregcnt++;
-  retaddr.addr_type = addrconv(&retty);
   //Doesn't handle float members
   if(seaty.tb & UNIONVAL) {
     HASHTABLE* fids = seaty.uniontype->hfields;
     IDTYPE* fid = search(fids, memname);
     if(!(fid->pointerstack && fid->pointerstack->length) &&  fid->tb & (STRUCTVAL | UNIONVAL)) {
+      FILLIREG(retaddr, ISPOINTER | 8);
       dapush(prog->ops, ct_3ac_op2(MOV_3, sead.addr_type, sead.addr, retaddr.addr_type, retaddr.addr));
       //simple MOV_3
     } else {
-      //MOV_3 and DEREF_3
+      if(!(fid->pointerstack && fid->pointerstack->length) && (fid->tb & FLOAT)) {
+        FILLFREG(retaddr, addrconv(&retty));
+        //MOV_3 and DEREF_3
+      } else {
+        FILLIREG(retaddr, addrconv(&retty));
+        //MOV_3 and DEREF_3
+      }
     }
   } else {
     ADDRESS offaddr;
@@ -318,10 +312,17 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char lvalval) {
     STRUCTFIELD* sf = search(ofs, memname);
     offaddr.intconst_64 = sf->offset;
     if(!(sf->type->pointerstack && sf->type->pointerstack->length) &&  sf->type->tb & (STRUCTVAL | UNIONVAL)) {
+      FILLIREG(retaddr, ISPOINTER | 8);
       dapush(prog->ops, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, retaddr.addr_type, retaddr.addr));
       //simple ADD_3
     } else {
-      //ADD_3 and DEREF_3
+      if(!(sf->type->pointerstack && sf->type->pointerstack->length) && (sf->type->tb & FLOAT)) {
+        FILLFREG(retaddr, addrconv(&retty));
+        //ADD_3 and DEREF_3
+      } else {
+        FILLIREG(retaddr, addrconv(&retty));
+        //ADD_3 and DEREF_3
+      }
     }
     //need to handle lvalues
   }
@@ -495,8 +496,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         break;
         //move to unsigned int reg, make 64 bit, anything else?
       } else if(cexpr->vartype->tb & INT) {
-        destaddr.addr_type = (cexpr->vartype->tb & 0xf) | ISSIGNED;
-        destaddr.addr.iregnum = prog->iregcnt++;
+        FILLIREG(destaddr, (cexpr->vartype->tb & 0xf) | ISSIGNED);
         if(curaddr.addr_type & !(ISFLOAT | ISLABEL | ISSTRCONST | 0xf)) {
           dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         } else if(curaddr.addr_type & ISFLOAT) {
@@ -506,8 +506,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         }
         return destaddr;
       } else if(cexpr->vartype->tb & UINT) {
-        destaddr.addr_type = cexpr->vartype->tb & 0xf;
-        destaddr.addr.iregnum = prog->iregcnt++;
+        FILLIREG(destaddr, cexpr->vartype->tb & 0xf);
         if(curaddr.addr_type & !(ISFLOAT | ISLABEL | ISSTRCONST | 0xf)) {
           dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         } else if(curaddr.addr_type & ISFLOAT) {
@@ -517,8 +516,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         }
         return destaddr;
       } else if(cexpr->vartype->tb & FLOAT) {
-        destaddr.addr_type = (cexpr->vartype->tb & 0xf) | ISSIGNED | ISFLOAT;
-        destaddr.addr.fregnum = prog->fregcnt++;
+        FILLFREG(destaddr, (cexpr->vartype->tb & 0xf) | ISSIGNED | ISFLOAT);
         if(curaddr.addr_type & !(ISFLOAT | ISLABEL | ISSTRCONST | 0xf)) {
           dapush(prog->ops, ct_3ac_op2(I2F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         } else if(curaddr.addr_type & ISFLOAT) {
@@ -539,10 +537,9 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       IDTYPE t2t = typex(daget(cexpr->params, 2));
       IDTYPE t3t = typex(cexpr);
       curaddr = linearitree(daget(cexpr->params, 1), prog);
-        if(!(t1t.tb & FLOATNUM) && (t2t.tb & FLOATNUM)) {
+      if(!(t1t.tb & FLOATNUM) && (t2t.tb & FLOATNUM)) {
         FULLADDR ad2;
-        ad2.addr.fregnum = prog->fregcnt++;
-        ad2.addr_type = (t0t.tb & 0xf) | ISFLOAT | ISSIGNED;
+        FILLFREG(ad2, (t0t.tb & 0xf) | ISFLOAT | ISSIGNED);
         dapush(prog->ops, ct_3ac_op2(I2F, curaddr.addr_type, curaddr.addr, ad2.addr_type, ad2.addr));
         curaddr = ad2;
       }
@@ -555,8 +552,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       otheraddr = linearitree(daget(cexpr->params, 2), prog);
       if((t1t.tb & FLOATNUM) && !(t2t.tb & FLOATNUM)) {
         FULLADDR ad2;
-        ad2.addr.fregnum = prog->fregcnt++;
-        ad2.addr_type = (t0t.tb & 0xf) | ISFLOAT | ISSIGNED;
+        FILLFREG(ad2, (t0t.tb & 0xf) | ISFLOAT | ISSIGNED);
         dapush(prog->ops, ct_3ac_op2(I2F, otheraddr.addr_type, otheraddr.addr, ad2.addr_type, ad2.addr));
         otheraddr = ad2;
       }
@@ -728,17 +724,13 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       IDTYPE* frettype = cexpr->rettype;
       //struct type as well?
       if(frettype->pointerstack && frettype->pointerstack->length) {
-        destaddr.addr_type = ISPOINTER | 8;
-        destaddr.addr.iregnum = prog->iregcnt++;
+        FILLIREG(destaddr, ISPOINTER | 8);
       } else if(frettype->tb & FLOATNUM) {
-        destaddr.addr_type = ISFLOAT | (frettype->tb & 0xf);
-        destaddr.addr.fregnum = prog->fregcnt++;
+        FILLIREG(destaddr, ISFLOAT | (frettype->tb & 0xf));
       } else if(frettype->tb & UNSIGNEDNUM) {
-        destaddr.addr_type = (frettype->tb & 0xf);
-        destaddr.addr.iregnum = prog->iregcnt++;
+        FILLIREG(destaddr, frettype->tb & 0xf);
       } else {
-        destaddr.addr_type = ISSIGNED | (frettype->tb & 0xf);
-        destaddr.addr.iregnum = prog->iregcnt++;
+        FILLIREG(destaddr, ISSIGNED | (frettype->tb & 0xf));
       }
       dapush(prog->ops, ct_3ac_op2(CALL_3, ISCONST | ISLABEL, (ADDRESS) fname->id->name, destaddr.addr_type, destaddr.addr));
       return destaddr;
