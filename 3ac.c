@@ -289,7 +289,6 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char lvalval) {
   assert(!seaty.pointerstack || seaty.pointerstack->length <= 1);
   assert(seaty.tb & (STRUCTVAL | UNIONVAL));
   FULLADDR retaddr;
-  //Doesn't handle float members
   if(seaty.tb & UNIONVAL) {
     HASHTABLE* fids = seaty.uniontype->hfields;
     IDTYPE* fid = search(fids, memname);
@@ -300,33 +299,33 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char lvalval) {
     } else {
       if(!(fid->pointerstack && fid->pointerstack->length) && (fid->tb & FLOAT)) {
         FILLFREG(retaddr, addrconv(&retty));
-        //MOV_3 and DEREF_3
       } else {
         FILLIREG(retaddr, addrconv(&retty));
-        //MOV_3 and DEREF_3
       }
+      dapush(prog->ops, ct_3ac_op2(DEREF_3, sead.addr_type, sead.addr, retaddr.addr_type, retaddr.addr));
     }
   } else {
     ADDRESS offaddr;
     HASHTABLE* ofs = seaty.structtype->offsets;
     STRUCTFIELD* sf = search(ofs, memname);
     offaddr.intconst_64 = sf->offset;
-    if(!(sf->type->pointerstack && sf->type->pointerstack->length) &&  sf->type->tb & (STRUCTVAL | UNIONVAL)) {
+    if(!(sf->type->pointerstack && sf->type->pointerstack->length) && (sf->type->tb & (STRUCTVAL | UNIONVAL))) {
       FILLIREG(retaddr, ISPOINTER | 8);
       dapush(prog->ops, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, retaddr.addr_type, retaddr.addr));
-      //simple ADD_3
     } else {
+      FULLADDR intermediate;
+      FILLIREG(intermediate, ISPOINTER | 8);
+      dapush(prog->ops, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, intermediate.addr_type, intermediate.addr));
       if(!(sf->type->pointerstack && sf->type->pointerstack->length) && (sf->type->tb & FLOAT)) {
         FILLFREG(retaddr, addrconv(&retty));
-        //ADD_3 and DEREF_3
       } else {
         FILLIREG(retaddr, addrconv(&retty));
-        //ADD_3 and DEREF_3
       }
+      dapush(prog->ops, ct_3ac_op2(DEREF_3, intermediate.addr_type, intermediate.addr, retaddr.addr_type, retaddr.addr));
     }
-    //need to handle lvalues
   }
-  assert(0);
+  //need to handle lvalues
+  return retaddr;
 }
 
 FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
