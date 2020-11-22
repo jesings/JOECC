@@ -802,7 +802,7 @@ TOPBLOCK* gtb(char isfunc, void* assign) {
 void feedstruct(STRUCT* s) {
   switch(s->size) {
     case 0:
-      if(!s->offsets)
+      if(s->offsets)
         return;
       s->offsets = htctor();
       s->size = -1;
@@ -823,12 +823,11 @@ void feedstruct(STRUCT* s) {
             unionlen(mmi->type->uniontype);
             esize = mmi->type->uniontype->size;
           } else {
-            //TODO: unique enum case?
-            esize = mtb & 0x7f;
+            esize = mtb & 0xf;
           }
         }
-        int padding = esize > 64 ? 64 : esize;
-        totalsize = (totalsize + padding - 8) & ~padding;
+        int padding = esize > 8 ? 8 : esize;
+        totalsize = (totalsize + padding - 1) & ~(padding - 1);
         STRUCTFIELD* sf = malloc(sizeof(STRUCTFIELD));
         sf->type = mmi->type;
         sf->offset = totalsize;

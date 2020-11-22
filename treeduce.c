@@ -456,12 +456,14 @@ IDTYPE typex(EXPRESSION* ex) {
       idt = typex(daget(ex->params, 0));
       if(idt.tb & STRUCTVAL) {
         STRUCT* ids = idt.structtype;
+        if(!ids->offsets) feedstruct(ids);
         HASHTABLE* htb = ids->offsets;
         EXPRESSION* memex = daget(ex->params, 1);
         STRUCTFIELD* typified = search(htb, memex->member);
         idt = *typified->type;
       } else if(idt.tb & UNIONVAL) {
         UNION* idu = idt.uniontype;
+        if(!idu->hfields) unionlen(idu);
         HASHTABLE* htb = idu->hfields;
         EXPRESSION* memex = daget(ex->params, 1);
         idt = *(IDTYPE*) search(htb, memex->member);
@@ -471,6 +473,9 @@ IDTYPE typex(EXPRESSION* ex) {
       break;
     case FCALL:
       assert(0); //fcall must be prepopulated
+  }
+  if(!ex->rettype) {
+    ex->rettype = malloc(sizeof(IDTYPE));
   }
   *ex->rettype = idt;
   return idt;

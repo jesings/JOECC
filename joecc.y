@@ -224,7 +224,7 @@ initializer:
         SCOPEMEMBER* sm =  search(ht, ac->decl->varname);
         if(!sm || (sm->mtype == M_VARIABLE && (sm->idi->type->tb & EXTERNNUM))) {
           add2scope(ctx, ac->decl->varname, M_VARIABLE, ac->decl->type);
-          ac->decl->varid = ctx->func->numvars--;
+          ac->decl->varid = ((SCOPEMEMBER*) search(ht, ac->decl->varname))->idi->index;
         } else {
           fprintf(stderr, "Error: redefinition of identifier %s in %s %d.%d-%d.%d\n", ac->decl->varname, locprint(@$));
         }

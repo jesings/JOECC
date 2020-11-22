@@ -284,25 +284,28 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char lvalval) {
   FULLADDR sead = linearitree(daget(cexpr->params, 0), prog);
   IDTYPE seaty = typex(daget(cexpr->params, 0));
   IDTYPE retty = typex(cexpr);
-  assert(((EXPRESSION*) daget(cexpr->params, 0))->type == MEMBER);
-  char* memname = ((EXPRESSION*) daget(cexpr->params, 0))->member;
+  assert(((EXPRESSION*) daget(cexpr->params, 1))->type == MEMBER);
+  char* memname = ((EXPRESSION*) daget(cexpr->params, 1))->member;
   assert(!seaty.pointerstack || seaty.pointerstack->length <= 1);
   assert(seaty.tb & (STRUCTVAL | UNIONVAL));
   FULLADDR retaddr;
   if(seaty.tb & UNIONVAL) {
+    if(lvalval) return sead; //probably nothing different needs to be done with floats or anything?
     HASHTABLE* fids = seaty.uniontype->hfields;
     IDTYPE* fid = search(fids, memname);
-    if(!(fid->pointerstack && fid->pointerstack->length) &&  fid->tb & (STRUCTVAL | UNIONVAL)) {
+    if(!(fid->pointerstack && fid->pointerstack->length) && (fid->tb & (STRUCTVAL | UNIONVAL))) {
       FILLIREG(retaddr, ISPOINTER | 8);
       dapush(prog->ops, ct_3ac_op2(MOV_3, sead.addr_type, sead.addr, retaddr.addr_type, retaddr.addr));
-      //simple MOV_3
     } else {
+      enum opcode_3ac opc;
       if(!(fid->pointerstack && fid->pointerstack->length) && (fid->tb & FLOAT)) {
         FILLFREG(retaddr, addrconv(&retty));
+        opc = fid->tb & UNSIGNEDNUM ? MFP_U : MFP_I;
       } else {
         FILLIREG(retaddr, addrconv(&retty));
+        opc = MFP_F;
       }
-      dapush(prog->ops, ct_3ac_op2(DEREF_3, sead.addr_type, sead.addr, retaddr.addr_type, retaddr.addr));
+      dapush(prog->ops, ct_3ac_op2(opc, sead.addr_type, sead.addr, retaddr.addr_type, retaddr.addr));
     }
   } else {
     ADDRESS offaddr;
@@ -310,18 +313,23 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char lvalval) {
     STRUCTFIELD* sf = search(ofs, memname);
     offaddr.intconst_64 = sf->offset;
     if(!(sf->type->pointerstack && sf->type->pointerstack->length) && (sf->type->tb & (STRUCTVAL | UNIONVAL))) {
+      if(lvalval) return sead;
       FILLIREG(retaddr, ISPOINTER | 8);
       dapush(prog->ops, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, retaddr.addr_type, retaddr.addr));
     } else {
       FULLADDR intermediate;
       FILLIREG(intermediate, ISPOINTER | 8);
       dapush(prog->ops, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, intermediate.addr_type, intermediate.addr));
+      if(lvalval) return intermediate; //probably nothing different needs to be done with floats or anything?
+      enum opcode_3ac opc;
       if(!(sf->type->pointerstack && sf->type->pointerstack->length) && (sf->type->tb & FLOAT)) {
         FILLFREG(retaddr, addrconv(&retty));
+        opc = sf->type->tb & UNSIGNEDNUM ? MFP_U : MFP_I;
       } else {
         FILLIREG(retaddr, addrconv(&retty));
+        opc = MFP_F;
       }
-      dapush(prog->ops, ct_3ac_op2(DEREF_3, intermediate.addr_type, intermediate.addr, retaddr.addr_type, retaddr.addr));
+      dapush(prog->ops, ct_3ac_op2(opc, intermediate.addr_type, intermediate.addr, retaddr.addr_type, retaddr.addr));
     }
   }
   //need to handle lvalues
@@ -338,26 +346,26 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
 
   switch(cexpr->type){
     case STRING: ;
-      curaddr.addr_type = ISCONST | ISSTRCONST;
+      curaddr.addr_type = ISCONST | ISSTRCONST | ISPOINTER | 0x8;
       curaddr.addr.strconst = cexpr->strconst;
       return curaddr;
     case INT:
-      curaddr.addr_type = ISCONST | ISSIGNED | 0x40;
+      curaddr.addr_type = ISCONST | ISSIGNED | 0x8;
       curaddr.addr.intconst_64 = cexpr->intconst;
 
       return curaddr;
     case UINT: 
-      curaddr.addr_type = ISCONST | 0x40;
+      curaddr.addr_type = ISCONST | 0x8;
       curaddr.addr.uintconst_64 = cexpr->uintconst;
       return curaddr;
     case FLOAT:
-      curaddr.addr_type = ISCONST | ISFLOAT | ISSIGNED | 0x40;
+      curaddr.addr_type = ISCONST | ISFLOAT | ISSIGNED | 0x8;
       curaddr.addr.floatconst_64 = cexpr->floatconst;
       return curaddr;
     case IDENT:
       if(cexpr->id->index == -1) {
         //global
-        //do something with 
+        //TODO: do something with this
       } else {
         return *(FULLADDR*) fixedsearch(prog->fixedvars, cexpr->id->index);
       }
@@ -703,8 +711,10 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         destaddr.addr.intconst_64 = 8;
       } else {
         if(idt.tb & STRUCTVAL) {
+          feedstruct(idt.structtype);
           destaddr.addr.intconst_64 = idt.structtype->size;
         } else if(idt.tb & UNIONVAL) {
+          unionlen(idt.uniontype);
           destaddr.addr.intconst_64 = idt.uniontype->size;
         } else {
           destaddr.addr.intconst_64 = idt.tb & 0xf;
@@ -1017,7 +1027,7 @@ void printprog(PROGRAM* prog) {
       case NOP_3:
         break;
       case LBL_3: 
-        printf("%s:", op->addr1.labelname);
+        printf("%s:", op->addr0.labelname);
         break;
       case ADD_U: case ADD_I: case ADD_F: 
         PRINTOP3(+);
