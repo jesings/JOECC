@@ -179,7 +179,7 @@ OPERATION* implicit_mtp_2(EXPRESSION* destexpr, EXPRESSION* fromexpr, FULLADDR a
     }
   }
 
-  return ct_3ac_op2(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr);
+  return ct_3ac_op2(op, a2.addr_type, a2.addr, a1.addr_type, a1.addr);
 }
 
 OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
@@ -290,7 +290,10 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char lvalval) {
   assert(seaty.tb & (STRUCTVAL | UNIONVAL));
   FULLADDR retaddr;
   if(seaty.tb & UNIONVAL) {
-    if(lvalval) return sead; //probably nothing different needs to be done with floats or anything?
+    if(lvalval) {
+        prog->fderef = 1;
+        return sead; //probably nothing different needs to be done with floats or anything?
+    }
     HASHTABLE* fids = seaty.uniontype->hfields;
     IDTYPE* fid = search(fids, memname);
     if(!(fid->pointerstack && fid->pointerstack->length) && (fid->tb & (STRUCTVAL | UNIONVAL))) {
@@ -299,11 +302,12 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char lvalval) {
     } else {
       enum opcode_3ac opc;
       if(!(fid->pointerstack && fid->pointerstack->length) && (fid->tb & FLOAT)) {
-        FILLFREG(retaddr, addrconv(&retty));
-        opc = fid->tb & UNSIGNEDNUM ? MFP_U : MFP_I;
-      } else {
         FILLIREG(retaddr, addrconv(&retty));
         opc = MFP_F;
+      } else {
+        FILLFREG(retaddr, addrconv(&retty));
+        //TODO: bug with voidnum here? elsewhere?
+        opc = fid->tb & (UNSIGNEDNUM | VOIDNUM) ? MFP_U : MFP_I;
       }
       dapush(prog->ops, ct_3ac_op2(opc, sead.addr_type, sead.addr, retaddr.addr_type, retaddr.addr));
     }
@@ -313,21 +317,34 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char lvalval) {
     STRUCTFIELD* sf = search(ofs, memname);
     offaddr.intconst_64 = sf->offset;
     if(!(sf->type->pointerstack && sf->type->pointerstack->length) && (sf->type->tb & (STRUCTVAL | UNIONVAL))) {
-      if(lvalval) return sead;
       FILLIREG(retaddr, ISPOINTER | 8);
-      dapush(prog->ops, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, retaddr.addr_type, retaddr.addr));
+      if(offaddr.intconst_64) {
+        dapush(prog->ops, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, retaddr.addr_type, retaddr.addr));
+        //no fderef? special treatment for lvalval?
+      } else {
+        return sead; //no fderef? special treatment for lvalval?
+      }
     } else {
       FULLADDR intermediate;
-      FILLIREG(intermediate, ISPOINTER | 8);
-      dapush(prog->ops, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, intermediate.addr_type, intermediate.addr));
-      if(lvalval) return intermediate; //probably nothing different needs to be done with floats or anything?
+      if(offaddr.intconst_64) {
+        FILLIREG(intermediate, ISPOINTER | 8);
+        dapush(prog->ops, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, intermediate.addr_type, intermediate.addr));
+        if(lvalval) {
+          prog->fderef = 1;
+          return intermediate; //probably nothing different needs to be done with floats or anything?
+        }
+      } else if(lvalval) {
+        prog->fderef = 1;
+        return sead;
+      }
       enum opcode_3ac opc;
       if(!(sf->type->pointerstack && sf->type->pointerstack->length) && (sf->type->tb & FLOAT)) {
-        FILLFREG(retaddr, addrconv(&retty));
-        opc = sf->type->tb & UNSIGNEDNUM ? MFP_U : MFP_I;
-      } else {
         FILLIREG(retaddr, addrconv(&retty));
         opc = MFP_F;
+      } else {
+        FILLFREG(retaddr, addrconv(&retty));
+        //TODO: bug with voidnum here? elsewhere?
+        opc = sf->type->tb & (UNSIGNEDNUM | VOIDNUM) ? MFP_U : MFP_I;
       }
       dapush(prog->ops, ct_3ac_op2(opc, intermediate.addr_type, intermediate.addr, retaddr.addr_type, retaddr.addr));
     }
@@ -771,9 +788,9 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
   FULLADDR* newa = malloc(sizeof(FULLADDR));
   newa->addr_type = addrconv(i->decl->type);//addrtype should be determined from initializer type, helper function
   if(newa->addr_type & ISFLOAT) {
-    newa->addr.iregnum = prog->iregcnt++;
-  } else {
     newa->addr.fregnum = prog->fregcnt++;
+  } else {
+    newa->addr.iregnum = prog->iregcnt++;
   }
   dapush(prog->ops, ct_3ac_op1(INIT_3, newa->addr_type, newa->addr));
   if(i->expr) {
@@ -1005,7 +1022,7 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type) {
 
 #define PRINTOP2(opsymb) do { \
     printf("\t"); \
-    printf(#opsymb " "); \
+    printf("%s", #opsymb); \
     printaddr(op->addr0, op->addr0_type); \
     printf(" →  "); \
     printaddr(op->dest, op->dest_type); \
@@ -1027,7 +1044,7 @@ void printprog(PROGRAM* prog) {
       case NOP_3:
         break;
       case LBL_3: 
-        printf("%s:", op->addr0.labelname);
+        printf("\t%s:", op->addr0.labelname);
         break;
       case ADD_U: case ADD_I: case ADD_F: 
         PRINTOP3(+);
@@ -1109,9 +1126,10 @@ void printprog(PROGRAM* prog) {
       case MFP_U: case MFP_I: case MFP_F:
         PRINTOP2( ); //perhaps use deref later, not vital
         break;
-      case PARAM_3: case CALL_3: case RET_3:
+      case PARAM_3: case RET_3:
         PRINTOP1( );
         break;
+      case CALL_3:
       case F2I: case I2F:
         PRINTOP2( ); //perhaps use cast later, not vital
         break;
