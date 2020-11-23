@@ -51,10 +51,13 @@ int main(int argc, char** argv) {
   for(int i = 0; i < funcky->length; i++) {
     HASHPAIR* pairthere = daget(funcky, i);
     if(pairthere->value) {
+      putchar('\n');
       puts(pairthere->key);
       treefunc(pairthere->value);
       PROGRAM* prog = linefunc(pairthere->value);
+      puts("---------------------------------------");
       printprog(prog);
+      puts("---------------------------------------");
     }
   }
 }

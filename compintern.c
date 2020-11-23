@@ -480,10 +480,14 @@ STATEMENT* mkswitchstmt(EXPRESSION* contingent, STATEMENT* bdy, SWITCHINFO* swi)
 
 STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
-  retval->type = IFS;
   retval->ifcond = condition;
   retval->thencond = ifbdy;
-  retval->elsecond = elsebdy;
+  if(elsebdy) {
+    retval->elsecond = elsebdy;
+    retval->type = IFELSES;
+  } else {
+    retval->type = IFS;
+  }
   return retval;
 }
 

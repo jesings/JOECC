@@ -296,18 +296,18 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char lvalval) {
     }
     HASHTABLE* fids = seaty.uniontype->hfields;
     IDTYPE* fid = search(fids, memname);
-    if(!(fid->pointerstack && fid->pointerstack->length) && (fid->tb & (STRUCTVAL | UNIONVAL))) {
+    char pointerqual = fid->pointerstack && fid->pointerstack->length;
+    if(!pointerqual && (fid->tb & (STRUCTVAL | UNIONVAL))) {
       FILLIREG(retaddr, ISPOINTER | 8);
       dapush(prog->ops, ct_3ac_op2(MOV_3, sead.addr_type, sead.addr, retaddr.addr_type, retaddr.addr));
     } else {
       enum opcode_3ac opc;
-      if(!(fid->pointerstack && fid->pointerstack->length) && (fid->tb & FLOAT)) {
+      if(!pointerqual && (fid->tb & FLOATNUM)) {
         FILLIREG(retaddr, addrconv(&retty));
         opc = MFP_F;
       } else {
         FILLFREG(retaddr, addrconv(&retty));
-        //TODO: bug with voidnum here? elsewhere?
-        opc = fid->tb & (UNSIGNEDNUM | VOIDNUM) ? MFP_U : MFP_I;
+        opc = (fid->tb & UNSIGNEDNUM) || pointerqual ? MFP_U : MFP_I;
       }
       dapush(prog->ops, ct_3ac_op2(opc, sead.addr_type, sead.addr, retaddr.addr_type, retaddr.addr));
     }
@@ -315,8 +315,9 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char lvalval) {
     ADDRESS offaddr;
     HASHTABLE* ofs = seaty.structtype->offsets;
     STRUCTFIELD* sf = search(ofs, memname);
+    char pointerqual = sf->type->pointerstack && sf->type->pointerstack->length;
     offaddr.intconst_64 = sf->offset;
-    if(!(sf->type->pointerstack && sf->type->pointerstack->length) && (sf->type->tb & (STRUCTVAL | UNIONVAL))) {
+    if(!pointerqual && (sf->type->tb & (STRUCTVAL | UNIONVAL))) {
       FILLIREG(retaddr, ISPOINTER | 8);
       if(offaddr.intconst_64) {
         dapush(prog->ops, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, retaddr.addr_type, retaddr.addr));
@@ -329,22 +330,21 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char lvalval) {
       if(offaddr.intconst_64) {
         FILLIREG(intermediate, ISPOINTER | 8);
         dapush(prog->ops, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, intermediate.addr_type, intermediate.addr));
-        if(lvalval) {
-          prog->fderef = 1;
-          return intermediate; //probably nothing different needs to be done with floats or anything?
-        }
-      } else if(lvalval) {
+      } else {
+        intermediate = sead;
+      }
+      if(lvalval) {
         prog->fderef = 1;
-        return sead;
+        return intermediate; //probably nothing different needs to be done with pointer or anything
       }
       enum opcode_3ac opc;
-      if(!(sf->type->pointerstack && sf->type->pointerstack->length) && (sf->type->tb & FLOAT)) {
+      if(!pointerqual && (sf->type->tb & FLOATNUM)) {
         FILLIREG(retaddr, addrconv(&retty));
         opc = MFP_F;
       } else {
         FILLFREG(retaddr, addrconv(&retty));
         //TODO: bug with voidnum here? elsewhere?
-        opc = sf->type->tb & (UNSIGNEDNUM | VOIDNUM) ? MFP_U : MFP_I;
+        opc = (sf->type->tb & UNSIGNEDNUM) || pointerqual ? MFP_U : MFP_I;
       }
       dapush(prog->ops, ct_3ac_op2(opc, intermediate.addr_type, intermediate.addr, retaddr.addr_type, retaddr.addr));
     }
@@ -383,6 +383,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       if(cexpr->id->index == -1) {
         //global
         //TODO: do something with this
+        assert(0);
       } else {
         return *(FULLADDR*) fixedsearch(prog->fixedvars, cexpr->id->index);
       }
@@ -403,11 +404,10 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case L_NOT:
       //TODO: validate lots of types
       curaddr = linearitree(daget(cexpr->params, 0), prog);
-      destaddr.addr_type = (curaddr.addr_type & ~(ISCONST | 0xf)) | 1;
+      FILLIREG(destaddr, (curaddr.addr_type & ~(ISCONST | 0xf)) | 1);
       //logical not only makes sense for ints
-      otheraddr.addr.uintconst_64 = 0.0;
-      destaddr.addr = curaddr.addr;
-      dapush(prog->ops, ct_3ac_op3(EQ_U, curaddr.addr_type, curaddr.addr, curaddr.addr_type, otheraddr.addr,
+      otheraddr.addr.uintconst_64 = 0;
+      dapush(prog->ops, ct_3ac_op3(EQ_U, curaddr.addr_type, curaddr.addr, curaddr.addr_type | ISCONST, otheraddr.addr,
                                    destaddr.addr_type, destaddr.addr));
       return destaddr;
     case B_NOT:
@@ -881,18 +881,16 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       dapop(prog->breaklabels);
       return;
     case IFS:
-      linearitree(cst->ifcond, prog);
       brklabel.labelname = proglabel(prog);
-      dapush(prog->ops, cmptype(cst->cond, brklabel.labelname, 1, prog));
+      dapush(prog->ops, cmptype(cst->ifcond, brklabel.labelname, 1, prog));
       solidstate(cst->thencond, prog);
       intsert(prog->labeloffsets, brklabel.labelname, prog->ops->length);
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, brklabel));
       return;
     case IFELSES:
-      linearitree(cst->ifcond, prog);
       contlabel.labelname = proglabel(prog);
       brklabel.labelname = proglabel(prog);
-      dapush(prog->ops, cmptype(cst->cond, contlabel.labelname, 1, prog));
+      dapush(prog->ops, cmptype(cst->ifcond, contlabel.labelname, 1, prog));
       solidstate(cst->thencond, prog);
       dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, brklabel));
       intsert(prog->labeloffsets, contlabel.labelname, prog->ops->length);
@@ -1116,6 +1114,8 @@ void printprog(PROGRAM* prog) {
       case BGT_U: case BGT_I: case BGT_F: 
       case BLT_U: case BLT_I: case BLT_F: 
       case BNZ_3: case BEZ_3: 
+        PRINTOP2( );
+        break;
       case JMP_3: 
         PRINTOP1( );
         break;

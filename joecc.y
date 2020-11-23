@@ -667,7 +667,7 @@ function:
       char* pname = daget(parammemb->da, i);
       DECLARATION* declwhole = (DECLARATION*) search(parammemb->ht, pname);
       add2scope(ctx, pname, M_VARIABLE, declwhole->type);
-      //TODO: add variable index to param
+      declwhole->varid = ((SCOPEMEMBER*) search(scopepeek(ctx)->members, pname))->idi->index;
     }
     }
     '{' soiorno '}' {
