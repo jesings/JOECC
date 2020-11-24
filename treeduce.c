@@ -445,7 +445,9 @@ IDTYPE typex(EXPRESSION* ex) {
     case DEREF:
       idt = typex(daget(ex->params, 0));
       idt.pointerstack = daclone(idt.pointerstack);
-      free(dapop(idt.pointerstack));
+      assert(idt.pointerstack && idt.pointerstack->length);
+      dapop(idt.pointerstack);
+      //TODO: memory leak potential
       break;
 
     case COMMA:

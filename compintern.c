@@ -456,7 +456,7 @@ STATEMENT* mkforstmt(EOI* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy) {
   retval->forinit = e1;
   retval->forcond = e2;
   retval->increment = e3;
-  retval->body = bdy;
+  retval->forbody = bdy;
   return retval;
 }
 
@@ -852,6 +852,7 @@ void feedstruct(STRUCT* s) {
 int unionlen(UNION* u) {
   switch(u->size) {
     case 0:
+      u->hfields = htctor();
       u->size = -1;
       DYNARR* mm = u->fields;
       for(int i = 0; i < mm->length; i++) {

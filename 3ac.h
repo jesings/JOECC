@@ -182,15 +182,27 @@ static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
   FULLADDR destad;
   ADDRESS sz;
   if(retidt.tb & (STRUCTVAL | UNIONVAL)) {
+    if(retidt.tb & STRUCTVAL) feedstruct(retidt.structtype);
+    else                      unionlen(retidt.uniontype);
     sz.uintconst_64 = retidt.structtype->size;
   } else {
-    sz.uintconst_64 = retidt.tb & 0xf;
+    sz.uintconst_64 = retidt.pointerstack && retidt.pointerstack->length ? 8 : retidt.tb & 0xf;
   }
+  if(sz.uintconst_64 == 1) return fadt;
   destad.addr.iregnum = prog->iregcnt++;
   destad.addr_type = 8 | ISPOINTER;
 
   switch(sz.uintconst_64) {
-    case 1: case 2: case 4: case 8:
+    case 2:
+      sz.uintconst_64 = 1;
+      dapush(prog->ops, ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr));
+      break;
+    case 4:
+      sz.uintconst_64 = 2;
+      dapush(prog->ops, ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr));
+      break;
+    case 8:
+      sz.uintconst_64 = 3;
       dapush(prog->ops, ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr));
       break;
     default:

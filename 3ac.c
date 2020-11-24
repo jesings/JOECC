@@ -267,17 +267,9 @@ OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRA
   FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog);
   //check for no floats?
   enum opcode_3ac shlop = opcode_unsigned + (a1.addr_type & ISSIGNED ? 1 : 0);
-  ADDRESS adr;
-  if(a1.addr_type & ISCONST) {
-    if(a2.addr_type & ISCONST) {
-      adr.iregnum = prog->iregcnt++;
-    } else {
-      adr = a2.addr;
-    }
-  } else {
-    adr = a1.addr;
-  }
-  return ct_3ac_op3(shlop, a1.addr_type, a1.addr, a2.addr_type, a2.addr, a1.addr_type, adr);
+  FULLADDR adr;
+  FILLIREG(adr, a1.addr_type & ~ISCONST);
+  return ct_3ac_op3(shlop, a1.addr_type, a1.addr, a2.addr_type, a2.addr, adr.addr_type, adr.addr);
 }
 
 FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char lvalval) {
@@ -303,10 +295,10 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char lvalval) {
     } else {
       enum opcode_3ac opc;
       if(!pointerqual && (fid->tb & FLOATNUM)) {
-        FILLIREG(retaddr, addrconv(&retty));
+        FILLFREG(retaddr, addrconv(&retty));
         opc = MFP_F;
       } else {
-        FILLFREG(retaddr, addrconv(&retty));
+        FILLIREG(retaddr, addrconv(&retty));
         opc = (fid->tb & UNSIGNEDNUM) || pointerqual ? MFP_U : MFP_I;
       }
       dapush(prog->ops, ct_3ac_op2(opc, sead.addr_type, sead.addr, retaddr.addr_type, retaddr.addr));
@@ -339,10 +331,10 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char lvalval) {
       }
       enum opcode_3ac opc;
       if(!pointerqual && (sf->type->tb & FLOATNUM)) {
-        FILLIREG(retaddr, addrconv(&retty));
+        FILLFREG(retaddr, addrconv(&retty));
         opc = MFP_F;
       } else {
-        FILLFREG(retaddr, addrconv(&retty));
+        FILLIREG(retaddr, addrconv(&retty));
         //TODO: bug with voidnum here? elsewhere?
         opc = (sf->type->tb & UNSIGNEDNUM) || pointerqual ? MFP_U : MFP_I;
       }
@@ -1060,10 +1052,10 @@ void printprog(PROGRAM* prog) {
         PRINTOP3(%%);
         break;
       case SHL_U: case SHL_I: 
-        PRINTOP3(>>);
+        PRINTOP3(<<);
         break;
       case SHR_U: case SHR_I: 
-        PRINTOP3(<<);
+        PRINTOP3(>>);
         break;
       case AND_U: case AND_F: 
         PRINTOP3(&);
@@ -1108,11 +1100,23 @@ void printprog(PROGRAM* prog) {
         PRINTOP3(<);
         break;
       case BEQ_U: case BEQ_I: case BEQ_F: 
+        PRINTOP3(==);
+        break;
       case BNE_U: case BNE_I: case BNE_F: 
+        PRINTOP3(!=);
+        break;
       case BGE_U: case BGE_I: case BGE_F: 
+        PRINTOP3(>=);
+        break;
       case BLE_U: case BLE_I: case BLE_F: 
+        PRINTOP3(<=);
+        break;
       case BGT_U: case BGT_I: case BGT_F: 
+        PRINTOP3(>);
+        break;
       case BLT_U: case BLT_I: case BLT_F: 
+        PRINTOP3(<);
+        break;
       case BNZ_3: case BEZ_3: 
         PRINTOP2( );
         break;
