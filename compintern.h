@@ -78,7 +78,7 @@ typedef struct {
 typedef struct {
   DYNARR* fields;//Each entry is a struct that contains a full identifier
   char* name;
-  HASHTABLE* hfields;//Each entry is an idtype
+  HASHTABLE* hfields;//Each entry is a STRUCTFIELD
   int size;
 } UNION;
 typedef struct {

@@ -465,10 +465,10 @@ IDTYPE typex(EXPRESSION* ex) {
         idt = *typified->type;
       } else if(idt.tb & UNIONVAL) {
         UNION* idu = idt.uniontype;
-        if(!idu->hfields) unionlen(idu);
+        unionlen(idu);
         HASHTABLE* htb = idu->hfields;
         EXPRESSION* memex = daget(ex->params, 1);
-        idt = *(IDTYPE*) search(htb, memex->member);
+        idt = *(IDTYPE*) ((STRUCTFIELD*) search(htb, memex->member))->type;
       } else {
         assert(0);
       }
@@ -505,8 +505,8 @@ char foldconst(EXPRESSION** exa) {
     case IDENT: case INT: case UINT: case FLOAT: case STRING: case NOP: case ARRAY_LIT:
       return 0;
     case DOTOP: case ARROW:
-      subexpr = EPARAM(ex, 0);
-      rectexpr = EPARAM(ex, 1);
+      //subexpr = EPARAM(ex, 0);
+      //rectexpr = EPARAM(ex, 1);
       //char* poignant = rectexpr->member;
       //if(idt->tb & STRUCTVAL) {
       //  IDTYPE* idt = typex(subexpr);

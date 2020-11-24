@@ -817,25 +817,36 @@ void feedstruct(STRUCT* s) {
         int esize;
         //TODO: handle bitfield
         if(mmi->type->pointerstack && mmi->type->pointerstack->length) {
-          esize = sizeof(uintptr_t);
+          esize = 8;
         } else {
           TYPEBITS mtb = mmi->type->tb;
-          if(mtb & STRUCTVAL) {
-            feedstruct(mmi->type->structtype);
+          if(mtb & (STRUCTVAL | UNIONVAL)) {
+            mtb & STRUCTVAL ? feedstruct(mmi->type->structtype) : unionlen(mmi->type->uniontype);
+            if(mmi->type->tb & ANONMEMB) {
+              DYNARR* anonf = mmi->type->structtype->fields;
+              for(int j = 0; j < anonf->length; j++) {
+                DECLARATION* mmi2 = daget(anonf, j);
+                STRUCTFIELD* sf = search(mmi->type->structtype->offsets, mmi2->varname);
+                STRUCTFIELD* sf2 = malloc(sizeof(STRUCTFIELD));
+                *sf2 = *sf;
+                sf2->offset += totalsize;
+                insert(s->offsets, mmi2->varname, sf2);
+              }
+            }
             esize = mmi->type->structtype->size;
-          } else if(mtb & UNIONVAL) {
-            unionlen(mmi->type->uniontype);
-            esize = mmi->type->uniontype->size;
           } else {
-            esize = mtb & 0xf;
+            //TODO: unique enum case?
+            esize = mtb & 0x7f;
           }
         }
         int padding = esize > 8 ? 8 : esize;
         totalsize = (totalsize + padding - 1) & ~(padding - 1);
-        STRUCTFIELD* sf = malloc(sizeof(STRUCTFIELD));
-        sf->type = mmi->type;
-        sf->offset = totalsize;
-        insert(s->offsets, mmi->varname, sf);
+        if(mmi->varname) {
+          STRUCTFIELD* sf = malloc(sizeof(STRUCTFIELD));
+          sf->type = mmi->type;
+          sf->offset = totalsize;
+          insert(s->offsets, mmi->varname, sf);
+        } //ignore anonymous members
         totalsize += esize;
       }
       s->size = totalsize;
@@ -859,15 +870,22 @@ int unionlen(UNION* u) {
         DECLARATION* mmi = daget(mm, i);
         int esize;
         if(mmi->type->pointerstack && mmi->type->pointerstack->length) {
-          esize = sizeof(uintptr_t);
+          esize = 8;
         } else {
           TYPEBITS mtb = mmi->type->tb;
-          if(mtb & STRUCTVAL) {
-            feedstruct(mmi->type->structtype);
+          if(mtb & (STRUCTVAL | UNIONVAL)) {
+            mtb & STRUCTVAL ? feedstruct(mmi->type->structtype) : unionlen(mmi->type->uniontype);
+            if(mmi->type->tb & ANONMEMB) {
+              DYNARR* anonf = mmi->type->structtype->fields;
+              for(int j = 0; j < anonf->length; j++) {
+                DECLARATION* mmi2 = daget(anonf, j);
+                STRUCTFIELD* sf = search(mmi->type->structtype->offsets, mmi2->varname);
+                STRUCTFIELD* sf2 = malloc(sizeof(STRUCTFIELD));
+                *sf2 = *sf;
+                insert(u->hfields, mmi2->varname, sf2);
+              }
+            }
             esize = mmi->type->structtype->size;
-          } else if(mtb & UNIONVAL) {
-            unionlen(mmi->type->uniontype);
-            esize = mmi->type->uniontype->size;
           } else {
             //TODO: unique enum case?
             esize = mtb & 0x7f;
@@ -875,7 +893,12 @@ int unionlen(UNION* u) {
         }
         if(esize > u->size)
           u->size = esize;
-        insert(u->hfields, mmi->varname, mmi->type);
+        if(mmi->varname) {
+          STRUCTFIELD* sf = malloc(sizeof(STRUCTFIELD));
+          sf->type = mmi->type;
+          sf->offset = 0;
+          insert(u->hfields, mmi->varname, sf);
+        } //ignore anonymous members
       }
       break;
     case -1:

@@ -4,6 +4,7 @@
 #include "treeduce.h"
 #include "3ac.h"
 #define X(s) #s
+//TODO: treat arrays the same way as single struct pointers, for deref purposes and for length purposes
 const char* opcode_3ac_names[] = {
   OPS_3AC
 };
@@ -281,65 +282,41 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char lvalval) {
   assert(!seaty.pointerstack || seaty.pointerstack->length <= 1);
   assert(seaty.tb & (STRUCTVAL | UNIONVAL));
   FULLADDR retaddr;
-  if(seaty.tb & UNIONVAL) {
-    if(lvalval) {
-        prog->fderef = 1;
-        return sead; //probably nothing different needs to be done with floats or anything?
-    }
-    HASHTABLE* fids = seaty.uniontype->hfields;
-    IDTYPE* fid = search(fids, memname);
-    char pointerqual = fid->pointerstack && fid->pointerstack->length;
-    if(!pointerqual && (fid->tb & (STRUCTVAL | UNIONVAL))) {
-      FILLIREG(retaddr, ISPOINTER | 8);
-      dapush(prog->ops, ct_3ac_op2(MOV_3, sead.addr_type, sead.addr, retaddr.addr_type, retaddr.addr));
+  ADDRESS offaddr;
+  HASHTABLE* ofs = seaty.structtype->offsets;
+  STRUCTFIELD* sf = search(ofs, memname);
+  char pointerqual = sf->type->pointerstack && sf->type->pointerstack->length;
+  offaddr.intconst_64 = sf->offset;
+  if(!pointerqual && (sf->type->tb & (STRUCTVAL | UNIONVAL))) {
+    FILLIREG(retaddr, ISPOINTER | 8);
+    if(offaddr.intconst_64) {
+      dapush(prog->ops, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, retaddr.addr_type, retaddr.addr));
+      //no fderef? special treatment for lvalval?
     } else {
-      enum opcode_3ac opc;
-      if(!pointerqual && (fid->tb & FLOATNUM)) {
-        FILLFREG(retaddr, addrconv(&retty));
-        opc = MFP_F;
-      } else {
-        FILLIREG(retaddr, addrconv(&retty));
-        opc = (fid->tb & UNSIGNEDNUM) || pointerqual ? MFP_U : MFP_I;
-      }
-      dapush(prog->ops, ct_3ac_op2(opc, sead.addr_type, sead.addr, retaddr.addr_type, retaddr.addr));
+      return sead; //no fderef? special treatment for lvalval?
     }
   } else {
-    ADDRESS offaddr;
-    HASHTABLE* ofs = seaty.structtype->offsets;
-    STRUCTFIELD* sf = search(ofs, memname);
-    char pointerqual = sf->type->pointerstack && sf->type->pointerstack->length;
-    offaddr.intconst_64 = sf->offset;
-    if(!pointerqual && (sf->type->tb & (STRUCTVAL | UNIONVAL))) {
-      FILLIREG(retaddr, ISPOINTER | 8);
-      if(offaddr.intconst_64) {
-        dapush(prog->ops, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, retaddr.addr_type, retaddr.addr));
-        //no fderef? special treatment for lvalval?
-      } else {
-        return sead; //no fderef? special treatment for lvalval?
-      }
+    FULLADDR intermediate;
+    if(offaddr.intconst_64) {
+      FILLIREG(intermediate, ISPOINTER | 8);
+      dapush(prog->ops, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, intermediate.addr_type, intermediate.addr));
     } else {
-      FULLADDR intermediate;
-      if(offaddr.intconst_64) {
-        FILLIREG(intermediate, ISPOINTER | 8);
-        dapush(prog->ops, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, intermediate.addr_type, intermediate.addr));
-      } else {
-        intermediate = sead;
-      }
-      if(lvalval) {
-        prog->fderef = 1;
-        return intermediate; //probably nothing different needs to be done with pointer or anything
-      }
-      enum opcode_3ac opc;
-      if(!pointerqual && (sf->type->tb & FLOATNUM)) {
-        FILLFREG(retaddr, addrconv(&retty));
-        opc = MFP_F;
-      } else {
-        FILLIREG(retaddr, addrconv(&retty));
-        //TODO: bug with voidnum here? elsewhere?
-        opc = (sf->type->tb & UNSIGNEDNUM) || pointerqual ? MFP_U : MFP_I;
-      }
-      dapush(prog->ops, ct_3ac_op2(opc, intermediate.addr_type, intermediate.addr, retaddr.addr_type, retaddr.addr));
+      intermediate = sead;
     }
+    if(lvalval) {
+      prog->fderef = 1;
+      return intermediate; //probably nothing different needs to be done with pointer or anything
+    }
+    enum opcode_3ac opc;
+    if(!pointerqual && (sf->type->tb & FLOATNUM)) {
+      FILLFREG(retaddr, addrconv(&retty));
+      opc = MFP_F;
+    } else {
+      FILLIREG(retaddr, addrconv(&retty));
+      //TODO: bug with voidnum here? elsewhere?
+      opc = (sf->type->tb & UNSIGNEDNUM) || pointerqual ? MFP_U : MFP_I;
+    }
+    dapush(prog->ops, ct_3ac_op2(opc, intermediate.addr_type, intermediate.addr, retaddr.addr_type, retaddr.addr));
   }
   //need to handle lvalues
   return retaddr;
@@ -509,40 +486,32 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case CAST:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       if(cexpr->vartype->pointerstack && cexpr->vartype->pointerstack->length) {
-        break;
-        //move to unsigned int reg, make 64 bit, anything else?
+        assert(!(curaddr.addr_type & ISFLOAT));
+        FILLIREG(destaddr, 8 | ISPOINTER);
+        dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       } else if(cexpr->vartype->tb & INT) {
         FILLIREG(destaddr, (cexpr->vartype->tb & 0xf) | ISSIGNED);
-        if(curaddr.addr_type & !(ISFLOAT | ISLABEL | ISSTRCONST | 0xf)) {
-          dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-        } else if(curaddr.addr_type & ISFLOAT) {
+        if(curaddr.addr_type & ISFLOAT) {
           dapush(prog->ops, ct_3ac_op2(F2I, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         } else {
-          break;
+          dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         }
-        return destaddr;
       } else if(cexpr->vartype->tb & UINT) {
         FILLIREG(destaddr, cexpr->vartype->tb & 0xf);
-        if(curaddr.addr_type & !(ISFLOAT | ISLABEL | ISSTRCONST | 0xf)) {
-          dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-        } else if(curaddr.addr_type & ISFLOAT) {
+        if(curaddr.addr_type & ISFLOAT) {
           dapush(prog->ops, ct_3ac_op2(F2I, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         } else {
-          break;
+          dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         }
-        return destaddr;
       } else if(cexpr->vartype->tb & FLOAT) {
         FILLFREG(destaddr, (cexpr->vartype->tb & 0xf) | ISSIGNED | ISFLOAT);
-        if(curaddr.addr_type & !(ISFLOAT | ISLABEL | ISSTRCONST | 0xf)) {
-          dapush(prog->ops, ct_3ac_op2(I2F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-        } else if(curaddr.addr_type & ISFLOAT) {
+        if(curaddr.addr_type & ISFLOAT) {
           dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         } else {
-          break;
+          dapush(prog->ops, ct_3ac_op2(I2F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         }
-        return destaddr;
       }
-      break;
+      return destaddr;
     case TERNARY:
       //do more checking of other 
       initlbl.labelname = proglabel(prog);
@@ -657,7 +626,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         dapush(prog->ops, ct_3ac_op2(enop, destaddr.addr_type, destaddr.addr, destaddr.addr_type, destaddr.addr));
       }
       return destaddr;
-     case POSTINC:
+    case POSTINC:
       prog->lval = 1;
       prog->fderef = 0;
       destaddr = linearitree(daget(cexpr->params, 0), prog);
@@ -672,7 +641,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       dapush(prog->ops, ct_3ac_op2(MOV_3, destaddr.addr_type, destaddr.addr, curaddr.addr_type, curaddr.addr));
       dapush(prog->ops, ct_3ac_op2(enop, destaddr.addr_type, destaddr.addr, destaddr.addr_type, destaddr.addr));
       return curaddr;
-     case POSTDEC:
+    case POSTDEC:
       prog->lval = 1;
       prog->fderef = 0;
       destaddr = linearitree(daget(cexpr->params, 0), prog);
@@ -710,9 +679,11 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return cmpnd_assign(MOD_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
        //confirm argument is lvalue?
        //type coercion stupid and unclear
-      break;
     case NOP: case MEMBER:
-      break;
+      //unfilled, dummy register, never to be used unless the program is seriously malformed
+      destaddr.addr_type = 0;
+      destaddr.addr.intconst_64 = -1;
+      return destaddr;
     case SZOF:;
       IDTYPE idt = *cexpr->vartype;
       destaddr.addr_type = ISCONST | 8;
@@ -804,8 +775,12 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
   ADDRESS contlabel, brklabel;
   switch(cst->type){
     case FRET:
-      ret_op = linearitree(cst->expression, prog);
-      dapush(prog->ops, ct_3ac_op1(RET_3, ret_op.addr_type, ret_op.addr));
+      if(cst->expression) {
+        ret_op = linearitree(cst->expression, prog);
+        dapush(prog->ops, ct_3ac_op1(RET_3, ret_op.addr_type, ret_op.addr));
+      } else {
+        dapush(prog->ops, ct_3ac_op0(RET_0));
+      }
       return;
     case LBREAK: //for break and continue we may need to do stack manipulation
       dapush(prog->ops, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, (ADDRESS) (char*) dapeek(prog->breaklabels)));
@@ -833,7 +808,8 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       return;
     case FORL:
       if(cst->forinit->isE) {
-        linearitree(cst->forinit->E, prog);
+        if(cst->forinit->E->type != NOP) 
+          linearitree(cst->forinit->E, prog);
       } else {
         for(int i = 0; i < cst->forinit->I->length; i++) {
           initializestate((INITIALIZER*) daget(cst->forinit->I, i), prog);
@@ -1031,7 +1007,7 @@ void printprog(PROGRAM* prog) {
     OPERATION* op = daget(pd, i);
     printf("%s", opcode_3ac_names[op->opcode]);
     switch(op->opcode) {
-      case NOP_3:
+      case NOP_3: case RET_0:
         break;
       case LBL_3: 
         printf("\t%s:", op->addr0.labelname);
