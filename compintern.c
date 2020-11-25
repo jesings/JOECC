@@ -210,26 +210,32 @@ void wipestruct(STRUCT* strct) {
   free(strct);
 }
 
+static void fpdecl(DECLARATION* dc) {
+  if(!dc) return;
+  freetype(dc->type);
+  free(dc); //dc->varname should be freed in dadtor
+}
+
 void freetype(IDTYPE* id) {
   if(id->pointerstack)
     for(int i = 0; i < id->pointerstack->length; i++) {
       struct declarator_part* dclp = id->pointerstack->arr[i];
-      //switch(dclp->type) {
-      //  case PARAMSSPEC:
-      //    paraledtorcfr(dclp->params, (void (*)(void*)) fpdecl);
-      //    break;
-      //  case NAMELESS_PARAMSSPEC:
-      //    dadtorcfr(dclp->nameless_params, (void (*)(void*)) freetype);
-      //    break;
-      //  case POINTERSPEC:
-      //    break;
-      //  case ARRAYSPEC:
-      //    rfreexpr(dclp->arrspec);
-      //    break;
-      //  case BITFIELDSPEC:
-      //    rfreexpr(dclp->bfspec);
-      //    assert(0); //TODO: handle bitfields
-      //}
+      switch(dclp->type) {
+        case PARAMSSPEC:
+          paraledtorcfr(dclp->params, (void (*)(void*)) fpdecl);
+          break;
+        case NAMELESS_PARAMSSPEC:
+          dadtorcfr(dclp->nameless_params, (void (*)(void*)) freetype);
+          break;
+        case POINTERSPEC:
+          break;
+        case ARRAYSPEC:
+          rfreexpr(dclp->arrspec);
+          break;
+        case BITFIELDSPEC:
+          rfreexpr(dclp->bfspec);
+          assert(0); //TODO: handle bitfields
+      }
     }
   dadtor(id->pointerstack);
   free(id);
@@ -352,16 +358,11 @@ void rfreestate(STATEMENT* s) {
   free(s);
 }
 
-static void fpdecl(DECLARATION* dc) {
-  if(!dc) return;
-  freetype(dc->type);
-  free(dc); //dc->varname should be freed in dadtor
-}
-
 void rfreefunc(FUNC* f) {
+  if(!f) return;
   free(f->name);
   rfreestate(f->body);
-  paraledtorcfr(f->params, (void(*)(void*)) fpdecl);
+  //paraledtorcfr(f->params, (void(*)(void*)) fpdecl);
   freetype(f->retrn);
   htdtorfr(f->lbls);
   dadtor(f->switchstack);

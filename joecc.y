@@ -73,6 +73,7 @@
   DECLARATION* declvariant;
   FUNC* funcvariant;
   PARALLEL* paravariant;
+  void* vvar;
 }
 
 %type<str> generic_symbol
@@ -82,7 +83,7 @@
 %type<idvariant> typem typews1 type typemintkw inttypem namelesstype
 %type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee escoa
 %type<stmtvariant> statement compound_statement
-%type<arrvariant> statements_and_initializers soiorno struct_decls struct_decl cs_decls enums escl escoal abstract_ptr cs_inits cs_minutes initializer program array_literal structbody enumbody nameless
+%type<arrvariant> statements_and_initializers soiorno struct_decls struct_decl cs_decls enums escl escoal abstract_ptr cs_inits cs_minutes initializer array_literal structbody enumbody nameless
 %type<unionvariant> union fullunion
 %type<structvariant> struct fullstruct
 %type<enumvariant> enum fullenum
@@ -90,17 +91,18 @@
 %type<funcvariant> function
 %type<firforvariant> dee
 %type<paravariant> params
+%type<vvar> program
 
 %%
 program:
   function {
-    $$ = dactor(4096);
+    $$ = NULL;
     insert(ctx->funcs, $1->name, $1);
     dapush($$, gtb(1, $1));
     //first function can't be a redefinition
   }
 | initializer {
-    $$ = dactor(4096);
+    $$ = NULL;
     for(int i = 0; i < $1->length; i++) {
       if(!scopequeryval(ctx, M_VARIABLE, aget($1, i)->decl->varname)) {
         IDENTIFIERINFO* id = malloc(sizeof(IDENTIFIERINFO));
@@ -119,14 +121,13 @@ program:
       }
       dapush($$, gtb(0, $1));
     }
-    free($1);
+    dadtor($1);
   }
 | program function {
     $$ = $1;
     char* cs = $2->name;
     if(!search(ctx->funcs, cs)) {
-      insert(ctx->funcs, cs, $2);
-      dapush($$, gtb(1, $2));
+      insertcfr(ctx->funcs, cs, $2, (void(*)(void*)) rfreefunc);
     } else {
       fprintf(stderr, "Error: redefinition of function %s in %s %d.%d-%d.%d\n", $2->name, locprint(@$));
     }
@@ -143,15 +144,14 @@ program:
       } else {
         IDENTIFIERINFO* id = scopesearch(ctx, M_VARIABLE, aget($2, i)->decl->varname);
         if(!(id->type->tb & EXTERNNUM)) {
-          fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", aget($1, i)->decl->varname, locprint(@$));
+          fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", aget($2, i)->decl->varname, locprint(@$));
         } else {
           freetype(aget($2, i)->decl->type);
           id->type = aget($2, i)->decl->type;
         }
       }
-      dapush($$, gtb(0, $2));
     }
-    free($2);
+    dadtor($2);
   };
 initializer:
 "typedef" type cs_minutes ';' {
@@ -231,9 +231,10 @@ initializer:
         }
       }
     } else {
-      insert(ctx->funcs, ac->decl->varname, NULL);
+      insertcfr(ctx->funcs, ac->decl->varname, NULL, (void(*)(void*)) rfreefunc);
     }
-  }}
+  }
+  }
 | "struct" SYMBOL ';' {
   $$ = dactor(0);
   if(!scopequeryval(ctx, M_STRUCT, $2)) {
