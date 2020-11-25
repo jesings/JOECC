@@ -32,3 +32,13 @@ void paraledtor(PARALLEL* p) {
   htdtor(p->ht);
   free(p);
 }
+void paraledtorfr(PARALLEL* p) {
+  htdtorfr(p->ht);
+  dadtorfr(p->da);
+  free(p);
+}
+void paraledtorcfr(PARALLEL* p, void (*freefunc) (void*)) {
+  dadtorfr(p->da);
+  htdtorcfr(p->ht, freefunc);
+  free(p);
+}

@@ -43,9 +43,9 @@ static void hpdtor(HASHPAIR* hp) {
 }
 
 static void hpdtorfr(HASHPAIR* hp) {
+  free(hp->key);
+  free(hp->value);
   if(hp->next) {
-    free(hp->key);
-    free(hp->value);
     hpdtorfr(hp->next);
   }
   free(hp);
@@ -120,7 +120,7 @@ void insert(HASHTABLE* ht, const char* key, void* value) {
   ++ht->keys;
 }
 
-void insertfr(HASHTABLE* ht, const char* key, void* value) {
+void insertcfr(HASHTABLE* ht, const char* key, void* value, void (*cfree)(void*)) {
   unsigned long i = hash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!(hp->key)) {
@@ -129,13 +129,13 @@ void insertfr(HASHTABLE* ht, const char* key, void* value) {
   } else {
     for(; hp->next; hp = hp->next) {
       if(!strcmp(hp->key, key)) {
-        free(hp->value);
+        cfree(hp->value);
         hp->value = value;
         return;
       }
     }
     if(!strcmp(hp->key, key)) {
-      free(hp->value);
+      cfree(hp->value);
       hp->value = value;
       return;
     }
@@ -169,7 +169,7 @@ void rmpair(HASHTABLE* ht, const char* key) {
   }
 }
 
-void rmpairfr(HASHTABLE* ht, const char* key) {
+void rmpaircfr(HASHTABLE* ht, const char* key, void (*cfree)(void*)) {
   unsigned long i = hash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!(hp->key))
@@ -180,13 +180,13 @@ void rmpairfr(HASHTABLE* ht, const char* key) {
       if(hp->next) {
         HASHPAIR* temp = hp->next;
         free(hp->key);
-        free(hp->value);
+        cfree(hp->value);
         memcpy(hp, hp->next, sizeof(HASHPAIR));
         free(temp);
       } else {
         free(hp->key);
         hp->key = NULL;
-        free(hp->value);
+        cfree(hp->value);
         if(prev)
           prev->next = NULL;
       }
@@ -195,6 +195,7 @@ void rmpairfr(HASHTABLE* ht, const char* key) {
     }
     prev = hp;
   }
+  return;
 }
 
 void* search(HASHTABLE* ht, const char* key) {

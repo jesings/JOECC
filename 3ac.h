@@ -161,6 +161,7 @@ static inline enum opcode_3ac cmp_osite(EXPRTYPE coptype, char negate) {
   }
 }
 char remove_nops(PROGRAM* prog);
+void freeprog(PROGRAM* prog);
 
 static inline ADDRTYPE addrconv(IDTYPE* idt) {
   ADDRTYPE adt;

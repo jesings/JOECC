@@ -55,4 +55,23 @@ char fixedqueryval(HASHTABLE* ht, long fixedkey) {
   }
   return 0;
 }
+static void fhpdtorfr(HASHPAIR* hp) {
+  if(hp->next) {
+    free(hp->value);
+    if((long) hp->next > 1) fhpdtorfr(hp->next);
+  }
+  free(hp);
+}
+
+void fhtdtorfr(HASHTABLE* ht) {
+  for(int i = 0; i < HASHSIZE; i++) {
+    if(ht->pairs[i].next) {
+      free(ht->pairs[i].value);
+    }
+    if((long) ht->pairs[i].next > 1) {
+      fhpdtorfr(ht->pairs[i].next);
+    }
+  }
+  free(ht);
+}
 

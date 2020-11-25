@@ -109,7 +109,7 @@ EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params) {
   assert(ptrs);
 
   IDTYPE* retid = fcid(func->id->type);
-  if((((struct declarator_part*) dapeek(ptrs))->type == POINTERSPEC)) {
+  if(((struct declarator_part*) dapeek(ptrs))->type == POINTERSPEC) {
     if(((struct declarator_part*) daget(ptrs, ptrs->length - 2))->type == PARAMSSPEC ||
     ((struct declarator_part*) daget(ptrs, ptrs->length - 2))->type == NAMELESS_PARAMSSPEC) {
       retid->pointerstack->length -= 2; //shorten but no pop needed
@@ -212,21 +212,26 @@ void wipestruct(STRUCT* strct) {
 
 void freetype(IDTYPE* id) {
   if(id->pointerstack)
-    for(int i = 0; i < id->pointerstack->length; i++)
-      free(id->pointerstack->arr[i]);
-  if(id->tb & (STRUCTVAL | UNIONVAL)) {
-    if(!id->structtype->name)
-      wipestruct(id->structtype);
-  }
-  else if(id->tb & ENUMVAL) {
-    for(int i = 0; i < id->enumtype->fields->length; ++i) {
-      ENUMFIELD* enf = id->enumtype->fields->arr[i];
-      rfreexpr(enf->value);
-      free(enf->name);
-      free(enf);
+    for(int i = 0; i < id->pointerstack->length; i++) {
+      struct declarator_part* dclp = id->pointerstack->arr[i];
+      //switch(dclp->type) {
+      //  case PARAMSSPEC:
+      //    paraledtorcfr(dclp->params, (void (*)(void*)) fpdecl);
+      //    break;
+      //  case NAMELESS_PARAMSSPEC:
+      //    dadtorcfr(dclp->nameless_params, (void (*)(void*)) freetype);
+      //    break;
+      //  case POINTERSPEC:
+      //    break;
+      //  case ARRAYSPEC:
+      //    rfreexpr(dclp->arrspec);
+      //    break;
+      //  case BITFIELDSPEC:
+      //    rfreexpr(dclp->bfspec);
+      //    assert(0); //TODO: handle bitfields
+      //}
     }
-    free(id->enumtype);
-  }
+  dadtor(id->pointerstack);
   free(id);
 }
 
@@ -346,6 +351,23 @@ void rfreestate(STATEMENT* s) {
   }
   free(s);
 }
+
+static void fpdecl(DECLARATION* dc) {
+  if(!dc) return;
+  freetype(dc->type);
+  free(dc); //dc->varname should be freed in dadtor
+}
+
+void rfreefunc(FUNC* f) {
+  free(f->name);
+  rfreestate(f->body);
+  paraledtorcfr(f->params, (void(*)(void*)) fpdecl);
+  freetype(f->retrn);
+  htdtorfr(f->lbls);
+  dadtor(f->switchstack);
+  free(f);
+}
+
 EXPRESSION* rclonexpr(EXPRESSION* e) {
   EXPRESSION* e2 = malloc(sizeof(EXPRESSION));
   memcpy(e2, e, sizeof(EXPRESSION));
@@ -693,7 +715,7 @@ static void declmacro(HASHTABLE* ht, const char* macroname, const char* body) {
   struct macrodef* md = calloc(1, sizeof(struct macrodef));
   if(body) {
     int blen = strlen(body);
-    md->text = strctor((char*)(unsigned long) body, blen, blen);
+    md->text = strctor(strdup(body), blen, blen);
   }
   insert(ht, macroname, md);
 }
@@ -707,6 +729,7 @@ struct lexctx* ctxinit(void) {
   dapush(lct->scopes, mkscope());
   lct->withindefines = htctor();
   lct->argpp = dactor(16);
+  lct->enstruct2free = dactor(1024);
   lct->defines = htctor();
   declmacro(lct->defines, "__STDC__", "1");
   declmacro(lct->defines, "__STDC_VERSION__", "201710L");
@@ -741,7 +764,18 @@ void scopepop(struct lexctx* lct) {
      cleanup->forwardstructs->keys != 0 ||
      cleanup->forwardunions->keys != 0))
     fprintf(stderr, "Error: not all forward declarations processed by end of scope\n");
-  free(cleanup); //free all members???
+  if(!cleanup->truescope) {
+    htdtorfr(cleanup->fakescope);
+  } else {
+    htdtorfr(cleanup->typesdef);//SCOPEMEMBER argument
+    htdtorfr(cleanup->members);//SCOPEMEMBER argument
+    htdtorfr(cleanup->structs);
+    htdtorfr(cleanup->enums);
+    htdtorfr(cleanup->unions);
+    htdtorfr(cleanup->forwardstructs);
+    htdtorfr(cleanup->forwardunions);
+  } //TODO: free all members???
+  free(cleanup);
 }
 
 SCOPE* fakescopepeek(struct lexctx* lct) {
@@ -755,6 +789,12 @@ SCOPE* scopepeek(struct lexctx* lct) {
   }
   fprintf(stderr, "Error: corrupted scope environment encountered\n");
   return NULL;
+}
+
+void freemd(struct macrodef* mds) {
+  if(mds->text) strdtor(mds->text);
+  if(mds->args) dadtorfr(mds->args);
+  free(mds);
 }
 
 void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* memberval) {

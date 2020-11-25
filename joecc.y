@@ -44,6 +44,7 @@
   //TODO: Compound literals?
   //TODO: Consider designated initializers?
   //TODO: free scopes after pop and use
+  //TODO: do enums right
 }
 
 %{

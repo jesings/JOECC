@@ -1,7 +1,7 @@
 %locations
 %token<unum> UNSIGNED_LITERAL;
 %token<unum> INTEGER_LITERAL;
-%token SHLTK "<<" SHRTK ">>" LE "<=" GE ">=" EQTK "==" NEQTK "!=" AND "&&" OR "||" 
+%token SHLTK "<<" SHRTK ">>" LE "<=" GE ">=" EQTK "==" NEQTK "!=" AND "&&" OR "||"
 
 %start fullifexpr
 %define api.prefix {zz}

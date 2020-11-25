@@ -145,6 +145,7 @@ struct lexctx {
   HASHTABLE* withindefines;
   EXPRESSION* ifexpr;
   DYNARR* argpp;
+  DYNARR* enstruct2free;
 };
 
 typedef struct {
@@ -310,6 +311,8 @@ void freetype(IDTYPE* id);
 void freeinit(INITIALIZER* i);
 void rfreexpr(EXPRESSION* e);
 void rfreestate(STATEMENT* s);
+void rfreefunc(FUNC* f);
+void freemd(struct macrodef* mds);
 EXPRESSION* rclonexpr(EXPRESSION* e);
 DECLARATION* mkdeclaration(char* name);
 INITIALIZER* geninit(DECLARATION* decl, EXPRESSION* expr);

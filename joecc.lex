@@ -291,7 +291,7 @@ extern union {
         dapush(locs, ylt);
         yylloc.first_line = yylloc.last_line = 1;
         yylloc.first_column = yylloc.last_column = 0;
-        dapush(file2compile, fname);
+        dapush(file2compile, strdup(fname));
         YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
         yy_push_state(INITIAL);
         yypush_buffer_state(ybs);
@@ -447,15 +447,24 @@ extern union {
     yy_pop_state();
     yy_pop_state();
     dsccat(mdstrdly, 0);
-    md->text = mdstrdly;
-    insert(ctx->defines, defname, md);
+    struct macrodef* isinplace;
+    if((isinplace = search(ctx->defines, defname))) {
+      if(strcmp(isinplace->text->strptr, mdstrdly->strptr)) {
+        assert(0);
+      }
+      strdtor(mdstrdly);
+      free(md);
+    } else {
+      md->text = mdstrdly;
+      insert(ctx->defines, defname, md);
+    }
     rmpair(ctx->withindefines, defname);
     }
 }
 
 <UNDEF>{
-  {IDENT} {rmpairfr(ctx->defines, yytext);}
-  {IDENT}/[[:blank:]] {rmpairfr(ctx->defines, yytext); yy_push_state(KILLBLANK);}
+  {IDENT} {rmpaircfr(ctx->defines, yytext, (void(*)(void*)) strdtor);}
+  {IDENT}/[[:blank:]] {rmpaircfr(ctx->defines, yytext, (void(*)(void*)) strdtor); yy_push_state(KILLBLANK);}
   \n {yy_pop_state(); yy_pop_state();/*error state if expr not over?*/}
   . {fprintf(stderr, "UNDEF: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint(yylloc));}
 }
@@ -550,17 +559,15 @@ extern union {
     } else {
       dapush(parg, dstrdly);
 
-      struct macrodef* md;
-      if(!(md = search(ctx->defines, defname))) {
+      struct macrodef* mdl;
+      if(!(mdl = search(ctx->defines, defname))) {
         fprintf(stderr, "Error: Malformed function-like macro call %s %d.%d-%d.%d\n", locprint(yylloc));
         //error state
-      } else if(parg->length != md->args->length) {
+      } else if(parg->length != mdl->args->length) {
         insert(ctx->withindefines, defname, NULL);
-        if(md->args->length == 0 && parg->length == 1
-           && *(((DYNSTR*) (parg->arr[0]))->strptr) == 0) {
-          free(((DYNSTR*) (parg->arr[0]))->strptr);
-          free(parg->arr[0]);
-          free(parg);
+        if(mdl->args->length == 0 && parg->length == 1
+           && *(dstrdly->strptr) == 0) {
+          dadtorcfr(parg, (void(*)(void*)) strdtor);
           yy_pop_state();
           YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(defname, strlen(defname), "r"), YY_BUF_SIZE);//TODO: strlen inefficient
           yypush_buffer_state(ybs);
@@ -575,16 +582,14 @@ extern union {
         }
       } else {
         insert(ctx->withindefines, defname, NULL);
-        DYNARR* argn = md->args;
-        //make hash table with keys as param names, values as arguments, make 
-        //special lexer mode to parse this into string literal, use this as new buffer
-        //at the end of this mode, switch to string literal, parse in parent mode then
+        DYNARR* argn = mdl->args;
         defargs = htctor();
         char** prma = (char**) argn->arr;
         DYNSTR** arga = (DYNSTR**) parg->arr;
         for(int i = 0; i < parg->length; i++) {
           insert(defargs, prma[i], arga[i]);
         }
+        dadtor(parg);
         dstrdly = strctor(malloc(2048), 0, 2048);
         yy_pop_state();
         yy_push_state(FINDREPLACE);
@@ -593,7 +598,7 @@ extern union {
         dapush(locs, ylt);
         yylloc.first_line = yylloc.last_line = 1;
         yylloc.first_column = yylloc.last_column = 0;
-        YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(md->text->strptr, md->text->lenstr, "r"), YY_BUF_SIZE);
+        YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(mdl->text->strptr, mdl->text->lenstr, "r"), YY_BUF_SIZE);
         yypush_buffer_state(ybs);
       }
     }
@@ -751,6 +756,10 @@ extern union {
     //TODO:free hashtable and stuff?
     yypop_buffer_state();
     yy_pop_state();
+    //FILE* tmpf = fmemopen(NULL, dstrdly->lenstr, "r+");
+    //fwrite(dstrdly->strptr, 1, dstrdly->lenstr, tmpf);
+    //YY_BUFFER_STATE ybs = yy_create_buffer(tmpf, YY_BUF_SIZE);
+    //strdtor(dstrdly);
     YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(dstrdly->strptr, dstrdly->lenstr, "r"), YY_BUF_SIZE);
     free(dstrdly);
     yypush_buffer_state(ybs);
@@ -760,6 +769,7 @@ extern union {
     yylloc.first_column = yylloc.last_column = 0;
     dapush(file2compile, strdup(buf));
     rmpair(ctx->withindefines, defname);
+    htdtorcfr(defargs, (void(*)(void*)) strdtor);
     if(ctx->argpp->length) {
       struct arginfo* argi = dapop(ctx->argpp);
       defname = argi->defname;
@@ -1131,6 +1141,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
     free(yl);
     char* ismac = dapop(file2compile);
     rmpair(ctx->withindefines, ismac);
+    free(ismac);
     //rmpair is a no-op if not in hash
   }
 }
@@ -1147,6 +1158,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
     free(yl);
     char* ismac = dapop(file2compile);
     rmpair(ctx->withindefines, ismac);
+    free(ismac);
     //rmpair is a no-op if not in hash
   }
 }
@@ -1201,11 +1213,12 @@ int check_type(char* symb, char frominitial) {
         argi->defname = oldname;
         argi->parg = parg;
         dapush(ctx->argpp, argi);
+      } else {
+        free(oldname);
       }
       paren_depth = 0;
       dstrdly = strctor(malloc(2048), 0, 2048);
       parg = dactor(64); 
-
     } else {
       char* buf = malloc(256);
       snprintf(buf, 256, "%s", symb);
@@ -1224,6 +1237,8 @@ int check_type(char* symb, char frominitial) {
         argi->defname = oldname;
         dapush(ctx->argpp, argi);
         yy_push_state(CALLMACRO);
+      } else {
+        free(oldname);
       }
     }
     return -1;

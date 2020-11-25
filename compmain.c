@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
   }
   extern int yydebug;
   extern int zzdebug;
-  zzdebug = 0;
+  zzdebug = 1;
   yydebug = 0;
   ppdebug = 0;
   yyparse();
@@ -38,6 +38,7 @@ int main(int argc, char** argv) {
     dup2(STDIN_FILENO, inval);
     close(inval);
   }
+  htdtorcfr(ctx->defines, (void (*)(void*)) freemd);
   //do some kind of scopestack traversal
   //for(int i = 0; i < ctx->structs->length; i++) {
   //  feedstruct(daget(ctx->structs, i));
@@ -58,6 +59,9 @@ int main(int argc, char** argv) {
       puts("---------------------------------------");
       printprog(prog);
       puts("---------------------------------------");
+      freeprog(prog);
+      rfreefunc(pairthere->value);
     }
   }
+  dadtor(funcky);
 }

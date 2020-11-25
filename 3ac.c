@@ -510,6 +510,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         } else {
           dapush(prog->ops, ct_3ac_op2(I2F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         }
+      } else {
+        assert(0);
       }
       return destaddr;
     case TERNARY:
@@ -725,6 +727,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
   }
   fprintf(stderr, "Error: reduction of expression to 3 address code failed\n");
+  FILLIREG(curaddr, 0);
   return curaddr;
 }
 
@@ -892,7 +895,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       solidstate(cst->body, prog);
       intsert(prog->labeloffsets, brklabel.labelname, prog->ops->length);
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, brklabel));
-      break;
+      return;
     case LABEL:
       intsert(prog->labeloffsets, cst->glabel, prog->ops->length);
       dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) cst->glabel));
@@ -1146,4 +1149,13 @@ char remove_nops(PROGRAM* prog) {
   int prevlen = da->length;
   da->length = newlen;
   return prevlen == newlen;
+}
+
+void freeprog(PROGRAM* prog) {
+  dadtorfr(prog->ops);
+  dadtorfr(prog->breaklabels);
+  dadtorfr(prog->continuelabels);
+  fhtdtorfr(prog->fixedvars);
+  htdtor(prog->labeloffsets);
+  free(prog);
 }
