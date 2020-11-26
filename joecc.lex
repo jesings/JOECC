@@ -452,19 +452,17 @@ extern union {
       if(strcmp(isinplace->text->strptr, mdstrdly->strptr)) {
         assert(0);
       }
-      strdtor(mdstrdly);
-      free(md);
-    } else {
-      md->text = mdstrdly;
-      insert(ctx->defines, defname, md);
+      freemd(isinplace);
     }
+    md->text = mdstrdly;
+    insert(ctx->defines, defname, md);
     rmpair(ctx->withindefines, defname);
     }
 }
 
 <UNDEF>{
-  {IDENT} {rmpaircfr(ctx->defines, yytext, (void(*)(void*)) strdtor);}
-  {IDENT}/[[:blank:]] {rmpaircfr(ctx->defines, yytext, (void(*)(void*)) strdtor); yy_push_state(KILLBLANK);}
+  {IDENT} {rmpaircfr(ctx->defines, yytext, (void(*)(void*)) freemd);}
+  {IDENT}/[[:blank:]] {rmpaircfr(ctx->defines, yytext, (void(*)(void*)) freemd); yy_push_state(KILLBLANK);}
   \n {yy_pop_state(); yy_pop_state();/*error state if expr not over?*/}
   . {fprintf(stderr, "UNDEF: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint(yylloc));}
 }
@@ -1125,6 +1123,8 @@ L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
       fprintf(stderr, "ERROR: subsidiary parser reduced if or elif into non-rectifiable expression %s %d.%d-%d.%d\n", locprint(yylloc));
       assert(0);
   }
+  rfreexpr(ctx->ifexpr);
+  ctx->ifexpr = NULL;
   dapush(ctx->definestack, rids);
 }
 [[:space:]] {/*Whitespace, ignored*/}

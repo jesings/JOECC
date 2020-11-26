@@ -98,7 +98,7 @@ program:
   function {
     $$ = NULL;
     insert(ctx->funcs, $1->name, $1);
-    dapush($$, gtb(1, $1));
+    //dapush($$, gtb(1, $1));
     //first function can't be a redefinition
   }
 | initializer {
@@ -119,7 +119,7 @@ program:
           id->type = aget($1, i)->decl->type;
         }
       }
-      dapush($$, gtb(0, $1));
+      //dapush($$, gtb(0, $1));
     }
     dadtorfr($1);
   }

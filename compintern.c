@@ -255,8 +255,7 @@ void rfreexpr(EXPRESSION* e) {
     case EQ: case NEQ: case GT: case LT: case GTE: case LTE:
     case SZOFEXPR:
     case CAST://rettype and vartype are the same pointer
-      for(int i = 0; i < e->params->length; i++)
-        rfreexpr(e->params->arr[i]);
+      dadtorcfr(e->params, (void(*)(void*)) rfreexpr);
       break;
     case SZOF: 
       break;
@@ -268,8 +267,7 @@ void rfreexpr(EXPRESSION* e) {
       free(e);
       return;
     case ARRAY_LIT:
-      for(int i = 0; i < e->dynvals->length; i++)
-        rfreexpr(e->dynvals->arr[i]);
+      dadtorcfr(e->dynvals, (void(*)(void*)) rfreexpr);
       if(e->rettype) freetype(e->rettype);//TODO: handle better?
       free(e);
       return;
@@ -284,16 +282,14 @@ void rfreexpr(EXPRESSION* e) {
     case ADD: case SUB: case SHR: case SHL:
     case MULT: case DIVI: case MOD: case TERNARY:
     case DOTOP: case ARROW:
-      for(int i = 0; i < e->params->length; i++)
-        rfreexpr(e->params->arr[i]);
+      dadtorcfr(e->params, (void(*)(void*)) rfreexpr);
       if(e->rettype) free(e->rettype);
       //fall through
     case IDENT:
       free(e);
       return;
     case FCALL:
-      for(int i = 0; i < e->params->length; i++)
-        rfreexpr(e->params->arr[i]);
+      dadtorcfr(e->params, (void(*)(void*)) rfreexpr);
       //rettype is from global?
       free(e);
       return;
@@ -301,8 +297,7 @@ void rfreexpr(EXPRESSION* e) {
       if(e->rettype) free(dapop(e->rettype->pointerstack));
       //fall through
     case DEREF:
-      for(int i = 0; i < e->params->length; i++)
-        rfreexpr(e->params->arr[i]);
+      dadtorcfr(e->params, (void(*)(void*)) rfreexpr);
       if(e->rettype) {
         dadtor(e->rettype->pointerstack);
         free(e->rettype);
@@ -370,7 +365,7 @@ void rfreestate(STATEMENT* s) {
             if(in->expr) {
               rfreexpr(in->expr);
             }
-            free(in->decl->type);
+            freetype(in->decl->type);
             free(in->decl->varname);
             free(in->decl);
             free(in);

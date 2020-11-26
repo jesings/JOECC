@@ -13,10 +13,10 @@ DYNARR* dactor(int initiallen) {
 
 DYNARR* damerge(DYNARR* arr1, DYNARR* arr2) {
   if(!arr1->length) {
-    free(arr1);
+    dadtor(arr1);
     return arr2;
   } else if(!arr2->length) {
-    free(arr2);
+    dadtor(arr2);
     return arr1;
   }
   DYNARR* retval = malloc(sizeof(DYNARR));
@@ -53,9 +53,11 @@ void dadtorfr(DYNARR* da) {
 }
 
 void dadtorcfr(DYNARR* da, void (*freep)(void*)) {
-  for(int i = 0; i<da->length; i++)
-    freep((da->arr)[i]);
-  free(da->arr);
+  if(da->maxlength) {
+    for(int i = 0; i<da->length; i++)
+      freep((da->arr)[i]);
+    free(da->arr);
+  }
   free(da);
 }
 
