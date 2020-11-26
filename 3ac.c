@@ -1151,8 +1151,19 @@ char remove_nops(PROGRAM* prog) {
   return prevlen == newlen;
 }
 
+static void freeop(void* o2) {
+  OPERATION* op = o2;
+  switch(op->opcode) {
+    case LBL_3:
+      free(op->addr0.labelname);
+    default:
+      break;
+  }
+  free(op);
+}
+
 void freeprog(PROGRAM* prog) {
-  dadtorfr(prog->ops);
+  dadtorcfr(prog->ops, freeop);
   dadtorfr(prog->breaklabels);
   dadtorfr(prog->continuelabels);
   fhtdtorfr(prog->fixedvars);

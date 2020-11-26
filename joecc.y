@@ -121,13 +121,13 @@ program:
       }
       dapush($$, gtb(0, $1));
     }
-    dadtor($1);
+    dadtorfr($1);
   }
 | program function {
     $$ = $1;
     char* cs = $2->name;
     if(!search(ctx->funcs, cs)) {
-      insertcfr(ctx->funcs, cs, $2, (void(*)(void*)) rfreefunc);
+      insert(ctx->funcs, cs, $2);
     } else {
       fprintf(stderr, "Error: redefinition of function %s in %s %d.%d-%d.%d\n", $2->name, locprint(@$));
     }
@@ -146,12 +146,12 @@ program:
         if(!(id->type->tb & EXTERNNUM)) {
           fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", aget($2, i)->decl->varname, locprint(@$));
         } else {
-          freetype(aget($2, i)->decl->type);
+          //freetype(aget($2, i)->decl->type);
           id->type = aget($2, i)->decl->type;
         }
       }
     }
-    dadtor($2);
+    dadtorfr($2);
   };
 initializer:
 "typedef" type cs_minutes ';' {
@@ -222,7 +222,7 @@ initializer:
        (((struct declarator_part*) dapeek(ac->decl->type->pointerstack))->type != PARAMSSPEC)) {
       if(ctx->func) {
         HASHTABLE* ht = scopepeek(ctx)->members;
-        SCOPEMEMBER* sm =  search(ht, ac->decl->varname);
+        SCOPEMEMBER* sm = search(ht, ac->decl->varname);
         if(!sm || (sm->mtype == M_VARIABLE && (sm->idi->type->tb & EXTERNNUM))) {
           add2scope(ctx, ac->decl->varname, M_VARIABLE, ac->decl->type);
           ac->decl->varid = ((SCOPEMEMBER*) search(ht, ac->decl->varname))->idi->index;
@@ -231,7 +231,8 @@ initializer:
         }
       }
     } else {
-      insertcfr(ctx->funcs, ac->decl->varname, NULL, (void(*)(void*)) rfreefunc);
+      //TODO: ensure no prior definition
+      insert(ctx->funcs, ac->decl->varname, NULL);
     }
   }
   }
@@ -321,7 +322,10 @@ fptr:
     $$->type->pointerstack = damerge(da, $$->type->pointerstack);
     };
 params:
-  param_decl {$$ = paralector(); pinsert($$, $1->varname, $1);}
+  param_decl {
+   $$ = paralector(); 
+   pinsert($$, $1->varname, $1);
+   }
 | params ',' param_decl {
     $$ = $1;
     if(psearch($$, $3->varname)) {
@@ -654,10 +658,19 @@ function:
       assert(0);
     }
     $$ = ct_function($2->varname, NULL, parammemb, $2->type);
+    //TODO: ensure compliant overwriting?
+    IDENTIFIERINFO* fordecid;
+    if((fordecid = scopesearch(ctx, M_VARIABLE, $2->varname))) {
+      free(fordecid->name);
+      freetype(fordecid->type);
+      free(fordecid);
+    }
     IDENTIFIERINFO* id = malloc(sizeof(IDENTIFIERINFO));
     id->index = -1;
     id->name = $2->varname;
     $2->type->pointerstack = daclone($2->type->pointerstack);
+    dp->type = PARAMSSPEC;
+    dp->params = parammemb;
     dapush($2->type->pointerstack, dp);
     id->type = $2->type;
     add2scope(ctx, $2->varname, M_GLOBAL, id);

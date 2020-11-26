@@ -217,7 +217,7 @@ static void fpdecl(DECLARATION* dc) {
 }
 
 void freetype(IDTYPE* id) {
-  if(id->pointerstack)
+  if(id->pointerstack) {
     for(int i = 0; i < id->pointerstack->length; i++) {
       struct declarator_part* dclp = id->pointerstack->arr[i];
       switch(dclp->type) {
@@ -236,44 +236,83 @@ void freetype(IDTYPE* id) {
           rfreexpr(dclp->bfspec);
           assert(0); //TODO: handle bitfields
       }
+      free(dclp);
     }
-  dadtor(id->pointerstack);
+    dadtor(id->pointerstack);
+  }
   free(id);
 }
 
 void rfreexpr(EXPRESSION* e) {
   switch(e->type) {
-    default:
-      for(int i = 0; i < e->params->length; i++)
-        rfreexpr(e->params->arr[i]);
+    case MEMBER:
+      free(e->member);
+      free(e);
+      return;
     case NOP:
       break;
-    case SZOF:
-      if(e->vartype->pointerstack)
-        for(int i = 0; i < e->vartype->pointerstack->length; i++)
-          free(e->vartype->pointerstack->arr[i]);
-      free(e->vartype);
-      break;
-    case CAST:
-      freetype(e->vartype);
+    case L_AND: case L_OR: case L_NOT:
+    case EQ: case NEQ: case GT: case LT: case GTE: case LTE:
+    case SZOFEXPR:
+    case CAST://rettype and vartype are the same pointer
       for(int i = 0; i < e->params->length; i++)
         rfreexpr(e->params->arr[i]);
+      break;
+    case SZOF: 
+      break;
+    case UINT: case INT: case FLOAT:
       break;
     case STRING:
       free(e->strconst);
-      break;
-    case MEMBER:
-      free(e->member);
-      break;
-    case INT: case UINT: case FLOAT:
-      break;
-    case IDENT:
-      break;//do not free identifier info
+      if(e->rettype) freetype(e->rettype);
+      free(e);
+      return;
     case ARRAY_LIT:
       for(int i = 0; i < e->dynvals->length; i++)
         rfreexpr(e->dynvals->arr[i]);
-      break;
+      if(e->rettype) freetype(e->rettype);//TODO: handle better?
+      free(e);
+      return;
+    case NEG: case COMMA:
+    case B_NOT: case POSTINC: case POSTDEC:
+    case PREINC: case PREDEC:
+    case ASSIGN: case ADDASSIGN: case SUBASSIGN:
+    case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
+    case XORASSIGN: case ORASSIGN: case DIVASSIGN:
+    case MULTASSIGN: case MODASSIGN:
+    case B_AND: case B_OR: case B_XOR:
+    case ADD: case SUB: case SHR: case SHL:
+    case MULT: case DIVI: case MOD: case TERNARY:
+    case DOTOP: case ARROW:
+      for(int i = 0; i < e->params->length; i++)
+        rfreexpr(e->params->arr[i]);
+      if(e->rettype) free(e->rettype);
+      //fall through
+    case IDENT:
+      free(e);
+      return;
+    case FCALL:
+      for(int i = 0; i < e->params->length; i++)
+        rfreexpr(e->params->arr[i]);
+      //rettype is from global?
+      free(e);
+      return;
+    case ADDR:
+      if(e->rettype) free(dapop(e->rettype->pointerstack));
+      //fall through
+    case DEREF:
+      for(int i = 0; i < e->params->length; i++)
+        rfreexpr(e->params->arr[i]);
+      if(e->rettype) {
+        dadtor(e->rettype->pointerstack);
+        free(e->rettype);
+      }
+      free(e);
+      return;
+
   }
+  if(e->rettype)
+    freetype(e->rettype);
   free(e);
 }
 
@@ -282,8 +321,7 @@ void freeinit(INITIALIZER* i) {
     rfreexpr(i->expr);
   }
   free(i->decl->varname);
-  freetype(i->decl->type);
-  free(i->decl);
+  fpdecl(i->decl);
   free(i);
 }
 
@@ -344,6 +382,8 @@ void rfreestate(STATEMENT* s) {
       dadtor(s->stmtsandinits);
       break;
     case FRET:
+      if(!s->expression) break;
+      //fall through
     case EXPR: 
       rfreexpr(s->expression);
       break;
@@ -361,9 +401,8 @@ void rfreestate(STATEMENT* s) {
 void rfreefunc(FUNC* f) {
   if(!f) return;
   free(f->name);
-  rfreestate(f->body);
-  //paraledtorcfr(f->params, (void(*)(void*)) fpdecl);
   freetype(f->retrn);
+  rfreestate(f->body);
   htdtorfr(f->lbls);
   dadtor(f->switchstack);
   free(f);
@@ -794,6 +833,10 @@ SCOPE* scopepeek(struct lexctx* lct) {
 
 void freemd(struct macrodef* mds) {
   if(mds->text) strdtor(mds->text);
+  if(mds->args) dadtorfr(mds->args);
+  free(mds);
+}
+void freemd2(struct macrodef* mds) {
   if(mds->args) dadtorfr(mds->args);
   free(mds);
 }

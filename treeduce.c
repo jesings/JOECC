@@ -390,14 +390,14 @@ IDTYPE typex(EXPRESSION* ex) {
       break;
     case STRING:
       idt.tb = 1;
-      idt.pointerstack = dactor(2);
+      idt.pointerstack = dactor(4);
       dclp = malloc(sizeof(struct declarator_part));
       dclp->type = POINTERSPEC;
       dapush(idt.pointerstack, dclp);
       break;
     case ARRAY_LIT:
       idt.tb = 1;//perhaps different size for pointer
-      idt.pointerstack = dactor(2);
+      idt.pointerstack = dactor(4);
       dclp = malloc(sizeof(struct declarator_part));
       dclp->type = POINTERSPEC;
       dapush(idt.pointerstack, dclp);
@@ -413,7 +413,7 @@ IDTYPE typex(EXPRESSION* ex) {
       exunflatten(ex);
       //fall through
     case SHR: case SHL: //pointers allowed in bitshift?
-      idt =  simplbinprec(typex(daget(ex->params, 0)), typex(daget(ex->params, 1)));
+      idt = simplbinprec(typex(daget(ex->params, 0)), typex(daget(ex->params, 1)));
       break;
     //for mult, div, etc. disallow pointers also ternary
     case MULT: case DIVI: //really unflatten?

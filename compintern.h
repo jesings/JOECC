@@ -313,6 +313,7 @@ void rfreexpr(EXPRESSION* e);
 void rfreestate(STATEMENT* s);
 void rfreefunc(FUNC* f);
 void freemd(struct macrodef* mds);
+void freemd2(struct macrodef* mds);
 EXPRESSION* rclonexpr(EXPRESSION* e);
 DECLARATION* mkdeclaration(char* name);
 INITIALIZER* geninit(DECLARATION* decl, EXPRESSION* expr);

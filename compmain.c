@@ -11,6 +11,10 @@ DYNARR* locs;
 DYNARR* file2compile;
 int ppdebug;
 //TODO: Variadic macros?
+static void freev(void* v) {
+  HASHPAIR* v2 = v;
+  rfreefunc(v2->value);
+}
 int main(int argc, char** argv) {
   ctx = ctxinit();
   locs = dactor(128);
@@ -60,8 +64,7 @@ int main(int argc, char** argv) {
       printprog(prog);
       puts("---------------------------------------");
       freeprog(prog);
-      rfreefunc(pairthere->value);
     }
   }
-  dadtor(funcky);
+  dadtorcfr(funcky, freev);
 }
