@@ -356,7 +356,7 @@ extern union {
     yy_push_state(DEFINE2); 
     mdstrdly = strctor(malloc(2048), 0, 2048); 
     defname = strdup(yytext);
-    insert(ctx->withindefines, strdup(yytext), NULL);
+    insert(ctx->withindefines, yytext, NULL);
     }
   {IDENT}/[[:blank:]] {
     yy_pop_state(); 
@@ -364,7 +364,7 @@ extern union {
     mdstrdly = strctor(malloc(2048), 0, 2048); 
     yy_push_state(KILLBLANK);
     defname = strdup(yytext);
-    insert(ctx->withindefines, strdup(yytext), NULL);
+    insert(ctx->withindefines, yytext, NULL);
     }
   {IDENT}\( {
     yy_pop_state(); 
@@ -373,7 +373,7 @@ extern union {
     defname = strdup(yytext);
     md->args = dactor(8); 
     argeaten = 0;
-    insert(ctx->withindefines, strdup(yytext), NULL);
+    insert(ctx->withindefines, yytext, NULL);
     }
   {IDENT}\(/[[:blank:]] {
     yy_pop_state(); 
@@ -383,7 +383,7 @@ extern union {
     defname = strdup(yytext); 
     md->args = dactor(8); 
     argeaten = 0;
-    insert(ctx->withindefines, strdup(yytext), NULL);
+    insert(ctx->withindefines, yytext, NULL);
     }
   \n {yy_pop_state(); yy_pop_state();/*error state*/}
   . {fprintf(stderr, "DEFINE: Unexpected character encountered: %c %s %d.%d-%d.%d %s %d.%d-%d.%d\n", *yytext, locprint(yylloc), locprint(yylloc));}
@@ -457,6 +457,8 @@ extern union {
     md->text = mdstrdly;
     insert(ctx->defines, defname, md);
     rmpair(ctx->withindefines, defname);
+    free(defname);
+    defname = NULL;
     }
 }
 
@@ -503,6 +505,8 @@ extern union {
       }
       dapush(ds, rids);
     }
+    free(defname);
+    defname = NULL;
     }
   . {fprintf(stderr, "IFDEF: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint(yylloc));}
 }
@@ -540,6 +544,8 @@ extern union {
       }
       dapush(ds, rids);
     }
+    free(defname);
+    defname = NULL;
     }
   . {fprintf(stderr, "IFNDEF: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint(yylloc));}
 }
@@ -603,7 +609,7 @@ extern union {
     }
 
   {IDENT} {
-    if(check_type(yytext, 2) != -1) {
+    if(check_type(strdup(yytext), 2) != -1) {
       dscat(dstrdly, yytext, yyleng);
     }
     }
@@ -652,12 +658,12 @@ extern union {
       yylloc = *yl;
       free(yl);
       free(dapop(file2compile));
-      if(ctx->argpp->length) {
-        rmpair(ctx->withindefines, defname);
-        struct arginfo* argi = dapop(ctx->argpp);
-        defname = argi->defname;
-        free(argi);
-      }
+      assert(ctx->argpp->length || !fprintf(stderr, "ERROR: macrostack state corrupted within macro call %s %d.%d-%d.%d\n", locprint(yylloc)));
+      rmpair(ctx->withindefines, defname);
+      struct arginfo* argi = dapop(ctx->argpp);
+      free(defname);
+      defname = argi->defname;
+      free(argi);
     }
     }
   <<EOF>> {
@@ -673,6 +679,7 @@ extern union {
       assert(ctx->argpp->length || !fprintf(stderr, "ERROR: macrostack state corrupted within macro call %s %d.%d-%d.%d\n", locprint(yylloc)));
       rmpair(ctx->withindefines, defname);
       struct arginfo* argi = dapop(ctx->argpp);
+      free(defname);
       defname = argi->defname;
       free(argi);
     }
@@ -777,6 +784,9 @@ extern union {
         parg = argi->parg;
       }
       free(argi);
+    } else {
+      free(defname);
+      defname = NULL;
     }
     }
 }
@@ -906,10 +916,11 @@ extern union {
   "defined"[[:blank:]]*"("[[:blank:]]* {yy_push_state(CHECKDEFINED);}
   "defined"[[:blank:]]*/{IDENT} {yy_push_state(CHECKDEFINED2);}
   {IDENT} {
-    char* ylstr = strdup(yytext);
-    int mt = check_type(ylstr, 0);
+    char* ds = strdup(yytext);
+    int mt = check_type(ds, 0);
     switch(mt) {
       default:
+        free(ds);
         zzlval.unum = 0;
         return UNSIGNED_LITERAL;
       case -1:
@@ -1142,6 +1153,10 @@ L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
     char* ismac = dapop(file2compile);
     rmpair(ctx->withindefines, ismac);
     free(ismac);
+    if(defname) {
+      free(defname);
+      defname = NULL;
+    }
     //rmpair is a no-op if not in hash
   }
 }
@@ -1159,6 +1174,10 @@ L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
     char* ismac = dapop(file2compile);
     rmpair(ctx->withindefines, ismac);
     free(ismac);
+    if(defname) {
+      free(defname);
+      defname = NULL;
+    }
     //rmpair is a no-op if not in hash
   }
 }
@@ -1180,7 +1199,7 @@ int check_type(char* symb, char frominitial) {
         yy_push_state(INITIAL);
         break;
       case 2:
-        //don't push callmacro
+        //don't push callmacro yet
         break;
     }
     if(macdef->args) {
@@ -1213,12 +1232,10 @@ int check_type(char* symb, char frominitial) {
         argi->defname = oldname;
         argi->parg = parg;
         dapush(ctx->argpp, argi);
-      } else {
-        free(oldname);
       }
       paren_depth = 0;
       dstrdly = strctor(malloc(2048), 0, 2048);
-      parg = dactor(64); 
+      parg = dactor(64);
     } else {
       char* buf = malloc(256);
       snprintf(buf, 256, "%s", symb);
@@ -1231,14 +1248,15 @@ int check_type(char* symb, char frominitial) {
       YY_BUFFER_STATE yms = yy_create_buffer(fmemopen(macdef->text->strptr, macdef->text->lenstr, "r"),
                                              YY_BUF_SIZE);
       yypush_buffer_state(yms);
-      insert(ctx->withindefines, strdup(symb), NULL);
+      insert(ctx->withindefines, symb, NULL);
       if(frominitial == 2) {
         struct arginfo* argi = calloc(1, sizeof(struct arginfo));
         argi->defname = oldname;
         dapush(ctx->argpp, argi);
         yy_push_state(CALLMACRO);
       } else {
-        free(oldname);
+        free(defname);
+        defname = NULL;
       }
     }
     return -1;

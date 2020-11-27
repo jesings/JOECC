@@ -146,6 +146,7 @@ void rmpair(HASHTABLE* ht, const char* key) {
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!(hp->key))
     return;
+  HASHPAIR* prev = NULL;
   for(; hp; hp = hp->next) {
     if(!strcmp(hp->key, key)) {
       free(hp->key);
@@ -155,10 +156,13 @@ void rmpair(HASHTABLE* ht, const char* key) {
         free(temp);
       } else {
         hp->key = NULL;
+        if(prev)
+          prev->next = NULL;
       }
       --ht->keys;
       return;
     }
+    prev = hp;
   }
 }
 
@@ -170,16 +174,14 @@ void rmpaircfr(HASHTABLE* ht, const char* key, void (*cfree)(void*)) {
   HASHPAIR* prev = NULL;
   for(; hp; hp = hp->next) {
     if(!strcmp(hp->key, key)) {
+      free(hp->key);
+      cfree(hp->value);
       if(hp->next) {
         HASHPAIR* temp = hp->next;
-        free(hp->key);
-        cfree(hp->value);
         memcpy(hp, hp->next, sizeof(HASHPAIR));
         free(temp);
       } else {
-        free(hp->key);
         hp->key = NULL;
-        cfree(hp->value);
         if(prev)
           prev->next = NULL;
       }
@@ -188,7 +190,6 @@ void rmpaircfr(HASHTABLE* ht, const char* key, void (*cfree)(void*)) {
     }
     prev = hp;
   }
-  return;
 }
 
 void* search(HASHTABLE* ht, const char* key) {

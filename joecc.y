@@ -186,6 +186,7 @@ initializer:
       }
     }
     add2scope(ctx, dc->varname, M_TYPEDEF, dc->type);
+    free(dc->varname);
     free(dc);
   }
 
@@ -250,7 +251,7 @@ initializer:
     add2scope(ctx, $2, M_STRUCT, NULL);
     insert(scopepeek(ctx)->forwardstructs, $2, dactor(16));
   }
-    //this is a no-op
+  free($2);
   }
 | "union" SYMBOL ';' {
   $$ = dactor(0);
@@ -258,7 +259,7 @@ initializer:
     add2scope(ctx, $2, M_UNION, NULL);
     insert(scopepeek(ctx)->forwardunions, $2, dactor(16));
   }
-    fprintf(stderr, "Error: redefinition of union %s in %s %d.%d-%d.%d\n", $2,  locprint(@$));
+  free($2);
   }
 | "enum" enumbody ';' {$$ = dactor(0); dadtorfr($2);}
 | fullstruct ';' {$$ = dactor(0);}
@@ -458,6 +459,7 @@ typews1:
     } else {
       fprintf(stderr, "Error: use of unknown type name %s in %s %d.%d-%d.%d\n", $1, locprint(@$));
     }
+    free($1);
     }
 | typem{ $$ = $1;}
 | types1 typews1 {$$ = $2; $$->tb |= $1;}
@@ -603,6 +605,7 @@ esu:
     if(!expr) {
       $$ = ct_ident_expr(ctx, $1);
     } else {
+      free($1);
       $$ = expr;
     }
     }
@@ -933,7 +936,9 @@ enum:
     $$ = (ENUM*) scopesearch(ctx, M_ENUM, $2);
     if(!$$) {
       fprintf(stderr, "Error: reference to undefined enum %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
-    }};
+    }
+    free($2);
+    };
 enumbody:
   '{' enums commaopt '}' {$$ = $2;};
 enums:
