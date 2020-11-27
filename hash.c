@@ -42,15 +42,6 @@ static void hpdtor(HASHPAIR* hp) {
   free(hp);
 }
 
-static void hpdtorfr(HASHPAIR* hp) {
-  free(hp->key);
-  free(hp->value);
-  if(hp->next) {
-    hpdtorfr(hp->next);
-  }
-  free(hp);
-}
-
 void htdtor(HASHTABLE* ht) {
   for(int i = 0; i < HASHSIZE; i++) {
     if(ht->pairs[i].key) {
@@ -62,6 +53,18 @@ void htdtor(HASHTABLE* ht) {
   free(ht);
 }
 
+static void hpdtorcfr(HASHPAIR* hp, void (*freep)(void*)) {
+  if(hp->key) {
+    free(hp->key);
+    freep(hp->value);
+  }
+  if(hp->next) {
+    hpdtorcfr(hp->next, freep);
+  }
+  free(hp);
+}
+
+
 void htdtorfr(HASHTABLE* ht) {
   for(int i = 0; i < HASHSIZE; i++) {
     if(ht->pairs[i].key) {
@@ -69,18 +72,9 @@ void htdtorfr(HASHTABLE* ht) {
       free(ht->pairs[i].value);
     }
     if(ht->pairs[i].next)
-      hpdtorfr(ht->pairs[i].next);
+      hpdtorcfr(ht->pairs[i].next, free);
   }
   free(ht);
-}
-
-static void hpdtorcfr(HASHPAIR* hp, void (*freep)(void*)) {
-  if(hp->next) {
-    free(hp->key);
-    freep(hp->value);
-    hpdtorcfr(hp->next, freep);
-  }
-  free(hp);
 }
 
 void htdtorcfr(HASHTABLE* ht, void (*freep)(void*)) {
@@ -154,13 +148,12 @@ void rmpair(HASHTABLE* ht, const char* key) {
     return;
   for(; hp; hp = hp->next) {
     if(!strcmp(hp->key, key)) {
+      free(hp->key);
       if(hp->next) {
         HASHPAIR* temp = hp->next;
-        free(hp->key);
-        memcpy(hp, hp->next, sizeof(HASHPAIR));
+        *hp = *hp->next;
         free(temp);
       } else {
-        free(hp->key);
         hp->key = NULL;
       }
       --ht->keys;

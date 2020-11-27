@@ -350,9 +350,9 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return curaddr;
     case IDENT:
       if(cexpr->id->index == -1) {
-        //global
-        //TODO: do something with this
-        assert(0);
+        curaddr.addr_type = addrconv(cexpr->id->type) | ISLABEL;
+        curaddr.addr.labelname = cexpr->id->name;
+        return curaddr;
       } else {
         return *(FULLADDR*) fixedsearch(prog->fixedvars, cexpr->id->index);
       }

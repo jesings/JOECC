@@ -7,20 +7,23 @@
 extern DYNARR* file2compile;
 extern YYLTYPE yylloc;
 
-STRUCT* structor(char* name, DYNARR* fields) {
+STRUCT* structor(char* name, DYNARR* fields, struct lexctx* lct) {
     STRUCT* retval = malloc(sizeof(STRUCT));
     retval->name = name;
     retval->fields = fields;
     retval->offsets = NULL;
     retval->size = 0;
+    dapush(lct->enstruct2free, retval);
     return retval;
 }
 
-UNION* unionctor(char* name, DYNARR* fields) {
+UNION* unionctor(char* name, DYNARR* fields, struct lexctx* lct) {
     UNION* retval = malloc(sizeof(UNION));
     retval->name = name;
     retval->fields = fields;
+    retval->hfields = NULL;
     retval->size = 0;
+    dapush(lct->enstruct2free, retval);
     return retval;
 }
 
@@ -61,8 +64,12 @@ EXPRESSION* ct_unary_expr(EXPRTYPE t, EXPRESSION* param) {
 }
 
 EXPRESSION* ct_sztype(IDTYPE* whichtype) {
-  if(!(whichtype->tb & (STRUCTVAL | ENUMVAL | UNIONVAL)))
-    return ct_intconst_expr(whichtype->tb & 0xf);
+  if(!(whichtype->tb & (STRUCTVAL | ENUMVAL | UNIONVAL))) {
+    EXPRESSION* ic =  ct_intconst_expr(whichtype->tb & 0xf);
+    //if(whichtype->pointerstack) dadtor(whichtype->pointerstack);
+    free(whichtype);
+    return ic;
+  }
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = SZOF;
   retval->rettype = NULL;//TODO: prepopulate here
@@ -83,10 +90,9 @@ EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2) {
 EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = CAST;
-  retval->rettype = NULL;
   retval->params = dactor(1);
   dapush(retval->params, expr);
-  retval->vartype = type;
+  retval->rettype = retval->vartype = type;
   return retval;
 }
 
@@ -141,19 +147,15 @@ EXPRESSION* ct_strconst_expr(const char* str) {
 EXPRESSION* ct_intconst_expr(long num) { 
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = INT;
-  retval->rettype = malloc(sizeof(IDTYPE));
-  retval->rettype->pointerstack = NULL;
-  retval->rettype->tb = 8;
   retval->intconst = num;
+  retval->rettype = NULL;
   return retval;
 }
 
 EXPRESSION* ct_uintconst_expr(unsigned long num) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = INT;
-  retval->rettype = malloc(sizeof(IDTYPE));
-  retval->rettype->pointerstack = NULL;
-  retval->rettype->tb = 8 | UNSIGNEDNUM;
+  retval->rettype = NULL;
   retval->uintconst = num;
   return retval;
 }
@@ -207,6 +209,9 @@ void wipestruct(STRUCT* strct) {
     freetype(dcl->type);
     free(dcl);
   }
+  dadtor(strct->fields);
+  if(strct->offsets) htdtorfr(strct->offsets);
+  if(strct->name) free(strct->name);
   free(strct);
 }
 
@@ -258,6 +263,7 @@ void rfreexpr(EXPRESSION* e) {
       dadtorcfr(e->params, (void(*)(void*)) rfreexpr);
       break;
     case SZOF: 
+      free(e->vartype);
       break;
     case UINT: case INT: case FLOAT:
       break;
@@ -290,7 +296,8 @@ void rfreexpr(EXPRESSION* e) {
       return;
     case FCALL:
       dadtorcfr(e->params, (void(*)(void*)) rfreexpr);
-      //rettype is from global?
+      dadtor(e->rettype->pointerstack);//only free storage, declarator parts from global
+      free(e->rettype);
       free(e);
       return;
     case ADDR:

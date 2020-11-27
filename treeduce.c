@@ -505,20 +505,6 @@ char foldconst(EXPRESSION** exa) {
     case IDENT: case INT: case UINT: case FLOAT: case STRING: case NOP: case ARRAY_LIT:
       return 0;
     case DOTOP: case ARROW:
-      //subexpr = EPARAM(ex, 0);
-      //rectexpr = EPARAM(ex, 1);
-      //char* poignant = rectexpr->member;
-      //if(idt->tb & STRUCTVAL) {
-      //  IDTYPE* idt = typex(subexpr);
-      //  if(!idt->structtype->offsets) {
-      //    feedstruct(some garbage)
-      //  }
-      //  long off = (long) search(idt->structtype->offsets, poignant);
-      //  figure out how to represent variable, type, whatever
-      //} else if(idt->tb & UNIONVAL) {
-      //} else {
-      //  error
-      //}
       return 0;
     case CAST:
       subexpr = EPARAM(ex, 0);
@@ -619,16 +605,18 @@ char foldconst(EXPRESSION** exa) {
         case NEG:
           subexpr = EPARAM(subexpr, 0);
           foldconst((EXPRESSION**) &LPARAM(subexpr, 0));
+          dadtorfr(ex->params);
           free(ex);
-          free(EPARAM(ex, 0));
           break;
         case INT: case UINT:
           subexpr->intconst = -subexpr->intconst;
           subexpr->type = INT;
+          dadtor(ex->params);
           free(ex);
           break;
         case FLOAT:
           subexpr->floatconst = -subexpr->floatconst;
+          dadtor(ex->params);
           free(ex);
           break;
         case COMMA:
@@ -642,7 +630,10 @@ char foldconst(EXPRESSION** exa) {
       subexpr = EPARAM(ex, 0);
       switch(subexpr->type) {
         case L_NOT:
+          rectexpr = subexpr;
           subexpr = EPARAM(subexpr, 0);
+          dadtor(rectexpr->params);
+          free(rectexpr);
           break;
         case EQ:
           subexpr->type = NEQ;
@@ -671,6 +662,7 @@ char foldconst(EXPRESSION** exa) {
         default:
           return 0;
       }
+      dadtor(ex->params);
       free(ex);
       *exa = subexpr;
       return 1;
@@ -680,7 +672,9 @@ char foldconst(EXPRESSION** exa) {
         case B_NOT:
           rectexpr = subexpr;
           subexpr = EPARAM(subexpr, 0);
+          dadtor(ex->params);
           free(ex);
+          dadtor(rectexpr->params);
           free(rectexpr);
           *exa = subexpr;
           return 1;
@@ -695,7 +689,9 @@ char foldconst(EXPRESSION** exa) {
         case DEREF:
           rectexpr = subexpr;
           subexpr = EPARAM(subexpr, 0);
+          dadtor(ex->params);
           free(ex);
+          dadtor(rectexpr->params);
           free(rectexpr);
           *exa = subexpr;
           return 1;
@@ -710,7 +706,9 @@ char foldconst(EXPRESSION** exa) {
         case ADDR:
           rectexpr = subexpr;
           subexpr = EPARAM(subexpr, 0);
+          dadtor(ex->params);
           free(ex);
+          dadtor(rectexpr->params);
           free(rectexpr);
           *exa = subexpr;
           return 1;

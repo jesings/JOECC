@@ -287,8 +287,8 @@ struct macrodef {
   DYNARR* args;//NULL if not function like
 };
 
-STRUCT* structor(char* name, DYNARR* fields);
-UNION* unionctor(char* name, DYNARR* fields);
+STRUCT* structor(char* name, DYNARR* fields, struct lexctx* lct);
+UNION* unionctor(char* name, DYNARR* fields, struct lexctx* lct);
 ENUM* enumctor(char* name, DYNARR* fields);
 EXPRESSION* cloneexpr(EXPRESSION* orig);
 EXPRESSION* ct_nop_expr(void);

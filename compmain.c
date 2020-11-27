@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
   }
   extern int yydebug;
   extern int zzdebug;
-  zzdebug = 1;
+  zzdebug = 0;
   yydebug = 0;
   ppdebug = 0;
   yyparse();
@@ -43,13 +43,7 @@ int main(int argc, char** argv) {
     close(inval);
   }
   htdtorcfr(ctx->defines, (void (*)(void*)) freemd);
-  //do some kind of scopestack traversal
-  //for(int i = 0; i < ctx->structs->length; i++) {
-  //  feedstruct(daget(ctx->structs, i));
-  //}
-  //for(int i = 0; i < ctx->unions->length; i++) {
-  //  unionlen(daget(ctx->unions, i));
-  //}
+  htdtorfr(ctx->withindefines);
   chdir("./functions");
   DYNARR* funcky = htpairs(ctx->funcs);
   puts("Functions defined:");
@@ -67,4 +61,5 @@ int main(int argc, char** argv) {
     }
   }
   dadtorcfr(funcky, freev);
+  dadtorcfr(ctx->enstruct2free, (void(*)(void*)) wipestruct);
 }

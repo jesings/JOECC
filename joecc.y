@@ -120,6 +120,7 @@ program:
         }
       }
       //dapush($$, gtb(0, $1));
+      free(aget($1, i)->decl);
     }
     dadtorfr($1);
   }
@@ -146,11 +147,12 @@ program:
         if(!(id->type->tb & EXTERNNUM)) {
           fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", aget($2, i)->decl->varname, locprint(@$));
         } else {
-          //freetype(aget($2, i)->decl->type);
           id->type = aget($2, i)->decl->type;
         }
       }
+      free(aget($2, i)->decl);
     }
+    //TODO: handle expression!!!
     dadtorfr($2);
   };
 initializer:
@@ -186,6 +188,9 @@ initializer:
     add2scope(ctx, dc->varname, M_TYPEDEF, dc->type);
     free(dc);
   }
+
+  dadtor($3);
+  free($2);
   $$ = dactor(0);
   }
 | type cs_inits ';' {
@@ -219,7 +224,8 @@ initializer:
       }
     }
     if(!ac->decl->type->pointerstack->length ||
-       (((struct declarator_part*) dapeek(ac->decl->type->pointerstack))->type != PARAMSSPEC)) {
+       ((((struct declarator_part*) dapeek(ac->decl->type->pointerstack))->type != PARAMSSPEC) &&
+       (((struct declarator_part*) dapeek(ac->decl->type->pointerstack))->type != NAMELESS_PARAMSSPEC))) {
       if(ctx->func) {
         HASHTABLE* ht = scopepeek(ctx)->members;
         SCOPEMEMBER* sm = search(ht, ac->decl->varname);
@@ -229,12 +235,14 @@ initializer:
         } else {
           fprintf(stderr, "Error: redefinition of identifier %s in %s %d.%d-%d.%d\n", ac->decl->varname, locprint(@$));
         }
+      } else {
       }
     } else {
       //TODO: ensure no prior definition
       insert(ctx->funcs, ac->decl->varname, NULL);
     }
   }
+  free($1);
   }
 | "struct" SYMBOL ';' {
   $$ = dactor(0);
@@ -357,6 +365,7 @@ param_decl:
         dapush(da, &($2->type->structtype));
       }
     }
+    free($1);
     $$ = $2; 
     };
 nameless:
@@ -396,7 +405,12 @@ typem:
 | "dbyte" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 2 | UNSIGNEDNUM;}
 | "qbyte" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 4 | UNSIGNEDNUM;}
 | "obyte" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 8 | UNSIGNEDNUM;}
-| "void" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = VOIDNUM;}
+| "void" {
+  void* addr = calloc(1, sizeof(IDTYPE));
+  $$ = addr;
+  $$->tb = VOIDNUM;
+  printf("%p\n", addr);
+  }
 | "single" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 4 | FLOATNUM;}
 | "double" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 8 | FLOATNUM;}
 | "int64" "double" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 10;/*garbage feature only here for compatibility(?)*/}
@@ -519,60 +533,52 @@ esas:
 esm:
   '(' type ')' esm {$$ = ct_cast_expr($2, $4);}
 | '(' type abstract_ptr ')' esm {
-  IDTYPE* idt = malloc(sizeof(IDTYPE));
-  memcpy(idt, $2, sizeof(IDTYPE));
-  if(idt->pointerstack) {
-    idt->pointerstack = damerge(daclone(idt->pointerstack), $3);
+  if($2->pointerstack) {
+    $2->pointerstack = damerge(daclone($2->pointerstack), $3);
   } else {
-    idt->pointerstack = $3;
+    $2->pointerstack = $3;
   }
-  $$ = ct_cast_expr(idt, $5);}
+  $$ = ct_cast_expr($2, $5);}
 | '(' type fptr ')' esm {
-  IDTYPE* idt = malloc(sizeof(IDTYPE));
-  memcpy(idt, $2, sizeof(IDTYPE));
-  if(idt->pointerstack) {
-    idt->pointerstack = damerge(daclone(idt->pointerstack), $3->type->pointerstack);
+  if($2->pointerstack) {
+    $2->pointerstack = damerge(daclone($2->pointerstack), $3->type->pointerstack);
   } else {
-    idt->pointerstack = $3->type->pointerstack;
+    $2->pointerstack = $3->type->pointerstack;
   }
   free($3->type);
   free($3);
-  $$ = ct_cast_expr(idt, $5);}
+  $$ = ct_cast_expr($2, $5);}
 | '(' type abstract_ptr fptr ')' esm {
-  IDTYPE* idt = malloc(sizeof(IDTYPE));
-  memcpy(idt, $2, sizeof(IDTYPE));
-  if(idt->pointerstack) {
-    idt->pointerstack = damerge(daclone(idt->pointerstack), $3);
+  if($2->pointerstack) {
+    $2->pointerstack = damerge(daclone($2->pointerstack), $3);
   } else {
-    idt->pointerstack = $3;
+    $2->pointerstack = $3;
   }
-  idt->pointerstack = damerge(daclone(idt->pointerstack), $4->type->pointerstack);
+  $2->pointerstack = damerge(daclone($2->pointerstack), $4->type->pointerstack);
   free($4->type);
   free($4);
-  $$ = ct_cast_expr(idt, $6);}
+  $$ = ct_cast_expr($2, $6);}
 | '(' type '(' abstract_ptr ')' fptr ')' esm {
-  IDTYPE* idt = malloc(sizeof(IDTYPE));
-  memcpy(idt, $2, sizeof(IDTYPE));
-  if(idt->pointerstack) {
-    idt->pointerstack = damerge(daclone(idt->pointerstack), $4);
+  if($2->pointerstack) {
+    $2->pointerstack = damerge(daclone($2->pointerstack), $4);
   } else {
-    idt->pointerstack = $4;
+    $2->pointerstack = $4;
   }
-  idt->pointerstack = damerge(daclone(idt->pointerstack), $6->type->pointerstack);
+  $2->pointerstack = damerge(daclone($2->pointerstack), $6->type->pointerstack);
   free($6->type);
   free($6);
-  $$ = ct_cast_expr(idt, $8);}
+  $$ = ct_cast_expr($2, $8);}
 | esca {$$ = $1;};
 esca:
   "++" esca {$$ = ct_unary_expr(PREINC, $2);}
 | "--" esca {$$ = ct_unary_expr(PREDEC, $2);}
-| '+' esm {$$ = ct_unary_expr(IDENT, $2);}
+| '+' esm {$$ = $2;}
 | '-' esm {$$ = ct_unary_expr(NEG, $2);}
 | '!' esm {$$ = ct_unary_expr(L_NOT, $2);}
 | '~' esm {$$ = ct_unary_expr(B_NOT, $2);}
 | '*' esm {$$ = ct_unary_expr(DEREF, $2);}
 | '&' esm {$$ = ct_unary_expr(ADDR, $2);}
-| "sizeof" '(' type abstract_ptr ')' {$$ = ct_uintconst_expr(sizeof(uintptr_t));}
+| "sizeof" '(' type abstract_ptr ')' {$$ = ct_uintconst_expr(sizeof(uintptr_t)); freetype($3); dadtorfr($4);}
 | "sizeof" '(' type ')' {$$ = ct_sztype($3);}
 | "sizeof" esca {$$ = ct_unary_expr(SZOFEXPR,$2);}
 | esp {$$ = $1;};
@@ -652,6 +658,7 @@ function:
     } else if(dp->type == NAMELESS_PARAMSSPEC) {
       IDTYPE* prm = dp->nameless_params->arr[0];
       assert((dp->nameless_params->length == 1 && (!prm->pointerstack || prm->pointerstack->length == 0) && prm->tb == VOIDNUM) || !fprintf (stderr, "Function has unnamed parameters at %s %d.%d-%d.%d\n", locprint(@1)));
+      dadtorcfr(dp->nameless_params, (void(*)(void*)) freetype);
       parammemb = paralector();
     } else {
       fprintf(stderr, "Function has malformed parameters at %s %d.%d-%d.%d\n", locprint(@1));
@@ -675,6 +682,7 @@ function:
     id->type = $2->type;
     add2scope(ctx, $2->varname, M_GLOBAL, id);
     free($2);
+    free($1);
     ctx->func = $$;
 
     scopepush(ctx);
@@ -766,13 +774,13 @@ fullunion:
     } else {
       fprintf(stderr, "Error: redefinition of union %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
     }} structbody {
-    $$ = unionctor($2, $4); 
+    $$ = unionctor($2, $4, ctx); 
     add2scope(ctx, $2, M_UNION, $$); 
     defbackward(ctx, M_UNION, $2, $$);
     };
 union:
   fullunion {$$ = $1;}
-| "union" structbody  {$$ = unionctor(NULL, $2);}
+| "union" structbody  {$$ = unionctor(NULL, $2, ctx);}
 | "union" generic_symbol {
     $$ = (UNION*) scopesearch(ctx, M_UNION, $2);
     if(!$$) {
@@ -794,13 +802,13 @@ fullstruct:
     } else {
       fprintf(stderr, "Error: redefinition of struct %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
     }} structbody {
-    $$ = structor($2, $4); 
+    $$ = structor($2, $4, ctx); 
     add2scope(ctx, $2, M_STRUCT, $$);
     defbackward(ctx, M_STRUCT, $2, $$);
     };
 struct:
   fullstruct {$$ = $1;}
-| "struct" structbody {$$ = structor(NULL, $2);}
+| "struct" structbody {$$ = structor(NULL, $2, ctx);}
 | "struct" generic_symbol {
     $$ = (STRUCT*) scopesearch(ctx, M_STRUCT, $2);
     if(!$$) {
@@ -858,7 +866,8 @@ struct_decl:
           dapush(da, &(dc->type->structtype));
         }
       }
-    }}
+    }
+    }
 | "struct" structbody ';' {
     for(int i = 0; i < $2->length; i++) {
       char* vn = dget($2, i)->varname;
@@ -872,7 +881,7 @@ struct_decl:
     }
     $$ = dactor(1);
     IDTYPE* tt = malloc(sizeof(IDTYPE));
-    tt->structtype = structor(NULL, $2);
+    tt->structtype = structor(NULL, $2, ctx);
     tt->pointerstack = NULL;
     tt->tb = STRUCTVAL | ANONMEMB;
     DECLARATION* dec = malloc(sizeof(DECLARATION));
@@ -893,7 +902,7 @@ struct_decl:
     }
     $$ = dactor(1);
     IDTYPE* tt = malloc(sizeof(IDTYPE));
-    tt->uniontype= unionctor(NULL, $2);
+    tt->uniontype= unionctor(NULL, $2, ctx);
     tt->pointerstack = NULL;
     tt->tb = UNIONVAL | ANONMEMB;
     DECLARATION* dec = malloc(sizeof(DECLARATION));
