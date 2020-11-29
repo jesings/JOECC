@@ -156,8 +156,10 @@ void rmpair(HASHTABLE* ht, const char* key) {
         free(temp);
       } else {
         hp->key = NULL;
-        if(prev)
+        if(prev) {
           prev->next = NULL;
+          free(hp);
+        }
       }
       --ht->keys;
       return;
@@ -182,8 +184,10 @@ void rmpaircfr(HASHTABLE* ht, const char* key, void (*cfree)(void*)) {
         free(temp);
       } else {
         hp->key = NULL;
-        if(prev)
+        if(prev) {
           prev->next = NULL;
+          free(hp);
+        }
       }
       --ht->keys;
       return;

@@ -116,8 +116,8 @@ EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params) {
 
   IDTYPE* retid = fcid(func->id->type);
   if(((struct declarator_part*) dapeek(ptrs))->type == POINTERSPEC) {
-    if(((struct declarator_part*) daget(ptrs, ptrs->length - 2))->type == PARAMSSPEC ||
-    ((struct declarator_part*) daget(ptrs, ptrs->length - 2))->type == NAMELESS_PARAMSSPEC) {
+    struct declarator_part* da2 = daget(ptrs, ptrs->length - 2);
+    if(da2->type == PARAMSSPEC || da2->type == NAMELESS_PARAMSSPEC) {
       retid->pointerstack->length -= 2; //shorten but no pop needed
     } else {
       assert(0);

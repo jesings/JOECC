@@ -383,16 +383,15 @@ param_decl:
     };
 nameless:
   namelesstype {$$ = dactor(16); dapush($$, $1);/*read only*/ }
-| nameless ',' namelesstype {$$ = $1; dapush($$, $1);/*read only*/ };
+| nameless ',' namelesstype {$$ = $1; dapush($$, $3);/*read only*/ };
 namelesstype:
   type {$$ = $1;}
 | type abstract_ptr {$$ = $1;
     //TODO: full clone
-    if($1->pointerstack) { 
-      $1->pointerstack = daclone($1->pointerstack);
-      $1->pointerstack = damerge($1->pointerstack, $2);
+    if($$->pointerstack) { 
+      $$->pointerstack = damerge(daclone($1->pointerstack), $2);
     } else {
-      $1->pointerstack = $2;
+      $$->pointerstack = $2;
     }};
 typemsign:
   "signed" {$$ = 0;}
@@ -427,7 +426,7 @@ typem:
     $$->structtype = $1;
     $$->tb = STRUCTVAL;
     if($1->fields == NULL) {
-      DYNARR* da = (DYNARR*) search(scopepeek(ctx)->forwardstructs, $1->name); 
+      DYNARR* da = (DYNARR*) search(scopepeek(ctx)->forwardstructs, $1->name);
       if(!da) 
         fprintf(stderr, "Error: struct %s undeclared in %s %d.%d-%d.%d\n", $1->name, locprint(@$));
       else
@@ -685,11 +684,11 @@ function:
     IDENTIFIERINFO* id = malloc(sizeof(IDENTIFIERINFO));
     id->index = -1;
     id->name = $2->varname;
-    $2->type->pointerstack = daclone($2->type->pointerstack);
     dp->type = PARAMSSPEC;
     dp->params = parammemb;
     dapush($2->type->pointerstack, dp);
     id->type = $2->type;
+    rmpaircfr(scopepeek(ctx)->members, $2->varname, free); //no-op if not predefined
     add2scope(ctx, $2->varname, M_GLOBAL, id);
     free($2);
     free($1);
@@ -785,6 +784,7 @@ fullunion:
       fprintf(stderr, "Error: redefinition of union %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
     }} structbody {
     $$ = unionctor($2, $4, ctx); 
+    rmpaircfr(scopepeek(ctx)->unions, $2, free); //no-op if not predefined
     add2scope(ctx, $2, M_UNION, $$); 
     defbackward(ctx, M_UNION, $2, $$);
     };
@@ -816,6 +816,7 @@ fullstruct:
       fprintf(stderr, "Error: redefinition of struct %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
     }} structbody {
     $$ = structor($2, $4, ctx); 
+    rmpaircfr(scopepeek(ctx)->structs, $2, free); //no-op if not predefined
     add2scope(ctx, $2, M_STRUCT, $$);
     defbackward(ctx, M_STRUCT, $2, $$);
     };
@@ -889,6 +890,7 @@ struct_decl:
         }
       }
     }
+    if(da) free($1->structtype);
     free($1);
     }
 | "struct" structbody ';' {
