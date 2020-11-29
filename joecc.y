@@ -406,12 +406,7 @@ typem:
 | "dbyte" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 2 | UNSIGNEDNUM;}
 | "qbyte" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 4 | UNSIGNEDNUM;}
 | "obyte" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 8 | UNSIGNEDNUM;}
-| "void" {
-  void* addr = calloc(1, sizeof(IDTYPE));
-  $$ = addr;
-  $$->tb = VOIDNUM;
-  printf("%p\n", addr);
-  }
+| "void"  {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = VOIDNUM;}
 | "single" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 4 | FLOATNUM;}
 | "double" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 8 | FLOATNUM;}
 | "int64" "double" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 10;/*garbage feature only here for compatibility(?)*/}
@@ -840,9 +835,24 @@ struct_decl:
       }
     }
     $$ = $2; 
-    DECLARATION* dc;
+    DYNARR* da = NULL;
+    if($1->tb & (ENUMVAL | STRUCTVAL | UNIONVAL)) {
+      if(!$1->structtype->fields) {
+        HASHTABLE* ht;
+        if($1->tb & STRUCTVAL) {
+          ht = scopepeek(ctx)->forwardstructs;
+        } else if($1->tb & UNIONVAL) {
+          ht = scopepeek(ctx)->forwardunions;
+        } else {
+          fprintf(stderr, "Error: forward declaration of unknown type %s at %s %d.%d-%d.%d\n", $1->structtype->name, locprint(@$));
+        }
+        da = search(ht, $1->structtype->name);
+        dapop(da);
+      }
+    }
+    
     for(int i = 0; i < $2->length; i++) {
-      dc = dget($$, i);
+      DECLARATION* dc = dget($$, i);
       dc->type->tb |= $1->tb; 
       if($1->pointerstack) {
         DYNARR* nptr = daclone($1->pointerstack);
@@ -853,23 +863,14 @@ struct_decl:
         }
       }
       if($1->tb & (ENUMVAL | STRUCTVAL | UNIONVAL)) {
-        if($1->structtype->fields) {
-           dc->type->structtype = $1->structtype;
-        } else {
-          HASHTABLE* ht;
-          if($1->tb & STRUCTVAL) {
-            ht = scopepeek(ctx)->forwardstructs;
-          } else if($1->tb & UNIONVAL) {
-            ht = scopepeek(ctx)->forwardunions;
-          } else {
-            fprintf(stderr, "Error: forward declaration of unknown type %s at %s %d.%d-%d.%d\n", $1->structtype->name, locprint(@$));
-            continue;
-          }
-          DYNARR* da = search(ht, $1->structtype->name);
+        if(da) {
           dapush(da, &(dc->type->structtype));
+        } else {
+           dc->type->structtype = $1->structtype;
         }
       }
     }
+    free($1);
     }
 | "struct" structbody ';' {
     for(int i = 0; i < $2->length; i++) {

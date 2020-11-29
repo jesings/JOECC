@@ -189,7 +189,11 @@ EXPRESSION* ct_member_expr(char* member) {
 EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = IDENT;
-  retval->id = scopesearch(lct, M_VARIABLE, ident);
+  IDENTIFIERINFO* ids = scopesearch(lct, M_VARIABLE, ident);
+  retval->id = malloc(sizeof(IDENTIFIERINFO));
+  retval->id->type = ids->type; //TODO: potentially we should clone?
+  retval->id->name = ident;
+  retval->id->index = ids->index;
   assert(retval->id || ! fprintf(stderr, "Error: use of undefined variable %s at %s %d.%d-%d.%d\n", ident, locprint(yylloc)));
   retval->rettype = retval->id->type;
   return retval;
@@ -290,8 +294,11 @@ void rfreexpr(EXPRESSION* e) {
     case DOTOP: case ARROW:
       dadtorcfr(e->params, (void(*)(void*)) rfreexpr);
       if(e->rettype) free(e->rettype);
-      //fall through
+      free(e);
+      return;
     case IDENT:
+      free(e->id->name);
+      free(e->id);
       free(e);
       return;
     case FCALL:
@@ -668,8 +675,12 @@ void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, void* assi
       fprintf(stderr, "Error: attempt to backwards define symbol of wrong type: %s\n", defnd);
       return;
   }
-  for(int i = 0; i < da->length; i++)
-    *(void**) daget(da, i) = assignval;
+  for(int i = 0; i < da->length; i++) {
+    void** vloc = daget(da, i);
+    void* oloc = *vloc;
+    *vloc = assignval;
+    free(oloc);
+  }
   dadtor(da);
 }
 
@@ -800,6 +811,11 @@ void fakescopepush(struct lexctx* lct) {
   dapush(lct->scopes, mkfakescope());
 }
 
+static void freeidi(void* sidi) {
+  SCOPEMEMBER* sidi2 = sidi;
+  free(sidi2->idi);
+  free(sidi);
+}
 void scopepop(struct lexctx* lct) {
   SCOPE* cleanup = dapop(lct->scopes);
   if(cleanup->truescope && (
@@ -810,12 +826,12 @@ void scopepop(struct lexctx* lct) {
     htdtorfr(cleanup->fakescope);
   } else {
     htdtorfr(cleanup->typesdef);//SCOPEMEMBER argument
-    htdtorfr(cleanup->members);//SCOPEMEMBER argument
+    htdtorcfr(cleanup->members, freeidi);//SCOPEMEMBER argument
     htdtorfr(cleanup->structs);
     htdtorfr(cleanup->enums);
     htdtorfr(cleanup->unions);
-    htdtorfr(cleanup->forwardstructs);
-    htdtorfr(cleanup->forwardunions);
+    htdtor(cleanup->forwardstructs);
+    htdtor(cleanup->forwardunions);
   } //TODO: free all members???
   free(cleanup);
 }

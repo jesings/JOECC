@@ -94,6 +94,7 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
 #define FREE2RET \
               subexpr->type = UINT; \
               free(rectexpr);  \
+              dadtor(ex->params);  \
               free(ex);  \
               *exa = subexpr; \
               return 1  
@@ -1498,36 +1499,16 @@ char foldconst(EXPRESSION** exa) {
         case INT: case UINT: case FLOAT:
           if(subexpr->uintconst == 0) {
             rfreexpr(EPARAM(ex, 1)); 
-            free(subexpr);
             *exa = EPARAM(ex, 2);
-            return 1;
           } else {
             rfreexpr(EPARAM(ex, 2)); 
-            free(subexpr);
             *exa = EPARAM(ex, 1);
-            return 1;
           }
+          free(subexpr);
+          dadtor(ex->params);
+          free(ex);
           rove = 1;
           break;
-        case COMMA:
-          rectexpr = dapeek(subexpr->params);
-          switch(rectexpr->type) {
-            case INT: case UINT: case FLOAT:
-              if(subexpr->uintconst == 0) {
-                rfreexpr(EPARAM(ex, 1)); 
-                free(subexpr);
-                dapush(subexpr->params, EPARAM(ex, 2));
-              } else {
-                rfreexpr(EPARAM(ex, 2)); 
-                free(subexpr);
-                dapush(subexpr->params, EPARAM(ex, 1));
-              }
-              free(ex);
-              *exa = subexpr;
-              return 1;
-            default:
-              break;
-          }
           default:
             break;
       }
