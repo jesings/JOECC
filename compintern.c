@@ -676,10 +676,10 @@ void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, void* assi
       return;
   }
   for(int i = 0; i < da->length; i++) {
-    void** vloc = daget(da, i);
-    void* oloc = *vloc;
+    STRUCT** vloc = daget(da, i);
+    STRUCT* oloc = *vloc;
     *vloc = assignval;
-    free(oloc);
+    if(oloc) free(oloc);
   }
   dadtor(da);
 }

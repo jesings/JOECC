@@ -609,8 +609,10 @@ extern union {
     }
 
   {IDENT} {
-    if(check_type(strdup(yytext), 2) != -1) {
+    char* dupdstr = strdup(yytext);
+    if(check_type(dupdstr, 2) != -1) {
       dscat(dstrdly, yytext, yyleng);
+      free(dupdstr);
     }
     }
   (0[bB]{BIN}+|0{OCT}+|[[:digit:]]+|0[xX][[:xdigit:]]+){INTSIZE}? {
