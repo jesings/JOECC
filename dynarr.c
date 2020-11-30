@@ -18,6 +18,11 @@ DYNARR* damerge(DYNARR* arr1, DYNARR* arr2) {
   } else if(!arr2->length) {
     dadtor(arr2);
     return arr1;
+  } else if(arr1->length + arr2->length < arr1->maxlength) {
+    memcpy(arr1->arr + arr1->length, arr2->arr, arr2->length * sizeof(void*));
+    arr1->length += arr2->length;
+    dadtor(arr2);
+    return arr1;
   }
   DYNARR* retval = malloc(sizeof(DYNARR));
   retval->maxlength = arr1->maxlength + arr2->maxlength;

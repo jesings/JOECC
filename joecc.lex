@@ -62,7 +62,6 @@ extern union {
 %option noyywrap
 %option stack
 
-%option debug
 %option warn
 %option nodefault
 
@@ -236,7 +235,7 @@ extern union {
     } else {
       stmtover = 1;
       yytext[yyleng - 1] = '\0'; //ignore closing >
-      char pathbuf[2048];
+      char pathbuf[256];
       static const char* searchpath[] = {
         "/usr/lib/gcc/x86_64-pc-linux-gnu/10.2.0/include",
         "/usr/local/include",
@@ -248,7 +247,7 @@ extern union {
       int i;
       for(i = 0; i < 4 /*sizeof searchpath*/; i++) {
         FILE* newbuf;
-        snprintf(pathbuf, 2048, "%s/%s", searchpath[i], yytext + 1); //ignore opening <
+        snprintf(pathbuf, 256, "%s/%s", searchpath[i], yytext + 1); //ignore opening <
         if((newbuf = fopen(pathbuf, "r")) != NULL) {
           YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
           *ylt = yylloc;
@@ -279,8 +278,8 @@ extern union {
       char* pfstr = dapeek(file2compile);
       char* fname = yytext + 1;
       if(strchr(pfstr, '/')) {
-          char pathbuf[2048];
-          strncpy(pathbuf, pfstr, 1792);
+          char pathbuf[512];
+          strncpy(pathbuf, pfstr, 256);
           char* nextptr = strrchr(pathbuf, '/') + 1;
           strncpy(nextptr, yytext + 1, 256);
           fname = strdup(pathbuf);
@@ -314,7 +313,7 @@ extern union {
     } else {
       stmtover = 1;
       yytext[yyleng - 1] = '\0'; //ignore closing >
-      char pathbuf[2048];
+      char pathbuf[256];
       static const char* searchpath[] = {
         "/usr/lib/gcc/x86_64-pc-linux-gnu/10.1.0/include/",
         "/usr/local/include/",
@@ -328,7 +327,7 @@ extern union {
       ++i;
       for(; i < 4 /*sizeof searchpath*/; ++i) {
         FILE* newbuf;
-        snprintf(pathbuf, 2048, "%s%s", searchpath[i], yytext + 1); //ignore opening
+        snprintf(pathbuf, 256, "%s%s", searchpath[i], yytext + 1); //ignore opening
         if((newbuf = fopen(pathbuf, "r")) != NULL) {
           YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
           *ylt = yylloc;
@@ -354,14 +353,14 @@ extern union {
   {IDENT} {
     yy_pop_state(); 
     yy_push_state(DEFINE2); 
-    mdstrdly = strctor(malloc(2048), 0, 2048); 
+    mdstrdly = strctor(malloc(256), 0, 256); 
     defname = strdup(yytext);
     insert(ctx->withindefines, yytext, NULL);
     }
   {IDENT}/[[:blank:]] {
     yy_pop_state(); 
     yy_push_state(DEFINE2); 
-    mdstrdly = strctor(malloc(2048), 0, 2048); 
+    mdstrdly = strctor(malloc(256), 0, 256); 
     yy_push_state(KILLBLANK);
     defname = strdup(yytext);
     insert(ctx->withindefines, yytext, NULL);
@@ -424,7 +423,7 @@ extern union {
     /*last arg encountered*/
     yy_pop_state();
     yy_push_state(DEFINE2); 
-    mdstrdly = strctor(malloc(2048), 0, 2048);
+    mdstrdly = strctor(malloc(256), 0, 256);
     }
   \)/[[:blank:]] {
     if(!argeaten && md->args->length != 0) 
@@ -432,7 +431,7 @@ extern union {
     /*last arg encountered*/
     yy_pop_state();
     yy_push_state(DEFINE2); 
-    mdstrdly = strctor(malloc(2048), 0, 2048); 
+    mdstrdly = strctor(malloc(256), 0, 256); 
     yy_push_state(KILLBLANK);
     }
   \n {yy_pop_state(); yy_pop_state();/*error state*/}
@@ -594,7 +593,7 @@ extern union {
           insert(defargs, prma[i], arga[i]);
         }
         dadtor(parg);
-        dstrdly = strctor(malloc(2048), 0, 2048);
+        dstrdly = strctor(malloc(256), 0, 256);
         yy_pop_state();
         yy_push_state(FINDREPLACE);
         YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
@@ -647,7 +646,7 @@ extern union {
       dscat(dstrdly, tmpstr, tmpstrl);
     } else {
       dapush(parg, dstrdly);
-      dstrdly = strctor(malloc(2048), 0, 2048);
+      dstrdly = strctor(malloc(256), 0, 256);
     }
     }
   \0 {
@@ -1058,7 +1057,7 @@ L?\' {yy_push_state(CHARLIT);}
     }
 }
 
-L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(2048), 0, 2048);}
+L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(256), 0, 256);}
 <STRINGLIT>{
   \" {/*"*/
     dsccat(strcur, 0);
@@ -1236,7 +1235,7 @@ int check_type(char* symb, char frominitial) {
         dapush(ctx->argpp, argi);
       }
       paren_depth = 0;
-      dstrdly = strctor(malloc(2048), 0, 2048);
+      dstrdly = strctor(malloc(256), 0, 256);
       parg = dactor(64);
     } else {
       char* buf = malloc(256);

@@ -1,6 +1,6 @@
 #ifndef HASH_H
 #define HASH_H
-#define HASHSIZE 4096
+#define HASHSIZE 256
 #include <stdlib.h>
 #include <string.h>
 #include "dynarr.h"
