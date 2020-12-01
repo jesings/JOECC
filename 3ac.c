@@ -149,6 +149,39 @@ FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srce
   return destaddr;
 }
 
+static FULLADDR prestep(enum opcode_3ac baseop, EXPRESSION* cexpr, PROGRAM* prog) {
+    FULLADDR destaddr, otheraddr;
+    enum opcode_3ac enop;
+    prog->lval = 1;
+    prog->fderef = 0;
+    destaddr = linearitree(daget(cexpr->params, 0), prog);
+    if(prog->fderef) {
+      IDTYPE idt = typex(daget(cexpr->params, 0));
+      otheraddr.addr_type = addrconv(&idt);
+      if(otheraddr.addr_type & ISFLOAT) {
+        enop = baseop + 2;
+      } else {
+        enop = otheraddr.addr_type & ISSIGNED ? baseop + 1 : baseop;
+      }
+      if(enop == (baseop + 2)) {
+        otheraddr.addr.fregnum = prog->fregcnt++;
+      } else {
+        otheraddr.addr.iregnum = prog->iregcnt++;
+      }
+      dapush(prog->ops, ct_3ac_op2(MFP_U + enop - baseop, destaddr.addr_type, destaddr.addr, otheraddr.addr_type, otheraddr.addr));
+      dapush(prog->ops, ct_3ac_op2(enop, otheraddr.addr_type, otheraddr.addr, otheraddr.addr_type, otheraddr.addr));
+      dapush(prog->ops, ct_3ac_op2(MTP_U + enop - baseop, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
+    } else {
+      if(destaddr.addr_type & ISFLOAT) {
+        enop = INC_F;
+      } else {
+        enop = destaddr.addr_type & ISSIGNED ? INC_I : INC_U;
+      }
+      dapush(prog->ops, ct_3ac_op2(enop, destaddr.addr_type, destaddr.addr, destaddr.addr_type, destaddr.addr));
+    }
+    return destaddr;
+}
+
 OPERATION* implicit_mtp_2(EXPRESSION* destexpr, EXPRESSION* fromexpr, FULLADDR a1, FULLADDR a2, PROGRAM* prog) {
   enum opcode_3ac op = MTP_U;
   IDTYPE destidt = typex(destexpr);
@@ -437,7 +470,9 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case LTE:
       return op2ret(prog->ops, cmpret_binary_3(LE_U, cexpr, prog));
 
-    case MOD: //TODO: prevent float
+    case MOD:
+      varty = typex(daget(cexpr->params, 0));
+      assert(!(varty.tb & FLOATNUM));
       return op2ret(prog->ops, cmpret_binary_3(MOD_U, cexpr, prog));
 
     case L_AND:
@@ -504,7 +539,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
           dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         }
       } else if(cexpr->vartype->tb & VOIDNUM) {
-        return curaddr; //not sure how this should b handled
+        return curaddr; //not sure how this should be handled
       } else if(cexpr->vartype->tb & 0xf) {
         FILLIREG(destaddr, (cexpr->vartype->tb & 0xf) | ISSIGNED);
         if(curaddr.addr_type & ISFLOAT) {
@@ -574,63 +609,9 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
     //TODO: inc pointer arithmetic
     case PREINC:
-      prog->lval = 1;
-      prog->fderef = 0;
-      destaddr = linearitree(daget(cexpr->params, 0), prog);
-      if(prog->fderef) {
-        IDTYPE idt = typex(daget(cexpr->params, 0));
-        otheraddr.addr_type = addrconv(&idt);
-        if(otheraddr.addr_type & ISFLOAT) {
-          enop = INC_F;
-        } else {
-          enop = otheraddr.addr_type & ISSIGNED ? INC_I : INC_U;
-        }
-        if(enop == INC_F) {
-          otheraddr.addr.fregnum = prog->fregcnt++;
-        } else {
-          otheraddr.addr.iregnum = prog->iregcnt++;
-        }
-        dapush(prog->ops, ct_3ac_op2(MFP_U + enop - INC_U, destaddr.addr_type, destaddr.addr, otheraddr.addr_type, otheraddr.addr));
-        dapush(prog->ops, ct_3ac_op2(enop, otheraddr.addr_type, otheraddr.addr, otheraddr.addr_type, otheraddr.addr));
-        dapush(prog->ops, ct_3ac_op2(MTP_U + enop - INC_U, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
-      } else {
-        if(destaddr.addr_type & ISFLOAT) {
-          enop = INC_F;
-        } else {
-          enop = destaddr.addr_type & ISSIGNED ? INC_I : INC_U;
-        }
-        dapush(prog->ops, ct_3ac_op2(enop, destaddr.addr_type, destaddr.addr, destaddr.addr_type, destaddr.addr));
-      }
-      return destaddr;
+      return prestep(INC_U, cexpr, prog);
     case PREDEC:
-      prog->lval = 1;
-      prog->fderef = 0;
-      destaddr = linearitree(daget(cexpr->params, 0), prog);
-      if(prog->fderef) {
-        IDTYPE idt = typex(daget(cexpr->params, 0));
-        otheraddr.addr_type = addrconv(&idt);
-        if(otheraddr.addr_type & ISFLOAT) {
-          enop = DEC_F;
-        } else {
-          enop = otheraddr.addr_type & ISSIGNED ? DEC_I : DEC_U;
-        }
-        if(enop == DEC_F) {
-          otheraddr.addr.fregnum = prog->fregcnt++;
-        } else {
-          otheraddr.addr.iregnum = prog->iregcnt++;
-        }
-        dapush(prog->ops, ct_3ac_op2(MFP_U + enop - DEC_U, destaddr.addr_type, destaddr.addr, otheraddr.addr_type, otheraddr.addr));
-        dapush(prog->ops, ct_3ac_op2(enop, otheraddr.addr_type, otheraddr.addr, otheraddr.addr_type, otheraddr.addr));
-        dapush(prog->ops, ct_3ac_op2(MTP_U + enop - DEC_U, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
-      } else {
-        if(destaddr.addr_type & ISFLOAT) {
-          enop = DEC_F;
-        } else {
-          enop = destaddr.addr_type & ISSIGNED ? DEC_I : DEC_U;
-        }
-        dapush(prog->ops, ct_3ac_op2(enop, destaddr.addr_type, destaddr.addr, destaddr.addr_type, destaddr.addr));
-      }
-      return destaddr;
+      return prestep(DEC_U, cexpr, prog);
     case POSTINC:
       prog->lval = 1;
       prog->fderef = 0;
