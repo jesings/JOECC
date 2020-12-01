@@ -483,34 +483,37 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       }
       destaddr.addr_type = ISCONST;
       return destaddr;
-    case CAST:
+    case CAST: //handle identity casts differently
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       if(cexpr->vartype->pointerstack && cexpr->vartype->pointerstack->length) {
         assert(!(curaddr.addr_type & ISFLOAT));
         FILLIREG(destaddr, 8 | ISPOINTER);
         dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-      } else if(cexpr->vartype->tb & INT) {
-        FILLIREG(destaddr, (cexpr->vartype->tb & 0xf) | ISSIGNED);
-        if(curaddr.addr_type & ISFLOAT) {
-          dapush(prog->ops, ct_3ac_op2(F2I, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-        } else {
-          dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-        }
-      } else if(cexpr->vartype->tb & UINT) {
-        FILLIREG(destaddr, cexpr->vartype->tb & 0xf);
-        if(curaddr.addr_type & ISFLOAT) {
-          dapush(prog->ops, ct_3ac_op2(F2I, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-        } else {
-          dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-        }
-      } else if(cexpr->vartype->tb & FLOAT) {
+      } else if(cexpr->vartype->tb & FLOATNUM) {
         FILLFREG(destaddr, (cexpr->vartype->tb & 0xf) | ISSIGNED | ISFLOAT);
         if(curaddr.addr_type & ISFLOAT) {
           dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         } else {
           dapush(prog->ops, ct_3ac_op2(I2F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         }
+      } else if(cexpr->vartype->tb & UNSIGNEDNUM) {
+        FILLIREG(destaddr, cexpr->vartype->tb & 0xf);
+        if(curaddr.addr_type & ISFLOAT) {
+          dapush(prog->ops, ct_3ac_op2(F2I, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+        } else {
+          dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+        }
+      } else if(cexpr->vartype->tb & VOIDNUM) {
+        return curaddr; //not sure how this should b handled
+      } else if(cexpr->vartype->tb & 0xf) {
+        FILLIREG(destaddr, (cexpr->vartype->tb & 0xf) | ISSIGNED);
+        if(curaddr.addr_type & ISFLOAT) {
+          dapush(prog->ops, ct_3ac_op2(F2I, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+        } else {
+          dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+        }
       } else {
+        //don't support casting structs and unions yet
         assert(0);
       }
       return destaddr;

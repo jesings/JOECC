@@ -64,6 +64,7 @@ extern union {
 
 %option warn
 %option nodefault
+%option debug
 
 %x MULTILINE_COMMENT SINGLELINE_COMMENT
 %x PREPROCESSOR INCLUDE INCLUDENEXT
@@ -659,12 +660,6 @@ extern union {
       yylloc = *yl;
       free(yl);
       free(dapop(file2compile));
-      assert(ctx->argpp->length || !fprintf(stderr, "ERROR: macrostack state corrupted within macro call %s %d.%d-%d.%d\n", locprint(yylloc)));
-      rmpair(ctx->withindefines, defname);
-      struct arginfo* argi = dapop(ctx->argpp);
-      free(defname);
-      defname = argi->defname;
-      free(argi);
     }
     }
   <<EOF>> {
@@ -677,12 +672,6 @@ extern union {
       yylloc = *yl;
       free(yl);
       free(dapop(file2compile));
-      assert(ctx->argpp->length || !fprintf(stderr, "ERROR: macrostack state corrupted within macro call %s %d.%d-%d.%d\n", locprint(yylloc)));
-      rmpair(ctx->withindefines, defname);
-      struct arginfo* argi = dapop(ctx->argpp);
-      free(defname);
-      defname = argi->defname;
-      free(argi);
     }
     }
   . {fprintf(stderr, "Error: unexpected character in function macro call %s %d.%d-%d.%d\n", locprint(yylloc));}
