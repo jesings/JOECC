@@ -316,9 +316,9 @@ extern union {
       yytext[yyleng - 1] = '\0'; //ignore closing >
       char pathbuf[256];
       static const char* searchpath[] = {
-        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.1.0/include/",
+        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.2.0/include/",
         "/usr/local/include/",
-        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.1.0/include-fixed/",
+        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.2.0/include-fixed/",
         "/usr/include/",
         };
       yy_pop_state();
@@ -567,43 +567,35 @@ extern union {
       if(!(mdl = search(ctx->defines, defname))) {
         fprintf(stderr, "Error: Malformed function-like macro call %s %d.%d-%d.%d\n", locprint(yylloc));
         //error state
-      } else if(parg->length != mdl->args->length) {
-        insert(ctx->withindefines, defname, NULL);
-        if(mdl->args->length == 0 && parg->length == 1
-           && *(dstrdly->strptr) == 0) {
-          dadtorcfr(parg, (void(*)(void*)) strdtor);
-          yy_pop_state();
-          YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(defname, strlen(defname), "r"), YY_BUF_SIZE);//TODO: strlen inefficient
-          yypush_buffer_state(ybs);
-          char buf[256];
-          snprintf(buf, 256, "%s", defname);
-          yylloc.first_line = yylloc.last_line = 1;
-          yylloc.first_column = yylloc.last_column = 0;
-          dapush(file2compile, strdup(buf));
-        } else {
+        yy_pop_state();
+      } else {
+        if(mdl->args->length == 0 && parg->length == 1) {
+          strdtor(dapop(parg));
+        }
+        if(parg->length != mdl->args->length) {
           fprintf(stderr, "Error: the number of arguments passed to function-like macro is different than the number of parameters %s %d.%d-%d.%d\n", locprint(yylloc));
           //error state
+        } else {
+          insert(ctx->withindefines, defname, NULL);
+          DYNARR* argn = mdl->args;
+          defargs = htctor();
+          char** prma = (char**) argn->arr;
+          DYNSTR** arga = (DYNSTR**) parg->arr;
+          for(int i = 0; i < parg->length; i++) {
+            insert(defargs, prma[i], arga[i]);
+          }
+          dadtor(parg);
+          dstrdly = strctor(malloc(256), 0, 256);
+          yy_pop_state();
+          yy_push_state(FINDREPLACE);
+          YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
+          *ylt = yylloc;
+          dapush(locs, ylt);
+          yylloc.first_line = yylloc.last_line = 1;
+          yylloc.first_column = yylloc.last_column = 0;
+          YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(mdl->text->strptr, mdl->text->lenstr, "r"), YY_BUF_SIZE);
+          yypush_buffer_state(ybs);
         }
-      } else {
-        insert(ctx->withindefines, defname, NULL);
-        DYNARR* argn = mdl->args;
-        defargs = htctor();
-        char** prma = (char**) argn->arr;
-        DYNSTR** arga = (DYNSTR**) parg->arr;
-        for(int i = 0; i < parg->length; i++) {
-          insert(defargs, prma[i], arga[i]);
-        }
-        dadtor(parg);
-        dstrdly = strctor(malloc(256), 0, 256);
-        yy_pop_state();
-        yy_push_state(FINDREPLACE);
-        YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
-        *ylt = yylloc;
-        dapush(locs, ylt);
-        yylloc.first_line = yylloc.last_line = 1;
-        yylloc.first_column = yylloc.last_column = 0;
-        YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(mdl->text->strptr, mdl->text->lenstr, "r"), YY_BUF_SIZE);
-        yypush_buffer_state(ybs);
       }
     }
     }
@@ -660,6 +652,11 @@ extern union {
       yylloc = *yl;
       free(yl);
       free(dapop(file2compile));
+      struct arginfo* ai = dapop(ctx->argpp);
+      rmpair(ctx->withindefines, defname);
+      free(defname);
+      defname = ai->defname;
+      free(ai);
     }
     }
   <<EOF>> {
@@ -672,6 +669,11 @@ extern union {
       yylloc = *yl;
       free(yl);
       free(dapop(file2compile));
+      struct arginfo* ai = dapop(ctx->argpp);
+      rmpair(ctx->withindefines, defname);
+      free(defname);
+      defname = ai->defname;
+      free(ai);
     }
     }
   . {fprintf(stderr, "Error: unexpected character in function macro call %s %d.%d-%d.%d\n", locprint(yylloc));}

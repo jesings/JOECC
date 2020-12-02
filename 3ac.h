@@ -111,7 +111,7 @@ OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
 FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog);
 FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char prevval);
 void initializestate(INITIALIZER* i, PROGRAM* prog);
-OPERATION* cmptype(EXPRESSION* cmpexpr, char* addr2jmp, char negate, PROGRAM* prog);
+OPERATION* cmptype(EXPRESSION* cmpexpr, ADDRESS addr2jmp, char negate, PROGRAM* prog);
 void solidstate(STATEMENT* cst, PROGRAM* prog);
 FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srcexpr, PROGRAM* prog);
 OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,

@@ -7,7 +7,7 @@ NOTE: JOECC is a work-in progress, and currently cannot fully compile code
 
 - [x] Lexer
 - [x] Parser
-- [ ] Preprocessor (part of lexer) (bugfixing [with macro preparsing])
+- [x] Preprocessor (part of lexer) (bugfixing [with macro preparsing])
 - [x] AST generation
 - [x] AST optimization
 - [x] AST display using graphviz
