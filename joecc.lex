@@ -769,13 +769,18 @@ extern union {
     htdtorcfr(defargs, (void(*)(void*)) strdtor);
     if(ctx->argpp->length) {
       struct arginfo* argi = dapop(ctx->argpp);
-      defname = argi->defname;
       if(argi->argi) {
         dstrdly = argi->argi;
         paren_depth = argi->pdepth;
         parg = argi->parg;
+        argi->argi = NULL;
+        dapush(ctx->argpp, argi);
+        insert(ctx->withindefines, defname, NULL);
+      } else {
+        free(defname);
+        defname = argi->defname;
+        free(argi);
       }
-      free(argi);
     } else {
       free(defname);
       defname = NULL;
@@ -1224,6 +1229,7 @@ int check_type(char* symb, char frominitial) {
         argi->defname = oldname;
         argi->parg = parg;
         dapush(ctx->argpp, argi);
+        yy_push_state(CALLMACRO);
       }
       paren_depth = 0;
       dstrdly = strctor(malloc(256), 0, 256);
