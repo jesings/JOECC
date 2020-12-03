@@ -59,4 +59,5 @@ int main(int argc, char** argv) {
   }
   dadtorcfr(funcky, freev);
   dadtorcfr(ctx->enstruct2free, (void(*)(void*)) wipestruct);
+  //dadtorcfr(ctx->globals, (void(*)(void*))freeinit);
 }

@@ -146,6 +146,7 @@ struct lexctx {
   EXPRESSION* ifexpr;
   DYNARR* argpp;
   DYNARR* enstruct2free;
+  DYNARR* globals;
 };
 
 typedef struct {
@@ -291,6 +292,7 @@ STRUCT* structor(char* name, DYNARR* fields, struct lexctx* lct);
 UNION* unionctor(char* name, DYNARR* fields, struct lexctx* lct);
 ENUM* enumctor(char* name, DYNARR* fields);
 EXPRESSION* cloneexpr(EXPRESSION* orig);
+DYNARR* ptrdaclone(DYNARR* opointerstack);
 EXPRESSION* ct_nop_expr(void);
 EXPRESSION* ct_unary_expr(EXPRTYPE t, EXPRESSION* param);
 EXPRESSION* ct_sztype(IDTYPE* whichtype);

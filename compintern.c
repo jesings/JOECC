@@ -47,6 +47,43 @@ EXPRESSION* cloneexpr(EXPRESSION* orig) {
   return clone;
 }
 
+static IDTYPE* fcid2(IDTYPE* idt) {
+  IDTYPE* idr = malloc(sizeof(IDTYPE));
+  memcpy(idr, idt, sizeof(IDTYPE));
+  idr->pointerstack = ptrdaclone(idt->pointerstack);
+  return idr;
+}
+
+DYNARR* ptrdaclone(DYNARR* opointerstack) {
+  DYNARR* npointerstack = dactor(opointerstack->maxlength);
+  for(int i = 0; i < opointerstack->length; i++) {
+    struct declarator_part* dclp = malloc(sizeof(struct declarator_part));
+    memcpy(dclp, opointerstack->arr[i], sizeof(struct declarator_part));
+    switch(dclp->type) {
+      case PARAMSSPEC:
+        assert(0); //we just don't handle this (yet?)
+        break;
+      case NAMELESS_PARAMSSPEC:
+        dclp->nameless_params = daclone(dclp->nameless_params);
+        for(int j = 0; j < dclp->nameless_params->length; j++) {
+          dclp->nameless_params->arr[j] = fcid2(dclp->nameless_params->arr[j]);
+        }
+        break;
+      case POINTERSPEC:
+        break;
+      case ARRAYSPEC:
+        //TODO: recursive clone
+        dclp->arrspec = cloneexpr(dclp->arrspec);
+        break;
+      case BITFIELDSPEC:
+        assert(0); //TODO: handle bitfields
+    }
+    npointerstack->arr[i] = dclp;
+  }
+  npointerstack->length = opointerstack->length;
+  return npointerstack;
+}
+
 EXPRESSION* ct_nop_expr(void) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = NOP;
@@ -240,7 +277,7 @@ void freetype(IDTYPE* id) {
         case POINTERSPEC:
           break;
         case ARRAYSPEC:
-          rfreexpr(dclp->arrspec);
+          if(dclp->arrspec) rfreexpr(dclp->arrspec);
           break;
         case BITFIELDSPEC:
           rfreexpr(dclp->bfspec);
@@ -343,17 +380,13 @@ void rfreestate(STATEMENT* s) {
       break;
     case CASE: //maybe this needs to be freed from the labeltable
     case JGOTO:  case LABEL:
-      free(s->glabel);
+      //free(s->glabel); already handled in 3ac, unless we strdup
+      //TODO: strdup
       break;
-    case SWITCH: ;
-      DYNARR* da = htpairs(s->labeltable->ht);
-      for(int i = 0; i < da->length; i++) {
-        HASHPAIR* hp = daget(da, i);
-        EXPRESSION* ex = hp->value;
-        rfreexpr(ex);
-      }
-      paraledtor(s->labeltable);
-      dadtor(da);
+    case SWITCH:
+      fhtdtor(s->labeltable->ht);//labels already freed in 3ac
+      dadtor(s->labeltable->da);
+      free(s->labeltable);
       //fall through
     case WHILEL: case DOWHILEL:
       rfreestate(s->body);
@@ -371,26 +404,28 @@ void rfreestate(STATEMENT* s) {
       free(s->forinit);
       break;
     case CMPND:
-      for(int i = 0; i < s->stmtsandinits->length; i++) {
-        SOI* soi = daget(s->stmtsandinits, i);
-        if(soi->isstmt) {
-          rfreestate(soi->state);
-        } else {
-          for(int j = 0; j < soi->init->length; j++) {
-            INITIALIZER* in = daget(soi->init, j);
-            if(in->expr) {
-              rfreexpr(in->expr);
+      if(s->stmtsandinits) {
+        for(int i = 0; i < s->stmtsandinits->length; i++) {
+          SOI* soi = daget(s->stmtsandinits, i);
+          if(soi->isstmt) {
+            rfreestate(soi->state);
+          } else {
+            for(int j = 0; j < soi->init->length; j++) {
+              INITIALIZER* in = daget(soi->init, j);
+              if(in->expr) {
+                rfreexpr(in->expr);
+              }
+              freetype(in->decl->type);
+              free(in->decl->varname);
+              free(in->decl);
+              free(in);
             }
-            freetype(in->decl->type);
-            free(in->decl->varname);
-            free(in->decl);
-            free(in);
+            dadtor(soi->init);
           }
-          dadtor(soi->init);
+          free(soi);
         }
-        free(soi);
+        dadtor(s->stmtsandinits);
       }
-      dadtor(s->stmtsandinits);
       break;
     case FRET:
       if(!s->expression) break;
@@ -586,6 +621,7 @@ STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label) {
   switch(casexpr->type) {
     case INT: case UINT:
       pfinsert(pl, casexpr->uintconst, label);
+      free(casexpr);
       break;
     default:
       fprintf(stderr, "Error: case has nonrectifiable value\n");
@@ -785,6 +821,7 @@ struct lexctx* ctxinit(void) {
   lct->withindefines = htctor();
   lct->argpp = dactor(16);
   lct->enstruct2free = dactor(1024);
+  lct->globals = dactor(1024);
   lct->defines = htctor();
   declmacro(lct->defines, "__STDC__", "1");
   declmacro(lct->defines, "__STDC_VERSION__", "201710L");

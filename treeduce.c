@@ -1509,8 +1509,8 @@ char foldconst(EXPRESSION** exa) {
           free(ex);
           rove = 1;
           break;
-          default:
-            break;
+        default:
+          break;
       }
       return rove;
     case FCALL:

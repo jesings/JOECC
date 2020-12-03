@@ -102,23 +102,25 @@ program:
 | initializer {
     $$ = NULL;
     for(int i = 0; i < $1->length; i++) {
-      if(!scopequeryval(ctx, M_VARIABLE, aget($1, i)->decl->varname)) {
+      INITIALIZER* a2 = daget($1, i);
+      if(!scopequeryval(ctx, M_VARIABLE, a2->decl->varname)) {
         IDENTIFIERINFO* id = malloc(sizeof(IDENTIFIERINFO));
         id->index = -1;
-        id->name = aget($1, i)->decl->varname;
-        id->type = aget($1, i)->decl->type;
-        add2scope(ctx, aget($1, i)->decl->varname, M_GLOBAL, id);
+        id->name = a2->decl->varname;
+        id->type = a2->decl->type;
+        add2scope(ctx, a2->decl->varname, M_GLOBAL, id);
+        dapush(ctx->globals, a2);//check if function prototype, only insert if not? don't free decl?
       } else {
-        IDENTIFIERINFO* id = scopesearch(ctx, M_VARIABLE, aget($1, i)->decl->varname);
+        IDENTIFIERINFO* id = scopesearch(ctx, M_VARIABLE, a2->decl->varname);
         if(!(id->type->tb & EXTERNNUM)) {
-          fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", aget($1, i)->decl->varname, locprint(@$));
+          fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", a2->decl->varname, locprint(@$));
         } else {
-          freetype(aget($1, i)->decl->type);
-          id->type = aget($1, i)->decl->type;
+          freetype(a2->decl->type);
+          id->type = a2->decl->type;
         }
       }
-      //dapush($$, gtb(0, $1));
-      free(aget($1, i)->decl);
+      free(a2->decl);
+      if(a2->expr) rfreexpr(a2->expr);
     }
     dadtorfr($1);
   }
@@ -134,21 +136,24 @@ program:
 | program initializer {
     $$ = $1;
     for(int i = 0; i < $2->length; i++) {
-      if(!scopequeryval(ctx, M_VARIABLE, aget($2, i)->decl->varname)) {
+      INITIALIZER* a2 = daget($2, i);
+      if(!scopequeryval(ctx, M_VARIABLE, a2->decl->varname)) {
         IDENTIFIERINFO* id = malloc(sizeof(IDENTIFIERINFO));
         id->index = -1;
-        id->name = aget($2, i)->decl->varname;
-        id->type = aget($2, i)->decl->type;
-        add2scope(ctx, aget($2, i)->decl->varname, M_GLOBAL, id);
+        id->name = a2->decl->varname;
+        id->type = a2->decl->type;
+        add2scope(ctx, a2->decl->varname, M_GLOBAL, id);
+        dapush(ctx->globals, a2);//check if function prototype, only insert if not? don't free decl?
       } else {
-        IDENTIFIERINFO* id = scopesearch(ctx, M_VARIABLE, aget($2, i)->decl->varname);
+        IDENTIFIERINFO* id = scopesearch(ctx, M_VARIABLE, a2->decl->varname);
         if(!(id->type->tb & EXTERNNUM)) {
-          fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", aget($2, i)->decl->varname, locprint(@$));
+          fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", a2->decl->varname, locprint(@$));
         } else {
-          id->type = aget($2, i)->decl->type;
+          id->type = a2->decl->type;
         }
       }
-      free(aget($2, i)->decl);
+      free(a2->decl);
+      if(a2->expr) rfreexpr(a2->expr);//don't free like this
     }
     //TODO: handle expression!!!
     dadtorfr($2);
@@ -176,7 +181,7 @@ initializer:
     dc = dget($3, i);
     dc->type->tb |= $2->tb;
     if($2->pointerstack) {
-      DYNARR* nptr = daclone($2->pointerstack);
+      DYNARR* nptr = ptrdaclone($2->pointerstack);
       if(dc->type->pointerstack)
         dc->type->pointerstack = damerge(nptr, dc->type->pointerstack);
       else
@@ -221,7 +226,7 @@ initializer:
     ac = aget($$, i);
     ac->decl->type->tb |= $1->tb; 
     if($1->pointerstack) {
-      DYNARR* nptrst = daclone($1->pointerstack);
+      DYNARR* nptrst = ptrdaclone($1->pointerstack);
       if(ac->decl->type->pointerstack)
         ac->decl->type->pointerstack = damerge(nptrst, ac->decl->type->pointerstack);
       else 
@@ -390,7 +395,7 @@ param_decl:
   type declarator {
     $2->type->tb |= $1->tb;
     if($1->pointerstack) {
-      DYNARR* nptr = daclone($1->pointerstack);
+      DYNARR* nptr = ptrdaclone($1->pointerstack);
       if($1->pointerstack)
         $2->type->pointerstack = damerge(nptr, $2->type->pointerstack); 
       else 
@@ -428,11 +433,11 @@ nameless:
     }
 | nameless ',' param_decl {$$ = $1; dapush($$, $3->type); free($3->varname); free($3);/*read only*/ };
 namelesstype:
-  type {$$ = $1;}
+  type {$$ = $1; if($$->pointerstack) $$->pointerstack = ptrdaclone($$->pointerstack);}
 | type abstract_ptr {$$ = $1;
     //TODO: full clone
     if($$->pointerstack) { 
-      $$->pointerstack = damerge(daclone($1->pointerstack), $2);
+      $$->pointerstack = damerge(ptrdaclone($1->pointerstack), $2);
     } else {
       $$->pointerstack = $2;
     }};
@@ -582,17 +587,17 @@ esas:
 | esas '%' esm {$$ = ct_binary_expr(MOD, $1, $3);}
 | esm {$$ = $1;};
 esm:
-  '(' type ')' esm {$$ = ct_cast_expr($2, $4);}
+  '(' type ')' esm {if($2->pointerstack) $2->pointerstack = ptrdaclone($2->pointerstack); $$ = ct_cast_expr($2, $4);}
 | '(' type abstract_ptr ')' esm {
   if($2->pointerstack) {
-    $2->pointerstack = damerge(daclone($2->pointerstack), $3);
+    $2->pointerstack = damerge(ptrdaclone($2->pointerstack), $3);
   } else {
     $2->pointerstack = $3;
   }
   $$ = ct_cast_expr($2, $5);}
 | '(' type spefptr ')' esm {
   if($2->pointerstack) {
-    $2->pointerstack = damerge(daclone($2->pointerstack), $3->type->pointerstack);
+    $2->pointerstack = damerge(ptrdaclone($2->pointerstack), $3->type->pointerstack);
   } else {
     $2->pointerstack = $3->type->pointerstack;
   }
@@ -601,11 +606,11 @@ esm:
   $$ = ct_cast_expr($2, $5);}
 | '(' type abstract_ptr spefptr ')' esm {
   if($2->pointerstack) {
-    $2->pointerstack = damerge(daclone($2->pointerstack), $3);
+    $2->pointerstack = damerge(ptrdaclone($2->pointerstack), $3);
   } else {
     $2->pointerstack = $3;
   }
-  $2->pointerstack = damerge(daclone($2->pointerstack), $4->type->pointerstack);
+  $2->pointerstack = damerge(ptrdaclone($2->pointerstack), $4->type->pointerstack);
   free($4->type);
   free($4);
   $$ = ct_cast_expr($2, $6);}
@@ -619,8 +624,15 @@ esca:
 | '~' esm {$$ = ct_unary_expr(B_NOT, $2);}
 | '*' esm {$$ = ct_unary_expr(DEREF, $2);}
 | '&' esm {$$ = ct_unary_expr(ADDR, $2);}
-| "sizeof" '(' type abstract_ptr ')' {$$ = ct_uintconst_expr(sizeof(uintptr_t)); freetype($3); dadtorfr($4);}
-| "sizeof" '(' type ')' {$$ = ct_sztype($3);}
+| "sizeof" '(' type abstract_ptr ')' {$$ = ct_uintconst_expr(sizeof(uintptr_t)); free($3); dadtorfr($4);}
+| "sizeof" '(' type ')' {
+    if($3->pointerstack && $3->pointerstack->length) {
+      free($3);
+      $$ = ct_uintconst_expr(sizeof(uintptr_t));
+    } else {
+    $$ = ct_sztype($3);
+    }
+    }
 | "sizeof" esca {$$ = ct_unary_expr(SZOFEXPR,$2);}
 | esp {$$ = $1;};
 esp:
@@ -645,7 +657,7 @@ esu:
       $$ = ct_ident_expr(ctx, $1);
     } else {
       free($1);
-      $$ = expr;
+      $$ = ct_intconst_expr(expr->intconst);
     }
     }
 | error {
@@ -677,7 +689,7 @@ function:
     struct declarator_part* dp = dapop($2->type->pointerstack);
     $2->type->tb |= $1->tb;
     if($1->pointerstack) {
-      $2->type->pointerstack = damerge(daclone($1->pointerstack), $2->type->pointerstack);
+      $2->type->pointerstack = damerge(ptrdaclone($1->pointerstack), $2->type->pointerstack);
     }
     if($1->tb & (STRUCTVAL | ENUMVAL | UNIONVAL)) {
       if($1->structtype->fields) {
@@ -908,7 +920,7 @@ struct_decl:
       DECLARATION* dc = dget($$, i);
       dc->type->tb |= $1->tb; 
       if($1->pointerstack) {
-        DYNARR* nptr = daclone($1->pointerstack);
+        DYNARR* nptr = ptrdaclone($1->pointerstack);
         if(dc->type->pointerstack) {
           dc->type->pointerstack = damerge(nptr, dc->type->pointerstack);
         } else {
@@ -1003,8 +1015,9 @@ enums:
     add2scope(ctx, $1, M_ENUM_CONST, const0);
     }
 | SYMBOL '=' esc {$$ = dactor(256);
-    dapush($$, genenumfield($1,$3)); 
-    add2scope(ctx, $1, M_ENUM_CONST, $3);
+    ENUMFIELD* ef = genenumfield($1,$3);
+    dapush($$, ef); 
+    add2scope(ctx, $1, M_ENUM_CONST, ef->value);
     }
 | enums ',' SYMBOL {
     $$ = $1; 

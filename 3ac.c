@@ -385,9 +385,21 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return curaddr;
     case IDENT:
       if(cexpr->id->index == -1) {
-        curaddr.addr_type = addrconv(cexpr->id->type) | ISLABEL;
+        destaddr.addr_type = addrconv(cexpr->id->type);
+        curaddr.addr_type = destaddr.addr_type | ISLABEL;
         curaddr.addr.labelname = cexpr->id->name;
-        return curaddr;
+        if(prevval | prog->fderef) {
+          return curaddr;
+        } else {
+          if(destaddr.addr_type & ISFLOAT) {
+            FILLFREG(destaddr, destaddr.addr_type);
+            dapush(prog->ops, ct_3ac_op2(MFP_F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+          } else {
+            FILLIREG(destaddr, destaddr.addr_type);
+            dapush(prog->ops, ct_3ac_op2(MFP_U, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+          }
+          return destaddr;
+        }
       } else {
         return *(FULLADDR*) fixedsearch(prog->fixedvars, cexpr->id->index);
       }
@@ -407,10 +419,10 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case L_NOT:
       //TODO: validate lots of types
       curaddr = linearitree(daget(cexpr->params, 0), prog);
-      FILLIREG(destaddr, (curaddr.addr_type & ~(ISCONST | 0xf)) | 1);
+      FILLIREG(destaddr, (curaddr.addr_type & ~(ISCONST | ISLABEL | 0xf)) | 1);
       //logical not only makes sense for ints
       otheraddr.addr.uintconst_64 = 0;
-      dapush(prog->ops, ct_3ac_op3(EQ_U, curaddr.addr_type, curaddr.addr, curaddr.addr_type | ISCONST, otheraddr.addr,
+      dapush(prog->ops, ct_3ac_op3(EQ_U, curaddr.addr_type, curaddr.addr, (curaddr.addr_type & 0xf) | ISCONST, otheraddr.addr,
                                    destaddr.addr_type, destaddr.addr));
       return destaddr;
     case B_NOT:
@@ -617,7 +629,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       prog->lval = 1;
       prog->fderef = 0;
       destaddr = linearitree(daget(cexpr->params, 0), prog);
-      curaddr.addr_type = destaddr.addr_type;
+      curaddr.addr_type = destaddr.addr_type & ~ISLABEL;
       if(destaddr.addr_type & ISFLOAT) {
         curaddr.addr.fregnum = prog->fregcnt++;
         enop = INC_F;
@@ -632,7 +644,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       prog->lval = 1;
       prog->fderef = 0;
       destaddr = linearitree(daget(cexpr->params, 0), prog);
-      curaddr.addr_type = destaddr.addr_type;
+      curaddr.addr_type = destaddr.addr_type & ~ISLABEL;
       if(destaddr.addr_type & ISFLOAT) {
         curaddr.addr.fregnum = prog->fregcnt++;
         enop = DEC_F;
@@ -887,17 +899,18 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       return;
     case CMPND: 
       //probably more stack stuff will need to be done here?
-      for(int i = 0; i < cst->stmtsandinits->length; i++) {
-        SOI* s = (SOI*) daget(cst->stmtsandinits, i);
-        if(s->isstmt) {
-          solidstate(s->state, prog);
-        } else {
-          for(int j = 0; j < s->init->length; j++) {
-            INITIALIZER* in = daget(s->init, j);
-            initializestate(in, prog);
+      if(cst->stmtsandinits) {
+        for(int i = 0; i < cst->stmtsandinits->length; i++) {
+          SOI* s = (SOI*) daget(cst->stmtsandinits, i);
+          if(s->isstmt) {
+            solidstate(s->state, prog);
+          } else {
+            for(int j = 0; j < s->init->length; j++) {
+              INITIALIZER* in = daget(s->init, j);
+              initializestate(in, prog);
+            }
           }
         }
-        
       }
       return;
     case EXPR:
@@ -1151,7 +1164,7 @@ void freeprog(PROGRAM* prog) {
   dadtorcfr(prog->ops, freeop);
   dadtor(prog->breaklabels);
   dadtor(prog->continuelabels);
-  fhtdtorfr(prog->fixedvars);
+  fhtdtorcfr(prog->fixedvars, free);
   htdtor(prog->labeloffsets);
   free(prog);
 }
