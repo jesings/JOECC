@@ -22,8 +22,6 @@
 
 %right THEN "else"
 /*probably could do this smarter with redesign*/
-%precedence FPTR
-%precedence VOIDFUNC
 %start program
 %define parse.trace
 %define parse.assert
@@ -87,7 +85,7 @@
 %type<unionvariant> union fullunion
 %type<structvariant> struct fullstruct
 %type<enumvariant> enum fullenum
-%type<declvariant> declarator declname param_decl sdecl fptr
+%type<declvariant> declarator declname param_decl sdecl fptr spefptr
 %type<funcvariant> function
 %type<firforvariant> dee
 %type<paravariant> params
@@ -342,6 +340,40 @@ fptr:
     dapush(da, mkdeclpart(PARAMSSPEC, $3));
     $$->type->pointerstack = damerge(da, $$->type->pointerstack);
     };
+spefptr:
+  '(' abstract_ptr SYMBOL ')' {$$ = mkdeclaration($3); $$->type->pointerstack = damerge($$->type->pointerstack, $2);}
+| '(' '(' abstract_ptr ')' SYMBOL ')' {$$ = mkdeclaration($5); $$->type->pointerstack = damerge($$->type->pointerstack, $3);}
+| '(' abstract_ptr ')' {$$ = mkdeclaration(NULL); $$->type->pointerstack = damerge($$->type->pointerstack, $2);}
+| '(' spefptr ')' {$$ = $2;}
+| spefptr'[' ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, NULL));}
+| spefptr'[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, $3));/*foldconst*/}
+| spefptr'(' ')' {$$ = $1;
+    DYNARR* da = dactor(1);
+    dapush($$->type->pointerstack, mkdeclpart(NAMELESS_PARAMSSPEC, NULL));
+    $$->type->pointerstack = damerge(da, $$->type->pointerstack);
+    }
+| spefptr '(' nameless ')' {$$ = $1; 
+    DYNARR* da = dactor(1);
+    dapush(da, mkdeclpart(NAMELESS_PARAMSSPEC, $3));
+    $$->type->pointerstack = damerge(da, $$->type->pointerstack);
+    }
+| spefptr '(' params ')' {$$ = $1; 
+    DYNARR* da = dactor(1);
+    dapush(da, mkdeclpart(PARAMSSPEC, $3));
+    $$->type->pointerstack = damerge(da, $$->type->pointerstack);
+    }
+| spefptr '(' nameless ',' "..." ')' {$$ = $1; 
+    DYNARR* da = dactor(1);
+    dapush($3, NULL);//represent variadic with trailing null?
+    dapush(da, mkdeclpart(PARAMSSPEC, $3));
+    $$->type->pointerstack = damerge(da, $$->type->pointerstack);
+    }
+| spefptr '(' params ',' "..." ')' {$$ = $1;
+    DYNARR* da = dactor(1);
+    pinsert($3, "...", NULL); 
+    dapush(da, mkdeclpart(PARAMSSPEC, $3));
+    $$->type->pointerstack = damerge(da, $$->type->pointerstack);
+    };
 params:
   param_decl {
    $$ = paralector(); 
@@ -383,7 +415,18 @@ param_decl:
     };
 nameless:
   namelesstype {$$ = dactor(16); dapush($$, $1);/*read only*/ }
-| nameless ',' namelesstype {$$ = $1; dapush($$, $3);/*read only*/ };
+| nameless ',' namelesstype {$$ = $1; dapush($$, $3);/*read only*/ }
+| params ',' namelesstype {$$ = dactor($1->ht->keys + 16); 
+    for(int i = 0; i < $1->da->length; i++) {
+      IDTYPE* idt = pisearch($1, i);
+      dapush($$, idt);
+    }
+    dapush($$, $3);
+    dadtorfr($1->da);
+    htdtor($1->ht);
+    free($1);
+    }
+| nameless ',' param_decl {$$ = $1; dapush($$, $3->type); free($3->varname); free($3);/*read only*/ };
 namelesstype:
   type {$$ = $1;}
 | type abstract_ptr {$$ = $1;
@@ -547,7 +590,7 @@ esm:
     $2->pointerstack = $3;
   }
   $$ = ct_cast_expr($2, $5);}
-| '(' type fptr ')' esm {
+| '(' type spefptr ')' esm {
   if($2->pointerstack) {
     $2->pointerstack = damerge(daclone($2->pointerstack), $3->type->pointerstack);
   } else {
@@ -556,7 +599,7 @@ esm:
   free($3->type);
   free($3);
   $$ = ct_cast_expr($2, $5);}
-| '(' type abstract_ptr fptr ')' esm {
+| '(' type abstract_ptr spefptr ')' esm {
   if($2->pointerstack) {
     $2->pointerstack = damerge(daclone($2->pointerstack), $3);
   } else {
@@ -566,16 +609,6 @@ esm:
   free($4->type);
   free($4);
   $$ = ct_cast_expr($2, $6);}
-| '(' type '(' abstract_ptr ')' fptr ')' esm {
-  if($2->pointerstack) {
-    $2->pointerstack = damerge(daclone($2->pointerstack), $4);
-  } else {
-    $2->pointerstack = $4;
-  }
-  $2->pointerstack = damerge(daclone($2->pointerstack), $6->type->pointerstack);
-  free($6->type);
-  free($6);
-  $$ = ct_cast_expr($2, $8);}
 | esca {$$ = $1;};
 esca:
   "++" esca {$$ = ct_unary_expr(PREINC, $2);}

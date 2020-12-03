@@ -94,7 +94,7 @@ extern union {
   "/*" {yy_push_state(MULTILINE_COMMENT);}
 }
 
-<INITIAL,PREPROCESSOR,INCLUDE,DEFINE,UNDEF,DEFARG,DEFINE2,IFDEF,IFNDEF,CALLMACRO,PPSKIP,KILLBLANK,KILLCONCAT>{
+<INITIAL,PREPROCESSOR,INCLUDE,DEFINE,UNDEF,DEFARG,DEFINE2,IFDEF,IFNDEF,CALLMACRO,PPSKIP,KILLBLANK,KILLCONCAT,WITHINIF>{
   "/*" {yy_push_state(MULTILINE_COMMENT);}
   "//" {yy_push_state(SINGLELINE_COMMENT);}
 }
@@ -692,7 +692,12 @@ extern union {
     DYNSTR* argy = search(defargs, yytext + 1);
     if(argy) {
       dsccat(dstrdly, '"');
-      dscat(dstrdly, argy->strptr, argy->lenstr);
+      for(int i = 0; i < argy->lenstr; ++i) {
+        if(argy->strptr[i] == '"') {
+          dsccat(dstrdly, '\\');
+        }
+        dsccat(dstrdly, argy->strptr[i]);
+      }
       dsccat(dstrdly, '"');
     } else {
       dscat(dstrdly, yytext, yyleng);
@@ -750,13 +755,9 @@ extern union {
     yy_push_state(KILLBLANK);
     }
   <<EOF>> {
-    //TODO:free hashtable and stuff?
     yypop_buffer_state();
     yy_pop_state();
-    //FILE* tmpf = fmemopen(NULL, dstrdly->lenstr, "r+");
-    //fwrite(dstrdly->strptr, 1, dstrdly->lenstr, tmpf);
-    //YY_BUFFER_STATE ybs = yy_create_buffer(tmpf, YY_BUF_SIZE);
-    //strdtor(dstrdly);
+    if(ppdebug) printf("now lexing buffer containing %s\n", dstrdly->strptr);
     YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(dstrdly->strptr, dstrdly->lenstr, "r"), YY_BUF_SIZE);
     free(dstrdly);
     yypush_buffer_state(ybs);
@@ -899,9 +900,6 @@ extern union {
 ";" {return ';';}
 "%" {return '%';}
 "." {return '.';}
-
-((?i:"infinity")|(?i:"inf")) {yylval.dbl = 0x7f800000; return FLOAT_LITERAL;}
-(?i:"nan") {yylval.dbl = 0x7fffffff; return FLOAT_LITERAL;}
 
 "__FILE__" {char* fstr = dapeek(file2compile); unput('"'); UNPUTSTR(fstr); unput('"');}
 "__LINE__" {char linebuf[16]; sprintf(linebuf, "%d", yylloc.last_line); unput('"'); UNPUTSTR(linebuf); unput('"');}

@@ -424,7 +424,7 @@ IDTYPE typex(EXPRESSION* ex) {
       idt = simplbinprecnoptr(typex(daget(ex->params, 0)), typex(daget(ex->params, 1)));
       break;
     case TERNARY:
-      idt = simplbinprecnoptr(typex(daget(ex->params, 1)), typex(daget(ex->params, 2)));
+      idt = simplbinprec(typex(daget(ex->params, 1)), typex(daget(ex->params, 2)));
       break;
     case NEG:
     case B_NOT:

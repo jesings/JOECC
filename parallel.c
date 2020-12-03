@@ -5,6 +5,9 @@ PARALLEL* paralector(void) {
   p->ht = htctor();
   return p;
 }
+void* pisearch(PARALLEL* p, int index) {
+  return search(p->ht, daget(p->da, index));
+}
 void* psearch(PARALLEL* p, const char* key) {
   return search(p->ht, key);
 }

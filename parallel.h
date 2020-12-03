@@ -9,6 +9,7 @@ typedef struct {
 } PARALLEL;
 PARALLEL* paralector(void);
 void* psearch(PARALLEL* p, const char* key);
+void* pisearch(PARALLEL* p, int index);
 void pinsert(PARALLEL* p, const char* key, void* value);
 char pquery(PARALLEL* p, const char* key);
 void* pfsearch(PARALLEL* p, long unsigned key);

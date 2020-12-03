@@ -226,6 +226,7 @@ static void fpdecl(DECLARATION* dc) {
 }
 
 void freetype(IDTYPE* id) {
+  //TODO: devise something to not free self-nested struct types
   if(id->pointerstack) {
     for(int i = 0; i < id->pointerstack->length; i++) {
       struct declarator_part* dclp = id->pointerstack->arr[i];
@@ -248,6 +249,7 @@ void freetype(IDTYPE* id) {
       free(dclp);
     }
     dadtor(id->pointerstack);
+    id->pointerstack = NULL;
   }
   free(id);
 }
