@@ -101,22 +101,24 @@ program:
   }
 | initializer {
     $$ = NULL;
-    for(int i = 0; i < $1->length; i++) {
-      INITIALIZER* a2 = daget($1, i);
-      if(!scopequeryval(ctx, M_VARIABLE, a2->decl->varname)) {
-        IDENTIFIERINFO* id = malloc(sizeof(IDENTIFIERINFO));
-        id->index = -1;
-        id->name = a2->decl->varname;
-        id->type = a2->decl->type;
-        add2scope(ctx, a2->decl->varname, M_GLOBAL, id);
-        dapush(ctx->globals, a2);//check if function prototype, only insert if not? don't free decl? if not func?
-      } else {
-        assert(0);//HOW??
+    if($1) {
+      for(int i = 0; i < $1->length; i++) {
+        INITIALIZER* a2 = daget($1, i);
+        if(!scopequeryval(ctx, M_VARIABLE, a2->decl->varname)) {
+          IDENTIFIERINFO* id = malloc(sizeof(IDENTIFIERINFO));
+          id->index = -1;
+          id->name = a2->decl->varname;
+          id->type = a2->decl->type;
+          add2scope(ctx, a2->decl->varname, M_GLOBAL, id);
+          dapush(ctx->globals, a2);//check if function prototype, only insert if not? don't free decl? if not func?
+        } else {
+          assert(0);//HOW??
+        }
+        free(a2->decl);
+        if(a2->expr) rfreexpr(a2->expr);
       }
-      free(a2->decl);
-      if(a2->expr) rfreexpr(a2->expr);
+      dadtorfr($1);
     }
-    dadtorfr($1);
   }
 | program function {
     $$ = $1;
@@ -129,30 +131,32 @@ program:
   }
 | program initializer {
     $$ = $1;
-    for(int i = 0; i < $2->length; i++) {
-      INITIALIZER* a2 = daget($2, i);
-      if(!scopequeryval(ctx, M_VARIABLE, a2->decl->varname)) {
-        IDENTIFIERINFO* id = malloc(sizeof(IDENTIFIERINFO));
-        id->index = -1;
-        id->name = a2->decl->varname;
-        id->type = a2->decl->type;
-        add2scope(ctx, a2->decl->varname, M_GLOBAL, id);
-        dapush(ctx->globals, a2);//check if function prototype, only insert if not? don't free decl? if not func?
-      } else {
-        IDENTIFIERINFO* id = scopesearch(ctx, M_VARIABLE, a2->decl->varname);
-        if(!(id->type->tb & EXTERNNUM)) {
-          fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", a2->decl->varname, locprint(@$));
-        } else {
-          free(a2->decl->varname);
-          freetype(id->type);
+    if($2) {
+      for(int i = 0; i < $2->length; i++) {
+        INITIALIZER* a2 = daget($2, i);
+        if(!scopequeryval(ctx, M_VARIABLE, a2->decl->varname)) {
+          IDENTIFIERINFO* id = malloc(sizeof(IDENTIFIERINFO));
+          id->index = -1;
+          id->name = a2->decl->varname;
           id->type = a2->decl->type;
+          add2scope(ctx, a2->decl->varname, M_GLOBAL, id);
+          dapush(ctx->globals, a2);//check if function prototype, only insert if not? don't free decl? if not func?
+        } else {
+          IDENTIFIERINFO* id = scopesearch(ctx, M_VARIABLE, a2->decl->varname);
+          if(!(id->type->tb & EXTERNNUM)) {
+            fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", a2->decl->varname, locprint(@$));
+          } else {
+            free(a2->decl->varname);
+            freetype(id->type);
+            id->type = a2->decl->type;
+          }
         }
+        free(a2->decl);
+        if(a2->expr) rfreexpr(a2->expr);//don't free like this
       }
-      free(a2->decl);
-      if(a2->expr) rfreexpr(a2->expr);//don't free like this
+      //TODO: handle expression!!!
+      dadtorfr($2);
     }
-    //TODO: handle expression!!!
-    dadtorfr($2);
   };
 initializer:
 "typedef" type cs_minutes ';' {
@@ -171,6 +175,7 @@ initializer:
       da = search(ht, $2->structtype->name);
       dapop(da);
       free($2->structtype->name);
+      free($2->structtype);
     }
   }
   for(int i = 0; i < $3->length; i++) {
@@ -197,7 +202,7 @@ initializer:
 
   dadtor($3);
   free($2);
-  $$ = dactor(0);
+  $$ = NULL;
   }
 | type cs_inits ';' {
   $$ = $2;
@@ -216,6 +221,7 @@ initializer:
       da = search(ht, $1->structtype->name);
       dapop(da);
       free($1->structtype->name);
+      free($1->structtype);
     }
   }
   for(int i = 0; i < $$->length; i++) {
@@ -257,7 +263,7 @@ initializer:
   free($1);
   }
 | "struct" SYMBOL ';' {
-  $$ = dactor(0);
+  $$ = NULL;
   if(!scopequeryval(ctx, M_STRUCT, $2)) {
     add2scope(ctx, $2, M_STRUCT, NULL);
     insert(scopepeek(ctx)->forwardstructs, $2, dactor(16));
@@ -265,17 +271,17 @@ initializer:
   free($2);
   }
 | "union" SYMBOL ';' {
-  $$ = dactor(0);
+  $$ = NULL;
   if(!scopequeryval(ctx, M_UNION, $2)) {
     add2scope(ctx, $2, M_UNION, NULL);
     insert(scopepeek(ctx)->forwardunions, $2, dactor(16));
   }
   free($2);
   }
-| "enum" enumbody ';' {$$ = dactor(0); enumctor(NULL, $2, ctx);}
-| fullstruct ';' {$$ = dactor(0);}
-| fullenum ';' {$$ = dactor(0);}
-| fullunion ';' {$$ = dactor(0);};
+| "enum" enumbody ';' {$$ = NULL; enumctor(NULL, $2, ctx);}
+| fullstruct ';' {$$ = NULL;}
+| fullenum ';' {$$ = NULL;}
+| fullunion ';' {$$ = NULL;};
 cs_inits:
   cs_inits ',' declarator '=' escoa {$$ = $1; dapush($$, geninit($3, $5));}
 | declarator '=' escoa {$$ = dactor(8); dapush($$, geninit($1, $3));}
@@ -409,6 +415,8 @@ param_decl:
         }
         DYNARR* da = search(ht, $1->structtype->name);
         dapush(da, &($2->type->structtype));
+        free($1->structtype->name);
+        free($1->structtype);
       }
     }
     free($1);
@@ -768,14 +776,13 @@ statement:
     SWITCHINFO* swi = dapop(ctx->func->switchstack);
     $$ = mkswitchstmt($3, $6, swi);
     free(swi);
-    //pop from switchstack, differentiate statement with case hashtable for ints
     }
 | "while" '(' expression ')' statement {$$ = mklsstmt(WHILEL, $3, $5);}
 | "do" statement "while" '(' expression ')' ';' {$$ = mklsstmt(DOWHILEL, $5, $2);}
 | "for" '(' {
     scopepush(ctx);
-    } dee  ee ';' ee ')' statement {$$ = mkforstmt($4, $5, $7, $9); scopepop(ctx);/*variable should probably be in same scope?*/}
-| "goto" SYMBOL ';' {$$ = mkgotostmt($2);/*find label within function at some point, probably not now though*/}
+    } dee  ee ';' ee ')' statement {$$ = mkforstmt($4, $5, $7, $9); scopepop(ctx);}
+| "goto" SYMBOL ';' {$$ = mkgotostmt($2);}
 | "break" ';' {$$ = mkexprstmt(LBREAK,NULL);}
 | "continue" ';' {$$ = mkexprstmt(LCONT,NULL);}
 | "return" ';' {$$ = mkexprstmt(FRET,NULL);}
@@ -786,7 +793,7 @@ ee:
   expression {$$ = $1;}
 | %empty {$$ = ct_nop_expr();};
 dee:
-  initializer {$$ = malloc(sizeof(EOI)); $$->isE = 0; $$->I = $1;}
+  initializer {if($1) {$$ = malloc(sizeof(EOI)); $$->isE = 0; $$->I = $1;} else {$$ = malloc(sizeof(EOI)); $$->isE = 1; $$->E = ct_nop_expr();};}
 | ee ';' {$$ = malloc(sizeof(EOI)); $$->isE = 1; $$->E = $1;};
 compound_statement:/*add new scope to scope stack, remove when done*/
   '{' compound_midrule soiorno'}' {
@@ -797,9 +804,9 @@ compound_midrule: %empty {
     scopepush(ctx);
     };
 statements_and_initializers:
-  initializer {$$ = dactor(4096); dapush($$,soii($1));}
+  initializer {$$ = dactor(4096); if($1) dapush($$,soii($1));}
 | statement {$$ = dactor(4096); dapush($$,sois($1));}
-| statements_and_initializers initializer {$$ = $1; dapush($$,soii($2));}
+| statements_and_initializers initializer {$$ = $1; if($2) dapush($$,soii($2));}
 | statements_and_initializers statement {$$ = $1; dapush($$,sois($2));};
 soiorno:
   statements_and_initializers {$$ = $1;}
@@ -910,6 +917,7 @@ struct_decl:
         da = search(ht, $1->structtype->name);
         dapop(da);
         free($1->structtype->name);
+        free($1->structtype);
       }
     }
     
@@ -932,7 +940,6 @@ struct_decl:
         }
       }
     }
-    if(da) free($1->structtype);
     free($1);
     }
 | "struct" structbody ';' {
@@ -1050,12 +1057,13 @@ enums:
     }
     }
 | enums ',' SYMBOL '=' esc {$$ = $1;
-    dapush($$, genenumfield($3,$5)); 
+    ENUMFIELD* ef = genenumfield($3,$5);
+    dapush($$, ef); 
     if(scopequeryval(ctx, M_ENUM_CONST, $3) ||
        scopequeryval(ctx, M_VARIABLE, $3)) {
       fprintf(stderr, "Error: redefinition of symbol %s as enum constant at %s %d.%d-%d.%d\n", $3, locprint(@$));
     } else {
-      add2scope(ctx, $3, M_ENUM_CONST, $5);
+      add2scope(ctx, $3, M_ENUM_CONST, ef->value);
     }
     };
 commaopt: ',' | %empty;

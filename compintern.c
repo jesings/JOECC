@@ -262,10 +262,11 @@ void freenum(ENUM* enm) {
   for(int i = 0; i < enm->fields->length; i++) {
     ENUMFIELD* enf = daget(enm->fields, i);
     free(enf->name);
-    free(enf->value);
+    //free(enf->value);
     free(enf);
   }
   dadtor(enm->fields);
+  free(enm);
 }
 
 static void fpdecl(DECLARATION* dc) {
@@ -390,9 +391,11 @@ void rfreestate(STATEMENT* s) {
     case LBREAK: case LCONT: case DEFAULT: case NOPSTMT:
       //We don't reduce case statement here
       break;
+    case JGOTO: 
+      free(s->glabel); 
+      break;
     case CASE: //maybe this needs to be freed from the labeltable
-    case JGOTO:  case LABEL:
-      //free(s->glabel); already handled in 3ac, unless we strdup
+    case LABEL: //already handled in 3ac, unless we strdup
       //TODO: strdup
       break;
     case SWITCH:

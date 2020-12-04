@@ -518,12 +518,13 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       assert(varty.pointerstack && (varty.pointerstack->length == 1));
       return smemrec(cexpr, prog, prevval);
     case SZOFEXPR:
+      varty = typex(cexpr);
       curaddr = linearitree(daget(cexpr->params, 0), prog);
-      if(cexpr->rettype->pointerstack && cexpr->rettype->pointerstack->length) {
+      if(varty.pointerstack && varty.pointerstack->length) {
         destaddr.addr.uintconst_64 = 8;
       } else {
-        if(cexpr->rettype->tb & (STRUCTVAL | UNIONVAL)) {
-          destaddr.addr.uintconst_64 = cexpr->rettype->structtype->size;
+        if(varty.tb & (STRUCTVAL | UNIONVAL)) {
+          destaddr.addr.uintconst_64 = varty.structtype->size;
         } else {
           destaddr.addr.uintconst_64 = curaddr.addr_type & 0xf;
         }
