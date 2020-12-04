@@ -146,6 +146,7 @@ struct lexctx {
   EXPRESSION* ifexpr;
   DYNARR* argpp;
   DYNARR* enstruct2free;
+  DYNARR* enumerat2free;
   DYNARR* globals;
 };
 
@@ -290,7 +291,7 @@ struct macrodef {
 
 STRUCT* structor(char* name, DYNARR* fields, struct lexctx* lct);
 UNION* unionctor(char* name, DYNARR* fields, struct lexctx* lct);
-ENUM* enumctor(char* name, DYNARR* fields);
+ENUM* enumctor(char* name, DYNARR* fields, struct lexctx* lct);
 EXPRESSION* cloneexpr(EXPRESSION* orig);
 DYNARR* ptrdaclone(DYNARR* opointerstack);
 EXPRESSION* ct_nop_expr(void);
@@ -309,6 +310,7 @@ EXPRESSION* ct_member_expr(char* member);
 EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident);
 char isglobal(struct lexctx* lct, char* ident);
 void wipestruct(STRUCT* strct);
+void freenum(ENUM* enm);
 void freetype(IDTYPE* id);
 void freeinit(INITIALIZER* i);
 void rfreexpr(EXPRESSION* e);

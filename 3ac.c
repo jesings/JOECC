@@ -252,7 +252,6 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
   FULLADDR addr2use;
   for(int i = 0; i < cexpr->params->length; i++) {
     addr2use = linearitree(daget(cexpr->params, i), prog);
-    intsert(prog->labeloffsets, doneaddr.labelname, prog->ops->length);
     dapush(prog->ops, ct_3ac_op2(op_to_cmp, addr2use.addr_type, addr2use.addr, ISLABEL | ISCONST, doneaddr));
   }
   if(addr2use.addr_type & ISCONST || addr2use.addr_type & ISFLOAT) {

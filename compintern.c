@@ -27,10 +27,11 @@ UNION* unionctor(char* name, DYNARR* fields, struct lexctx* lct) {
     return retval;
 }
 
-ENUM* enumctor(char* name, DYNARR* fields) {
+ENUM* enumctor(char* name, DYNARR* fields, struct lexctx* lct) {
     ENUM* retval = malloc(sizeof(ENUM));
     retval->name = name;
     retval->fields = fields;
+    dapush(lct->enumerat2free, retval);
     return retval;
 }
 
@@ -254,6 +255,17 @@ void wipestruct(STRUCT* strct) {
   if(strct->offsets) htdtorfr(strct->offsets);
   if(strct->name) free(strct->name);
   free(strct);
+}
+
+void freenum(ENUM* enm) {
+  if(enm->name) free(enm->name);
+  for(int i = 0; i < enm->fields->length; i++) {
+    ENUMFIELD* enf = daget(enm->fields, i);
+    free(enf->name);
+    free(enf->value);
+    free(enf);
+  }
+  dadtor(enm->fields);
 }
 
 static void fpdecl(DECLARATION* dc) {
@@ -821,6 +833,7 @@ struct lexctx* ctxinit(void) {
   lct->withindefines = htctor();
   lct->argpp = dactor(16);
   lct->enstruct2free = dactor(1024);
+  lct->enumerat2free = dactor(512);
   lct->globals = dactor(1024);
   lct->defines = htctor();
   declmacro(lct->defines, "__STDC__", "1");

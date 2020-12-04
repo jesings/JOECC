@@ -109,15 +109,9 @@ program:
         id->name = a2->decl->varname;
         id->type = a2->decl->type;
         add2scope(ctx, a2->decl->varname, M_GLOBAL, id);
-        dapush(ctx->globals, a2);//check if function prototype, only insert if not? don't free decl?
+        dapush(ctx->globals, a2);//check if function prototype, only insert if not? don't free decl? if not func?
       } else {
-        IDENTIFIERINFO* id = scopesearch(ctx, M_VARIABLE, a2->decl->varname);
-        if(!(id->type->tb & EXTERNNUM)) {
-          fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", a2->decl->varname, locprint(@$));
-        } else {
-          freetype(a2->decl->type);
-          id->type = a2->decl->type;
-        }
+        assert(0);//HOW??
       }
       free(a2->decl);
       if(a2->expr) rfreexpr(a2->expr);
@@ -143,12 +137,14 @@ program:
         id->name = a2->decl->varname;
         id->type = a2->decl->type;
         add2scope(ctx, a2->decl->varname, M_GLOBAL, id);
-        dapush(ctx->globals, a2);//check if function prototype, only insert if not? don't free decl?
+        dapush(ctx->globals, a2);//check if function prototype, only insert if not? don't free decl? if not func?
       } else {
         IDENTIFIERINFO* id = scopesearch(ctx, M_VARIABLE, a2->decl->varname);
         if(!(id->type->tb & EXTERNNUM)) {
           fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", a2->decl->varname, locprint(@$));
         } else {
+          free(a2->decl->varname);
+          freetype(id->type);
           id->type = a2->decl->type;
         }
       }
@@ -276,7 +272,7 @@ initializer:
   }
   free($2);
   }
-| "enum" enumbody ';' {$$ = dactor(0); dadtorfr($2);}
+| "enum" enumbody ';' {$$ = dactor(0); enumctor(NULL, $2, ctx);}
 | fullstruct ';' {$$ = dactor(0);}
 | fullenum ';' {$$ = dactor(0);}
 | fullunion ';' {$$ = dactor(0);};
@@ -771,6 +767,7 @@ statement:
 | "switch" '(' expression ')' switch_midrule compound_statement {
     SWITCHINFO* swi = dapop(ctx->func->switchstack);
     $$ = mkswitchstmt($3, $6, swi);
+    free(swi);
     //pop from switchstack, differentiate statement with case hashtable for ints
     }
 | "while" '(' expression ')' statement {$$ = mklsstmt(WHILEL, $3, $5);}
@@ -993,12 +990,12 @@ fullenum:
       fprintf(stderr, "Error: redefinition of enum %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
     }
     } enumbody {
-    $$ = enumctor($2, $4); 
+    $$ = enumctor($2, $4, ctx); 
     add2scope(ctx, $2, M_ENUM, $$);
     };
 enum:
   fullenum {$$ = $1;}
-| "enum" enumbody {$$ = enumctor(NULL, $2);}
+| "enum" enumbody {$$ = enumctor(NULL, $2, ctx);}
 | "enum" generic_symbol  {
     $$ = (ENUM*) scopesearch(ctx, M_ENUM, $2);
     if(!$$) {

@@ -35,8 +35,8 @@ HASHTABLE* htclone(HASHTABLE* ht) {
 }
 
 static void hpdtor(HASHPAIR* hp) {
+  free(hp->key);
   if(hp->next) {
-    free(hp->key);
     hpdtor(hp->next);
   }
   free(hp);
@@ -237,7 +237,7 @@ char queryval(HASHTABLE* ht, const char* key) {
 }
 
 DYNARR* htpairs(HASHTABLE* ht) {
-  DYNARR* da = dactor(4096);
+  DYNARR* da = dactor(ht->keys);
   for(int i = 0; i < HASHSIZE; i++) {
     HASHPAIR* current = &(ht->pairs[i]);
     if(current->key) {

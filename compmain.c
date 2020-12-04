@@ -39,6 +39,7 @@ int main(int argc, char** argv) {
   if(argc > 1) {
     fclose(compilefile);
   }
+  dadtorcfr(ctx->enumerat2free, (void(*)(void*)) freenum);
   htdtorcfr(ctx->defines, (void (*)(void*)) freemd);
   htdtorfr(ctx->withindefines);
   chdir("./functions");
