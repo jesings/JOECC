@@ -257,6 +257,21 @@ initializer:
       //TODO: ensure no prior definition
       insert(ctx->funcs, ac->decl->varname, NULL);
     }
+    if(ac->expr && ac->expr->type == ARRAY_LIT) {
+      DYNARR* pointy = ac->decl->type->pointerstack;
+      if(ac->decl->type->tb & (STRUCTVAL | UNIONVAL)) {
+        assert(!(pointy && pointy->length));
+        /*TODO: handle struct initializer case*/
+      } else {
+        assert(pointy && pointy->length);
+        int arrdim = 0;
+        for(int i = pointy->length - 1; i >= 0; i--, arrdim++) {
+          struct declarator_part* pointtop = daget(pointy, i);
+          if(pointtop->type != ARRAYSPEC) break;
+        }
+        assert(arrdim);
+      }
+    }
   }
   free($1);
   }

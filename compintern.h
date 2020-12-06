@@ -308,6 +308,8 @@ EXPRESSION* ct_floatconst_expr(double num);
 EXPRESSION* ct_array_lit(DYNARR* da);
 EXPRESSION* ct_member_expr(char* member);
 EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident);
+void process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim);
+char type_compat(IDTYPE* id1, IDTYPE* id2);
 char isglobal(struct lexctx* lct, char* ident);
 void wipestruct(STRUCT* strct);
 void freenum(ENUM* enm);

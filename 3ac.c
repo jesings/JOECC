@@ -365,14 +365,13 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   prog->lval = 0;
 
   switch(cexpr->type){
-    case STRING: ;
+    case STRING:
       curaddr.addr_type = ISCONST | ISSTRCONST | ISPOINTER | 0x8;
       curaddr.addr.strconst = cexpr->strconst;
       return curaddr;
     case INT:
       curaddr.addr_type = ISCONST | ISSIGNED | 0x8;
       curaddr.addr.intconst_64 = cexpr->intconst;
-
       return curaddr;
     case UINT: 
       curaddr.addr_type = ISCONST | 0x8;

@@ -241,6 +241,26 @@ char isglobal(struct lexctx* lct, char* ident) {
   return queryval(sc->members, ident);
 }
 
+void process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim) {
+  if(arr_dim == 1) {
+    //TODO: array of structs oh no
+    if(arr_dim == arr_memtype->pointerstack->length) {
+      //non pointer members
+      for(int i = 0; i < arr_expr->dynvals->length; i++) {
+        EXPRESSION* arrv = daget(arr_expr->dynvals, i);
+        IDTYPE arrt = typex(arrv);
+      }
+    } else {
+      //pointer members
+    }
+  } else {
+    for(int i = 0; i < arr_expr->dynvals->length; i++) {
+      EXPRESSION* arrv = daget(arr_expr->dynvals, i);
+      IDTYPE arrt = typex(arrv);
+    }
+  }
+}
+
 void wipestruct(STRUCT* strct) {
   for(int i = 0; i < strct->fields->length; ++i) {
     DECLARATION* dcl = strct->fields->arr[i];
