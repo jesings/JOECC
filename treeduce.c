@@ -448,7 +448,6 @@ IDTYPE typex(EXPRESSION* ex) {
       idt.pointerstack = daclone(idt.pointerstack);
       assert(idt.pointerstack && idt.pointerstack->length);
       dapop(idt.pointerstack);
-      //TODO: memory leak potential
       break;
 
     case COMMA:

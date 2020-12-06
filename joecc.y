@@ -39,9 +39,8 @@
 
   #define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
   #define dget(param, index) ((DECLARATION*) (param)->arr[(index)])
-  //TODO: Compound literals?
+  //TODO: Compound literals, array literals
   //TODO: Consider designated initializers?
-  //TODO: free scopes after pop and use
   //TODO: do enums right
 }
 
@@ -154,7 +153,6 @@ program:
         free(a2->decl);
         if(a2->expr) rfreexpr(a2->expr);//don't free like this
       }
-      //TODO: handle expression!!!
       dadtorfr($2);
     }
   };
@@ -439,8 +437,7 @@ nameless:
 namelesstype:
   type {$$ = $1; if($$->pointerstack) $$->pointerstack = ptrdaclone($$->pointerstack);}
 | type abstract_ptr {$$ = $1;
-    //TODO: full clone
-    if($$->pointerstack) { 
+    if($$->pointerstack) {
       $$->pointerstack = damerge(ptrdaclone($1->pointerstack), $2);
     } else {
       $$->pointerstack = $2;
@@ -955,7 +952,8 @@ struct_decl:
     }
     $$ = dactor(1);
     IDTYPE* tt = malloc(sizeof(IDTYPE));
-    tt->structtype = structor(NULL, $2, ctx);
+    tt->structtype = calloc(1, sizeof(STRUCT));
+    tt->structtype->fields = $2;
     tt->pointerstack = NULL;
     tt->tb = STRUCTVAL | ANONMEMB;
     DECLARATION* dec = malloc(sizeof(DECLARATION));
@@ -976,7 +974,8 @@ struct_decl:
     }
     $$ = dactor(1);
     IDTYPE* tt = malloc(sizeof(IDTYPE));
-    tt->uniontype= unionctor(NULL, $2, ctx);
+    tt->uniontype = calloc(1, sizeof(UNION));
+    tt->uniontype->fields = $2;
     tt->pointerstack = NULL;
     tt->tb = UNIONVAL | ANONMEMB;
     DECLARATION* dec = malloc(sizeof(DECLARATION));

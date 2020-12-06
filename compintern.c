@@ -73,7 +73,6 @@ DYNARR* ptrdaclone(DYNARR* opointerstack) {
       case POINTERSPEC:
         break;
       case ARRAYSPEC:
-        //TODO: recursive clone
         dclp->arrspec = cloneexpr(dclp->arrspec);
         break;
       case BITFIELDSPEC:
@@ -229,7 +228,7 @@ EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident) {
   retval->type = IDENT;
   IDENTIFIERINFO* ids = scopesearch(lct, M_VARIABLE, ident);
   retval->id = malloc(sizeof(IDENTIFIERINFO));
-  retval->id->type = ids->type; //TODO: potentially we should clone?
+  retval->id->type = ids->type;
   retval->id->name = ident;
   retval->id->index = ids->index;
   assert(retval->id || ! fprintf(stderr, "Error: use of undefined variable %s at %s %d.%d-%d.%d\n", ident, locprint(yylloc)));
@@ -247,6 +246,9 @@ void wipestruct(STRUCT* strct) {
     DECLARATION* dcl = strct->fields->arr[i];
     if(dcl->varname) {
       free(dcl->varname);
+    }
+    if(!(dcl->type->pointerstack && dcl->type->pointerstack->length) && dcl->type->tb & (ANONMEMB)) {
+      wipestruct(dcl->type->structtype);
     }
     freetype(dcl->type);
     free(dcl);
@@ -887,7 +889,7 @@ void scopepop(struct lexctx* lct) {
     htdtorfr(cleanup->unions);
     htdtor(cleanup->forwardstructs);
     htdtor(cleanup->forwardunions);
-  } //TODO: free all members???
+  }
   free(cleanup);
 }
 
@@ -968,13 +970,16 @@ void feedstruct(STRUCT* s) {
       s->offsets = htctor();
       s->size = -1;
       DYNARR* mm = s->fields;
+      DYNARR* newmm = dactor(mm->maxlength);
       long totalsize = 0;
       for(int i = 0; i < mm->length; i++) {
         DECLARATION* mmi = daget(mm, i);
         int esize;
         //TODO: handle bitfield
+        char keepmmi = 1;
         if(mmi->type->pointerstack && mmi->type->pointerstack->length) {
           esize = 8;
+          dapush(newmm, mmi);
         } else {
           TYPEBITS mtb = mmi->type->tb;
           if(mtb & (STRUCTVAL | UNIONVAL)) {
@@ -988,25 +993,41 @@ void feedstruct(STRUCT* s) {
                 *sf2 = *sf;
                 sf2->offset += totalsize;
                 insert(s->offsets, mmi2->varname, sf2);
+                dapush(newmm, mmi2);
+                free(sf);
               }
+              esize = mmi->type->structtype->size;
+              
+              dadtor(mmi->type->structtype->fields);
+              htdtor(mmi->type->structtype->offsets);
+              free(mmi->type->structtype);
+              freetype(mmi->type);
+              free(mmi->varname);
+              free(mmi);
+              keepmmi = 0;
+            } else {
+              dapush(newmm, mmi);
+              esize = mmi->type->structtype->size;
             }
-            esize = mmi->type->structtype->size;
           } else {
             //TODO: unique enum case?
             esize = mtb & 0x7f;
+            dapush(newmm, mmi);
           }
         }
         int padding = esize > 8 ? 8 : esize;
         totalsize = (totalsize + padding - 1) & ~(padding - 1);
-        if(mmi->varname) {
+        if(keepmmi) {
           STRUCTFIELD* sf = malloc(sizeof(STRUCTFIELD));
           sf->type = mmi->type;
           sf->offset = totalsize;
           insert(s->offsets, mmi->varname, sf);
-        } //ignore anonymous members
+        }        
         totalsize += esize;
       }
       s->size = totalsize;
+      dadtor(mm);
+      s->fields = newmm;
       return;
     case -1:
       //circular structs!!!!!
@@ -1023,11 +1044,14 @@ int unionlen(UNION* u) {
       u->hfields = htctor();
       u->size = -1;
       DYNARR* mm = u->fields;
+      DYNARR* newmm = dactor(mm->maxlength);
       for(int i = 0; i < mm->length; i++) {
         DECLARATION* mmi = daget(mm, i);
         int esize;
+        char keepmmi = 1;
         if(mmi->type->pointerstack && mmi->type->pointerstack->length) {
           esize = 8;
+          dapush(newmm, mmi);
         } else {
           TYPEBITS mtb = mmi->type->tb;
           if(mtb & (STRUCTVAL | UNIONVAL)) {
@@ -1040,27 +1064,43 @@ int unionlen(UNION* u) {
                 STRUCTFIELD* sf2 = malloc(sizeof(STRUCTFIELD));
                 *sf2 = *sf;
                 insert(u->hfields, mmi2->varname, sf2);
+                dapush(newmm, mmi2);
+                free(sf);
               }
+              esize = mmi->type->structtype->size;
+
+              htdtor(mmi->type->structtype->offsets);
+              dadtor(mmi->type->structtype->fields);
+              free(mmi->type->structtype);
+              freetype(mmi->type);
+              free(mmi->varname);
+              free(mmi);
+              keepmmi = 0;
+            } else {
+              esize = mmi->type->structtype->size;
+              dapush(newmm, mmi);
             }
-            esize = mmi->type->structtype->size;
           } else {
             //TODO: unique enum case?
             esize = mtb & 0x7f;
+            dapush(newmm, mmi);
           }
         }
         if(esize > u->size)
           u->size = esize;
-        if(mmi->varname) {
+        if(keepmmi) {
           STRUCTFIELD* sf = malloc(sizeof(STRUCTFIELD));
           sf->type = mmi->type;
           sf->offset = 0;
           insert(u->hfields, mmi->varname, sf);
-        } //ignore anonymous members
+        }
       }
+      dadtor(mm);
+      u->fields = newmm;
       break;
     case -1:
       //circular union!!!!!
-      //TODO: error out
+      assert(0);
     default:
       break;
   }

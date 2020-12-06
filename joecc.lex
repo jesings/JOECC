@@ -208,7 +208,7 @@ extern union {
         break;
     }
     }
-  line {if(!skipping){yy_pop_state(); yy_push_state(SINGLELINE_COMMENT);} else {yy_pop_state(); yy_push_state(KILLUNTIL);}/*TODO: line directive currently doesn't print requisite information*/}
+  line {if(!skipping){yy_pop_state(); yy_push_state(SINGLELINE_COMMENT);} else {yy_pop_state(); yy_push_state(KILLUNTIL);}/*TODO: line directive currently doesn't apply requisite information*/}
   warning {if(!skipping){yy_pop_state(); yy_push_state(WARNING); yy_push_state(KILLBLANK);} else {yy_pop_state(); yy_push_state(KILLUNTIL);}}
   error {if(!skipping){yy_pop_state(); yy_push_state(ERROR); yy_push_state(KILLBLANK);} else {yy_pop_state(); yy_push_state(KILLUNTIL);}}
   \n {yy_pop_state();fprintf(stderr, "PREPROCESSOR: Incorrect line end %d %s %d.%d-%d.%d\n", yylloc.first_line, locprint(yylloc));}

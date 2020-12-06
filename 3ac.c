@@ -257,7 +257,7 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
   if(addr2use.addr_type & ISCONST || addr2use.addr_type & ISFLOAT) {
     addr2use.addr.iregnum = prog->iregcnt++;
   }
-  addr2use.addr_type = 1;//TODO: maybe make it signed?
+  addr2use.addr_type = 1;//maybe make it signed?
   dapush(prog->ops, ct_3ac_op2(MOV_3, ISCONST, complete_val, addr2use.addr_type, addr2use.addr));
   dapush(prog->ops, ct_3ac_op1(JMP_3, ISLABEL | ISCONST, afterdoneaddr));
   intsert(prog->labeloffsets, doneaddr.labelname, prog->ops->length);
@@ -384,7 +384,12 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return curaddr;
     case IDENT:
       if(cexpr->id->index == -1) {
-        destaddr.addr_type = addrconv(cexpr->id->type);
+        extern struct lexctx* ctx; //TODO: some way to do this without ctx? Like add to tb in compintern
+        if(queryval(ctx->funcs, cexpr->id->name)) {
+          destaddr.addr_type = 8;
+        } else {
+          destaddr.addr_type = addrconv(cexpr->id->type);
+        }
         curaddr.addr_type = destaddr.addr_type | ISLABEL;
         curaddr.addr.labelname = cexpr->id->name;
         if(prevval | prog->fderef) {
@@ -443,8 +448,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       }
       return op2ret(prog->ops, implicit_unary_2(ADDR_U, cexpr, prog));
 
-    case DEREF: //Turn deref of addition, subtraction, into array index?
-      //TODO: not sure if this is right
+    case DEREF:
       varty = typex(daget(cexpr->params, 0));
       assert(varty.pointerstack && varty.pointerstack->length);
       if(varty.pointerstack->length == 1 && (varty.tb & STRUCTVAL)) {
@@ -620,11 +624,11 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       }
       return destaddr;
-    //TODO: inc pointer arithmetic
     case PREINC:
       return prestep(INC_U, cexpr, prog);
     case PREDEC:
       return prestep(DEC_U, cexpr, prog);
+    //TODO: inc pointer arithmetic post
     case POSTINC:
       prog->lval = 1;
       prog->fderef = 0;
@@ -706,7 +710,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       for(int i = 1; i < cexpr->params->length; ++i) {
         //sequence point?
         curaddr = linearitree(daget(cexpr->params, i), prog);
-        dapush(params, ct_3ac_op1(PARAM_3, curaddr.addr_type, curaddr.addr));
+        dapush(params, ct_3ac_op1(ARG_3, curaddr.addr_type, curaddr.addr));
       }
       prog->ops = damerge(prog->ops, params);
       IDTYPE* frettype = cexpr->rettype;
@@ -933,7 +937,6 @@ PROGRAM* linefunc(FUNC* f) {
   prog->labeloffsets = htctor();
   prog->lval = 0;
   //initialize params
-  //TODO: params may not have number, move params in to first n variables
   for(int i = 0; i < f->params->da->length; i++) {
     FULLADDR* newa = malloc(sizeof(FULLADDR));
     DECLARATION* pdec = pget(f->params, i);
@@ -943,7 +946,7 @@ PROGRAM* linefunc(FUNC* f) {
     } else {
       newa->addr.iregnum = prog->iregcnt++;
     }
-    dapush(prog->ops, ct_3ac_op1(INIT_3, newa->addr_type, newa->addr));
+    dapush(prog->ops, ct_3ac_op1(PARAM_3, newa->addr_type, newa->addr));
     if(!(pdec->type->pointerstack && pdec->type->pointerstack->length) && (pdec->type->tb & STRUCTVAL)) {
       ADDRESS tmpaddr, tmpaddr2;
       tmpaddr.intconst_64 = pdec->type->structtype->size;
@@ -1107,7 +1110,7 @@ void printprog(PROGRAM* prog) {
       case MFP_U: case MFP_I: case MFP_F:
         PRINTOP2( ); //perhaps use deref later, not vital
         break;
-      case PARAM_3: case RET_3:
+      case ARG_3: case PARAM_3: case RET_3:
         PRINTOP1( );
         break;
       case CALL_3:
