@@ -241,6 +241,33 @@ char isglobal(struct lexctx* lct, char* ident) {
   return queryval(sc->members, ident);
 }
 
+char typecompat(IDTYPE* t1, IDTYPE* t2) {
+  if(t1->pointerstack && t1->pointerstack->length)
+    return t2->pointerstack && t2->pointerstack->length; //array special case?
+  if(t2->pointerstack && t2->pointerstack->length)
+    return 0;
+  if(t1->tb & (STRUCTVAL | UNIONVAL)) {
+    if(!(t2->tb & (STRUCTVAL | UNIONVAL)))
+      return 0;
+    STRUCT* st1 = t1->structtype;
+    STRUCT* st2 = t2->structtype;
+    if(st1->fields->length != st2->fields->length)
+      return 0;
+    for(int i = 0; i < st1->fields->length; i++) {
+      STRUCTFIELD* sf1 = daget(st1->fields, i);
+      STRUCTFIELD* sf2 = daget(st2->fields, i);
+      if(sf1->offset != sf2->offset)
+        return 0;
+      if(!typecompat(sf1->type, sf2->type))
+        return 0;
+    }
+    return 1;
+  }
+  if(t2->tb & (STRUCTVAL | UNIONVAL))
+    return 1;
+  return !((t1->tb & FLOATNUM)^(t2->tb & FLOATNUM));
+}
+
 void process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim) {
   if(arr_dim == 1) {
     //TODO: array of structs oh no
