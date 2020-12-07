@@ -270,6 +270,7 @@ initializer:
           if(pointtop->type != ARRAYSPEC) break;
         }
         assert(arrdim);
+        process_array_lit(ac->decl->type, ac->expr, arrdim);
       }
     }
   }

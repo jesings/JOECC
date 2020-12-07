@@ -269,23 +269,26 @@ char typecompat(IDTYPE* t1, IDTYPE* t2) {
 }
 
 void process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim) {
+  arr_memtype->pointerstack->length -= 1;
   if(arr_dim == 1) {
     //TODO: array of structs oh no
     if(arr_dim == arr_memtype->pointerstack->length) {
-      //non pointer members
       for(int i = 0; i < arr_expr->dynvals->length; i++) {
         EXPRESSION* arrv = daget(arr_expr->dynvals, i);
         IDTYPE arrt = typex(arrv);
+        assert(typecompat(&arrt, arr_memtype));
       }
-    } else {
-      //pointer members
-    }
+      //dynvals are fine, no further processing necessary
+    }  
   } else {
     for(int i = 0; i < arr_expr->dynvals->length; i++) {
       EXPRESSION* arrv = daget(arr_expr->dynvals, i);
       IDTYPE arrt = typex(arrv);
+      assert(typecompat(&arrt, arr_memtype));
+      process_array_lit(arr_memtype, arr_expr, arr_dim - 1);
     }
   }
+  arr_memtype->pointerstack->length += 1;
 }
 
 void wipestruct(STRUCT* strct) {
