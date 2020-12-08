@@ -39,8 +39,8 @@
 
   #define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
   #define dget(param, index) ((DECLARATION*) (param)->arr[(index)])
-  //TODO: Compound literals, array literals
-  //TODO: Consider designated initializers?
+  //TODO: Array designators, struct initializers, optional brace nesting?
+  //TODO: Consider designated initializers, compound literals?
   //TODO: do enums right
 }
 
@@ -316,7 +316,7 @@ declname:
   SYMBOL {$$ = mkdeclaration($1);}
 | '(' declname ')' {$$ = $2;}
 | declname '[' ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, NULL));}
-| declname '[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, $3));/*foldconst*/}
+| declname '[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpartarr(ARRAYSPEC, $3));/*foldconst*/}
 | declname'(' ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(NAMELESS_PARAMSSPEC, NULL));}
 | declname '(' nameless ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(NAMELESS_PARAMSSPEC, $3));}
 | declname '(' params ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));}

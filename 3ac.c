@@ -407,6 +407,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         return *(FULLADDR*) fixedsearch(prog->fixedvars, cexpr->id->index);
       }
     case ARRAY_LIT:
+
       break;
     case NEG:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
@@ -526,11 +527,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       if(varty.pointerstack && varty.pointerstack->length) {
         destaddr.addr.uintconst_64 = 8;
       } else {
-        if(varty.tb & (STRUCTVAL | UNIONVAL)) {
-          destaddr.addr.uintconst_64 = varty.structtype->size;
-        } else {
-          destaddr.addr.uintconst_64 = curaddr.addr_type & 0xf;
-        }
+        destaddr.addr.uintconst_64 = varty.structtype->size;
       }
       destaddr.addr_type = ISCONST;
       return destaddr;
@@ -686,20 +683,20 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       destaddr.addr_type = 0;
       destaddr.addr.intconst_64 = -1;
       return destaddr;
-    case SZOF:;
-      IDTYPE idt = *cexpr->vartype;
+    case SZOF:
+      varty = *cexpr->vartype;
       destaddr.addr_type = ISCONST | 8;
-      if(idt.pointerstack && idt.pointerstack->length) {
+      if(varty.pointerstack && varty.pointerstack->length) {
         destaddr.addr.intconst_64 = 8;
       } else {
-        if(idt.tb & STRUCTVAL) {
-          feedstruct(idt.structtype);
-          destaddr.addr.intconst_64 = idt.structtype->size;
-        } else if(idt.tb & UNIONVAL) {
-          unionlen(idt.uniontype);
-          destaddr.addr.intconst_64 = idt.uniontype->size;
+        if(varty.tb & STRUCTVAL) {
+          feedstruct(varty.structtype);
+          destaddr.addr.intconst_64 = varty.structtype->size;
+        } else if(varty.tb & UNIONVAL) {
+          unionlen(varty.uniontype);
+          destaddr.addr.intconst_64 = varty.uniontype->size;
         } else {
-          destaddr.addr.intconst_64 = idt.tb & 0xf;
+          destaddr.addr.intconst_64 = varty.tb & 0xf;
         }
       }
       return destaddr;

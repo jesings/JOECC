@@ -122,7 +122,7 @@ typedef struct {
 
 typedef struct expr {
   EXPRTYPE type;
-  DYNARR* params; //arr of exprs
+  DYNARR* params;
   IDTYPE* rettype;
   union {
     IDTYPE* vartype;
@@ -131,8 +131,7 @@ typedef struct expr {
     long intconst;
     unsigned long uintconst;
     double floatconst;
-    IDENTIFIERINFO* id;//for identifier expressions?
-    DYNARR* dynvals;//?
+    IDENTIFIERINFO* id;
   };
 } EXPRESSION;
 
@@ -207,7 +206,10 @@ struct declarator_part {
   union {
     PARALLEL* params;
     DYNARR* nameless_params;
-    EXPRESSION* arrspec;
+    struct {
+      int arrlen;
+      int arrmaxind;
+    };
     EXPRESSION* bfspec;
     TYPEBITS ptrspec;
     void* garbage;
@@ -309,7 +311,7 @@ EXPRESSION* ct_array_lit(DYNARR* da);
 EXPRESSION* ct_member_expr(char* member);
 EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident);
 char typecompat(IDTYPE* t1, IDTYPE* t2);
-void process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim);
+int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim);
 char type_compat(IDTYPE* id1, IDTYPE* id2);
 char isglobal(struct lexctx* lct, char* ident);
 void wipestruct(STRUCT* strct);
@@ -339,6 +341,7 @@ STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label);
 STATEMENT* mkdefaultstmt(struct lexctx* lct, char* label);
 ENUMFIELD* genenumfield(char* name, EXPRESSION* value);
 struct declarator_part* mkdeclpart(enum declpart_info typ, void* d);
+struct declarator_part* mkdeclpartarr(enum declpart_info typ, EXPRESSION* d);
 struct declarator_part* mkdeclptr(TYPEBITS d);
 FUNC* ct_function(char* name, STATEMENT* body, PARALLEL* params, IDTYPE* retrn);
 struct lexctx* ctxinit(void);
@@ -358,4 +361,15 @@ void feedstruct(STRUCT* s);
 int unionlen(UNION* u);
 
 #define locprint(lv) (char*) dapeek(file2compile), lv.first_line, lv.first_column, lv.last_line, lv.last_column
+
+static inline int lentype(IDTYPE* idt) {
+  if(idt->pointerstack && idt->pointerstack->length) {
+    struct declarator_part* pointtop = dapeek(idt->pointerstack);
+    if(pointtop->type != ARRAYSPEC) return 0x8;
+  }
+  if(idt->tb & (STRUCTVAL | UNIONVAL)) {
+    return idt->structtype->size;
+  }
+  return idt->tb & 0xf;
+}
 #endif

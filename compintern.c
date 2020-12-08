@@ -70,10 +70,7 @@ DYNARR* ptrdaclone(DYNARR* opointerstack) {
           dclp->nameless_params->arr[j] = fcid2(dclp->nameless_params->arr[j]);
         }
         break;
-      case POINTERSPEC:
-        break;
-      case ARRAYSPEC:
-        dclp->arrspec = cloneexpr(dclp->arrspec);
+      case POINTERSPEC: case ARRAYSPEC:
         break;
       case BITFIELDSPEC:
         assert(0); //TODO: handle bitfields
@@ -191,14 +188,14 @@ EXPRESSION* ct_intconst_expr(long num) {
 
 EXPRESSION* ct_uintconst_expr(unsigned long num) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = INT;
+  retval->type = UINT;
   retval->rettype = NULL;
   retval->uintconst = num;
   return retval;
 }
 
 EXPRESSION* ct_floatconst_expr(double num) {
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));\
+  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = FLOAT;
   retval->rettype = malloc(sizeof(IDTYPE));
   retval->rettype->pointerstack = NULL;
@@ -208,10 +205,10 @@ EXPRESSION* ct_floatconst_expr(double num) {
 }
 
 EXPRESSION* ct_array_lit(DYNARR* da) {
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));\
+  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = ARRAY_LIT;
   retval->rettype = NULL;//TODO: prepopulate rettype
-  retval->dynvals = da;
+  retval->params = da;
   return retval;
 }
 
@@ -268,27 +265,32 @@ char typecompat(IDTYPE* t1, IDTYPE* t2) {
   return !((t1->tb & FLOATNUM)^(t2->tb & FLOATNUM));
 }
 
-void process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim) {
+int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim) {
+  struct declarator_part* tdclp = dapeek(arr_memtype->pointerstack);
+  tdclp->arrlen = 0;
   arr_memtype->pointerstack->length -= 1;
+  int szstep = lentype(arr_memtype);
   if(arr_dim == 1) {
     //TODO: array of structs oh no
     if(arr_dim == arr_memtype->pointerstack->length) {
-      for(int i = 0; i < arr_expr->dynvals->length; i++) {
-        EXPRESSION* arrv = daget(arr_expr->dynvals, i);
+      for(int i = 0; i < arr_expr->params->length; i++) {
+        EXPRESSION* arrv = daget(arr_expr->params, i);
         IDTYPE arrt = typex(arrv);
         assert(typecompat(&arrt, arr_memtype));
+        tdclp->arrlen += szstep;
       }
-      //dynvals are fine, no further processing necessary
-    }  
+      //params are fine, no further processing necessary
+    }
   } else {
-    for(int i = 0; i < arr_expr->dynvals->length; i++) {
-      EXPRESSION* arrv = daget(arr_expr->dynvals, i);
+    for(int i = 0; i < arr_expr->params->length; i++) {
+      EXPRESSION* arrv = daget(arr_expr->params, i);
       IDTYPE arrt = typex(arrv);
       assert(typecompat(&arrt, arr_memtype));
-      process_array_lit(arr_memtype, arr_expr, arr_dim - 1);
+      tdclp->arrlen += process_array_lit(arr_memtype, arr_expr, arr_dim - 1);
     }
   }
   arr_memtype->pointerstack->length += 1;
+  return tdclp->arrlen;
 }
 
 void wipestruct(STRUCT* strct) {
@@ -339,10 +341,7 @@ void freetype(IDTYPE* id) {
         case NAMELESS_PARAMSSPEC:
           dadtorcfr(dclp->nameless_params, (void (*)(void*)) freetype);
           break;
-        case POINTERSPEC:
-          break;
-        case ARRAYSPEC:
-          if(dclp->arrspec) rfreexpr(dclp->arrspec);
+        case POINTERSPEC: case ARRAYSPEC:
           break;
         case BITFIELDSPEC:
           rfreexpr(dclp->bfspec);
@@ -364,7 +363,7 @@ void rfreexpr(EXPRESSION* e) {
       return;
     case NOP:
       break;
-    case L_AND: case L_OR: case L_NOT:
+    case ARRAY_LIT: case L_AND: case L_OR: case L_NOT:
     case EQ: case NEQ: case GT: case LT: case GTE: case LTE:
     case SZOFEXPR:
     case CAST://rettype and vartype are the same pointer
@@ -378,11 +377,6 @@ void rfreexpr(EXPRESSION* e) {
     case STRING:
       free(e->strconst);
       if(e->rettype) freetype(e->rettype);
-      free(e);
-      return;
-    case ARRAY_LIT:
-      dadtorcfr(e->dynvals, (void(*)(void*)) rfreexpr);
-      if(e->rettype) freetype(e->rettype);//TODO: handle better?
       free(e);
       return;
     case NEG: case COMMA:
@@ -566,11 +560,6 @@ EXPRESSION* rclonexpr(EXPRESSION* e) {
       break;
     case IDENT:
       break;//do not free identifier info
-    case ARRAY_LIT:
-      e2->dynvals = dactor(e->dynvals->length);
-      for(int i = 0; i < e->dynvals->length; i++)
-        dapush(e2->dynvals, rclonexpr(e->dynvals->arr[i]));
-      break;
   }
   return e2;
 }
@@ -721,6 +710,21 @@ struct declarator_part* mkdeclpart(enum declpart_info typ, void* d) {
   struct declarator_part* retval = malloc(sizeof(struct declarator_part));
   retval->type = typ;
   retval->garbage = d;
+  return retval;
+}
+
+struct declarator_part* mkdeclpartarr(enum declpart_info typ, EXPRESSION* d) {
+  struct declarator_part* retval = malloc(sizeof(struct declarator_part));
+  retval->type = typ;
+  foldconst(&d);
+  switch(d->type) {
+    case INT: case UINT:
+      retval->arrmaxind = d->intconst;
+      break;
+    default:
+      assert(0);
+  }
+  rfreexpr(d);
   return retval;
 }
 
