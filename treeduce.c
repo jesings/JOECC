@@ -493,7 +493,7 @@ char foldconst(EXPRESSION** exa) {
 
   //call on each param before the switch
   switch(ex->type) {
-    case UINT: case INT: case FLOAT: case ARRAY_LIT: case STRING: case SZOF: case NOP: case IDENT:
+    case UINT: case INT: case FLOAT: case STRING: case SZOF: case NOP: case IDENT:
       break;
     default:
       for(int i = 0; i < ex->params->length; i++) {
@@ -800,7 +800,7 @@ char foldconst(EXPRESSION** exa) {
           rectexpr->uintconst != 0))
         dapush(newdyn, rectexpr);
       else
-        free(rectexpr);
+        free(rectexpr), rectexpr = NULL;
       dadtor(ex->params);
       if(newdyn->length == 1) {
         EXPRESSION* rv = newdyn->arr[0];
@@ -811,7 +811,8 @@ char foldconst(EXPRESSION** exa) {
       } else if(newdyn->length == 0) {
         dadtor(newdyn);
         free(ex);
-        *exa = rectexpr;
+        if(rectexpr) *exa = rectexpr;
+        else *exa = ct_uintconst_expr(0);
         return 1;
       }
       ex->params = newdyn;
@@ -1040,7 +1041,7 @@ char foldconst(EXPRESSION** exa) {
       return rove;
     case DIVI:
       newdyn = dactor(32);
-      rectexpr = ct_uintconst_expr(0);
+      rectexpr = ct_uintconst_expr(1);
       rove = 0;
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
@@ -1132,13 +1133,68 @@ char foldconst(EXPRESSION** exa) {
             break;
         }
       }
+      dadtor(ex->params);
       if(((rectexpr->type != UINT) ||
           rectexpr->uintconst != 0)) {
+        if(newdyn->length == 1) {
+          EXPRESSION* divisor = newdyn->arr[0];
+          switch(rectexpr->type) {
+            case UINT:
+              switch(divisor->type) {
+                case UINT: 
+                  rectexpr->uintconst = divisor->uintconst / rectexpr->uintconst;
+                  break;
+                case INT:
+                  rectexpr->intconst = divisor->intconst / rectexpr->uintconst;
+                  rectexpr->type = INT;
+                  break;
+                case FLOAT:
+                  rectexpr->floatconst = divisor->floatconst / rectexpr->uintconst;
+                  rectexpr->type = FLOAT;
+                  break;
+                default: assert(0);
+              } break;
+            case INT:
+              switch(divisor->type) {
+                case UINT: 
+                  rectexpr->intconst = divisor->uintconst / rectexpr->intconst;
+                  break;
+                case INT:
+                  rectexpr->intconst = divisor->intconst / rectexpr->intconst;
+                  break;
+                case FLOAT:
+                  rectexpr->floatconst = divisor->floatconst / rectexpr->intconst;
+                  rectexpr->type = FLOAT;
+                  break;
+                default: assert(0);
+              } break;
+            case FLOAT:
+              switch(divisor->type) {
+                case UINT: 
+                  rectexpr->floatconst = divisor->uintconst / rectexpr->floatconst;
+                  break;
+                case INT:
+                  rectexpr->floatconst = divisor->intconst / rectexpr->floatconst;
+                  break;
+                case FLOAT:
+                  rectexpr->floatconst = divisor->floatconst / rectexpr->floatconst;
+                  break;
+                default: assert(0);
+              } break;
+            default: goto afterbreak;
+          }
+          free(divisor);
+          dadtor(newdyn);
+          *exa = rectexpr;
+          free(ex);
+          rove = 1;
+          break;
+        }
+        afterbreak:
         dapush(newdyn, rectexpr);
       } else {
         free(rectexpr);
       }
-      dadtor(ex->params);
       if(newdyn->length == 1) {
         EXPRESSION* rv = newdyn->arr[0];
         dadtor(newdyn);
