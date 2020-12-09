@@ -290,6 +290,9 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim) {
     }
   }
   arr_memtype->pointerstack->length += 1;
+  arr_expr->rettype = malloc(sizeof(IDTYPE));
+  memcpy(arr_expr->rettype, arr_memtype, sizeof(IDTYPE));
+  arr_expr->rettype->pointerstack = ptrdaclone(arr_expr->rettype->pointerstack);
   return tdclp->arrlen;
 }
 

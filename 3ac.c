@@ -406,9 +406,33 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       } else {
         return *(FULLADDR*) fixedsearch(prog->fixedvars, cexpr->id->index);
       }
-    case ARRAY_LIT:
-
-      break;
+    case ARRAY_LIT: ;
+      struct declarator_part* ptrtop = dapeek(cexpr->rettype->pointerstack);
+      FILLIREG(destaddr, ISPOINTER | 0x8);
+      assert(ptrtop->type == ARRAYSPEC);
+      curaddr.addr.uintconst_64 = ptrtop->arrlen;
+      dapush(prog->ops, ct_3ac_op2(ALOC_3, ISCONST | 0x8, curaddr.addr, destaddr.addr_type, destaddr.addr));
+      if(!ptrtop->arrmaxind) ptrtop->arrmaxind = cexpr->params->length;
+      curaddr.addr.uintconst_64 = ptrtop->arrlen / ptrtop->arrmaxind;
+      if(curaddr.addr.uintconst_64 < 0xf) {
+        for(int i = 0; i < cexpr->params->length; i++) {
+          EXPRESSION* dyne = daget(cexpr->params, i);
+          otheraddr = linearitree(dyne, prog);
+          ADDRESS a;
+          a.uintconst_64 = i;
+          dapush(prog->ops, ct_3ac_op3(ARRMOV, otheraddr.addr_type, otheraddr.addr, ISCONST | 0x8, a, destaddr.addr_type, destaddr.addr));
+        }
+      } else {
+        ADDRESS a;
+        a.uintconst_64 = curaddr.addr.uintconst_64;
+        for(int i = 0; i < cexpr->params->length; i++) {
+          EXPRESSION* dyne = daget(cexpr->params, i);
+          otheraddr = linearitree(dyne, prog);
+          dapush(prog->ops, ct_3ac_op3(ADD_U, destaddr.addr_type, destaddr.addr, ISCONST | 0x8, a, destaddr.addr_type, destaddr.addr));
+          dapush(prog->ops, ct_3ac_op2(MTP_U, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
+        }
+      }
+      return destaddr;
     case NEG:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       destaddr.addr_type = curaddr.addr_type & ~ISCONST;
@@ -943,12 +967,12 @@ PROGRAM* linefunc(FUNC* f) {
       newa->addr.iregnum = prog->iregcnt++;
     }
     dapush(prog->ops, ct_3ac_op1(PARAM_3, newa->addr_type, newa->addr));
-    if(!(pdec->type->pointerstack && pdec->type->pointerstack->length) && (pdec->type->tb & STRUCTVAL)) {
+    if(!(pdec->type->pointerstack && pdec->type->pointerstack->length) && (pdec->type->tb & (STRUCTVAL | UNIONVAL) )) {
       ADDRESS tmpaddr, tmpaddr2;
       tmpaddr.intconst_64 = pdec->type->structtype->size;
       tmpaddr2.iregnum = prog->iregcnt++;
       dapush(prog->ops, ct_3ac_op2(ALOC_3, ISCONST, tmpaddr, newa->addr_type, tmpaddr2));
-      //do struct copy here
+      dapush(prog->ops, ct_3ac_op3(COPY_3, newa->addr_type, newa->addr, ISCONST, tmpaddr, newa->addr_type, tmpaddr2));
       dapush(prog->ops, ct_3ac_op2(MOV_3, newa->addr_type, tmpaddr2, newa->addr_type, newa->addr));
     } 
     fixedinsert(prog->fixedvars, pdec->varid, newa);
@@ -1011,6 +1035,9 @@ void printprog(PROGRAM* prog) {
         break;
       case LBL_3: 
         printf("\t%s:", op->addr0.labelname);
+        break;
+      case COPY_3:
+        PRINTOP3( );
         break;
       case ADD_U: case ADD_I: case ADD_F: 
         PRINTOP3(+);
@@ -1115,6 +1142,8 @@ void printprog(PROGRAM* prog) {
         break;
       case ARRIND:
       case ARROFF:
+      case ARRMOV: //not quite right
+      case MTP_OFF: //not quite right
         printf("\t");
         printaddr(op->addr0, op->addr0_type);
         printf("[");
