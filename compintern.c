@@ -296,6 +296,20 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim) {
   return tdclp->arrlen;
 }
 
+int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
+  struct_expr->type = STRUCT_LIT;
+  STRUCT* imptype = struct_memtype->structtype;
+  feedstruct(imptype);
+  if(struct_memtype->tb & UNIONVAL) {
+    assert(0);//union initializers not handled yet
+  } else {
+    //struct
+  }
+  struct_expr->rettype = malloc(sizeof(IDTYPE));
+  memcpy(struct_expr->rettype, struct_memtype, sizeof(IDTYPE));
+  return imptype->size;
+}
+
 void wipestruct(STRUCT* strct) {
   for(int i = 0; i < strct->fields->length; ++i) {
     DECLARATION* dcl = strct->fields->arr[i];
@@ -366,7 +380,8 @@ void rfreexpr(EXPRESSION* e) {
       return;
     case NOP:
       break;
-    case ARRAY_LIT: case L_AND: case L_OR: case L_NOT:
+    case ARRAY_LIT: case STRUCT_LIT:
+    case L_AND: case L_OR: case L_NOT:
     case EQ: case NEQ: case GT: case LT: case GTE: case LTE:
     case SZOFEXPR:
     case CAST://rettype and vartype are the same pointer

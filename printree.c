@@ -192,7 +192,7 @@ int treexpr(EXPRESSION* expr) {
       dprintf(funcfile, "n%d [label=\"%s\"];\n", secondnodeary, expr->member);
       dprintf(funcfile, "n%d -> n%d;\n", exnode, secondnodeary);
       break;
-    case ARRAY_LIT:
+    case ARRAY_LIT: case STRUCT_LIT:
       for(int i = 0; i < expr->params->length; i++) {
         EXPRESSION* longman = daget(expr->params, i);
         dprintf(funcfile, "n%d -> n%d;\n", exnode, treexpr(longman));

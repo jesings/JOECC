@@ -25,7 +25,7 @@ typedef enum {
 } TYPEBITS;
 
 #define EXPRTYPELIST  \
-  X(NOP), X(STRING), X(INT), X(UINT), X(FLOAT), X(MEMBER), X(IDENT), X(ARRAY_LIT), \
+  X(NOP), X(STRING), X(INT), X(UINT), X(FLOAT), X(MEMBER), X(IDENT), X(ARRAY_LIT), X(STRUCT_LIT), \
   X(ADD), X(NEG), X(SUB), X(EQ), X(NEQ), X(GT), X(LT), X(GTE), X(LTE), X(MULT), X(DIVI), X(MOD), \
   X(PREINC), X(POSTINC), X(PREDEC), X(POSTDEC), \
   X(L_AND), X(L_OR), X(L_NOT), X(B_AND), X(B_OR), X(B_XOR), X(B_NOT), X(SHL), X(SHR), \
@@ -312,6 +312,7 @@ EXPRESSION* ct_member_expr(char* member);
 EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident);
 char typecompat(IDTYPE* t1, IDTYPE* t2);
 int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim);
+int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr);
 char type_compat(IDTYPE* id1, IDTYPE* id2);
 char isglobal(struct lexctx* lct, char* ident);
 void wipestruct(STRUCT* strct);

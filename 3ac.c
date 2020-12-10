@@ -1,7 +1,5 @@
 #include <stdio.h>
 #include <assert.h>
-#include "compintern.h"
-#include "treeduce.h"
 #include "3ac.h"
 #define X(s) #s
 //TODO: treat arrays the same way as single struct pointers, for deref purposes and for length purposes
@@ -433,6 +431,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         }
       }
       return destaddr;
+    case STRUCT_LIT:
+      assert(0);
     case NEG:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       destaddr.addr_type = curaddr.addr_type & ~ISCONST;

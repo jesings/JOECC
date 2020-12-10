@@ -261,7 +261,7 @@ initializer:
       DYNARR* pointy = ac->decl->type->pointerstack;
       if(ac->decl->type->tb & (STRUCTVAL | UNIONVAL)) {
         assert(!(pointy && pointy->length));
-        /*TODO: handle struct initializer case*/
+        process_struct_lit(ac->decl->type, ac->expr);
       } else {
         assert(pointy && pointy->length);
         int arrdim = 0;

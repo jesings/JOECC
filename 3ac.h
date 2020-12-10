@@ -1,5 +1,7 @@
 #ifndef _3AC_H
 #define _3AC_H
+#include "compintern.h"
+#include "treeduce.h"
 
 #define OPS_3AC \
   X(NOP_3), X(LBL_3), \

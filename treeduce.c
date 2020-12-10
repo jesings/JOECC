@@ -10,14 +10,14 @@
 
 char puritree(EXPRESSION* cexpr) {
   switch(cexpr->type){
-    case STRING: case INT: case UINT: case FLOAT: case NOP: case IDENT: case ARRAY_LIT: case SZOF: case MEMBER:
+    case STRING: case INT: case UINT: case FLOAT: case NOP: case IDENT: case SZOF: case MEMBER:
       return 1;
     case NEG: case L_NOT: case B_NOT: case ADDR: case DEREF:
     case ADD: case SUB: case EQ: case NEQ: case GT: case LT: case GTE: case LTE: case MULT: case DIVI: 
     case MOD: case L_AND: case L_OR: case B_AND: case B_OR: case B_XOR: case SHL: case SHR: case COMMA:
     case DOTOP: case ARROW:
     case SZOFEXPR: case CAST: 
-    case TERNARY:
+    case TERNARY: case ARRAY_LIT: case STRUCT_LIT:
       for(int i = 0; i < cexpr->params->length; i++) {
         if(!puritree(EPARAM(cexpr, i)))
           return 0;
@@ -272,8 +272,6 @@ char treequals(EXPRESSION* e1, EXPRESSION* e2) {
       return !strcmp(e1->member, e2->member);
     case NOP:
       return 1;
-    case ARRAY_LIT:
-      return 0;
     case SZOF:
       return typequality(e1->vartype, e2->vartype);
     case CAST:
@@ -288,6 +286,7 @@ char treequals(EXPRESSION* e1, EXPRESSION* e2) {
     case ASSIGN: case PREINC: case PREDEC: case POSTINC: case POSTDEC: case DOTOP: case ARROW:
     case ADDASSIGN: case SUBASSIGN: case SHLASSIGN: case SHRASSIGN: case ANDASSIGN:
     case XORASSIGN: case ORASSIGN: case DIVASSIGN: case MULTASSIGN: case MODASSIGN:
+    case ARRAY_LIT: case STRUCT_LIT:
       if(e1->params->length != e2->params->length)//big problem here
         return 0;
       for(int i = 0; i < e1->params->length; i++) {
@@ -396,13 +395,8 @@ IDTYPE typex(EXPRESSION* ex) {
       dclp->type = POINTERSPEC;
       dapush(idt.pointerstack, dclp);
       break;
-    case ARRAY_LIT:
-      idt.tb = 1;//perhaps different size for pointer
-      idt.pointerstack = dactor(4);
-      dclp = malloc(sizeof(struct declarator_part));
-      dclp->type = POINTERSPEC;
-      dapush(idt.pointerstack, dclp);
-      break;
+    case ARRAY_LIT: case STRUCT_LIT:
+      assert(0);//should never reach here
     case IDENT:
       idt = *ex->id->type;
       break;
@@ -502,7 +496,7 @@ char foldconst(EXPRESSION** exa) {
       break;
   }
   switch(ex->type) {
-    case IDENT: case INT: case UINT: case FLOAT: case STRING: case NOP: case ARRAY_LIT:
+    case IDENT: case INT: case UINT: case FLOAT: case STRING: case NOP: case ARRAY_LIT: case STRUCT_LIT:
       return 0;
     case DOTOP: case ARROW:
       return 0;
