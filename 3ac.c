@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <assert.h>
 #include "3ac.h"
 #define X(s) #s

@@ -290,9 +290,7 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim) {
     }
   }
   arr_memtype->pointerstack->length += 1;
-  arr_expr->rettype = malloc(sizeof(IDTYPE));
-  memcpy(arr_expr->rettype, arr_memtype, sizeof(IDTYPE));
-  arr_expr->rettype->pointerstack = ptrdaclone(arr_expr->rettype->pointerstack);
+  arr_expr->rettype = fcid2(arr_memtype);
   return tdclp->arrlen;
 }
 
@@ -303,10 +301,18 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
   if(struct_memtype->tb & UNIONVAL) {
     assert(0);//union initializers not handled yet
   } else {
-    //struct
+    assert(struct_expr->params->length == imptype->fields->length);
+    for(int i = 0; i < struct_expr->params->length; i++) {
+      EXPRESSION* member = daget(struct_expr->params, i);
+      DECLARATION* decl = daget(imptype->fields, i);
+      if(struct_expr->type == ARRAY_LIT) {
+        process_struct_lit(decl->type, member);
+      } else {
+        member->rettype = fcid2(decl->type);
+      }
+    }
   }
-  struct_expr->rettype = malloc(sizeof(IDTYPE));
-  memcpy(struct_expr->rettype, struct_memtype, sizeof(IDTYPE));
+  struct_expr->rettype = fcid2(struct_memtype);
   return imptype->size;
 }
 

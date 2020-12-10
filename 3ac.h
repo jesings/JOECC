@@ -1,5 +1,6 @@
 #ifndef _3AC_H
 #define _3AC_H
+#include <stdio.h>
 #include "compintern.h"
 #include "treeduce.h"
 
