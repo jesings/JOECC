@@ -279,11 +279,13 @@ extern union {
       char* pfstr = dapeek(file2compile);
       char* fname = yytext + 1;
       if(strchr(pfstr, '/')) {
-          char pathbuf[512];
-          strncpy(pathbuf, pfstr, 256);
-          char* nextptr = strrchr(pathbuf, '/') + 1;
-          strncpy(nextptr, yytext + 1, 256);
-          fname = strdup(pathbuf);
+        char pathbuf[512];
+        strncpy(pathbuf, pfstr, 256);
+        char* nextptr = strrchr(pathbuf, '/') + 1;
+        strncpy(nextptr, yytext + 1, 256);
+        fname = strdup(pathbuf);
+      } else {
+        fname = strdup(fname);
       }
       if((newbuf = fopen(fname, "r")) != NULL) { //ignore opening "
         YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
@@ -291,7 +293,7 @@ extern union {
         dapush(locs, ylt);
         yylloc.first_line = yylloc.last_line = 1;
         yylloc.first_column = yylloc.last_column = 0;
-        dapush(file2compile, strdup(fname));
+        dapush(file2compile, fname);
         YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE);
         yy_push_state(INITIAL);
         yypush_buffer_state(ybs);

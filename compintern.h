@@ -367,6 +367,7 @@ static inline int lentype(IDTYPE* idt) {
   if(idt->pointerstack && idt->pointerstack->length) {
     struct declarator_part* pointtop = dapeek(idt->pointerstack);
     if(pointtop->type != ARRAYSPEC) return 0x8;
+    else return pointtop->arrlen;
   }
   if(idt->tb & (STRUCTVAL | UNIONVAL)) {
     return idt->structtype->size;

@@ -480,25 +480,35 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
 
     case ADDR:
       varty = typex(daget(cexpr->params, 0));
-      if(!(varty.pointerstack && varty.pointerstack->length) && (varty.tb & STRUCTVAL)) {
+      char hpoints = varty.pointerstack && varty.pointerstack->length;
+      if(!(hpoints) && (varty.tb & STRUCTVAL)) {
         return linearitree(daget(cexpr->params, 0), prog);//addr should be a no-op for single pointers to structs
+      }
+      if(hpoints) {
+        struct declarator_part* dclp = dapeek(varty.pointerstack);
+        if(dclp->type == ARRAYSPEC)
+          return linearitree(daget(cexpr->params, 0), prog);//addr should be a no-op for single pointers to arrays
       }
       return op2ret(prog->ops, implicit_unary_2(ADDR_U, cexpr, prog));
 
     case DEREF:
       varty = typex(daget(cexpr->params, 0));
       assert(varty.pointerstack && varty.pointerstack->length);
+      destaddr = linearitree(daget(cexpr->params, 0), prog);
       if(varty.pointerstack->length == 1 && (varty.tb & STRUCTVAL)) {
-        FULLADDR fad = linearitree(daget(cexpr->params, 0), prog);
         if(prevval) {
           prog->fderef = 1; //TODO: need some way to copy over whole struct in ASSIGN
         }
-        return fad; //dereferencing single pointer to struct should be a no-op
+        return destaddr; //dereferencing single pointer to struct should be a no-op
+      }
+      struct declarator_part* dclp = dapeek(varty.pointerstack);
+      if(dclp->type == ARRAYSPEC) {
+        if(prevval) prog->fderef = 1;
+        return destaddr;
       }
       if(prevval) {
-        FULLADDR fad = linearitree(daget(cexpr->params, 0), prog);
         prog->fderef = 1;
-        return fad;
+        return destaddr;
       }
       return op2ret(prog->ops, implicit_unary_2(MFP_U, cexpr, prog));
     case ADD:
@@ -561,11 +571,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case SZOFEXPR:
       varty = typex(cexpr);
       curaddr = linearitree(daget(cexpr->params, 0), prog);
-      if(varty.pointerstack && varty.pointerstack->length) {
-        destaddr.addr.uintconst_64 = 8;
-      } else {
-        destaddr.addr.uintconst_64 = varty.structtype->size;
-      }
+      destaddr.addr.uintconst_64 = lentype(&varty);
       destaddr.addr_type = ISCONST;
       return destaddr;
     case CAST: //handle identity casts differently
