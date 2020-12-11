@@ -511,7 +511,7 @@ typem:
 | enum {
     $$ = calloc(1, sizeof(IDTYPE)); 
     $$->enumtype = $1;
-    $$->tb = ENUMVAL; 
+    $$->tb = ENUMVAL | 0x8;//for now they're all 8 bits
     };
 types1:
   "const" {$$ = CONSTNUM;}

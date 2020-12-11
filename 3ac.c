@@ -312,6 +312,10 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char lvalval) {
   char* memname = ((EXPRESSION*) daget(cexpr->params, 1))->member;
   assert(!seaty.pointerstack || seaty.pointerstack->length <= 1);
   assert(seaty.tb & (STRUCTVAL | UNIONVAL));
+  if(seaty.tb & STRUCTVAL)
+    feedstruct(seaty.structtype);
+  else
+    unionlen(seaty.uniontype);
   FULLADDR retaddr;
   ADDRESS offaddr;
   HASHTABLE* ofs = seaty.structtype->offsets;
@@ -415,9 +419,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         for(int i = 0; i < cexpr->params->length; i++) {
           EXPRESSION* dyne = daget(cexpr->params, i);
           otheraddr = linearitree(dyne, prog);
-          ADDRESS a;
-          a.uintconst_64 = i;
-          dapush(prog->ops, ct_3ac_op3(ARRMOV, otheraddr.addr_type, otheraddr.addr, ISCONST | 0x8, a, destaddr.addr_type, destaddr.addr));
+          curaddr.addr.uintconst_64 = i;
+          dapush(prog->ops, ct_3ac_op3(ARRMOV, otheraddr.addr_type, otheraddr.addr, ISCONST | 0x8, curaddr.addr, destaddr.addr_type, destaddr.addr));
         }
       } else {
         ADDRESS a;
@@ -431,7 +434,18 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       }
       return destaddr;
     case STRUCT_LIT:
-      assert(0);
+      FILLIREG(destaddr, ISPOINTER | 0x8);
+      curaddr.addr.uintconst_64 = cexpr->rettype->structtype->size;
+      dapush(prog->ops, ct_3ac_op2(ALOC_3, ISCONST | 0x8, curaddr.addr, destaddr.addr_type, destaddr.addr));
+      for(int i = 0; i < cexpr->params->length; i++) {
+        EXPRESSION* member = daget(cexpr->params, i);
+        DECLARATION* decl = daget(cexpr->rettype->structtype->fields, i);
+        STRUCTFIELD* sf = search(cexpr->rettype->structtype->offsets, decl->varname);
+        curaddr = linearitree(member, prog);
+        otheraddr.addr.uintconst_64 = sf->offset;
+        dapush(prog->ops, ct_3ac_op3(MTP_OFF, curaddr.addr_type, curaddr.addr, ISCONST | 0x8, otheraddr.addr, destaddr.addr_type, destaddr.addr));
+      }
+      return destaddr;
     case NEG:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       destaddr.addr_type = curaddr.addr_type & ~ISCONST;
@@ -1141,8 +1155,6 @@ void printprog(PROGRAM* prog) {
         break;
       case ARRIND:
       case ARROFF:
-      case ARRMOV: //not quite right
-      case MTP_OFF: //not quite right
         printf("\t");
         printaddr(op->addr0, op->addr0_type);
         printf("[");
@@ -1150,6 +1162,23 @@ void printprog(PROGRAM* prog) {
         printf("] ");
         printf(" →  ");
         printaddr(op->dest, op->dest_type);
+        break;
+      case ARRMOV: //not quite right
+        printf("\t");
+        printaddr(op->addr0, op->addr0_type);
+        printf(" →  ");
+        printaddr(op->dest, op->dest_type);
+        printf("[");
+        printaddr(op->addr1, op->addr1_type);
+        printf("] ");
+        break;
+      case MTP_OFF: //not quite right
+        printf("\t");
+        printaddr(op->addr0, op->addr0_type);
+        printf(" →  ");
+        printaddr(op->dest, op->dest_type);
+        printf(" + ");
+        printaddr(op->addr1, op->addr1_type);
         break;
       case INIT_3:
         PRINTOP1( );

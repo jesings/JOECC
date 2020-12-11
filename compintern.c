@@ -305,10 +305,21 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
     for(int i = 0; i < struct_expr->params->length; i++) {
       EXPRESSION* member = daget(struct_expr->params, i);
       DECLARATION* decl = daget(imptype->fields, i);
-      if(struct_expr->type == ARRAY_LIT) {
-        process_struct_lit(decl->type, member);
+      if(member->type == ARRAY_LIT) {
+        if(decl->type->tb & (STRUCTVAL | UNIONVAL)) {
+          process_struct_lit(decl->type, member);
+        } else {
+          int arrdim = 0;
+          for(int i = decl->type->pointerstack->length - 1; i >= 0; i--, arrdim++) {
+            struct declarator_part* pointtop = daget(decl->type->pointerstack, i);
+            if(pointtop->type != ARRAYSPEC) break;
+          }
+          assert(arrdim);
+          process_array_lit(decl->type, member, arrdim);
+        }
       } else {
-        member->rettype = fcid2(decl->type);
+        IDTYPE memty = typex(member);
+        assert(typecompat(&memty, decl->type));
       }
     }
   }
@@ -353,7 +364,6 @@ static void fpdecl(DECLARATION* dc) {
 }
 
 void freetype(IDTYPE* id) {
-  //TODO: devise something to not free self-nested struct types
   if(id->pointerstack) {
     for(int i = 0; i < id->pointerstack->length; i++) {
       struct declarator_part* dclp = id->pointerstack->arr[i];
