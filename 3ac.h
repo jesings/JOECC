@@ -189,13 +189,9 @@ static inline ADDRTYPE addrconv(IDTYPE* idt) {
 static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
   FULLADDR destad;
   ADDRESS sz;
-  if(retidt.tb & (STRUCTVAL | UNIONVAL)) {
-    if(retidt.tb & STRUCTVAL) feedstruct(retidt.structtype);
-    else                      unionlen(retidt.uniontype);
-    sz.uintconst_64 = retidt.structtype->size;
-  } else {
-    sz.uintconst_64 = retidt.pointerstack && retidt.pointerstack->length ? 8 : retidt.tb & 0xf;
-  }
+  retidt.pointerstack->length -= 1;
+  sz.uintconst_64 = lentype(&retidt);
+  retidt.pointerstack->length += 1;
   if(sz.uintconst_64 == 1) return fadt;
   destad.addr.iregnum = prog->iregcnt++;
   destad.addr_type = 8 | ISPOINTER;
@@ -219,5 +215,4 @@ static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
   }
   return destad;
 }
-
 #endif

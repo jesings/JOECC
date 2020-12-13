@@ -106,7 +106,7 @@ EXPRESSION* ct_sztype(IDTYPE* whichtype) {
   }
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = SZOF;
-  retval->rettype = NULL;//TODO: prepopulate here
+  retval->rettype = NULL;
   retval->vartype = whichtype;
   return retval;
 }
@@ -207,7 +207,7 @@ EXPRESSION* ct_floatconst_expr(double num) {
 EXPRESSION* ct_array_lit(DYNARR* da) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = ARRAY_LIT;
-  retval->rettype = NULL;//TODO: prepopulate rettype
+  retval->rettype = NULL;
   retval->params = da;
   return retval;
 }
@@ -273,13 +273,22 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim) {
   if(arr_dim == 1) {
     //TODO: array of structs oh no
     if(arr_dim == arr_memtype->pointerstack->length) {
-      for(int i = 0; i < arr_expr->params->length; i++) {
-        EXPRESSION* arrv = daget(arr_expr->params, i);
-        IDTYPE arrt = typex(arrv);
-        assert(typecompat(&arrt, arr_memtype));
-        tdclp->arrlen += szstep;
+      if(arr_memtype->tb & (STRUCTVAL | UNIONVAL)) {
+        for(int i = 0; i < arr_expr->params->length; i++) {
+          EXPRESSION* arrv = daget(arr_expr->params, i);
+          process_struct_lit(arr_memtype, arrv);
+          tdclp->arrlen += szstep;
+        }
+        //params are fine, no further processing necessary
+      } else {
+        for(int i = 0; i < arr_expr->params->length; i++) {
+          EXPRESSION* arrv = daget(arr_expr->params, i);
+          IDTYPE arrt = typex(arrv);
+          assert(typecompat(&arrt, arr_memtype));
+          tdclp->arrlen += szstep;
+        }
+        //params are fine, no further processing necessary
       }
-      //params are fine, no further processing necessary
     }
   } else {
     for(int i = 0; i < arr_expr->params->length; i++) {
@@ -471,11 +480,11 @@ void rfreestate(STATEMENT* s) {
     case LBREAK: case LCONT: case DEFAULT: case NOPSTMT:
       //We don't reduce case statement here
       break;
+    case LABEL:
     case JGOTO: 
       free(s->glabel); 
       break;
     case CASE: //maybe this needs to be freed from the labeltable
-    case LABEL: //already handled in 3ac, unless we strdup
       //TODO: strdup
       break;
     case SWITCH:
@@ -1098,7 +1107,6 @@ void feedstruct(STRUCT* s) {
               esize = mmi->type->structtype->size;
             }
           } else {
-            //TODO: unique enum case?
             esize = mtb & 0x7f;
             dapush(newmm, mmi);
           }
@@ -1169,7 +1177,6 @@ int unionlen(UNION* u) {
               dapush(newmm, mmi);
             }
           } else {
-            //TODO: unique enum case?
             esize = mtb & 0x7f;
             dapush(newmm, mmi);
           }
