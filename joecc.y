@@ -39,9 +39,8 @@
 
   #define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
   #define dget(param, index) ((DECLARATION*) (param)->arr[(index)])
-  //TODO: Array designators, struct initializers, optional brace nesting?
+  //TODO: Struct initializers, optional brace nesting?
   //TODO: Consider designated initializers, compound literals?
-  //TODO: do enums right
 }
 
 %{
@@ -103,16 +102,13 @@ program:
     if($1) {
       for(int i = 0; i < $1->length; i++) {
         INITIALIZER* a2 = daget($1, i);
-        if(!scopequeryval(ctx, M_VARIABLE, a2->decl->varname)) {
-          IDENTIFIERINFO* id = malloc(sizeof(IDENTIFIERINFO));
-          id->index = -1;
-          id->name = a2->decl->varname;
-          id->type = a2->decl->type;
-          add2scope(ctx, a2->decl->varname, M_GLOBAL, id);
-          dapush(ctx->globals, a2);//check if function prototype, only insert if not? don't free decl? if not func?
-        } else {
-          assert(0);//HOW??
-        }
+        assert(!scopequeryval(ctx, M_VARIABLE, a2->decl->varname));
+        IDENTIFIERINFO* id = malloc(sizeof(IDENTIFIERINFO));
+        id->index = -1;
+        id->name = a2->decl->varname;
+        id->type = a2->decl->type;
+        add2scope(ctx, a2->decl->varname, M_GLOBAL, id);
+        dapush(ctx->globals, a2);
         free(a2->decl);
         if(a2->expr) rfreexpr(a2->expr);
       }
@@ -138,8 +134,14 @@ program:
           id->index = -1;
           id->name = a2->decl->varname;
           id->type = a2->decl->type;
+          if(id->type->pointerstack && id->type->pointerstack->length) {
+            struct declarator_part* dclp = dapeek(id->type->pointerstack);
+            if(dclp->type == PARAMSSPEC) {
+              id->type->tb |= GLOBALFUNC;
+            }
+          }
           add2scope(ctx, a2->decl->varname, M_GLOBAL, id);
-          dapush(ctx->globals, a2);//check if function prototype, only insert if not? don't free decl? if not func?
+          dapush(ctx->globals, a2);
         } else {
           IDENTIFIERINFO* id = scopesearch(ctx, M_VARIABLE, a2->decl->varname);
           if(!(id->type->tb & EXTERNNUM)) {
@@ -658,8 +660,7 @@ esp:
 | esp '(' ')' {$$ = ct_fcall_expr($1, dactor(0));}
 | esp '(' escl ')' {$$ = ct_fcall_expr($1, $3);}
 | esp '[' expression ']' {$$ = ct_unary_expr(DEREF, ct_binary_expr(ADD, $1, $3));}
-| esp '.' SYMBOL {
-  $$ = ct_binary_expr(DOTOP, $1, ct_member_expr($3));}
+| esp '.' SYMBOL {$$ = ct_binary_expr(DOTOP, $1, ct_member_expr($3));}
 | esp "->" SYMBOL {$$ = ct_binary_expr(ARROW, $1, ct_member_expr($3));}
 | esu {$$ = $1;};
 esu:
@@ -693,11 +694,11 @@ array_literal:
 
 multistring:
   STRING_LITERAL {$$ = $1;}
-| STRING_LITERAL STRING_LITERAL {
+| multistring STRING_LITERAL {
     $$ = $1;
+    --$1->lenstr;//remove null terminator
     dscat($1, $2->strptr, $2->lenstr);
-    free($2->strptr);
-    free($2);
+    strdtor($2);
     }
 
 function:
@@ -750,6 +751,7 @@ function:
     dp->params = parammemb;
     dapush($2->type->pointerstack, dp);
     id->type = $2->type;
+    id->type->tb |= GLOBALFUNC;
     rmpaircfr(scopepeek(ctx)->members, $2->varname, free); //no-op if not predefined
     add2scope(ctx, $2->varname, M_GLOBAL, id);
     free($2);

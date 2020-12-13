@@ -259,7 +259,7 @@ char treequals(EXPRESSION* e1, EXPRESSION* e2) {
     return 0;
   switch(e1->type) {
     case IDENT: 
-      return (e1->id->index != -1) && (e1->id->index == e2->id->index);
+      return (e1->id->index >= 0) && (e1->id->index == e2->id->index);
     case INT: 
       return e1->intconst == e2->intconst;
     case UINT: 
@@ -327,9 +327,8 @@ static IDTYPE simplbinprec(IDTYPE id1, IDTYPE id2) {
 }
 
 static IDTYPE simplbinprecnoptr(IDTYPE id1, IDTYPE id2) {
-  if((id1.pointerstack && id1.pointerstack->length) || (id2.pointerstack && id2.pointerstack->length)) {
-    assert(0);
-  } else if(id1.tb & FLOATNUM) {
+  assert(!((id1.pointerstack && id1.pointerstack->length) || (id2.pointerstack && id2.pointerstack->length)));
+  if(id1.tb & FLOATNUM) {
     if(id2.tb & FLOATNUM) {
       if((id1.tb & 0xf) >= (id2.tb & 0xf)) {
         return id1;
@@ -373,7 +372,8 @@ IDTYPE typex(EXPRESSION* ex) {
   idt.pointerstack = NULL;
   struct declarator_part* dclp;
   switch(ex->type) {
-    case NOP: case MEMBER:
+    case ARRAY_LIT: case STRUCT_LIT:
+    case NOP: case MEMBER: case FCALL:
       //error out
       assert(0);
     case L_AND: case L_OR: case L_NOT: //logical operators return long unsigned? not final--will not unflatten
@@ -395,8 +395,6 @@ IDTYPE typex(EXPRESSION* ex) {
       dclp->type = POINTERSPEC;
       dapush(idt.pointerstack, dclp);
       break;
-    case ARRAY_LIT: case STRUCT_LIT:
-      assert(0);//should never reach here
     case IDENT:
       idt = *ex->id->type;
       break;
@@ -467,8 +465,6 @@ IDTYPE typex(EXPRESSION* ex) {
         assert(0);
       }
       break;
-    case FCALL:
-      assert(0); //fcall must be prepopulated
   }
   if(!ex->rettype) {
     ex->rettype = malloc(sizeof(IDTYPE));

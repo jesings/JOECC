@@ -107,7 +107,6 @@ FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srce
           break;
         case SHL_U: case SHR_U: case MOD_U: case MULT_U: case DIV_U:
           //pointer to integer without cast
-          assert(0);
         default:
           assert(0);
       }
@@ -420,9 +419,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       curaddr.addr.floatconst_64 = cexpr->floatconst;
       return curaddr;
     case IDENT:
-      if(cexpr->id->index == -1) {
-        extern struct lexctx* ctx; //TODO: some way to do this without ctx? Like add to tb in compintern
-        if(queryval(ctx->funcs, cexpr->id->name)) {
+      if(cexpr->id->index < 0) {
+        if(cexpr->id->index == -2) {
           destaddr.addr_type = 8;
         } else {
           destaddr.addr_type = addrconv(cexpr->id->type);
@@ -633,6 +631,20 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         }
       } else if(cexpr->vartype->tb & VOIDNUM) {
         return curaddr; //not sure how this should be handled
+      } else if(cexpr->vartype->tb & UNIONVAL) { 
+        UNION* castdest = cexpr->vartype->uniontype;
+        FILLIREG(destaddr, ISPOINTER | 0x8);
+        unionlen(castdest);
+        otheraddr.addr.uintconst_64 = castdest->size;
+        dapush(prog->ops, ct_3ac_op2(ALOC_3, ISCONST | 8, otheraddr.addr, destaddr.addr_type, destaddr.addr));
+        IDTYPE srctype = typex(daget(cexpr->params, 0));
+        for(int i = 0; i < castdest->fields->length; i++) {
+          DECLARATION* dcl = daget(castdest->fields, i);
+          if(!typecompat(dcl->type, &srctype)) continue;
+          dapush(prog->ops, ct_3ac_op2(MTP_U + (curaddr.addr_type & ISFLOAT ? 2 : 0), curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+          return destaddr;
+        }
+        assert(0);
       } else if(cexpr->vartype->tb & 0xf) {
         FILLIREG(destaddr, (cexpr->vartype->tb & 0xf) | ISSIGNED);
         if(curaddr.addr_type & ISFLOAT) {
@@ -1007,7 +1019,7 @@ PROGRAM* linefunc(FUNC* f) {
       ADDRESS tmpaddr, tmpaddr2;
       tmpaddr.intconst_64 = pdec->type->structtype->size;
       tmpaddr2.iregnum = prog->iregcnt++;
-      dapush(prog->ops, ct_3ac_op2(ALOC_3, ISCONST, tmpaddr, newa->addr_type, tmpaddr2));
+      dapush(prog->ops, ct_3ac_op2(ALOC_3, ISCONST | 8, tmpaddr, newa->addr_type, tmpaddr2));
       dapush(prog->ops, ct_3ac_op3(COPY_3, newa->addr_type, newa->addr, ISCONST, tmpaddr, newa->addr_type, tmpaddr2));
       dapush(prog->ops, ct_3ac_op2(MOV_3, newa->addr_type, tmpaddr2, newa->addr_type, newa->addr));
     } 

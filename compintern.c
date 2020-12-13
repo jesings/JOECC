@@ -61,13 +61,28 @@ DYNARR* ptrdaclone(DYNARR* opointerstack) {
     struct declarator_part* dclp = malloc(sizeof(struct declarator_part));
     memcpy(dclp, opointerstack->arr[i], sizeof(struct declarator_part));
     switch(dclp->type) {
-      case PARAMSSPEC:
-        assert(0); //we just don't handle this (yet?)
+      case PARAMSSPEC: ;
+        PARALLEL* newp = paralector();
+        for(int j = 0; j < dclp->params->da->length; j++) {
+          char* pname = daget(dclp->params->da, j);
+          if(!strcmp(pname, "...")) {
+            pinsert(newp, strdup("..,"), NULL);
+          } else {
+            DECLARATION* parid = search(dclp->params->ht, pname);
+            DECLARATION* newdecl = malloc(sizeof(DECLARATION));
+            newdecl->type = fcid2(parid->type);
+            newdecl->varname = strdup(parid->varname);
+            pinsert(newp, pname, newdecl);
+          }
+        }
+        dclp->params = newp;
         break;
       case NAMELESS_PARAMSSPEC:
         dclp->nameless_params = daclone(dclp->nameless_params);
         for(int j = 0; j < dclp->nameless_params->length; j++) {
-          dclp->nameless_params->arr[j] = fcid2(dclp->nameless_params->arr[j]);
+          if(dclp->nameless_params->arr[j]) {
+            dclp->nameless_params->arr[j] = fcid2(dclp->nameless_params->arr[j]);
+          }
         }
         break;
       case POINTERSPEC: case ARRAYSPEC:
@@ -151,11 +166,8 @@ EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params) {
   IDTYPE* retid = fcid(func->id->type);
   if(((struct declarator_part*) dapeek(ptrs))->type == POINTERSPEC) {
     struct declarator_part* da2 = daget(ptrs, ptrs->length - 2);
-    if(da2->type == PARAMSSPEC || da2->type == NAMELESS_PARAMSSPEC) {
-      retid->pointerstack->length -= 2; //shorten but no pop needed
-    } else {
-      assert(0);
-    }
+    assert(da2->type == PARAMSSPEC || da2->type == NAMELESS_PARAMSSPEC);
+    retid->pointerstack->length -= 2; //shorten but no pop needed
   } else {
     dapop(retid->pointerstack);
     //clone pointer stack, remove function type from it
@@ -227,7 +239,9 @@ EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident) {
   retval->id = malloc(sizeof(IDENTIFIERINFO));
   retval->id->type = ids->type;
   retval->id->name = ident;
-  retval->id->index = ids->index;
+  if(ids->type->tb & GLOBALFUNC) {
+    retval->id->index = -2;
+  }
   assert(retval->id || ! fprintf(stderr, "Error: use of undefined variable %s at %s %d.%d-%d.%d\n", ident, locprint(yylloc)));
   retval->rettype = retval->id->type;
   return retval;

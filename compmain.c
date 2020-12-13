@@ -10,7 +10,6 @@ int yyparse(void);
 DYNARR* locs;
 DYNARR* file2compile;
 int ppdebug;
-//TODO: Variadic macros?
 static void freev(void* v) {
   HASHPAIR* v2 = v;
   rfreefunc(v2->value);

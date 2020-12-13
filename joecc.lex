@@ -5,7 +5,7 @@ EXP [Ee][+-]?[[:digit:]]+
 FLOATSIZE (f|F|l|L)
 INTSIZE (u|U|l|L)*
 %{
-//TODO: computed include?
+//TODO: computed include? variadic macros?
 
 #include <math.h>
 #include <time.h>
@@ -226,7 +226,7 @@ extern union {
     yy_push_state(KILLUNTIL); 
     yytext[yyleng - 1] = '\0'; 
     fprintf(stderr, "ERROR: %s\n", yytext + 1);
-    assert(0);
+    exit(0);
     }
 
 <INCLUDE>{
@@ -451,9 +451,7 @@ extern union {
     dsccat(mdstrdly, 0);
     struct macrodef* isinplace;
     if((isinplace = search(ctx->defines, defname))) {
-      if(strcmp(isinplace->text->strptr, mdstrdly->strptr)) {
-        assert(0);
-      }
+      assert(!strcmp(isinplace->text->strptr, mdstrdly->strptr));
       freemd(isinplace);
     }
     md->text = mdstrdly;
@@ -604,7 +602,7 @@ extern union {
 
   {IDENT} {
     char* dupdstr = strdup(yytext);
-    if(check_type(dupdstr, 2) != -1) {
+    if(check_type(dupdstr, 2) >= 0) {
       dscat(dstrdly, yytext, yyleng);
       free(dupdstr);
     }
@@ -1129,7 +1127,6 @@ L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(256), 0, 256);}
     default:
       yy_pop_state();
       fprintf(stderr, "ERROR: subsidiary parser reduced if or elif into non-rectifiable expression %s %d.%d-%d.%d\n", locprint(yylloc));
-      assert(0);
   }
   rfreexpr(ctx->ifexpr);
   ctx->ifexpr = NULL;

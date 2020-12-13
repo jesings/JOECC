@@ -15,7 +15,7 @@ typedef enum {
   STATICNUM   = 0x100,
   EXTERNNUM   = 0x200,
   RESTRICTNUM = 0x400,
-  PARAMNUM    = 0x800,
+  GLOBALFUNC  = 0x800,
   VOIDNUM     = 0x1000,
   ENUMVAL     = 0x2000,
   STRUCTVAL   = 0x4000,
