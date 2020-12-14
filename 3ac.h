@@ -95,8 +95,6 @@ typedef struct {
 
 typedef struct {
   DYNARR* ops;
-  char lval;
-  char fderef;
   int labelcnt;
   unsigned long iregcnt;
   unsigned long fregcnt;
@@ -113,7 +111,7 @@ OPERATION* ct_3ac_op2(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
 OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0,
                       ADDRTYPE addr1_type, ADDRESS addr1, ADDRTYPE dest_type, ADDRESS dest);
 FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog);
-FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char prevval);
+FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog);
 void initializestate(INITIALIZER* i, PROGRAM* prog);
 OPERATION* cmptype(EXPRESSION* cmpexpr, ADDRESS addr2jmp, char negate, PROGRAM* prog);
 void solidstate(STATEMENT* cst, PROGRAM* prog);

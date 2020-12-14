@@ -436,7 +436,7 @@ param_decl:
       }
     }
     free($1);
-    $$ = $2; 
+    $$ = $2;
     };
 nameless:
   namelesstype {$$ = dactor(16); dapush($$, $1);/*read only*/ }

@@ -241,6 +241,8 @@ EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident) {
   retval->id->name = ident;
   if(ids->type->tb & GLOBALFUNC) {
     retval->id->index = -2;
+  } else {
+    retval->id->index = ids->index;
   }
   assert(retval->id || ! fprintf(stderr, "Error: use of undefined variable %s at %s %d.%d-%d.%d\n", ident, locprint(yylloc)));
   retval->rettype = retval->id->type;
