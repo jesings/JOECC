@@ -36,9 +36,7 @@
   X(BNZ_3), X(BEZ_3), \
   X(JMP_3), \
   X(MOV_3), \
-  X(MTP_U), X(MTP_I), X(MTP_F), /*move to pointer*/\
   X(MTP_OFF), \
-  X(MFP_U), X(MFP_I), X(MFP_F), /*move from pointer*/\
   X(ARG_3), /*Do this for each param for CALL, must be done immediately before CALL */\
   X(CALL_3), X(RET_3), X(RET_0),\
   X(F2I), X(I2F), \
@@ -77,8 +75,7 @@ typedef enum {
   ISLABEL = 0x80, //if not set it's not a label
   ISSTRCONST = 0x100, //if not set it's not a string
   ISPOINTER = 0x200, //needs regnum and pointer type?
-  //isstruct not necessary because of how we type struct exprs
-  //array constants not necessary to handle here
+  ISDEREF = 0x400, //needs regnum and pointer type?
 } ADDRTYPE;
 
 typedef struct {

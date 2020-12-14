@@ -157,17 +157,15 @@ static FULLADDR prestep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
   char baseness = destaddr.addr_type & ISFLOAT ? 2 : 0;
   if(prog->fderef) {
     FILLGREG(otheraddr, destaddr.addr_type & ~ISLABEL);
-    dapush(prog->ops, ct_3ac_op2(MFP_U + baseness, destaddr.addr_type, destaddr.addr, otheraddr.addr_type, otheraddr.addr));
     if(rid.pointerstack && rid.pointerstack->length) {
       FULLADDR curaddr;
       rid.pointerstack->length -= 1;
       curaddr.addr.uintconst_64= lentype(&rid);
       rid.pointerstack->length += 1;
-      dapush(prog->ops, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, otheraddr.addr_type, otheraddr.addr, ISCONST | 8, curaddr.addr, otheraddr.addr_type, otheraddr.addr));
+      dapush(prog->ops, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, otheraddr.addr_type | ISDEREF , otheraddr.addr, ISCONST | 8, curaddr.addr, otheraddr.addr_type | ISDEREF, otheraddr.addr));
     } else {
-      dapush(prog->ops, ct_3ac_op2((isinc ? INC_U : DEC_U) + baseness, otheraddr.addr_type, otheraddr.addr, otheraddr.addr_type, otheraddr.addr));
+      dapush(prog->ops, ct_3ac_op2((isinc ? INC_U : DEC_U) + baseness, otheraddr.addr_type | ISDEREF , otheraddr.addr, otheraddr.addr_type | ISDEREF, otheraddr.addr));
     }
-    dapush(prog->ops, ct_3ac_op2(MTP_U + baseness, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
   } else {
     if(rid.pointerstack && rid.pointerstack->length) {
       FULLADDR curaddr;
@@ -191,18 +189,17 @@ static FULLADDR poststep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
   FILLGREG(actualaddr, destaddr.addr_type & ~ISLABEL);
   if(prog->fderef) {
     FILLGREG(otheraddr, destaddr.addr_type & ~ISLABEL);
-    dapush(prog->ops, ct_3ac_op2(MFP_U + baseness, destaddr.addr_type, destaddr.addr, otheraddr.addr_type, otheraddr.addr));
+    dapush(prog->ops, ct_3ac_op2(MOV_3, destaddr.addr_type | ISDEREF, destaddr.addr, otheraddr.addr_type, otheraddr.addr));
     dapush(prog->ops, ct_3ac_op2(MOV_3, otheraddr.addr_type, otheraddr.addr, actualaddr.addr_type, actualaddr.addr));
     if(rid.pointerstack && rid.pointerstack->length) {
       FULLADDR curaddr;
       rid.pointerstack->length -= 1;
       curaddr.addr.uintconst_64 = lentype(&rid);
       rid.pointerstack->length += 1;
-      dapush(prog->ops, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, otheraddr.addr_type, otheraddr.addr, ISCONST | 8, curaddr.addr, otheraddr.addr_type, otheraddr.addr));
+      dapush(prog->ops, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, otheraddr.addr_type, otheraddr.addr, ISCONST | 8, curaddr.addr, destaddr.addr_type | ISDEREF, destaddr.addr));
     } else {
-      dapush(prog->ops, ct_3ac_op2((isinc ? INC_U : DEC_U) + baseness, otheraddr.addr_type, otheraddr.addr, otheraddr.addr_type, otheraddr.addr));
+      dapush(prog->ops, ct_3ac_op2((isinc ? INC_U : DEC_U) + baseness, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type | ISDEREF, destaddr.addr));
     }
-    dapush(prog->ops, ct_3ac_op2(MTP_U + baseness, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
   } else {
     dapush(prog->ops, ct_3ac_op2(MOV_3, destaddr.addr_type, destaddr.addr, actualaddr.addr_type, actualaddr.addr));
     if(rid.pointerstack && rid.pointerstack->length) {
@@ -219,37 +216,30 @@ static FULLADDR poststep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
 }
 
 OPERATION* implicit_mtp_2(EXPRESSION* destexpr, EXPRESSION* fromexpr, FULLADDR a1, FULLADDR a2, PROGRAM* prog) {
-  enum opcode_3ac op = MTP_U;
   IDTYPE destidt = typex(destexpr);
   IDTYPE srcidt = typex(fromexpr);
   if(destidt.pointerstack && destidt.pointerstack->length) {
     assert(srcidt.pointerstack && srcidt.pointerstack->length);
   } else if(destidt.tb & FLOATNUM) {
-    op += 2;
     if(!(srcidt.tb & FLOATNUM)) {
       FULLADDR fad;
       FILLFREG(fad, ISFLOAT | (destidt.tb & 0xf));
-      dapush(prog->ops, ct_3ac_op2(I2F, a2.addr_type, a2.addr, fad.addr_type, fad.addr));
-      a2 = fad;
+      return ct_3ac_op2(I2F, a2.addr_type, a2.addr, fad.addr_type | ISDEREF, fad.addr);
     }
   } else if(destidt.tb & UNSIGNEDNUM) {
     if(srcidt.tb & FLOATNUM) {
       FULLADDR fad;
       FILLIREG(fad, destidt.tb & 0xf);
-      dapush(prog->ops, ct_3ac_op2(F2I, a2.addr_type, a2.addr, fad.addr_type, fad.addr));
-      a2 = fad;
+      return ct_3ac_op2(F2I, a2.addr_type, a2.addr, fad.addr_type | ISDEREF, fad.addr);
     }
   } else {
-    op += 1;
     if(srcidt.tb & FLOATNUM) {
       FULLADDR fad;
       FILLIREG(fad, (destidt.tb & 0xf) | ISSIGNED);
-      dapush(prog->ops, ct_3ac_op2(F2I, a2.addr_type, a2.addr, fad.addr_type, fad.addr));
-      a2 = fad;
+      return ct_3ac_op2(F2I, a2.addr_type, a2.addr, fad.addr_type | ISDEREF, fad.addr);
     }
   }
-
-  return ct_3ac_op2(op, a2.addr_type, a2.addr, a1.addr_type, a1.addr);
+  return ct_3ac_op2(MOV_3, a2.addr_type, a2.addr, a1.addr_type | ISDEREF, a1.addr);
 }
 
 OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
@@ -379,16 +369,8 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char lvalval) {
       prog->fderef = 1;
       return intermediate; //probably nothing different needs to be done with pointer or anything
     }
-    enum opcode_3ac opc;
-    if(!pointerqual && (sf->type->tb & FLOATNUM)) {
-      FILLFREG(retaddr, addrconv(&retty));
-      opc = MFP_F;
-    } else {
-      FILLIREG(retaddr, addrconv(&retty));
-      //TODO: bug with voidnum here? elsewhere?
-      opc = (sf->type->tb & UNSIGNEDNUM) || pointerqual ? MFP_U : MFP_I;
-    }
-    dapush(prog->ops, ct_3ac_op2(opc, intermediate.addr_type, intermediate.addr, retaddr.addr_type, retaddr.addr));
+    FILLGREG(retaddr, addrconv(&retty));
+    dapush(prog->ops, ct_3ac_op2(MOV_3, intermediate.addr_type | ISDEREF, intermediate.addr, retaddr.addr_type, retaddr.addr));
   }
   //need to handle lvalues
   return retaddr;
@@ -430,13 +412,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         if(prevval | prog->fderef) {
           return curaddr;
         } else {
-          if(destaddr.addr_type & ISFLOAT) {
-            FILLFREG(destaddr, destaddr.addr_type);
-            dapush(prog->ops, ct_3ac_op2(MFP_F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-          } else {
-            FILLIREG(destaddr, destaddr.addr_type);
-            dapush(prog->ops, ct_3ac_op2(MFP_U, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-          }
+          FILLGREG(destaddr, destaddr.addr_type);
+          dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
           return destaddr;
         }
       } else {
@@ -464,7 +441,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
           EXPRESSION* dyne = daget(cexpr->params, i);
           otheraddr = linearitree(dyne, prog);
           dapush(prog->ops, ct_3ac_op3(ADD_U, destaddr.addr_type, destaddr.addr, ISCONST | 0x8, a, destaddr.addr_type, destaddr.addr));
-          dapush(prog->ops, ct_3ac_op2(MTP_U, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
+          dapush(prog->ops, ct_3ac_op2(MOV_3, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type | ISDEREF, destaddr.addr));
         }
       }
       return destaddr;
@@ -545,7 +522,9 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         prog->fderef = 1;
         return destaddr;
       }
-      return op2ret(prog->ops, implicit_unary_2(MFP_U, cexpr, prog));
+      varty = typex(cexpr);
+      FILLGREG(curaddr, addrconv(&varty));
+      return op2ret(prog->ops, ct_3ac_op2(MOV_3, destaddr.addr_type | ISDEREF, destaddr.addr, curaddr.addr_type, curaddr.addr));
     case ADD:
       return op2ret(prog->ops, implicit_binary_3(ADD_U, cexpr, prog));
     case SUB: 
@@ -641,7 +620,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         for(int i = 0; i < castdest->fields->length; i++) {
           DECLARATION* dcl = daget(castdest->fields, i);
           if(!typecompat(dcl->type, &srctype)) continue;
-          dapush(prog->ops, ct_3ac_op2(MTP_U + (curaddr.addr_type & ISFLOAT ? 2 : 0), curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+          dapush(prog->ops, ct_3ac_op2(MOV_3, curaddr.addr_type | ISDEREF, curaddr.addr, destaddr.addr_type, destaddr.addr));
           return destaddr;
         }
         assert(0);
@@ -1030,6 +1009,7 @@ PROGRAM* linefunc(FUNC* f) {
 }
 
 static void printaddr(ADDRESS addr, ADDRTYPE addr_type) {
+  if(addr_type & ISDEREF) putchar('(');
   if(addr_type & ISLABEL) {
     printf("{%s}", addr.labelname);
   } else if(addr_type & ISCONST) {
@@ -1053,6 +1033,7 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type) {
     else
       printf("ireg%lu.%d%c", addr.iregnum, (addr_type & 0xf) * 8, addr_type & ISSIGNED ? 's' : 'u');
   }
+  if(addr_type & ISDEREF) putchar(')');
 }
 
 #define PRINTOP3(opsymb) do { \
@@ -1182,10 +1163,6 @@ void printprog(PROGRAM* prog) {
         break;
       case MOV_3: case ALOC_3:
         PRINTOP2( );
-        break;
-      case MTP_U: case MTP_I: case MTP_F:
-      case MFP_U: case MFP_I: case MFP_F:
-        PRINTOP2( ); //perhaps use deref later, not vital
         break;
       case ARG_3: case PARAM_3: case RET_3:
         PRINTOP1( );
