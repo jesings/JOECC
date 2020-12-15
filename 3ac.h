@@ -20,7 +20,6 @@
   X(INC_U), X(INC_I), X(INC_F), \
   X(DEC_U), X(DEC_I), X(DEC_F), \
   X(NEG_I), X(NEG_F), \
-  X(ADDR_U), X(ADDR_I), X(ADDR_F), /*not sure if I is needed*/\
   X(EQ_U), X(EQ_I), X(EQ_F), \
   X(NE_U), X(NE_I), X(NE_F), \
   X(GE_U), X(GE_I), X(GE_F), \
@@ -33,6 +32,7 @@
   X(BLE_U), X(BLE_I), X(BLE_F), \
   X(BGT_U), X(BGT_I), X(BGT_F), \
   X(BLT_U), X(BLT_I), X(BLT_F), \
+  X(ADDR_3), \
   X(BNZ_3), X(BEZ_3), \
   X(JMP_3), \
   X(MOV_3), \
@@ -210,4 +210,7 @@ static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
   }
   return destad;
 }
+
+#define RGBCOLOR(R, G, B) "\033[38;2;" #R ";" #G ";" #B "m"
+#define CLEARCOLOR "\033[39;49m"
 #endif

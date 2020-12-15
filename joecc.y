@@ -323,7 +323,7 @@ declname:
 | declname '(' nameless ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(NAMELESS_PARAMSSPEC, $3));}
 | declname '(' params ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));}
 | declname '(' nameless ',' "..." ')' {$$ = $1; 
-    dapush($3, NULL);//represent variadic with trailing null?
+    dapush($3, NULL);
     dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));
     }
 | declname '(' params ',' "..." ')' {$$ = $1; 
@@ -353,7 +353,7 @@ fptr:
     }
 | fptr '(' nameless ',' "..." ')' {$$ = $1; 
     DYNARR* da = dactor(1);
-    dapush($3, NULL);//represent variadic with trailing null?
+    dapush($3, NULL);
     dapush(da, mkdeclpart(PARAMSSPEC, $3));
     $$->type->pointerstack = damerge(da, $$->type->pointerstack);
     }
@@ -387,7 +387,7 @@ spefptr:
     }
 | spefptr '(' nameless ',' "..." ')' {$$ = $1; 
     DYNARR* da = dactor(1);
-    dapush($3, NULL);//represent variadic with trailing null?
+    dapush($3, NULL);
     dapush(da, mkdeclpart(PARAMSSPEC, $3));
     $$->type->pointerstack = damerge(da, $$->type->pointerstack);
     }
@@ -696,7 +696,7 @@ multistring:
   STRING_LITERAL {$$ = $1;}
 | multistring STRING_LITERAL {
     $$ = $1;
-    --$1->lenstr;//remove null terminator
+    --$1->lenstr; //remove null terminator
     dscat($1, $2->strptr, $2->lenstr);
     strdtor($2);
     }

@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
   dadtorcfr(ctx->enumerat2free, (void(*)(void*)) freenum);
   htdtorcfr(ctx->defines, (void (*)(void*)) freemd);
   htdtorfr(ctx->withindefines);
-  chdir("./functions");
+  //chdir("./functions");
   DYNARR* funcky = htpairs(ctx->funcs);
   puts("Functions defined:");
   for(int i = 0; i < funcky->length; i++) {

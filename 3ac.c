@@ -367,7 +367,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         if(cexpr->id->index == -2) {
           curaddr.addr_type = 8 | ISLABEL;
         } else {
-          curaddr.addr_type = addrconv(cexpr->id->type) | ISLABEL | ISDEREF;
+          curaddr.addr_type = addrconv(cexpr->id->type) | ISLABEL;
         }
         curaddr.addr.labelname = cexpr->id->name;
         return curaddr;
@@ -456,7 +456,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         if(dclp->type == ARRAYSPEC)
           return linearitree(daget(cexpr->params, 0), prog);//addr should be a no-op for single pointers to arrays
       }
-      return op2ret(prog->ops, implicit_unary_2(ADDR_U, cexpr, prog));
+      return op2ret(prog->ops, implicit_unary_2(ADDR_3, cexpr, prog));
 
     case DEREF:
       varty = typex(daget(cexpr->params, 0));
@@ -727,15 +727,15 @@ OPERATION* cmptype(EXPRESSION* cmpexpr, ADDRESS addr2jmp, char negate, PROGRAM* 
   switch(cmpexpr->type) {
     case EQ: case NEQ: case GT: case LT: case GTE: case LTE:
       dest_op = cmpret_binary_3(cmp_osite(cmpexpr->type, negate), cmpexpr, prog);//figure out signedness here or elsewhere
-      dest_op->dest_type = ISLABEL;
+      dest_op->dest_type = ISCONST | ISLABEL;
       dest_op->dest = addr2jmp;
       return dest_op;
     case L_NOT:
       destaddr = linearitree(daget(cmpexpr->params, 0), prog);
-      return ct_3ac_op2(negate ? BNZ_3 : BEZ_3 , destaddr.addr_type, destaddr.addr, ISLABEL, addr2jmp);
+      return ct_3ac_op2(negate ? BNZ_3 : BEZ_3 , destaddr.addr_type, destaddr.addr, ISCONST | ISLABEL, addr2jmp);
     default:
       destaddr = linearitree(cmpexpr, prog);
-      return ct_3ac_op2(negate ? BEZ_3 : BNZ_3 , destaddr.addr_type, destaddr.addr, ISLABEL, addr2jmp);
+      return ct_3ac_op2(negate ? BEZ_3 : BNZ_3 , destaddr.addr_type, destaddr.addr, ISCONST | ISLABEL, addr2jmp);
   }
 }
 
@@ -950,32 +950,46 @@ PROGRAM* linefunc(FUNC* f) {
 
 static void printaddr(ADDRESS addr, ADDRTYPE addr_type) {
   if(addr_type & ISLABEL) {
+    printf(RGBCOLOR(255,200,10));
     if(addr_type & ISDEREF) printf("({%s})", addr.labelname);
     else                    printf("{%s}", addr.labelname);
+    if(!(addr_type & ISCONST)) {
+      if(addr_type & ISFLOAT) printf(".%df", (addr_type & 0xf) * 8);
+      else                    printf(".%d%c", (addr_type & 0xf) * 8, addr_type & ISSIGNED ? 's' : 'u');
+    }
+    printf(CLEARCOLOR);
   } else if(addr_type & ISCONST) {
     assert(!(addr_type & ISDEREF));
     if(addr_type & ISSTRCONST) {
       int l = strlen(addr.strconst);
+      printf(RGBCOLOR(90,180,180));
       if(!l)
         printf("\"\"");
       else if(addr.strconst[l - 1] != '\n')
         printf("\"%s\"", addr.strconst);
       else
         printf("\"%.*s\\n\"", l - 1, addr.strconst);
-    } else if(addr_type & ISFLOAT) 
-      printf("%lf", addr.floatconst_64);
-    else if(addr_type & ISSIGNED) 
-      printf("%ld", addr.intconst_64);
-    else
-      printf("%lu", addr.intconst_64);
+      printf(CLEARCOLOR);
+    } else {
+      printf(RGBCOLOR(250,60,60));
+      if(addr_type & ISFLOAT) 
+        printf("%lf", addr.floatconst_64);
+      else if(addr_type & ISSIGNED) 
+        printf("%ld", addr.intconst_64);
+      else
+        printf("%lu", addr.intconst_64);
+      printf(CLEARCOLOR);
+    }
   } else {
+    printf(RGBCOLOR(60,220,60));
     if(addr_type & ISFLOAT) {
-      if(addr_type & ISDEREF) printf("(ireg%lu).f%d", addr.fregnum, (addr_type & 0xf) * 8);
+      if(addr_type & ISDEREF) printf("(ireg%lu).%df", addr.fregnum, (addr_type & 0xf) * 8);
       else                    printf("freg%lu.%d", addr.fregnum, (addr_type & 0xf) * 8);
     } else {
       if(addr_type & ISDEREF) printf("(ireg%lu).%d%c", addr.iregnum, (addr_type & 0xf) * 8, addr_type & ISSIGNED ? 's' : 'u');
       else                    printf("ireg%lu.%d%c", addr.iregnum, (addr_type & 0xf) * 8, addr_type & ISSIGNED ? 's' : 'u');
     }
+    printf(CLEARCOLOR);
   }
 }
 
@@ -1012,7 +1026,7 @@ void printprog(PROGRAM* prog) {
       case NOP_3: case RET_0:
         break;
       case LBL_3: 
-        printf("\t%s:", op->addr0.labelname);
+        printf(RGBCOLOR(200,200,120) "\t%s:" CLEARCOLOR, op->addr0.labelname);
         break;
       case COPY_3:
         PRINTOP3( );
@@ -1059,7 +1073,7 @@ void printprog(PROGRAM* prog) {
       case NEG_I: case NEG_F: 
         PRINTOP2(-);
         break;
-      case ADDR_U: case ADDR_I: case ADDR_F: /*not sure if I is needed*/
+      case ADDR_3: /*not sure if I is needed*/
         PRINTOP2(&);
         break;
       case EQ_U: case EQ_I: case EQ_F: 
@@ -1124,7 +1138,7 @@ void printprog(PROGRAM* prog) {
         printf(" →  ");
         printaddr(op->dest, op->dest_type);
         break;
-      case ARRMOV: //not quite right
+      case ARRMOV:
         printf("\t");
         printaddr(op->addr0, op->addr0_type);
         printf(" →  ");
@@ -1133,7 +1147,7 @@ void printprog(PROGRAM* prog) {
         printaddr(op->addr1, op->addr1_type);
         printf("] ");
         break;
-      case MTP_OFF: //not quite right
+      case MTP_OFF:
         printf("\t");
         printaddr(op->addr0, op->addr0_type);
         printf(" →  ");

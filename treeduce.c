@@ -67,16 +67,16 @@ char purestmt(STATEMENT* stmt) {
   fprintf(stderr, "Error: determining purity of statement failed\n");
   return 0;
 }
-//confirm function call is pure
-//Criteria: global var as lvalue of assign, or inc/dec
-//dereferencing of lvalue in assign or in inc/dec
-//arrow in lvalue
-//loop or goto anywhere
-//A more sophisticated version of the above is possible but I won't do that work
-//The above will not balk at initializers, as those aren't considered assignment ops
-//calling other function that is impure (or indirect function)
-//some work will need to be done in order to ignore circular dependencies
-//This is left for later, for now no functions are pure
+
+/* TODO: confirm function call is pure
+ * Criteria: global var as lvalue of assign, or inc/dec
+ * dereferencing of lvalue in assign or in inc/dec
+ * arrow of global or param in lvalue
+ * loop or goto anywhere
+ * calling other function that is impure (or indirect function)
+ * some work will need to be done in order to ignore circular dependencies
+ * This is left for later, for now no functions are pure
+ */
 
 char typequality(IDTYPE* t1, IDTYPE* t2) {
   if(t1->tb != t2->tb)

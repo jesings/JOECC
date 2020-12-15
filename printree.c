@@ -24,7 +24,6 @@ const char* name_MEMBERTYPE[] = {
 
 static int pdecl(DECLARATION* decl);
 static int structree(STRUCT* container);
-//static int enumtree(ENUM* container);
 static int uniontree(UNION* container);
 
 static int structree(STRUCT* container) {
@@ -50,19 +49,6 @@ static int structree(STRUCT* container) {
   }
   return structnode;
 }
-
-//static int enumtree(ENUM* container) {
-//  int enumnode = nodenumber++;
-//  dprintf(funcfile, "n%d [label=\"STRUCT %s\"];\n", enumnode, container->name ? container->name : "ANONYMOUS");
-//  for(int i = 0; i < container->fields->length; i++) {
-//    ENUMFIELD* field = daget(container->fields, i);
-//    int nnn = nodenumber++;
-//    dprintf(funcfile, "n%d [label=\"%s\"];\n", nnn, field->name);
-//    dprintf(funcfile, "n%d -> n%d [color=red];\n", enumnode, nnn);
-//    dprintf(funcfile, "n%d -> n%d [color=green];\n", enumnode, treexpr(field->value));
-//  }
-//  return enumnode;
-//}
 
 static int uniontree(UNION* container) {
   int unionnode = nodenumber++;
@@ -148,13 +134,6 @@ static int treetype(IDTYPE* type) {
     dprintf(funcfile, "n%d -> n%d;\n", typenode, subtnode);
   return typenode;
 }
-
-//static int treeid(IDENTIFIERINFO* id) {
-//  int idnode = nodenumber++;
-//  dprintf(funcfile, "n%d [label=\"%s\"];\n", idnode, id->name);
-//  dprintf(funcfile, "n%d -> n%d;\n", idnode, treetype(id->type));
-//  return idnode;
-//}
 
 int treexpr(EXPRESSION* expr) {
   int exnode = nodenumber++;
