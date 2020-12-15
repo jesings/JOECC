@@ -7,13 +7,13 @@ NOTE: JOECC is a work-in progress, and currently cannot fully compile code
 
 - [x] Lexer
 - [x] Parser
-- [x] Preprocessor (part of lexer) (bugfixing [with macro preparsing])
+- [x] Preprocessor (part of lexer)
 - [x] AST generation
 - [x] AST optimization
 - [x] AST display using graphviz
 - [x] AST type annotation
-- [x] 3 address code generation (bugfixing)
-- [ ] Static Single Assignment conversion
+- [x] 3 address code generation
+- [ ] Static Single Assignment conversion (in progress)
 - [ ] General Optimizations (to be enumerated later)
 - [ ] Register Renaming
 - [ ] Conversion back from Single Static Assignment

@@ -64,7 +64,6 @@ extern union {
 
 %option warn
 %option nodefault
-%option debug
 
 %x MULTILINE_COMMENT SINGLELINE_COMMENT
 %x PREPROCESSOR INCLUDE INCLUDENEXT
