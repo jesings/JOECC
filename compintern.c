@@ -500,8 +500,7 @@ void rfreestate(STATEMENT* s) {
     case JGOTO: 
       free(s->glabel); 
       break;
-    case CASE: //maybe this needs to be freed from the labeltable
-      //TODO: strdup
+    case CASE:
       break;
     case SWITCH:
       fhtdtor(s->labeltable->ht);//labels already freed in 3ac
@@ -953,6 +952,7 @@ struct lexctx* ctxinit(void) {
   lct->enstruct2free = dactor(1024);
   lct->enumerat2free = dactor(512);
   lct->globals = dactor(1024);
+  lct->externglobals = dactor(256);
   lct->defines = htctor();
   declmacro(lct->defines, "__STDC__", "1");
   declmacro(lct->defines, "__STDC_VERSION__", "201710L");
@@ -986,22 +986,28 @@ static void freeidi(void* sidi) {
   free(sidi2->idi);
   free(sidi);
 }
+static void freeidibidi(void* sidi) {
+  SCOPEMEMBER* sidi2 = sidi;
+  freetype(sidi2->typememb);
+  free(sidi);
+}
 void scopepop(struct lexctx* lct) {
   SCOPE* cleanup = dapop(lct->scopes);
   if(cleanup->truescope && (
      cleanup->forwardstructs->keys != 0 ||
-     cleanup->forwardunions->keys != 0))
+     cleanup->forwardunions->keys != 0)
+     && lct->scopes->length != 0)
     fprintf(stderr, "Error: not all forward declarations processed by end of scope\n");
   if(!cleanup->truescope) {
     htdtorfr(cleanup->fakescope);
   } else {
-    htdtorfr(cleanup->typesdef);//SCOPEMEMBER argument
+    htdtorcfr(cleanup->typesdef, freeidibidi);//SCOPEMEMBER argument
     htdtorcfr(cleanup->members, freeidi);//SCOPEMEMBER argument
     htdtorfr(cleanup->structs);
     htdtorfr(cleanup->enums);
     htdtorfr(cleanup->unions);
-    htdtor(cleanup->forwardstructs);
-    htdtor(cleanup->forwardunions);
+    htdtorcfr(cleanup->forwardstructs, (void(*)(void*)) dadtor);
+    htdtorcfr(cleanup->forwardunions, (void(*)(void*)) dadtor);
   }
   free(cleanup);
 }

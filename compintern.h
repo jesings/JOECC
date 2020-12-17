@@ -147,6 +147,7 @@ struct lexctx {
   DYNARR* enstruct2free;
   DYNARR* enumerat2free;
   DYNARR* globals;
+  DYNARR* externglobals;
 };
 
 typedef struct {

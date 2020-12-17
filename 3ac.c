@@ -466,8 +466,15 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         return destaddr; //dereferencing single pointer to struct should be a no-op
       }
       struct declarator_part* dclp = dapeek(varty.pointerstack);
-      if(dclp->type != ARRAYSPEC) {
-        destaddr.addr_type |= ISDEREF;
+      if(dclp->type == ARRAYSPEC) {
+        varty = typex(cexpr);
+        if(varty.pointerstack && varty.pointerstack->length) {
+          struct declarator_part* dclp2 = dapeek(varty.pointerstack);
+          if(dclp2->type != ARRAYSPEC)
+            destaddr.addr_type |= ISDEREF;
+        } else {
+          destaddr.addr_type |= ISDEREF;
+        }
       }
       return destaddr;
     case ADD:
@@ -924,6 +931,7 @@ PROGRAM* linefunc(FUNC* f) {
   prog->fixedvars = htctor();
   prog->labeloffsets = htctor();
   //initialize params
+  dapush(prog->ops, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) strdup(f->name)));
   for(int i = 0; i < f->params->da->length; i++) {
     FULLADDR* newa = malloc(sizeof(FULLADDR));
     DECLARATION* pdec = pget(f->params, i);

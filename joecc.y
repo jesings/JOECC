@@ -109,10 +109,8 @@ program:
         id->type = a2->decl->type;
         add2scope(ctx, a2->decl->varname, M_GLOBAL, id);
         dapush(ctx->globals, a2);
-        free(a2->decl);
-        if(a2->expr) rfreexpr(a2->expr);
       }
-      dadtorfr($1);
+      dadtor($1);
     }
   }
 | program function {
@@ -141,21 +139,22 @@ program:
             }
           }
           add2scope(ctx, a2->decl->varname, M_GLOBAL, id);
-          dapush(ctx->globals, a2);
+          if(!(a2->decl->type->tb & EXTERNNUM)) {
+            dapush(ctx->globals, a2);
+          } else {
+            dapush(ctx->externglobals, a2);
+          }
         } else {
           IDENTIFIERINFO* id = scopesearch(ctx, M_VARIABLE, a2->decl->varname);
           if(!(id->type->tb & EXTERNNUM)) {
             fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", a2->decl->varname, locprint(@$));
           } else {
-            free(a2->decl->varname);
-            freetype(id->type);
-            id->type = a2->decl->type;
+            id->type->tb &= ~EXTERNNUM;
+            dapush(ctx->globals, a2);
           }
         }
-        free(a2->decl);
-        if(a2->expr) rfreexpr(a2->expr);//don't free like this
       }
-      dadtorfr($2);
+      dadtor($2);
     }
   };
 initializer:
@@ -327,7 +326,7 @@ declname:
     dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));
     }
 | declname '(' params ',' "..." ')' {$$ = $1; 
-    pinsert($3, "...", NULL); 
+    pinsert($3, strdup("..."), NULL);
     dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));
     };
 fptr:
@@ -737,11 +736,11 @@ function:
       assert(0);
     }
     $$ = ct_function($2->varname, NULL, parammemb, $2->type);
-    //TODO: ensure compliant overwriting?
     IDENTIFIERINFO* fordecid;
     if((fordecid = scopesearch(ctx, M_VARIABLE, $2->varname))) {
-      free(fordecid->name);
-      freetype(fordecid->type);
+      //TODO: ensure compliant overwriting?
+      //free(fordecid->name);
+      //freetype(fordecid->type);
       free(fordecid);
     }
     IDENTIFIERINFO* id = malloc(sizeof(IDENTIFIERINFO));

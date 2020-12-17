@@ -642,6 +642,7 @@ extern union {
     }
     }
   \0 {
+    fclose(YY_CURRENT_BUFFER->yy_input_file);
     yypop_buffer_state();
     if ( !YY_CURRENT_BUFFER ) {
       yyterminate();
@@ -659,6 +660,7 @@ extern union {
     }
     }
   <<EOF>> {
+    fclose(YY_CURRENT_BUFFER->yy_input_file);
     yypop_buffer_state();
     if ( !YY_CURRENT_BUFFER ) {
       yyterminate();
@@ -754,6 +756,7 @@ extern union {
     yy_push_state(KILLBLANK);
     }
   <<EOF>> {
+    fclose(YY_CURRENT_BUFFER->yy_input_file);
     yypop_buffer_state();
     yy_pop_state();
     if(ppdebug) printf("now lexing buffer containing %s\n", dstrdly->strptr);
@@ -1134,6 +1137,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(256), 0, 256);}
 [[:space:]] {/*Whitespace, ignored*/}
 
 <<EOF>> {
+  fclose(YY_CURRENT_BUFFER->yy_input_file);
   yypop_buffer_state();
   if ( !YY_CURRENT_BUFFER ) {
     yyterminate();
@@ -1155,6 +1159,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT); strcur = strctor(malloc(256), 0, 256);}
 }
 
 <*>\0 {//same as EOF
+  fclose(YY_CURRENT_BUFFER->yy_input_file);
   yypop_buffer_state();
   if ( !YY_CURRENT_BUFFER ) {
     yyterminate();

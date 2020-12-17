@@ -69,13 +69,13 @@ typedef union {
 
 typedef enum {
   //bottom 4 bits used for size
-  ISCONST = 0x10, //if not set, it's a register
-  ISSIGNED = 0x20, //if not set it's an unsigned int
-  ISFLOAT = 0x40, //if not set it's an int
-  ISLABEL = 0x80, //if not set it's not a label
-  ISSTRCONST = 0x100, //if not set it's not a string
-  ISPOINTER = 0x200, //needs regnum and pointer type?
-  ISDEREF = 0x400, //needs regnum and pointer type?
+  ISCONST = 0x10,
+  ISSIGNED = 0x20,
+  ISFLOAT = 0x40,
+  ISLABEL = 0x80,
+  ISSTRCONST = 0x100,
+  ISPOINTER = 0x200,
+  ISDEREF = 0x400,
 } ADDRTYPE;
 
 typedef struct {
