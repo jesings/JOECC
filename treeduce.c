@@ -1177,8 +1177,7 @@ char foldconst(EXPRESSION** exa) {
           dadtor(newdyn);
           *exa = rectexpr;
           free(ex);
-          rove = 1;
-          break;
+          return 1;
         }
         afterbreak:
         dapush(newdyn, rectexpr);

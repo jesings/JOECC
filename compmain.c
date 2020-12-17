@@ -27,7 +27,7 @@ int main(int argc, char** argv) {
     extern FILE* yyin;
     yyin = compilefile;
   } else {
-    dapush(file2compile, (void*)(unsigned long) "stdin");
+    exit(0);
   }
   extern int yydebug;
   extern int zzdebug;
@@ -67,4 +67,6 @@ int main(int argc, char** argv) {
   htdtor(ctx->funcs);
   dadtor(ctx->argpp);
   free(ctx);
+  dadtor(locs);
+  dadtor(file2compile);
 }

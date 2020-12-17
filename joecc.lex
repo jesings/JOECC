@@ -61,6 +61,7 @@ extern union {
 %option yylineno
 %option noyywrap
 %option stack
+%option never-interactive
 
 %option warn
 %option nodefault
@@ -592,7 +593,11 @@ extern union {
           dapush(locs, ylt);
           yylloc.first_line = yylloc.last_line = 1;
           yylloc.first_column = yylloc.last_column = 0;
-          YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(mdl->text->strptr, mdl->text->lenstr, "r"), YY_BUF_SIZE);
+          FILE* fmm = fmemopen(NULL, mdl->text->lenstr, "r+");
+          fwrite(mdl->text->strptr, 1, mdl->text->lenstr, fmm);
+          fseek(fmm, 0, SEEK_SET);
+          rewind(fmm);
+          YY_BUFFER_STATE ybs = yy_create_buffer(fmm, YY_BUF_SIZE);
           yypush_buffer_state(ybs);
         }
       }
@@ -760,8 +765,12 @@ extern union {
     yypop_buffer_state();
     yy_pop_state();
     if(ppdebug) printf("now lexing buffer containing %s\n", dstrdly->strptr);
-    YY_BUFFER_STATE ybs = yy_create_buffer(fmemopen(dstrdly->strptr, dstrdly->lenstr, "r"), YY_BUF_SIZE);
-    free(dstrdly);
+    FILE* fmm = fmemopen(NULL, dstrdly->lenstr, "r+");
+    fwrite(dstrdly->strptr, 1, dstrdly->lenstr, fmm);
+    fseek(fmm, 0, SEEK_SET);
+    rewind(fmm);
+    YY_BUFFER_STATE ybs = yy_create_buffer(fmm, YY_BUF_SIZE);
+    strdtor(dstrdly);
     yypush_buffer_state(ybs);
     char buf[256];
     snprintf(buf, 256, "%s", defname);
@@ -1244,8 +1253,11 @@ int check_type(char* symb, char frominitial) {
       dapush(locs, ylt);
       yylloc.first_line = yylloc.last_line = 1;
       yylloc.first_column = yylloc.last_column = 0;
-      YY_BUFFER_STATE yms = yy_create_buffer(fmemopen(macdef->text->strptr, macdef->text->lenstr, "r"),
-                                             YY_BUF_SIZE);
+      FILE* fmm = fmemopen(NULL, macdef->text->lenstr, "r+");
+      fwrite(macdef->text->strptr, 1, macdef->text->lenstr, fmm);
+      fseek(fmm, 0, SEEK_SET);
+      rewind(fmm);
+      YY_BUFFER_STATE yms = yy_create_buffer(fmm, YY_BUF_SIZE);
       yypush_buffer_state(yms);
       insert(ctx->withindefines, symb, NULL);
       if(frominitial == 2) {

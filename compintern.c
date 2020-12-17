@@ -935,7 +935,7 @@ static void declmacro(HASHTABLE* ht, const char* macroname, const char* body) {
   struct macrodef* md = calloc(1, sizeof(struct macrodef));
   if(body) {
     int blen = strlen(body);
-    md->text = strctor(strdup(body), blen, blen);
+    md->text = strctor(strdup(body), blen + 1, blen + 1);
   }
   insert(ht, macroname, md);
 }
