@@ -244,7 +244,7 @@ EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident) {
   } else {
     retval->id->index = ids->index;
   }
-  assert(retval->id || ! fprintf(stderr, "Error: use of undefined variable %s at %s %d.%d-%d.%d\n", ident, locprint(yyget_lloc(scanner))));
+  assert(retval->id);
   retval->rettype = retval->id->type;
   return retval;
 }

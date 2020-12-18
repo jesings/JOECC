@@ -28,6 +28,8 @@
 %define parse.error verbose
 %define api.pure full
 
+%lex-param {void *scanner}
+
 %code requires{
   #include <stdint.h>
   #include <stdio.h>
@@ -35,21 +37,13 @@
   #include "compintern.h"
   #include "dynarr.h"
   #include "parallel.h"
-  #include "lex.h"
   extern DYNARR* file2compile;
-
 
   #define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
   #define dget(param, index) ((DECLARATION*) (param)->arr[(index)])
   //TODO: Struct initializers, optional brace nesting?
   //TODO: Consider designated initializers, compound literals?
 }
-
-%{
-  extern struct lexctx* ctx;
-  #define YYPARSE_PARAM yyscan_t scanner
-  #define YYLEX_PARAM scanner
-%}
 
 %union {
   long snum;
@@ -73,6 +67,16 @@
   PARALLEL* paravariant;
   void* vvar;
 }
+
+%{
+  extern struct lexctx* ctx;
+  typedef void* yyscan_t;
+  #define YYPARSE_PARAM yyscan_t scanner
+  #define YYLEX_PARAM scanner
+  extern yyscan_t scanner;
+  int yylex(YYSTYPE* yst, YYLTYPE* ylt, yyscan_t yyscanner);
+  int yyerror(YYLTYPE* ylt, const char* s);
+%}
 
 %type<str> generic_symbol
 %type<dstr> multistring
@@ -1086,9 +1090,8 @@ enums:
     };
 commaopt: ',' | %empty;
 %%
-int yyerror(const char* s){
-  fprintf(stderr, "ERROR: %s %s %d.%d-%d.%d\n", s, locprint(yyget_lloc(scanner)));
-  (void)s;
+int yyerror(YYLTYPE* ylt, const char* s) {
+  fprintf(stderr, "ERROR: %s %s %d.%d-%d.%d\n", s, locprint2(ylt));
   return 0;
 }
 

@@ -20,19 +20,22 @@
   extern DYNARR* file2compile;
 }
 
-%{
-  extern struct lexctx* ctx;
-  #define zzlex yylex
-  int yylex(void);
-  int yyerror(const char* s);
-  #define YYPARSE_PARAM yyscan_t scanner
-  #define YYLEX_PARAM scanner
-%}
+%lex-param {void *scanner}
 
 %union {
   unsigned long unum;
   EXPRESSION* exprvariant;
 }
+
+%{
+  extern struct lexctx* ctx;
+  #define YYPARSE_PARAM yyscan_t scanner
+  #define YYLEX_PARAM scanner
+  #define zzlex yylex
+  extern void* scanner;
+  int yylex(YYSTYPE* yst, YYLTYPE* ylt, void* yyscanner);
+  int yyerror(YYLTYPE* ylt, const char* s);
+%}
 
 %%
 fullifexpr:
@@ -91,7 +94,7 @@ esu:
 | UNSIGNED_LITERAL {$$ = ct_uintconst_expr($1);}
 | INTEGER_LITERAL {$$ = ct_intconst_expr($1);};
 %%
-int yyerror(const char* s){
-  fprintf(stderr, "Subsidiary parser encountered error %s %s %d.%d-%d.%d\n", s, locprint(yyget_lloc(scanner)));
+int yyerror(YYLTYPE* ylt, const char* s) {
+  fprintf(stderr, "Subsidiary parser encountered error %s %s %d.%d-%d.%d\n", s, locprint2(ylt));
   return 0;
 }

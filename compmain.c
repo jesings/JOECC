@@ -4,13 +4,16 @@
 #include "compintern.h"
 #include "printree.h"
 #include "3ac.h"
-#include "lex.h"
 struct lexctx* ctx;
 int yyparse(void);
+int yyset_in(FILE*, void*);
+int yyset_debug(int flag, void*);
+void yylex_init(void**);
+void yylex_destroy(void*);
 DYNARR* locs;
 DYNARR* file2compile;
 int ppdebug;
-yyscan_t scanner;
+void* scanner;
 static void freev(void* v) {
   HASHPAIR* v2 = v;
   rfreefunc(v2->value);
@@ -20,6 +23,7 @@ static void filecomp(char* filename) {
   if(yyin == NULL)
     exit(1);
   yyset_in(yyin, scanner);
+  yyset_debug(1, scanner);
   ctx = ctxinit();
   locs = dactor(128);
   file2compile = dactor(128);
