@@ -13,7 +13,7 @@ compiler: joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o  dynarr.o compin
 gotest: compiler
 	./compiler dynarr.c
 lex.yy.c: joecc.lex
-	flex --header-file=lex.h joecc.lex #-d
+	flex --header-file=lex.h -d joecc.lex
 joecc.tab.c: joecc.y
 	bison -d joecc.y #--report=all
 ifjoecc.tab.c: ifjoecc.y

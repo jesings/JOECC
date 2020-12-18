@@ -4,36 +4,26 @@
 #include "compintern.h"
 #include "printree.h"
 #include "3ac.h"
+#include "lex.h"
 struct lexctx* ctx;
-int yylex(void);
 int yyparse(void);
 DYNARR* locs;
 DYNARR* file2compile;
 int ppdebug;
+yyscan_t scanner;
 static void freev(void* v) {
   HASHPAIR* v2 = v;
   rfreefunc(v2->value);
 }
-int main(int argc, char** argv) {
+static void filecomp(char* filename) {
+  FILE* yyin = fopen(filename, "r");
+  if(yyin == NULL)
+    exit(1);
+  yyset_in(yyin, scanner);
   ctx = ctxinit();
   locs = dactor(128);
   file2compile = dactor(128);
-  FILE* compilefile;
-  if(argc > 1) {
-    dapush(file2compile, argv[1]);
-    compilefile = fopen(argv[1], "r");
-    if(compilefile == NULL)
-      exit(1);
-    extern FILE* yyin;
-    yyin = compilefile;
-  } else {
-    exit(0);
-  }
-  extern int yydebug;
-  extern int zzdebug;
-  zzdebug = 0;
-  yydebug = 0;
-  ppdebug = 0;
+  dapush(file2compile, filename);
   yyparse();
   dadtorcfr(ctx->enumerat2free, (void(*)(void*)) freenum);
   htdtorcfr(ctx->defines, (void (*)(void*)) freemd);
@@ -69,4 +59,20 @@ int main(int argc, char** argv) {
   free(ctx);
   dadtor(locs);
   dadtor(file2compile);
+}
+
+int main(int argc, char** argv) {
+  extern int yydebug;
+  extern int zzdebug;
+  zzdebug = 0;
+  yydebug = 0;
+  ppdebug = 0;
+  if(argc <= 1) {
+    exit(0);
+  }
+  for(int i = 1; i < argc; i++) {
+    yylex_init(&scanner);
+    filecomp(argv[i]);
+    yylex_destroy(scanner);
+  }
 }

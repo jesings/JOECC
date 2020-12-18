@@ -8,6 +8,7 @@
 %define parse.trace
 %define parse.assert
 %define parse.error verbose
+%define api.pure full
 %type<exprvariant> expression est eslo esla esbo esbx esba eseq escmp essh esas esca esu
 
 %code requires{
@@ -24,6 +25,8 @@
   #define zzlex yylex
   int yylex(void);
   int yyerror(const char* s);
+  #define YYPARSE_PARAM yyscan_t scanner
+  #define YYLEX_PARAM scanner
 %}
 
 %union {
@@ -89,6 +92,6 @@ esu:
 | INTEGER_LITERAL {$$ = ct_intconst_expr($1);};
 %%
 int yyerror(const char* s){
-  fprintf(stderr, "Subsidiary parser encountered error %s %s %d.%d-%d.%d\n", s, locprint(yylloc));
+  fprintf(stderr, "Subsidiary parser encountered error %s %s %d.%d-%d.%d\n", s, locprint(yyget_lloc(scanner)));
   return 0;
 }

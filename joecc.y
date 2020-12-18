@@ -26,6 +26,7 @@
 %define parse.trace
 %define parse.assert
 %define parse.error verbose
+%define api.pure full
 
 %code requires{
   #include <stdint.h>
@@ -34,6 +35,7 @@
   #include "compintern.h"
   #include "dynarr.h"
   #include "parallel.h"
+  #include "lex.h"
   extern DYNARR* file2compile;
 
 
@@ -45,8 +47,8 @@
 
 %{
   extern struct lexctx* ctx;
-  int yylex(void);
-  int yyerror(const char* s);
+  #define YYPARSE_PARAM yyscan_t scanner
+  #define YYLEX_PARAM scanner
 %}
 
 %union {
@@ -1085,7 +1087,7 @@ enums:
 commaopt: ',' | %empty;
 %%
 int yyerror(const char* s){
-  fprintf(stderr, "ERROR: %s %s %d.%d-%d.%d\n", s, locprint(yylloc));
+  fprintf(stderr, "ERROR: %s %s %d.%d-%d.%d\n", s, locprint(yyget_lloc(scanner)));
   (void)s;
   return 0;
 }
