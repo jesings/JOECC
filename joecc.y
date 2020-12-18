@@ -28,7 +28,7 @@
 %define parse.error verbose
 %define api.pure full
 
-%lex-param {void *scanner}
+%param {void *scanner}
 
 %code requires{
   #include <stdint.h>
@@ -69,13 +69,12 @@
 }
 
 %{
-  extern struct lexctx* ctx;
   typedef void* yyscan_t;
   #define YYPARSE_PARAM yyscan_t scanner
   #define YYLEX_PARAM scanner
-  extern yyscan_t scanner;
-  int yylex(YYSTYPE* yst, YYLTYPE* ylt, yyscan_t yyscanner);
-  int yyerror(YYLTYPE* ylt, const char* s);
+  int yylex(YYSTYPE* yst, YYLTYPE* ylt, yyscan_t yscanner);
+  int yyerror(YYLTYPE* ylt, yyscan_t scanner, const char* s);
+  void* yyget_extra(void* scanner);
 %}
 
 %type<str> generic_symbol
@@ -1090,7 +1089,7 @@ enums:
     };
 commaopt: ',' | %empty;
 %%
-int yyerror(YYLTYPE* ylt, const char* s) {
+int yyerror(YYLTYPE* ylt, yyscan_t scanner, const char* s) {
   fprintf(stderr, "ERROR: %s %s %d.%d-%d.%d\n", s, locprint2(ylt));
   return 0;
 }

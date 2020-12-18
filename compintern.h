@@ -364,6 +364,7 @@ int unionlen(UNION* u);
 
 #define locprint(lv) (char*) dapeek(file2compile), lv.first_line, lv.first_column, lv.last_line, lv.last_column
 #define locprint2(lv) (char*) dapeek(file2compile), lv->first_line, lv->first_column, lv->last_line, lv->last_column
+#define ctx ((struct lexctx*) yyget_extra(scanner))
 
 static inline int lentype(IDTYPE* idt) {
   if(idt->pointerstack && idt->pointerstack->length) {

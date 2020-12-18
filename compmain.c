@@ -4,37 +4,38 @@
 #include "compintern.h"
 #include "printree.h"
 #include "3ac.h"
-struct lexctx* ctx;
-int yyparse(void);
+int yyparse(void* scanner);
 int yyset_in(FILE*, void*);
 int yyset_debug(int flag, void*);
-void yylex_init(void**);
+void yylex_init_extra(void*, void**);
 void yylex_destroy(void*);
 DYNARR* locs;
 DYNARR* file2compile;
 int ppdebug;
-void* scanner;
 static void freev(void* v) {
   HASHPAIR* v2 = v;
   rfreefunc(v2->value);
 }
 static void filecomp(char* filename) {
+  void* scanner;
   FILE* yyin = fopen(filename, "r");
   if(yyin == NULL)
     exit(1);
-  yyset_in(yyin, scanner);
-  yyset_debug(1, scanner);
-  ctx = ctxinit();
+  struct lexctx* lctx = ctxinit();
   locs = dactor(128);
   file2compile = dactor(128);
   dapush(file2compile, strdup(filename));
-  yyparse();
-  dadtorcfr(ctx->enumerat2free, (void(*)(void*)) freenum);
-  htdtorcfr(ctx->defines, (void (*)(void*)) freemd);
-  htdtorcfr(ctx->withindefines, (void (*)(void*)) freemd);
-  dadtor(ctx->definestack);
+  yylex_init_extra(lctx, &scanner);
+  yyset_in(yyin, scanner);
+  yyset_debug(1, scanner);
+  yyparse(scanner);
+  yylex_destroy(scanner);
+  dadtorcfr(lctx->enumerat2free, (void(*)(void*)) freenum);
+  htdtorcfr(lctx->defines, (void (*)(void*)) freemd);
+  htdtorcfr(lctx->withindefines, (void (*)(void*)) freemd);
+  dadtor(lctx->definestack);
   //chdir("./functions");
-  DYNARR* funcky = htpairs(ctx->funcs);
+  DYNARR* funcky = htpairs(lctx->funcs);
   puts("Functions defined:");
   for(int i = 0; i < funcky->length; i++) {
     HASHPAIR* pairthere = daget(funcky, i);
@@ -52,31 +53,25 @@ static void filecomp(char* filename) {
       freeprog(prog);
     }
   }
-  scopepop(ctx);
+  scopepop(lctx);
   dadtorcfr(funcky, freev);
-  dadtor(ctx->scopes);
-  dadtorcfr(ctx->enstruct2free, (void(*)(void*)) wipestruct);
-  dadtorcfr(ctx->externglobals, (void(*)(void*))freeinit);
-  dadtorcfr(ctx->globals, (void(*)(void*))freeinit);
-  htdtor(ctx->funcs);
-  dadtor(ctx->argpp);
-  free(ctx);
+  dadtor(lctx->scopes);
+  dadtorcfr(lctx->enstruct2free, (void(*)(void*)) wipestruct);
+  dadtorcfr(lctx->externglobals, (void(*)(void*))freeinit);
+  dadtorcfr(lctx->globals, (void(*)(void*))freeinit);
+  htdtor(lctx->funcs);
+  dadtor(lctx->argpp);
+  free(lctx);
   dadtor(locs);
   dadtorfr(file2compile);
 }
 
 int main(int argc, char** argv) {
-  extern int yydebug;
-  extern int zzdebug;
-  zzdebug = 0;
-  yydebug = 0;
   ppdebug = 0;
   if(argc <= 1) {
     exit(0);
   }
   for(int i = 1; i < argc; i++) {
-    yylex_init(&scanner);
     filecomp(argv[i]);
-    yylex_destroy(scanner);
   }
 }
