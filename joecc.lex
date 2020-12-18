@@ -16,16 +16,15 @@ INTSIZE (u|U|l|L)*
 
 #define YY_USER_ACTION \
   do { \
-    YYLTYPE* cylt = yyget_lloc(scanner); \
-    cylt->first_line = cylt->last_line; \
-    cylt->first_column = cylt->last_column; \
+    yylloc->first_line = yylloc->last_line; \
+    yylloc->first_column = yylloc->last_column; \
     for(int i = 0; i < yyleng; i++) { \
         if(yytext[i] == '\n') { \
-            cylt->last_line++; \
-            cylt->last_column = 0; \
+            yylloc->last_line++; \
+            yylloc->last_column = 0; \
         } \
         else { \
-            cylt->last_column++; \
+            yylloc->last_column++; \
         } \
     } \
   } while(0);
@@ -34,7 +33,7 @@ INTSIZE (u|U|l|L)*
 #define unput(c, scanner) yyunput(c, ((struct yyguts_t*) scanner)->yytext_ptr, scanner)
 
 int zzparse(void);
-int check_type(char* symb, char frominitial);
+int check_type(char* symb, char frominitial, yyscan_t scanner);
 extern struct lexctx* ctx;
 char stmtover, skipping;
 char* defname, * strconst;
@@ -55,9 +54,9 @@ struct arginfo {
   DYNARR* parg;
 };
 
-#define GOC(c) YYSTYPE* yst = yyget_lval(scanner); yst->unum = c; yy_pop_state(scanner); return UNSIGNED_LITERAL
-#define ZGOC(c) YYSTYPE* yst = yyget_lval(scanner); yst->unum = c; yy_pop_state(scanner); return UNSIGNED_LITERAL
-#define UNPUTSTR(str) for(int l = strlen(str); l; unput(str[--l], scanner)) --yylloc->last_column
+#define GOC(c) yylval_param->unum = c; yy_pop_state(scanner); return UNSIGNED_LITERAL
+#define ZGOC(c) yylval_param->unum = c; yy_pop_state(scanner); return UNSIGNED_LITERAL
+#define UNPUTSTR(str) for(int l = strlen(str); l; unput(str[--l], scanner)) --yyget_lloc(scanner)->last_column
 %}
 %option yylineno
 %option noyywrap
@@ -73,6 +72,7 @@ struct arginfo {
 %option nodefault
 %option noyy_top_state
 %option noyy_scan_string
+%option noyywrap
 
 %x MULTILINE_COMMENT SINGLELINE_COMMENT
 %x PREPROCESSOR INCLUDE INCLUDENEXT
@@ -215,7 +215,7 @@ struct arginfo {
   line {if(!skipping){yy_pop_state(scanner); yy_push_state(SINGLELINE_COMMENT, scanner);} else {yy_pop_state(scanner); yy_push_state(KILLUNTIL, scanner);}/*TODO: line directive currently doesn't apply requisite information*/}
   warning {if(!skipping){yy_pop_state(scanner); yy_push_state(WARNING, scanner); yy_push_state(KILLBLANK, scanner);} else {yy_pop_state(scanner); yy_push_state(KILLUNTIL, scanner);}}
   error {if(!skipping){yy_pop_state(scanner); yy_push_state(ERROR, scanner); yy_push_state(KILLBLANK, scanner);} else {yy_pop_state(scanner); yy_push_state(KILLUNTIL, scanner);}}
-  \n {yy_pop_state(scanner);fprintf(stderr, "PREPROCESSOR: Incorrect line end %d %s %d.%d-%d.%d\n", yylloc->first_line, locprint2(yylloc));}
+  \n {yy_pop_state(scanner);fprintf(stderr, "PREPROCESSOR: Incorrect line end %d %s %d.%d-%d.%d\n", yyget_lloc(scanner)->first_line, locprint2(yylloc));}
   . {fprintf(stderr, "PREPROCESSOR: Unexpected character encountered: %d %c %s %d.%d-%d.%d\n", *yytext, *yytext, locprint2(yylloc));}
 }
 <WARNING>\"(\\.|[^\\"]|\/[[:space:]]*\n)*\" {
@@ -236,7 +236,7 @@ struct arginfo {
 <INCLUDE>{
   "<"[^>\n]*">" {
     if(stmtover){
-      fprintf(stderr, "Error: tried to include multiple files with single directive on line %d! %s %d.%d-%d.%d\n", yylloc->last_line, locprint2(yylloc));
+      fprintf(stderr, "Error: tried to include multiple files with single directive on line %d! %s %d.%d-%d.%d\n", yyget_lloc(scanner)->last_line, locprint2(yylloc));
     } else {
       stmtover = 1;
       yytext[yyleng - 1] = '\0'; //ignore closing >
@@ -255,10 +255,10 @@ struct arginfo {
         snprintf(pathbuf, 256, "%s/%s", searchpath[i], yytext + 1); //ignore opening <
         if((newbuf = fopen(pathbuf, "r")) != NULL) {
           YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
-          dapush(locs, yyget_lloc(scanner));
-          ylt->first_line = ylt->last_line = 1;
-          ylt->first_column = ylt->last_column = 0;
-          yyset_lloc(ylt, scanner);
+          *ylt = *yylloc;
+          dapush(locs, ylt);
+          yylloc->first_line = yylloc->last_line = 1;
+          yylloc->first_column = yylloc->last_column = 0;
           dapush(file2compile, strdup(pathbuf));
           YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE, scanner);
           yy_push_state(INITIAL, scanner);
@@ -273,7 +273,7 @@ struct arginfo {
     }
   \"[^\"\n]*\" {/*"*/
     if(stmtover) {
-      fprintf(stderr, "Error: tried to include multiple files with single directive on line %d! %s %d.%d-%d.%d\n", yylloc->last_line, locprint2(yylloc));
+      fprintf(stderr, "Error: tried to include multiple files with single directive on line %d! %s %d.%d-%d.%d\n", yyget_lloc(scanner)->last_line, locprint2(yylloc));
     } else {
       stmtover = 1;
       yytext[yyleng - 1] = '\0'; //ignore closing "
@@ -293,10 +293,11 @@ struct arginfo {
       }
       if((newbuf = fopen(fname, "r")) != NULL) { //ignore opening "
         YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
-        dapush(locs, yyget_lloc(scanner));
-        ylt->first_line = ylt->last_line = 1;
-        ylt->first_column = ylt->last_column = 0;
-        yyset_lloc(ylt, scanner);
+        *ylt = *yylloc;
+        dapush(locs, ylt);
+        yylloc->first_line = yylloc->last_line = 1;
+        yylloc->first_column = yylloc->last_column = 0;
+        dapush(file2compile, fname);
         YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE, scanner);
         yy_push_state(INITIAL, scanner);
         yypush_buffer_state(ybs, scanner);
@@ -315,7 +316,7 @@ struct arginfo {
 <INCLUDENEXT>{
   ["<][^>\n]*[>"] {
     if(stmtover){
-      fprintf(stderr, "Error: tried to include multiple files with single directive on line %d! %s %d.%d-%d.%d\n", yylloc->last_line, locprint2(yylloc));
+      fprintf(stderr, "Error: tried to include multiple files with single directive on line %d! %s %d.%d-%d.%d\n", yyget_lloc(scanner)->last_line, locprint2(yylloc));
     } else {
       stmtover = 1;
       yytext[yyleng - 1] = '\0'; //ignore closing >
@@ -336,10 +337,10 @@ struct arginfo {
         snprintf(pathbuf, 256, "%s%s", searchpath[i], yytext + 1); //ignore opening
         if((newbuf = fopen(pathbuf, "r")) != NULL) {
           YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
-          dapush(locs, yyget_lloc(scanner));
-          ylt->first_line = ylt->last_line = 1;
-          ylt->first_column = ylt->last_column = 0;
-          yyset_lloc(ylt, scanner);
+          *ylt = *yylloc;
+          dapush(locs, ylt);
+          yylloc->first_line = yylloc->last_line = 1;
+          yylloc->first_column = yylloc->last_column = 0;
           dapush(file2compile, strdup(pathbuf));
           YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE, scanner);
           yy_push_state(INITIAL, scanner);
@@ -391,7 +392,7 @@ struct arginfo {
     insert(ctx->withindefines, yytext, NULL);
     }
   \n {yy_pop_state(scanner); yy_pop_state(scanner);/*error state*/}
-  . {fprintf(stderr, "DEFINE: Unexpected character encountered: %c %s %d.%d-%d.%d %s %d.%d-%d.%d\n", *yytext, locprint2(yylloc), locprint2(yylloc));}
+  . {fprintf(stderr, "DEFINE: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint2(yylloc));}
 }
 
 <DEFARG>{
@@ -592,10 +593,10 @@ struct arginfo {
           yy_pop_state(scanner);
           yy_push_state(FINDREPLACE, scanner);
           YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
-          dapush(locs, yyget_lloc(scanner));
-          ylt->first_line = ylt->last_line = 1;
-          ylt->first_column = ylt->last_column = 0;
-          yyset_lloc(ylt, scanner);
+          *ylt = *yylloc;
+          dapush(locs, ylt);
+          yylloc->first_line = yylloc->last_line = 1;
+          yylloc->first_column = yylloc->last_column = 0;
           FILE* fmm = fmemopen(NULL, mdl->text->lenstr, "r+");
           fwrite(mdl->text->strptr, 1, mdl->text->lenstr, fmm);
           fseek(fmm, 0, SEEK_SET);
@@ -609,7 +610,7 @@ struct arginfo {
 
   {IDENT} {
     char* dupdstr = strdup(yytext);
-    if(check_type(dupdstr, 2) >= 0) {
+    if(check_type(dupdstr, 2, scanner) >= 0) {
       dscat(dstrdly, yytext, yyleng);
       free(dupdstr);
     }
@@ -656,9 +657,9 @@ struct arginfo {
       yyterminate();
     } else {
       yy_pop_state(scanner);
-      YYLTYPE* yl = dapop(locs);
-      yyset_lloc(yl, scanner);
-      free(yl);
+      YYLTYPE* ylt = dapop(locs);
+      *yylloc = *ylt;
+      free(ylt);
       free(dapop(file2compile));
       struct arginfo* ai = dapop(ctx->argpp);
       rmpair(ctx->withindefines, defname);
@@ -674,7 +675,9 @@ struct arginfo {
       yyterminate();
     } else {
       yy_pop_state(scanner);
-      yyset_lloc(dapop(locs), scanner);
+      YYLTYPE* ylt = dapop(locs);
+      *yylloc = *ylt;
+      free(ylt);
       free(dapop(file2compile));
       struct arginfo* ai = dapop(ctx->argpp);
       rmpair(ctx->withindefines, defname);
@@ -738,10 +741,8 @@ struct arginfo {
     yypush_buffer_state(ybs, scanner);
     char buf[256];
     snprintf(buf, 256, "%s", defname);
-    YYLTYPE* ylt = yyget_lloc(scanner);
-    ylt->first_line = ylt->last_line = 1;
-    ylt->first_column = ylt->last_column = 0;
-    yyset_lloc(ylt, scanner);
+    yylloc->first_line = yylloc->last_line = 1;
+    yylloc->first_column = yylloc->last_column = 0;
     dapush(file2compile, strdup(buf));
     rmpair(ctx->withindefines, defname);
     htdtorcfr(defargs, (void(*)(void*)) strdtor);
@@ -770,10 +771,9 @@ struct arginfo {
   [[:blank:]]*\) {yy_pop_state(scanner);}
   {IDENT} {
     //maybe check completion
-    YYSTYPE* yst = yyget_lval(scanner);
-    yst->unum = queryval(ctx->defines, yytext);
+    yylval_param->unum = queryval(ctx->defines, yytext);
     if(ppdebug) 
-      fprintf(stderr, "Value of identifier %s is %lu at %s %d.%d-%d.%d\n", yytext, yst->unum, locprint2(yylloc));
+      fprintf(stderr, "Value of identifier %s is %lu at %s %d.%d-%d.%d\n", yytext, yylval_param->unum, locprint2(yylloc));
     return UNSIGNED_LITERAL;
     }
 }
@@ -781,10 +781,9 @@ struct arginfo {
 <CHECKDEFINED2>{
   {IDENT} {
     yy_pop_state(scanner);
-    YYSTYPE* yst = yyget_lval(scanner);
-    yst->unum = queryval(ctx->defines, yytext);
+    yylval_param->unum = queryval(ctx->defines, yytext);
     if(ppdebug) 
-      fprintf(stderr, "Value of identifier %s is %lu at %s %d.%d-%d.%d\n", yytext, yst->unum, locprint2(yylloc));
+      fprintf(stderr, "Value of identifier %s is %lu at %s %d.%d-%d.%d\n", yytext, yylval_param->unum, locprint2(yylloc));
     return UNSIGNED_LITERAL;
     }
 }
@@ -882,7 +881,7 @@ struct arginfo {
 "." {return '.';}
 
 "__FILE__" {char* fstr = dapeek(file2compile); unput('"', scanner); UNPUTSTR(fstr); unput('"', scanner);}
-"__LINE__" {char linebuf[16]; sprintf(linebuf, "%d", yylloc->last_line); unput('"', scanner); UNPUTSTR(linebuf); unput('"', scanner);}
+"__LINE__" {char linebuf[16]; sprintf(linebuf, "%d", yyget_lloc(scanner)->last_line); unput('"', scanner); UNPUTSTR(linebuf); unput('"', scanner);}
 "__DATE__" {time_t tim = time(NULL); struct tm* tms = localtime(&tim); char datebuf[14]; strftime(datebuf, 14, "\"%b %e %Y\"", tms); UNPUTSTR(datebuf);}
 "__TIME__" {time_t tim = time(NULL); struct tm* tms = localtime(&tim); char timebuf[11]; strftime(timebuf, 11, "\"%T\"",tms); UNPUTSTR(timebuf);}
 "__func__" {char* namestr = ctx->func->name; unput('"', scanner); UNPUTSTR(namestr); unput('"', scanner);}
@@ -892,67 +891,57 @@ struct arginfo {
   "defined"[[:blank:]]* {yy_push_state(CHECKDEFINED2, scanner);}
   {IDENT} {
     char* ds = strdup(yytext);
-    int mt = check_type(ds, 0);
+    int mt = check_type(ds, 0, scanner);
     switch(mt) {
       default:
         free(ds);
-        YYSTYPE* yst = yyget_lval(scanner);
-        yst->unum = 0;
+        yylval_param->unum = 0;
         return UNSIGNED_LITERAL;
       case -1:
         break;
     } 
   }
   0[bB]{BIN}+{INTSIZE}? {
-        YYSTYPE* yst = yyget_lval(scanner);
-        yst->unum = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
+        yylval_param->unum = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
                          return UNSIGNED_LITERAL;}
   0{OCT}+{INTSIZE}? {
-        YYSTYPE* yst = yyget_lval(scanner);
-        yst->unum = strtoul(yytext,NULL,8);//every intconst is 8 bytes
+        yylval_param->unum = strtoul(yytext,NULL,8);//every intconst is 8 bytes
                      return UNSIGNED_LITERAL;}
   [[:digit:]]+{INTSIZE}?  {
-        YYSTYPE* yst = yyget_lval(scanner);
-        yst->snum = strtoul(yytext,NULL,10);//every intconst is 8 bytes
+        yylval_param->snum = strtoul(yytext,NULL,10);//every intconst is 8 bytes
                            if(strchr(yytext,'u') || strchr(yytext,'U')) return UNSIGNED_LITERAL; return INTEGER_LITERAL;}
   0[xX][[:xdigit:]]+{INTSIZE}? {
-        YYSTYPE* yst = yyget_lval(scanner);
-        yst->unum = strtoul(yytext,NULL,16);
+        yylval_param->unum = strtoul(yytext,NULL,16);
                               return UNSIGNED_LITERAL;}
   L?\' {yy_push_state(ZCHARLIT, scanner);}
 }
 
 {IDENT} {
   char* ylstr = strdup(yytext);
-  int mt = check_type(ylstr, 1);
+  int mt = check_type(ylstr, 1, scanner);
   switch(mt) {
     case SYMBOL: case TYPE_NAME: ;
-      YYSTYPE* yst = yyget_lval(scanner);
-      yst->str = ylstr;
+      yylval_param->str = ylstr;
       return mt;
   } 
 }
 
 0[bB]{BIN}+{INTSIZE}? {
-      YYSTYPE* yst = yyget_lval(scanner);
-      yst->unum = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
+      yylval_param->unum = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
                        return UNSIGNED_LITERAL;}
 0{OCT}+{INTSIZE}? {
-      YYSTYPE* yst = yyget_lval(scanner);
-      yst->unum = strtoul(yytext,NULL,8);//every intconst is 8 bytes
+      yylval_param->unum = strtoul(yytext,NULL,8);//every intconst is 8 bytes
                    return UNSIGNED_LITERAL;}
 [[:digit:]]+{INTSIZE}?  {
-      YYSTYPE* yst = yyget_lval(scanner);
-      yst->snum = strtoul(yytext,NULL,10);//every intconst is 8 bytes
+      yylval_param->snum = strtoul(yytext,NULL,10);//every intconst is 8 bytes
                          if(strchr(yytext,'u') || strchr(yytext,'U')) return UNSIGNED_LITERAL; return INTEGER_LITERAL;}
 0[xX][[:xdigit:]]+{INTSIZE}? {
-      YYSTYPE* yst = yyget_lval(scanner);
-      yst->unum = strtoul(yytext,NULL,16);
+      yylval_param->unum = strtoul(yytext,NULL,16);
                               return UNSIGNED_LITERAL;}
 L?\' {yy_push_state(CHARLIT, scanner);}
 
 [[:digit:]]+{EXP}{FLOATSIZE}?|[[:digit:]]*"."?[[:digit:]]+({EXP})?{FLOATSIZE}?|[[:digit:]]+"."?[[:digit:]]*({EXP})?{FLOATSIZE}?  {
-    YYSTYPE* yst = yyget_lval(scanner); sscanf(yytext, "%lf", &yst->dbl); return FLOAT_LITERAL;}
+     sscanf(yytext, "%lf", &yylval_param->dbl); return FLOAT_LITERAL;}
 
 <ZCHARLIT>{
   \' {
@@ -1052,8 +1041,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT, scanner); strcur = strctor(malloc(256), 0, 2
 <STRINGLIT>{
   \" {/*"*/
     dsccat(strcur, 0);
-    YYSTYPE* yst = yyget_lval(scanner);
-  	yst->dstr = strcur;
+    yylval_param->dstr = strcur;
   	yy_pop_state(scanner); 
   	return STRING_LITERAL;
   	}
@@ -1140,7 +1128,9 @@ L?\" {/*"*/yy_push_state(STRINGLIT, scanner); strcur = strctor(malloc(256), 0, 2
   } else {
     yy_pop_state(scanner);
     stmtover = 1;
-    yyset_lloc(dapop(locs), scanner);
+    YYLTYPE* ylt = dapop(locs);
+    *yylloc = *ylt;
+    free(ylt);
     char* ismac = dapop(file2compile);
     rmpair(ctx->withindefines, ismac);
     free(ismac);
@@ -1160,7 +1150,9 @@ L?\" {/*"*/yy_push_state(STRINGLIT, scanner); strcur = strctor(malloc(256), 0, 2
   } else {
     yy_pop_state(scanner);
     stmtover = 1;
-    yyset_lloc(dapop(locs), scanner);
+    YYLTYPE* ylt = dapop(locs);
+    *yylloc = *ylt;
+    free(ylt);
     char* ismac = dapop(file2compile);
     rmpair(ctx->withindefines, ismac);
     free(ismac);
@@ -1176,7 +1168,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT, scanner); strcur = strctor(malloc(256), 0, 2
 <*>\n {fprintf(stderr, "Unexpected newline encountered:  %s %d.%d-%d.%d\n", locprint2(yylloc));}
 %%
 
-int check_type(char* symb, char frominitial) {
+int check_type(char* symb, char frominitial, yyscan_t scanner) {
   struct macrodef* macdef = search(ctx->defines, symb);
   if(macdef && !queryval(ctx->withindefines, symb)) {
     char* oldname = defname;
@@ -1192,22 +1184,22 @@ int check_type(char* symb, char frominitial) {
         //don't push callmacro yet
         break;
     }
+    YYLTYPE* yltg = yyget_lloc(scanner);
     if(macdef->args) {
       char c;
       while(1) {
         c = input(scanner);
-        YYLTYPE* ylt = yyget_lloc(scanner);
-        ++ylt->last_column;
+        ++yltg->last_column;
         switch(c) {
           case '\n': 
-            ylt->last_column = 0;
-            ++ylt->last_line;
+            yltg->last_column = 0;
+            ++yltg->last_line;
           case ' ': case '\t': case '\v':
           	break;
           case '(':
           	goto whiledone;
           default:
-            --ylt->last_column;
+            --yltg->last_column;
             unput(c, scanner);
             goto nofcall;
 
@@ -1233,10 +1225,10 @@ int check_type(char* symb, char frominitial) {
       snprintf(buf, 256, "%s", symb);
       dapush(file2compile, buf);
       YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
-      dapush(locs, yyget_lloc(scanner));
-      ylt->first_line = ylt->last_line = 1;
-      ylt->first_column = ylt->last_column = 0;
-      yyset_lloc(ylt, scanner);
+      *ylt = *yltg;
+      dapush(locs, ylt);
+      yltg->first_line = yltg->last_line = 1;
+      yltg->first_column = yltg->last_column = 0;
       FILE* fmm = fmemopen(NULL, macdef->text->lenstr, "r+");
       fwrite(macdef->text->strptr, 1, macdef->text->lenstr, fmm);
       fseek(fmm, 0, SEEK_SET);

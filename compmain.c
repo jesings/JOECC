@@ -27,7 +27,7 @@ static void filecomp(char* filename) {
   ctx = ctxinit();
   locs = dactor(128);
   file2compile = dactor(128);
-  dapush(file2compile, filename);
+  dapush(file2compile, strdup(filename));
   yyparse();
   dadtorcfr(ctx->enumerat2free, (void(*)(void*)) freenum);
   htdtorcfr(ctx->defines, (void (*)(void*)) freemd);
@@ -62,7 +62,7 @@ static void filecomp(char* filename) {
   dadtor(ctx->argpp);
   free(ctx);
   dadtor(locs);
-  dadtor(file2compile);
+  dadtorfr(file2compile);
 }
 
 int main(int argc, char** argv) {
