@@ -37,7 +37,6 @@
   #include "compintern.h"
   #include "dynarr.h"
   #include "parallel.h"
-  extern DYNARR* file2compile;
 
   #define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
   #define dget(param, index) ((DECLARATION*) (param)->arr[(index)])
@@ -1090,7 +1089,7 @@ enums:
 commaopt: ',' | %empty;
 %%
 int yyerror(YYLTYPE* ylt, yyscan_t scanner, const char* s) {
-  fprintf(stderr, "ERROR: %s %s %d.%d-%d.%d\n", s, locprint2(ylt));
+  fprintf(stderr, "ERROR: %s %s %d.%d-%d.%d\n", s, locprint((*ylt)));
   return 0;
 }
 

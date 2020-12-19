@@ -93,7 +93,7 @@ esu:
 | UNSIGNED_LITERAL {$$ = ct_uintconst_expr($1);}
 | INTEGER_LITERAL {$$ = ct_intconst_expr($1);};
 %%
-int yyerror(YYLTYPE* ylt, void* yyscanner, const char* s) {
-  fprintf(stderr, "Subsidiary parser encountered error %s %s %d.%d-%d.%d\n", s, locprint2(ylt));
+int yyerror(YYLTYPE* ylt, void* scanner, const char* s) {
+  fprintf(stderr, "Subsidiary parser encountered error %s %s %d.%d-%d.%d\n", s, locprint((*ylt)));
   return 0;
 }

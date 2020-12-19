@@ -4,9 +4,6 @@
 #include "treeduce.h"
 #include "joecc.tab.h"
 
-extern DYNARR* file2compile;
-extern YYLTYPE yylloc;
-
 STRUCT* structor(char* name, DYNARR* fields, struct lexctx* lct) {
     STRUCT* retval = malloc(sizeof(STRUCT));
     retval->name = name;
@@ -971,6 +968,10 @@ struct lexctx* ctxinit(void) {
   declmacro(lct->defines, "__linux__", "1"); 
   declmacro(lct->defines, "__builtin_va_list", "byte*"); //should be typedef
   declmacro(lct->defines, "PTRDIFF_MAX", "(9223372036854775807L)");
+  lct->ls = malloc(sizeof(struct lstate));
+  lct->ls->locs = dactor(128);
+  lct->ls->file2compile = dactor(128);
+  lct->ls->defargs = NULL;
   return lct;
 }
 

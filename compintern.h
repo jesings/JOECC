@@ -135,6 +135,17 @@ typedef struct expr {
   };
 } EXPRESSION;
 
+struct lstate {
+  DYNARR* locs;
+  DYNARR* file2compile;
+  DYNARR* parg;
+  char stmtover, skipping, argeaten;
+  char* defname;
+  HASHTABLE* defargs;
+  int paren_depth;
+  struct macrodef* md;
+  DYNSTR* dstrdly, * mdstrdly, * strcur;
+};
 struct lexctx {
   HASHTABLE* funcs;
   DYNARR* scopes;
@@ -148,6 +159,7 @@ struct lexctx {
   DYNARR* enumerat2free;
   DYNARR* globals;
   DYNARR* externglobals;
+  struct lstate* ls;
 };
 
 typedef struct {
@@ -362,8 +374,8 @@ TOPBLOCK* gtb(char isfunc, void* assign);
 void feedstruct(STRUCT* s);
 int unionlen(UNION* u);
 
-#define locprint(lv) (char*) dapeek(file2compile), lv.first_line, lv.first_column, lv.last_line, lv.last_column
-#define locprint2(lv) (char*) dapeek(file2compile), lv->first_line, lv->first_column, lv->last_line, lv->last_column
+#define locprint(lv) (char*) dapeek(ctx->ls->file2compile), lv.first_line, lv.first_column, lv.last_line, lv.last_column
+#define locprint2(lv) (char*) dapeek(lctx->ls->file2compile), lv->first_line, lv->first_column, lv->last_line, lv->last_column
 #define ctx ((struct lexctx*) yyget_extra(scanner))
 
 static inline int lentype(IDTYPE* idt) {

@@ -28,22 +28,13 @@ INTSIZE (u|U|l|L)*
         } \
     } \
   } while(0);
-#define SIGNEDCHAR 0
+
 #undef unput
 #define unput(c, yyscanner) yyunput(c, ((struct yyguts_t*) yyscanner)->yytext_ptr, yyscanner)
 #define lctx ((struct lexctx*) yyget_extra(yyscanner))
 
 int zzparse(yyscan_t scanner);
 int check_type(char* symb, char frominitial, yyscan_t yyscanner);
-char stmtover, skipping;
-char* defname, * strconst;
-int paren_depth;
-struct macrodef* md;
-char charconst, argeaten;
-DYNARR* parg;
-HASHTABLE* defargs = NULL;
-DYNSTR* dstrdly, * mdstrdly, * strcur;
-extern DYNARR* locs, * file2compile;
 extern int ppdebug;
 
 struct arginfo {
@@ -117,19 +108,19 @@ struct arginfo {
 <PPSKIP>{
   ^[[:blank:]]*#[[:blank:]]* {
     yy_push_state(PREPROCESSOR, yyscanner);
-    stmtover = 0;
-    skipping = 1;
+    lctx->ls->stmtover = 0;
+    lctx->ls->skipping = 1;
     }
   [^\n#\/]+ {}
   [\/\n#] {}
 }
 
-^[[:blank:]]*#[[:blank:]]* {yy_push_state(PREPROCESSOR, yyscanner); stmtover = 0; skipping = 0;}
+^[[:blank:]]*#[[:blank:]]* {yy_push_state(PREPROCESSOR, yyscanner); lctx->ls->stmtover = 0; lctx->ls->skipping = 0;}
 <PREPROCESSOR>{
-  include[[:blank:]]+ {if(!skipping) yy_push_state(INCLUDE, yyscanner); else yy_pop_state(yyscanner);}
-  include_next[[:blank:]]+ {if(!skipping) yy_push_state(INCLUDENEXT, yyscanner); else yy_pop_state(yyscanner);}
-  define[[:blank:]]+ {if(!skipping) {yy_push_state(DEFINE, yyscanner); md = calloc(1, sizeof(struct macrodef));} else yy_pop_state(yyscanner);}
-  undef[[:blank:]]+ {if(!skipping) yy_push_state(UNDEF, yyscanner); else yy_pop_state(yyscanner);}
+  include[[:blank:]]+ {if(!lctx->ls->skipping) yy_push_state(INCLUDE, yyscanner); else yy_pop_state(yyscanner);}
+  include_next[[:blank:]]+ {if(!lctx->ls->skipping) yy_push_state(INCLUDENEXT, yyscanner); else yy_pop_state(yyscanner);}
+  define[[:blank:]]+ {if(!lctx->ls->skipping) {yy_push_state(DEFINE, yyscanner); lctx->ls->md = calloc(1, sizeof(struct macrodef));} else yy_pop_state(yyscanner);}
+  undef[[:blank:]]+ {if(!lctx->ls->skipping) yy_push_state(UNDEF, yyscanner); else yy_pop_state(yyscanner);}
   ifdef[[:blank:]]+ {yy_push_state(IFDEF, yyscanner);}
   ifndef[[:blank:]]+ {yy_push_state(IFNDEF, yyscanner);}
   else {
@@ -211,9 +202,9 @@ struct arginfo {
         break;
     }
     }
-  line {if(!skipping){yy_pop_state(yyscanner); yy_push_state(SINGLELINE_COMMENT, yyscanner);} else {yy_pop_state(yyscanner); yy_push_state(KILLUNTIL, yyscanner);}/*TODO: line directive currently doesn't apply requisite information*/}
-  warning {if(!skipping){yy_pop_state(yyscanner); yy_push_state(WARNING, yyscanner); yy_push_state(KILLBLANK, yyscanner);} else {yy_pop_state(yyscanner); yy_push_state(KILLUNTIL, yyscanner);}}
-  error {if(!skipping){yy_pop_state(yyscanner); yy_push_state(ERROR, yyscanner); yy_push_state(KILLBLANK, yyscanner);} else {yy_pop_state(yyscanner); yy_push_state(KILLUNTIL, yyscanner);}}
+  line {if(!lctx->ls->skipping){yy_pop_state(yyscanner); yy_push_state(SINGLELINE_COMMENT, yyscanner);} else {yy_pop_state(yyscanner); yy_push_state(KILLUNTIL, yyscanner);}/*TODO: line directive currently doesn't apply requisite information*/}
+  warning {if(!lctx->ls->skipping){yy_pop_state(yyscanner); yy_push_state(WARNING, yyscanner); yy_push_state(KILLBLANK, yyscanner);} else {yy_pop_state(yyscanner); yy_push_state(KILLUNTIL, yyscanner);}}
+  error {if(!lctx->ls->skipping){yy_pop_state(yyscanner); yy_push_state(ERROR, yyscanner); yy_push_state(KILLBLANK, yyscanner);} else {yy_pop_state(yyscanner); yy_push_state(KILLUNTIL, yyscanner);}}
   \n {yy_pop_state(yyscanner);fprintf(stderr, "PREPROCESSOR: Incorrect line end %d %s %d.%d-%d.%d\n", yyget_lloc(yyscanner)->first_line, locprint2(yylloc));}
   . {fprintf(stderr, "PREPROCESSOR: Unexpected character encountered: %d %c %s %d.%d-%d.%d\n", *yytext, *yytext, locprint2(yylloc));}
 }
@@ -234,10 +225,10 @@ struct arginfo {
 
 <INCLUDE>{
   "<"[^>\n]*">" {
-    if(stmtover){
+    if(lctx->ls->stmtover){
       fprintf(stderr, "Error: tried to include multiple files with single directive on line %d! %s %d.%d-%d.%d\n", yyget_lloc(yyscanner)->last_line, locprint2(yylloc));
     } else {
-      stmtover = 1;
+      lctx->ls->stmtover = 1;
       yytext[yyleng - 1] = '\0'; //ignore closing >
       char pathbuf[256];
       static const char* searchpath[] = {
@@ -255,10 +246,10 @@ struct arginfo {
         if((newbuf = fopen(pathbuf, "r")) != NULL) {
           YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
           *ylt = *yylloc;
-          dapush(locs, ylt);
+          dapush(lctx->ls->locs, ylt);
           yylloc->first_line = yylloc->last_line = 1;
           yylloc->first_column = yylloc->last_column = 0;
-          dapush(file2compile, strdup(pathbuf));
+          dapush(lctx->ls->file2compile, strdup(pathbuf));
           YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE, yyscanner);
           yy_push_state(INITIAL, yyscanner);
           yypush_buffer_state(ybs, yyscanner);
@@ -271,15 +262,15 @@ struct arginfo {
     }
     }
   \"[^\"\n]*\" {/*"*/
-    if(stmtover) {
+    if(lctx->ls->stmtover) {
       fprintf(stderr, "Error: tried to include multiple files with single directive on line %d! %s %d.%d-%d.%d\n", yyget_lloc(yyscanner)->last_line, locprint2(yylloc));
     } else {
-      stmtover = 1;
+      lctx->ls->stmtover = 1;
       yytext[yyleng - 1] = '\0'; //ignore closing "
       yy_pop_state(yyscanner);
       yy_pop_state(yyscanner);
       FILE* newbuf;
-      char* pfstr = dapeek(file2compile);
+      char* pfstr = dapeek(lctx->ls->file2compile);
       char* fname = yytext + 1;
       if(strchr(pfstr, '/')) {
         char pathbuf[512];
@@ -293,10 +284,10 @@ struct arginfo {
       if((newbuf = fopen(fname, "r")) != NULL) { //ignore opening "
         YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
         *ylt = *yylloc;
-        dapush(locs, ylt);
+        dapush(lctx->ls->locs, ylt);
         yylloc->first_line = yylloc->last_line = 1;
         yylloc->first_column = yylloc->last_column = 0;
-        dapush(file2compile, fname);
+        dapush(lctx->ls->file2compile, fname);
         YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE, yyscanner);
         yy_push_state(INITIAL, yyscanner);
         yypush_buffer_state(ybs, yyscanner);
@@ -308,16 +299,16 @@ struct arginfo {
 }
 <INCLUDE,INCLUDENEXT>{
   [[:space:]]+[<\"] {/*"*/yyless(1);}
-  [[:space:]]*\n {yy_pop_state(yyscanner); yy_pop_state(yyscanner);if(!stmtover) fprintf(stderr, "Error: incomplete include %s %d.%d-%d.%d\n", locprint2(yylloc));}
+  [[:space:]]*\n {yy_pop_state(yyscanner); yy_pop_state(yyscanner);if(!lctx->ls->stmtover) fprintf(stderr, "Error: incomplete include %s %d.%d-%d.%d\n", locprint2(yylloc));}
   . {fprintf(stderr, "INCLUDE: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint2(yylloc));}
 }
 
 <INCLUDENEXT>{
   ["<][^>\n]*[>"] {
-    if(stmtover){
+    if(lctx->ls->stmtover){
       fprintf(stderr, "Error: tried to include multiple files with single directive on line %d! %s %d.%d-%d.%d\n", yyget_lloc(yyscanner)->last_line, locprint2(yylloc));
     } else {
-      stmtover = 1;
+      lctx->ls->stmtover = 1;
       yytext[yyleng - 1] = '\0'; //ignore closing >
       char pathbuf[256];
       static const char* searchpath[] = {
@@ -329,7 +320,7 @@ struct arginfo {
       yy_pop_state(yyscanner);
       yy_pop_state(yyscanner);
       int i = 0;
-      for(; i < 3 && strncmp(dapeek(file2compile), searchpath[i], strlen(searchpath[i])); ++i) ;
+      for(; i < 3 && strncmp(dapeek(lctx->ls->file2compile), searchpath[i], strlen(searchpath[i])); ++i) ;
       ++i;
       for(; i < 4 /*sizeof searchpath*/; ++i) {
         FILE* newbuf;
@@ -337,10 +328,10 @@ struct arginfo {
         if((newbuf = fopen(pathbuf, "r")) != NULL) {
           YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
           *ylt = *yylloc;
-          dapush(locs, ylt);
+          dapush(lctx->ls->locs, ylt);
           yylloc->first_line = yylloc->last_line = 1;
           yylloc->first_column = yylloc->last_column = 0;
-          dapush(file2compile, strdup(pathbuf));
+          dapush(lctx->ls->file2compile, strdup(pathbuf));
           YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE, yyscanner);
           yy_push_state(INITIAL, yyscanner);
           yypush_buffer_state(ybs, yyscanner);
@@ -359,25 +350,25 @@ struct arginfo {
   {IDENT} {
     yy_pop_state(yyscanner); 
     yy_push_state(DEFINE2, yyscanner); 
-    mdstrdly = strctor(malloc(256), 0, 256); 
-    defname = strdup(yytext);
+    lctx->ls->mdstrdly = strctor(malloc(256), 0, 256); 
+    lctx->ls->defname = strdup(yytext);
     insert(lctx->withindefines, yytext, NULL);
     }
   {IDENT}/[[:blank:]] {
     yy_pop_state(yyscanner); 
     yy_push_state(DEFINE2, yyscanner); 
-    mdstrdly = strctor(malloc(256), 0, 256); 
+    lctx->ls->mdstrdly = strctor(malloc(256), 0, 256); 
     yy_push_state(KILLBLANK, yyscanner);
-    defname = strdup(yytext);
+    lctx->ls->defname = strdup(yytext);
     insert(lctx->withindefines, yytext, NULL);
     }
   {IDENT}\( {
     yy_pop_state(yyscanner); 
     yy_push_state(DEFARG, yyscanner); 
     yytext[yyleng - 1] = '\0'; 
-    defname = strdup(yytext);
-    md->args = dactor(8); 
-    argeaten = 0;
+    lctx->ls->defname = strdup(yytext);
+    lctx->ls->md->args = dactor(8);
+    lctx->ls->argeaten = 0;
     insert(lctx->withindefines, yytext, NULL);
     }
   {IDENT}\(/[[:blank:]] {
@@ -385,9 +376,9 @@ struct arginfo {
     yy_push_state(DEFARG, yyscanner); 
     yy_push_state(KILLBLANK, yyscanner); 
     yytext[yyleng - 1] = '\0';
-    defname = strdup(yytext); 
-    md->args = dactor(8); 
-    argeaten = 0;
+    lctx->ls->defname = strdup(yytext); 
+    lctx->ls->md->args = dactor(8); 
+    lctx->ls->argeaten = 0;
     insert(lctx->withindefines, yytext, NULL);
     }
   \n {yy_pop_state(yyscanner); yy_pop_state(yyscanner);/*error state*/}
@@ -396,48 +387,48 @@ struct arginfo {
 
 <DEFARG>{
   {IDENT} {
-    if(argeaten) 
+    if(lctx->ls->argeaten) 
       fprintf(stderr, "Error: unexpected macro argument %s %d.%d-%d.%d\n", locprint2(yylloc)); 
-    argeaten = 1; /*new arg encountered*/ 
-    dapush(md->args, strdup(yytext));
+    lctx->ls->argeaten = 1; /*new arg encountered*/ 
+    dapush(lctx->ls->md->args, strdup(yytext));
     /*probably should confirm no 2 args have the same name*/
     }
   {IDENT}/[[:blank:]] {
-    if(argeaten) 
+    if(lctx->ls->argeaten) 
       fprintf(stderr, "Error: unexpected macro argument %s %d.%d-%d.%d\n", locprint2(yylloc)); 
-    argeaten = 1;
+    lctx->ls->argeaten = 1;
     /*new arg encountered*/ yy_push_state(KILLBLANK, yyscanner); 
-    dapush(md->args, strdup(yytext));
+    dapush(lctx->ls->md->args, strdup(yytext));
     /*probably should confirm no 2 args have the same name*/
     }
   \, {
-    if(argeaten) 
-      argeaten = 0; 
+    if(lctx->ls->argeaten) 
+      lctx->ls->argeaten = 0; 
     else 
       fprintf(stderr, "Error: unexpected macro argument %s %d.%d-%d.%d\n", locprint2(yylloc));
     }
   \,/[[:blank:]] {
-    if(argeaten) 
-      argeaten = 0; 
+    if(lctx->ls->argeaten) 
+      lctx->ls->argeaten = 0; 
     else 
       fprintf(stderr, "Error: unexpected macro argument %s %d.%d-%d.%d\n", locprint2(yylloc));
     yy_push_state(KILLBLANK, yyscanner);
     }
   \) {
-    if(!argeaten && md->args->length != 0) 
+    if(!lctx->ls->argeaten && lctx->ls->md->args->length != 0) 
       fprintf(stderr, "Error: unexpected macro argument %s %d.%d-%d.%d\n", locprint2(yylloc)); 
     /*last arg encountered*/
     yy_pop_state(yyscanner);
     yy_push_state(DEFINE2, yyscanner); 
-    mdstrdly = strctor(malloc(256), 0, 256);
+    lctx->ls->mdstrdly = strctor(malloc(256), 0, 256);
     }
   \)/[[:blank:]] {
-    if(!argeaten && md->args->length != 0) 
+    if(!lctx->ls->argeaten && lctx->ls->md->args->length != 0)
       fprintf(stderr, "Error: unexpected macro argument %s %d.%d-%d.%d\n", locprint2(yylloc)); 
     /*last arg encountered*/
     yy_pop_state(yyscanner);
     yy_push_state(DEFINE2, yyscanner); 
-    mdstrdly = strctor(malloc(256), 0, 256); 
+    lctx->ls->mdstrdly = strctor(malloc(256), 0, 256); 
     yy_push_state(KILLBLANK, yyscanner);
     }
   \n {yy_pop_state(yyscanner); yy_pop_state(yyscanner);/*error state*/}
@@ -445,23 +436,23 @@ struct arginfo {
 }
 
 <DEFINE2>{
-  [^\\/\n]+ {dscat(mdstrdly, yytext, yyleng);}
-  "/" {dsccat(mdstrdly, '/');}
-  \\ {dsccat(mdstrdly, '\\');}
+  [^\\/\n]+ {dscat(lctx->ls->mdstrdly, yytext, yyleng);}
+  "/" {dsccat(lctx->ls->mdstrdly, '/');}
+  \\ {dsccat(lctx->ls->mdstrdly, '\\');}
   \n {
     yy_pop_state(yyscanner);
     yy_pop_state(yyscanner);
-    dsccat(mdstrdly, 0);
+    dsccat(lctx->ls->mdstrdly, 0);
     struct macrodef* isinplace;
-    if((isinplace = search(lctx->defines, defname))) {
-      assert(!strcmp(isinplace->text->strptr, mdstrdly->strptr));
+    if((isinplace = search(lctx->defines, lctx->ls->defname))) {
+      assert(!strcmp(isinplace->text->strptr, lctx->ls->mdstrdly->strptr));
       freemd(isinplace);
     }
-    md->text = mdstrdly;
-    insert(lctx->defines, defname, md);
-    rmpair(lctx->withindefines, defname);
-    free(defname);
-    defname = NULL;
+    lctx->ls->md->text = lctx->ls->mdstrdly;
+    insert(lctx->defines, lctx->ls->defname, lctx->ls->md);
+    rmpair(lctx->withindefines, lctx->ls->defname);
+    free(lctx->ls->defname);
+    lctx->ls->defname = NULL;
     }
 }
 
@@ -474,16 +465,16 @@ struct arginfo {
 
 
 <IFDEF>{
-  {IDENT} {stmtover = 1; defname = strdup(yytext);}
+  {IDENT} {lctx->ls->stmtover = 1; lctx->ls->defname = strdup(yytext);}
   {IDENT}/[[:blank:]] {
-    stmtover = 1;
-    defname = strdup(yytext);
+    lctx->ls->stmtover = 1;
+    lctx->ls->defname = strdup(yytext);
     yy_push_state(KILLBLANK, yyscanner);
     }
   \n {
     yy_pop_state(yyscanner);
     yy_pop_state(yyscanner); 
-    if(!stmtover) {
+    if(!lctx->ls->stmtover) {
       /*error state*/
       fprintf(stderr, "Incomplete ifdef! %s %d.%d-%d.%d\n", locprint2(yylloc));
     } else {
@@ -493,8 +484,8 @@ struct arginfo {
       switch(contval) {
         case IFANDTRUE: case ELSEANDFALSE:
           if(ppdebug) 
-              fprintf(stderr, "Value of identifier %s is %d at %s %d.%d-%d.%d\n", defname, queryval(lctx->defines, defname), locprint2(yylloc));
-          if(queryval(lctx->defines, defname)) {
+              fprintf(stderr, "Value of identifier %s is %d at %s %d.%d-%d.%d\n", lctx->ls->defname, queryval(lctx->defines, lctx->ls->defname), locprint2(yylloc));
+          if(queryval(lctx->defines, lctx->ls->defname)) {
             *rids = IFANDTRUE;
           } else {
             *rids = IFANDFALSE;
@@ -508,22 +499,22 @@ struct arginfo {
       }
       dapush(ds, rids);
     }
-    free(defname);
-    defname = NULL;
+    free(lctx->ls->defname);
+    lctx->ls->defname = NULL;
     }
   . {fprintf(stderr, "IFDEF: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint2(yylloc));}
 }
 <IFNDEF>{
-  {IDENT} {stmtover = 1; defname = strdup(yytext);}
+  {IDENT} {lctx->ls->stmtover = 1; lctx->ls->defname = strdup(yytext);}
   {IDENT}/[[:blank:]] {
-    stmtover = 1;
-    defname = strdup(yytext);
+    lctx->ls->stmtover = 1;
+    lctx->ls->defname = strdup(yytext);
     yy_push_state(KILLBLANK, yyscanner);
     }
   \n {
     yy_pop_state(yyscanner);
     yy_pop_state(yyscanner); 
-    if(!stmtover) {
+    if(!lctx->ls->stmtover) {
       /*error state*/
       fprintf(stderr, "Incomplete ifndef! %s %d.%d-%d.%d\n", locprint2(yylloc));
     } else {
@@ -533,7 +524,7 @@ struct arginfo {
 
       switch(contval) {
         case IFANDTRUE: case ELSEANDFALSE:
-          if(queryval(lctx->defines, defname)) {
+          if(queryval(lctx->defines, lctx->ls->defname)) {
             *rids = IFANDFALSE;
             yy_push_state(PPSKIP, yyscanner);
           } else {
@@ -547,53 +538,53 @@ struct arginfo {
       }
       dapush(ds, rids);
     }
-    free(defname);
-    defname = NULL;
+    free(lctx->ls->defname);
+    lctx->ls->defname = NULL;
     }
   . {fprintf(stderr, "IFNDEF: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint2(yylloc));}
 }
 
 <CALLMACRO>{
   \( {
-    ++paren_depth;
-    dsccat(dstrdly, '(');
+    ++lctx->ls->paren_depth;
+    dsccat(lctx->ls->dstrdly, '(');
     }
   [[:space:]]*\) {
     /*if 0 arguments, don't add new argument here*/
-    if(paren_depth) {
-      --paren_depth;
-      dsccat(dstrdly, ')');
+    if(lctx->ls->paren_depth) {
+      --lctx->ls->paren_depth;
+      dsccat(lctx->ls->dstrdly, ')');
     } else {
-      dapush(parg, dstrdly);
+      dapush(lctx->ls->parg, lctx->ls->dstrdly);
 
       struct macrodef* mdl;
-      if(!(mdl = search(lctx->defines, defname))) {
+      if(!(mdl = search(lctx->defines, lctx->ls->defname))) {
         fprintf(stderr, "Error: Malformed function-like macro call %s %d.%d-%d.%d\n", locprint2(yylloc));
         //error state
         yy_pop_state(yyscanner);
       } else {
-        if(mdl->args->length == 0 && parg->length == 1) {
-          strdtor(dapop(parg));
+        if(mdl->args->length == 0 && lctx->ls->parg->length == 1) {
+          strdtor(dapop(lctx->ls->parg));
         }
-        if(parg->length != mdl->args->length) {
+        if(lctx->ls->parg->length != mdl->args->length) {
           fprintf(stderr, "Error: the number of arguments passed to function-like macro is different than the number of parameters %s %d.%d-%d.%d\n", locprint2(yylloc));
           //error state
         } else {
-          insert(lctx->withindefines, defname, NULL);
+          insert(lctx->withindefines, lctx->ls->defname, NULL);
           DYNARR* argn = mdl->args;
-          defargs = htctor();
+          lctx->ls->defargs = htctor();
           char** prma = (char**) argn->arr;
-          DYNSTR** arga = (DYNSTR**) parg->arr;
-          for(int i = 0; i < parg->length; i++) {
-            insert(defargs, prma[i], arga[i]);
+          DYNSTR** arga = (DYNSTR**) lctx->ls->parg->arr;
+          for(int i = 0; i < lctx->ls->parg->length; i++) {
+            insert(lctx->ls->defargs, prma[i], arga[i]);
           }
-          dadtor(parg);
-          dstrdly = strctor(malloc(256), 0, 256);
+          dadtor(lctx->ls->parg);
+          lctx->ls->dstrdly = strctor(malloc(256), 0, 256);
           yy_pop_state(yyscanner);
           yy_push_state(FINDREPLACE, yyscanner);
           YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
           *ylt = *yylloc;
-          dapush(locs, ylt);
+          dapush(lctx->ls->locs, ylt);
           yylloc->first_line = yylloc->last_line = 1;
           yylloc->first_column = yylloc->last_column = 0;
           FILE* fmm = fmemopen(NULL, mdl->text->lenstr, "r+");
@@ -610,32 +601,32 @@ struct arginfo {
   {IDENT} {
     char* dupdstr = strdup(yytext);
     if(check_type(dupdstr, 2, yyscanner) >= 0) {
-      dscat(dstrdly, yytext, yyleng);
+      dscat(lctx->ls->dstrdly, yytext, yyleng);
       free(dupdstr);
     }
     }
   (0[bB]{BIN}+|0{OCT}+|[[:digit:]]+|0[xX][[:xdigit:]]+){INTSIZE}? {
-    dscat(dstrdly, yytext, yyleng);
+    dscat(lctx->ls->dstrdly, yytext, yyleng);
     }
   ([[:digit:]]+|[[:digit:]]*"."?|[[:digit:]]+"."?)[[:digit:]]*({EXP})?{FLOATSIZE}? {
-    dscat(dstrdly, yytext, yyleng);
+    dscat(lctx->ls->dstrdly, yytext, yyleng);
     }
   [^\(\)\",[:alnum:]_\0]*[^[:space:]\(\)\",[:alnum:]_\0] {/*"*/
-    dscat(dstrdly, yytext, yyleng);
+    dscat(lctx->ls->dstrdly, yytext, yyleng);
     }
   \"(\\.|[^\\"]|\/[[:space:]]*\n)*\" {/*"*/
   	//this is here to make sure that parenthesis depth isn't changed within strings
-    dscat(dstrdly, yytext, yyleng);
+    dscat(lctx->ls->dstrdly, yytext, yyleng);
     }
   \'(\\.|[^\\']|\/[[:space:]]*\n)*\' {
   	//this is here to make sure that parenthesis depth isn't changed within char literals
-    dscat(dstrdly, yytext, yyleng);
+    dscat(lctx->ls->dstrdly, yytext, yyleng);
     }
   [[:space:]]+ {
-    dsccat(dstrdly, ' ');
+    dsccat(lctx->ls->dstrdly, ' ');
     }
   [[:space:]]*,[[:space:]]* {
-    if(paren_depth) {
+    if(lctx->ls->paren_depth) {
       char tmpstr[3];
       int tmpstrl = 0;
       if(yytext[0] == ' ')
@@ -643,10 +634,10 @@ struct arginfo {
       tmpstr[tmpstrl++] = ',';
       if(yytext[yyleng - 1] == ' ')
         tmpstr[tmpstrl++] = ' ';
-      dscat(dstrdly, tmpstr, tmpstrl);
+      dscat(lctx->ls->dstrdly, tmpstr, tmpstrl);
     } else {
-      dapush(parg, dstrdly);
-      dstrdly = strctor(malloc(256), 0, 256);
+      dapush(lctx->ls->parg, lctx->ls->dstrdly);
+      lctx->ls->dstrdly = strctor(malloc(256), 0, 256);
     }
     }
   \0 {
@@ -656,14 +647,14 @@ struct arginfo {
       yyterminate();
     } else {
       yy_pop_state(yyscanner);
-      YYLTYPE* ylt = dapop(locs);
+      YYLTYPE* ylt = dapop(lctx->ls->locs);
       *yylloc = *ylt;
       free(ylt);
-      free(dapop(file2compile));
+      free(dapop(lctx->ls->file2compile));
       struct arginfo* ai = dapop(lctx->argpp);
-      rmpair(lctx->withindefines, defname);
-      free(defname);
-      defname = ai->defname;
+      rmpair(lctx->withindefines, lctx->ls->defname);
+      free(lctx->ls->defname);
+      lctx->ls->defname = ai->defname;
       free(ai);
     }
     }
@@ -674,14 +665,14 @@ struct arginfo {
       yyterminate();
     } else {
       yy_pop_state(yyscanner);
-      YYLTYPE* ylt = dapop(locs);
+      YYLTYPE* ylt = dapop(lctx->ls->locs);
       *yylloc = *ylt;
       free(ylt);
-      free(dapop(file2compile));
+      free(dapop(lctx->ls->file2compile));
       struct arginfo* ai = dapop(lctx->argpp);
-      rmpair(lctx->withindefines, defname);
-      free(defname);
-      defname = ai->defname;
+      rmpair(lctx->withindefines, lctx->ls->defname);
+      free(lctx->ls->defname);
+      lctx->ls->defname = ai->defname;
       free(ai);
     }
     }
@@ -690,78 +681,78 @@ struct arginfo {
 
 <FINDREPLACE>{
   {IDENT} {
-    DYNSTR* argy = search(defargs, yytext);
+    DYNSTR* argy = search(lctx->ls->defargs, yytext);
     if(argy) {
-      dscat(dstrdly, argy->strptr, argy->lenstr);
+      dscat(lctx->ls->dstrdly, argy->strptr, argy->lenstr);
     } else {
-      dscat(dstrdly, yytext, yyleng);
+      dscat(lctx->ls->dstrdly, yytext, yyleng);
     }
     }
   #{IDENT} {
-    DYNSTR* argy = search(defargs, yytext + 1);
+    DYNSTR* argy = search(lctx->ls->defargs, yytext + 1);
     if(argy) {
-      dsccat(dstrdly, '"');
+      dsccat(lctx->ls->dstrdly, '"');
       for(int i = 0; i < argy->lenstr; ++i) {
         if(argy->strptr[i] == '"') {
-          dsccat(dstrdly, '\\');
+          dsccat(lctx->ls->dstrdly, '\\');
         }
-        dsccat(dstrdly, argy->strptr[i]);
+        dsccat(lctx->ls->dstrdly, argy->strptr[i]);
       }
-      dsccat(dstrdly, '"');
+      dsccat(lctx->ls->dstrdly, '"');
     } else {
-      dscat(dstrdly, yytext, yyleng);
+      dscat(lctx->ls->dstrdly, yytext, yyleng);
     }
     }
   ([[:blank:]]+|"/*"([^*]|\*)*"*/")*##([[:blank:]]+|"/*"([^*]|\*)*"*/")* { }
   \"(\\.|[^\\"]|\/[[:blank:]]*\n)*\" {/*"*/
-    dscat(dstrdly, yytext, yyleng);
+    dscat(lctx->ls->dstrdly, yytext, yyleng);
     }
   '(\\.|[^\\'\n])+' {
-    dscat(dstrdly, yytext, yyleng);
+    dscat(lctx->ls->dstrdly, yytext, yyleng);
     }
   [^[:alnum:]_\'\"\n[:blank:]/#]+ {/*cntrl/delim expr*/
-    dscat(dstrdly, yytext, yyleng);
+    dscat(lctx->ls->dstrdly, yytext, yyleng);
     }
-  [[:blank:]]+ {dsccat(dstrdly, ' ');}
+  [[:blank:]]+ {dsccat(lctx->ls->dstrdly, ' ');}
   [[:cntrl:][:print:]] {
-    dsccat(dstrdly, *yytext);
+    dsccat(lctx->ls->dstrdly, *yytext);
     }
   <<EOF>> {
     fclose(YY_CURRENT_BUFFER->yy_input_file);
     yypop_buffer_state(yyscanner);
     yy_pop_state(yyscanner);
-    if(ppdebug) printf("now lexing buffer containing %s\n", dstrdly->strptr);
-    FILE* fmm = fmemopen(NULL, dstrdly->lenstr, "r+");
-    fwrite(dstrdly->strptr, 1, dstrdly->lenstr, fmm);
+    if(ppdebug) printf("now lexing buffer containing %s\n", lctx->ls->dstrdly->strptr);
+    FILE* fmm = fmemopen(NULL, lctx->ls->dstrdly->lenstr, "r+");
+    fwrite(lctx->ls->dstrdly->strptr, 1, lctx->ls->dstrdly->lenstr, fmm);
     fseek(fmm, 0, SEEK_SET);
     rewind(fmm);
     YY_BUFFER_STATE ybs = yy_create_buffer(fmm, YY_BUF_SIZE, yyscanner);
-    strdtor(dstrdly);
+    strdtor(lctx->ls->dstrdly);
     yypush_buffer_state(ybs, yyscanner);
     char buf[256];
-    snprintf(buf, 256, "%s", defname);
+    snprintf(buf, 256, "%s", lctx->ls->defname);
     yylloc->first_line = yylloc->last_line = 1;
     yylloc->first_column = yylloc->last_column = 0;
-    dapush(file2compile, strdup(buf));
-    rmpair(lctx->withindefines, defname);
-    htdtorcfr(defargs, (void(*)(void*)) strdtor);
+    dapush(lctx->ls->file2compile, strdup(buf));
+    rmpair(lctx->withindefines, lctx->ls->defname);
+    htdtorcfr(lctx->ls->defargs, (void(*)(void*)) strdtor);
     if(lctx->argpp->length) {
       struct arginfo* argi = dapop(lctx->argpp);
       if(argi->argi) {
-        dstrdly = argi->argi;
-        paren_depth = argi->pdepth;
-        parg = argi->parg;
+        lctx->ls->dstrdly = argi->argi;
+        lctx->ls->paren_depth = argi->pdepth;
+        lctx->ls->parg = argi->parg;
         argi->argi = NULL;
         dapush(lctx->argpp, argi);
-        insert(lctx->withindefines, defname, NULL);
+        insert(lctx->withindefines, lctx->ls->defname, NULL);
       } else {
-        free(defname);
-        defname = argi->defname;
+        free(lctx->ls->defname);
+        lctx->ls->defname = argi->defname;
         free(argi);
       }
     } else {
-      free(defname);
-      defname = NULL;
+      free(lctx->ls->defname);
+      lctx->ls->defname = NULL;
     }
     }
 }
@@ -879,7 +870,7 @@ struct arginfo {
 "%" {return '%';}
 "." {return '.';}
 
-"__FILE__" {char* fstr = dapeek(file2compile); unput('"', yyscanner); UNPUTSTR(fstr); unput('"', yyscanner);}
+"__FILE__" {char* fstr = dapeek(lctx->ls->file2compile); unput('"', yyscanner); UNPUTSTR(fstr); unput('"', yyscanner);}
 "__LINE__" {char linebuf[16]; sprintf(linebuf, "%d", yyget_lloc(yyscanner)->last_line); unput('"', yyscanner); UNPUTSTR(linebuf); unput('"', yyscanner);}
 "__DATE__" {time_t tim = time(NULL); struct tm* tms = localtime(&tim); char datebuf[14]; strftime(datebuf, 14, "\"%b %e %Y\"", tms); UNPUTSTR(datebuf);}
 "__TIME__" {time_t tim = time(NULL); struct tm* tms = localtime(&tim); char timebuf[11]; strftime(timebuf, 11, "\"%T\"",tms); UNPUTSTR(timebuf);}
@@ -1036,51 +1027,50 @@ L?\' {yy_push_state(CHARLIT, yyscanner);}
     }
 }
 
-L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); strcur = strctor(malloc(256), 0, 256);}
+L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); lctx->ls->strcur = strctor(malloc(256), 0, 256);}
 <STRINGLIT>{
   \" {/*"*/
-    dsccat(strcur, 0);
-    yylval_param->dstr = strcur;
+    dsccat(lctx->ls->strcur, 0);
+    yylval_param->dstr = lctx->ls->strcur;
   	yy_pop_state(yyscanner); 
   	return STRING_LITERAL;
   	}
   [\n\v] {
-    strdtor(strcur);
-    free(strconst); 
+    strdtor(lctx->ls->strcur);
     fprintf(stderr, "Error: String terminated with newline unexpectedly %s %d.%d-%d.%d\n", locprint2(yylloc));
     yy_pop_state(yyscanner);
     }
-  \\a {dsccat(strcur, '\a');}
-  \\b {dsccat(strcur, '\b');}
-  \\e {dsccat(strcur, '\33');}
-  \\f {dsccat(strcur, '\f');}
-  \\n {dsccat(strcur, '\n');}
-  \\r {dsccat(strcur, '\r');}
-  \\t {dsccat(strcur, '\t');}
-  \\v {dsccat(strcur, '\v');}
-  \\\' {dsccat(strcur, '\'');}
-  \\\" {dsccat(strcur, '\"');/*"*/}
-  \\\\ {dsccat(strcur, '\\');}
-  \\\? {dsccat(strcur, '\?');}
+  \\a {dsccat(lctx->ls->strcur, '\a');}
+  \\b {dsccat(lctx->ls->strcur, '\b');}
+  \\e {dsccat(lctx->ls->strcur, '\33');}
+  \\f {dsccat(lctx->ls->strcur, '\f');}
+  \\n {dsccat(lctx->ls->strcur, '\n');}
+  \\r {dsccat(lctx->ls->strcur, '\r');}
+  \\t {dsccat(lctx->ls->strcur, '\t');}
+  \\v {dsccat(lctx->ls->strcur, '\v');}
+  \\\' {dsccat(lctx->ls->strcur, '\'');}
+  \\\" {dsccat(lctx->ls->strcur, '\"');/*"*/}
+  \\\\ {dsccat(lctx->ls->strcur, '\\');}
+  \\\? {dsccat(lctx->ls->strcur, '\?');}
   \\[0-7]{1,3} {
     unsigned int result;
     sscanf(yytext + 1, "%o", &result);
     if(result >= 1 << 8) {
       fprintf(stderr, "Warning: octal character %s in string literal out of bounds %s %d.%d-%d.%d\n", yytext, locprint2(yylloc));
     }
-    dsccat(strcur, result);
+    dsccat(lctx->ls->strcur, result);
     }
   \\0x[[:xdigit:]]{1,2} {
     unsigned int result;
     sscanf(yytext + 3, "%x", &result);
-    dsccat(strcur, result);
+    dsccat(lctx->ls->strcur, result);
     }
   \\. {
     fprintf(stderr, "Warning: Unknown escape sequence %s in string literal %s %d.%d-%d.%d\n", yytext, locprint2(yylloc));
-    dsccat(strcur, yytext[1]);
+    dsccat(lctx->ls->strcur, yytext[1]);
   }
   [^\\\"\v]+ {/*"*/
-    dscat(strcur, yytext, yyleng);
+    dscat(lctx->ls->strcur, yytext, yyleng);
   }
 }
 <INITIAL,WITHINIF>[[:blank:]]+ {/*Whitespace, ignored*/}
@@ -1126,16 +1116,16 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); strcur = strctor(malloc(256), 0,
     yyterminate();
   } else {
     yy_pop_state(yyscanner);
-    stmtover = 1;
-    YYLTYPE* ylt = dapop(locs);
+    lctx->ls->stmtover = 1;
+    YYLTYPE* ylt = dapop(lctx->ls->locs);
     *yylloc = *ylt;
     free(ylt);
-    char* ismac = dapop(file2compile);
+    char* ismac = dapop(lctx->ls->file2compile);
     rmpair(lctx->withindefines, ismac);
     free(ismac);
-    if(defname) {
-      free(defname);
-      defname = NULL;
+    if(lctx->ls->defname) {
+      free(lctx->ls->defname);
+      lctx->ls->defname = NULL;
     }
     //rmpair is a no-op if not in hash
   }
@@ -1148,16 +1138,16 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); strcur = strctor(malloc(256), 0,
     yyterminate();
   } else {
     yy_pop_state(yyscanner);
-    stmtover = 1;
-    YYLTYPE* ylt = dapop(locs);
+    lctx->ls->stmtover = 1;
+    YYLTYPE* ylt = dapop(lctx->ls->locs);
     *yylloc = *ylt;
     free(ylt);
-    char* ismac = dapop(file2compile);
+    char* ismac = dapop(lctx->ls->file2compile);
     rmpair(lctx->withindefines, ismac);
     free(ismac);
-    if(defname) {
-      free(defname);
-      defname = NULL;
+    if(lctx->ls->defname) {
+      free(lctx->ls->defname);
+      lctx->ls->defname = NULL;
     }
     //rmpair is a no-op if not in hash
   }
@@ -1170,8 +1160,8 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); strcur = strctor(malloc(256), 0,
 int check_type(char* symb, char frominitial, yyscan_t yyscanner) {
   struct macrodef* macdef = search(lctx->defines, symb);
   if(macdef && !queryval(lctx->withindefines, symb)) {
-    char* oldname = defname;
-    defname = symb;
+    char* oldname = lctx->ls->defname;
+    lctx->ls->defname = symb;
     switch(frominitial) {
       case 0:
         yy_push_state(WITHINIF, yyscanner);
@@ -1209,23 +1199,23 @@ int check_type(char* symb, char frominitial, yyscan_t yyscanner) {
       if(frominitial == 2) {
         struct arginfo* argi;
         argi = malloc(sizeof(struct arginfo));
-        argi->argi = dstrdly;
-        argi->pdepth = paren_depth;
+        argi->argi = lctx->ls->dstrdly;
+        argi->pdepth = lctx->ls->paren_depth;
         argi->defname = oldname;
-        argi->parg = parg;
+        argi->parg = lctx->ls->parg;
         dapush(lctx->argpp, argi);
         yy_push_state(CALLMACRO, yyscanner);
       }
-      paren_depth = 0;
-      dstrdly = strctor(malloc(256), 0, 256);
-      parg = dactor(64);
+      lctx->ls->paren_depth = 0;
+      lctx->ls->dstrdly = strctor(malloc(256), 0, 256);
+      lctx->ls->parg = dactor(64);
     } else {
       char* buf = malloc(256);
       snprintf(buf, 256, "%s", symb);
-      dapush(file2compile, buf);
+      dapush(lctx->ls->file2compile, buf);
       YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
       *ylt = *yltg;
-      dapush(locs, ylt);
+      dapush(lctx->ls->locs, ylt);
       yltg->first_line = yltg->last_line = 1;
       yltg->first_column = yltg->last_column = 0;
       FILE* fmm = fmemopen(NULL, macdef->text->lenstr, "r+");
@@ -1241,8 +1231,8 @@ int check_type(char* symb, char frominitial, yyscan_t yyscanner) {
         dapush(lctx->argpp, argi);
         yy_push_state(CALLMACRO, yyscanner);
       } else {
-        free(defname);
-        defname = NULL;
+        free(lctx->ls->defname);
+        lctx->ls->defname = NULL;
       }
     }
     return -1;
