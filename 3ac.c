@@ -593,9 +593,9 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case TERNARY: ;
       //do more checking of other 
       DYNARR* darrop = dactor(2);
-      OPERATION* othernop = ct_3ac_op0(NOP_3);
       OPERATION* ternjoin = ct_3ac_op1(JOIN_3, ISCONST | ISLABEL, (ADDRESS) darrop);
-      opn(prog, cmptype(daget(cexpr->params, 0), othernop, 1, prog));
+      OPERATION* unfilledcmp = cmptype(daget(cexpr->params, 0), NULL, 1, prog);
+      opn(prog, unfilledcmp);
       IDTYPE t0t = typex(daget(cexpr->params, 0));
       IDTYPE t1t = typex(daget(cexpr->params, 1));
       IDTYPE t2t = typex(daget(cexpr->params, 2));
@@ -612,7 +612,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       opn(prog, fixlater);
       opn(prog, ct_3ac_op1(BRNCH, ISCONST, (ADDRESS) ternjoin));
       dapush(darrop, prog->lastop);
-      opn(prog, othernop);
+      OPERATION* precop = prog->lastop;
       otheraddr = linearitree(daget(cexpr->params, 2), prog);
       if((t1t.tb & FLOATNUM) && !(t2t.tb & FLOATNUM)) {
         FULLADDR ad2;
@@ -629,6 +629,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       fixlater->dest_type = destaddr.addr_type;
       fixlater->dest = destaddr.addr;
       opn(prog, ct_3ac_op2(MOV_3, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
+      unfilledcmp->dest.branchop = precop->nextop;
       dapush(darrop, prog->lastop);
       opn(prog, ternjoin);
       return destaddr;
@@ -880,18 +881,19 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
     case IFELSES:
       breakarr.joins = dactor(2);
       breakop = ct_3ac_op1(JOIN_3, ISCONST, breakarr);
-      contop = ct_3ac_op0(NOP_3);
-      opn(prog, cmptype(cst->ifcond, contop, 1, prog));
+      contop = cmptype(cst->ifcond, NULL, 1, prog);
+      opn(prog, contop);
       solidstate(cst->thencond, prog);
       opn(prog, ct_3ac_op1(BRNCH, ISCONST, (ADDRESS) breakop));
       dapush(breakarr.joins, prog->lastop);
-      opn(prog, contop);
+      topop = prog->lastop;
       solidstate(cst->elsecond, prog);
       dapush(breakarr.joins, prog->lastop);
       opn(prog, breakop);
+      contop->dest.branchop = topop->nextop;
       return;
     case SWITCH:
-      //check cases, if they're all within 1024 of each other, construct jump table, else make if else with jumps, current solution
+      //TODO: check cases, if they're all within 1024 of each other, construct jump table, else make if else with jumps, current solution, but make it more bst like
       breakarr.joins = dactor(8);
       breakop = ct_3ac_op1(JOIN_3, ISCONST, breakarr);
       FULLADDR fad = linearitree(cst->cond, prog);
