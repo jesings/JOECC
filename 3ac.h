@@ -32,6 +32,9 @@
   X(BLE_U), X(BLE_I), X(BLE_F), \
   X(BGT_U), X(BGT_I), X(BGT_F), \
   X(BLT_U), X(BLT_I), X(BLT_F), \
+  X(BRNCH), \
+  X(JEQ_I), \
+  X(JOIN_3), \
   X(ADDR_3), \
   X(BNZ_3), X(BEZ_3), \
   X(JMP_3), \
@@ -54,6 +57,8 @@ enum opcode_3ac {
 };
 #undef X
 
+struct op;
+
 typedef union {
   unsigned long iregnum; //integer register
   unsigned long fregnum; //floating point register
@@ -63,6 +68,8 @@ typedef union {
   char* strconst;
   unsigned long* arrayconst;
   char* labelname;
+  struct op* branchop;
+  DYNARR* joins;
 } ADDRESS;
 
 //Extra information for SSA?
@@ -78,7 +85,7 @@ typedef enum {
   ISDEREF = 0x400,
 } ADDRTYPE;
 
-typedef struct {
+typedef struct op {
   enum opcode_3ac opcode;
   ADDRTYPE addr0_type;
   ADDRESS addr0;
@@ -86,6 +93,7 @@ typedef struct {
   ADDRESS addr1;
   ADDRTYPE dest_type;
   ADDRESS dest;
+  struct op* nextop;
 } OPERATION;
 
 typedef struct {
@@ -94,14 +102,15 @@ typedef struct {
 } FULLADDR;
 
 typedef struct {
-  DYNARR* ops;
+  OPERATION* firstop;
+  OPERATION* lastop;
   int labelcnt;
   unsigned long iregcnt;
   unsigned long fregcnt;
   DYNARR* breaklabels;
   DYNARR* continuelabels;
   HASHTABLE* fixedvars;
-  HASHTABLE* labeloffsets;
+  HASHTABLE* labels;
 } PROGRAM;
 
 
@@ -113,7 +122,7 @@ OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
 FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog);
 FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog);
 void initializestate(INITIALIZER* i, PROGRAM* prog);
-OPERATION* cmptype(EXPRESSION* cmpexpr, ADDRESS addr2jmp, char negate, PROGRAM* prog);
+OPERATION* cmptype(EXPRESSION* cmpexpr, OPERATION* op2brnch, char negate, PROGRAM* prog);
 void solidstate(STATEMENT* cst, PROGRAM* prog);
 FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srcexpr, PROGRAM* prog);
 OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
@@ -137,8 +146,8 @@ static inline FULLADDR op2addr(OPERATION* op) {
   FULLADDR fa = {op->dest_type, op->dest};
   return fa;
 }
-static inline FULLADDR op2ret(DYNARR* da, OPERATION* op) {
-  dapush(da, op);
+static inline FULLADDR op2ret(PROGRAM* prog, OPERATION* op) {
+  prog->lastop = prog->lastop->nextop = op;
   FULLADDR fa = {op->dest_type, op->dest};
   return fa;
 }
@@ -194,21 +203,26 @@ static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
   switch(sz.uintconst_64) {
     case 2:
       sz.uintconst_64 = 1;
-      dapush(prog->ops, ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr));
+      prog->lastop = prog->lastop->nextop = ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr);
       break;
     case 4:
       sz.uintconst_64 = 2;
-      dapush(prog->ops, ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr));
+      prog->lastop = prog->lastop->nextop = ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr);
       break;
     case 8:
       sz.uintconst_64 = 3;
-      dapush(prog->ops, ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr));
+      prog->lastop = prog->lastop->nextop = ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr);
       break;
     default:
-      dapush(prog->ops, ct_3ac_op3(MULT_U, fadt.addr_type, fadt.addr, ISCONST | 4, sz, destad.addr_type, destad.addr));
+      prog->lastop = prog->lastop->nextop = ct_3ac_op3(MULT_U, fadt.addr_type, fadt.addr, ISCONST | 4, sz, destad.addr_type, destad.addr);
       break;
   }
   return destad;
+}
+
+static inline void opn(PROGRAM* prog, OPERATION* op) {
+  prog->lastop->nextop = op;
+  prog->lastop = op;
 }
 
 #define RGBCOLOR(R, G, B) "\033[38;2;" #R ";" #G ";" #B "m"
