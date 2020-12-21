@@ -6,3 +6,4 @@ functions/*
 *.yy.c
 lex.h
 *.output
+tags

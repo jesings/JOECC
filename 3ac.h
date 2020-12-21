@@ -109,8 +109,6 @@ typedef struct {
 } BBLOCK;
 
 typedef struct {
-  OPERATION* firstop;
-  OPERATION* lastop;
   unsigned long iregcnt;
   unsigned long fregcnt;
   DYNARR* breaklabels;
@@ -151,7 +149,7 @@ static inline FULLADDR op2addr(OPERATION* op) {
   return fa;
 }
 static inline FULLADDR op2ret(PROGRAM* prog, OPERATION* op) {
-  prog->lastop = prog->lastop->nextop = op;
+  prog->curblock->lastop = prog->curblock->lastop->nextop = op;
   FULLADDR fa = {op->dest_type, op->dest};
   return fa;
 }
@@ -207,18 +205,18 @@ static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
   switch(sz.uintconst_64) {
     case 2:
       sz.uintconst_64 = 1;
-      prog->lastop = prog->lastop->nextop = ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr);
+      prog->curblock->lastop = prog->curblock->lastop->nextop = ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr);
       break;
     case 4:
       sz.uintconst_64 = 2;
-      prog->lastop = prog->lastop->nextop = ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr);
+      prog->curblock->lastop = prog->curblock->lastop->nextop = ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr);
       break;
     case 8:
       sz.uintconst_64 = 3;
-      prog->lastop = prog->lastop->nextop = ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr);
+      prog->curblock->lastop = prog->curblock->lastop->nextop = ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr);
       break;
     default:
-      prog->lastop = prog->lastop->nextop = ct_3ac_op3(MULT_U, fadt.addr_type, fadt.addr, ISCONST | 4, sz, destad.addr_type, destad.addr);
+      prog->curblock->lastop = prog->curblock->lastop->nextop = ct_3ac_op3(MULT_U, fadt.addr_type, fadt.addr, ISCONST | 4, sz, destad.addr_type, destad.addr);
       break;
   }
   return destad;
@@ -229,12 +227,13 @@ static inline BBLOCK* ctblk(PROGRAM* prog) {
   retval->inedges = dactor(8);
   retval->outedges = dactor(2);
   dapush(prog->allblocks, retval);
+  prog->curblock = retval;
   return retval;
 }
 
 static inline void opn(PROGRAM* prog, OPERATION* op) {
-  prog->lastop->nextop = op;
-  prog->lastop = op;
+  prog->curblock->lastop->nextop = op;
+  prog->curblock->lastop = op;
 }
 
 #define RGBCOLOR(R, G, B) "\033[38;2;" #R ";" #G ";" #B "m"
