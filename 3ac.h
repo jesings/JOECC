@@ -104,13 +104,22 @@ typedef struct {
 typedef struct {
   OPERATION* firstop;
   OPERATION* lastop;
-  int labelcnt;
+  DYNARR* inedges;
+  DYNARR* outedges;
+} BBLOCK;
+
+typedef struct {
+  OPERATION* firstop;
+  OPERATION* lastop;
   unsigned long iregcnt;
   unsigned long fregcnt;
   DYNARR* breaklabels;
   DYNARR* continuelabels;
+  DYNARR* allblocks;
   HASHTABLE* fixedvars;
   HASHTABLE* labels;
+  BBLOCK* startblock;
+  BBLOCK* curblock;
 } PROGRAM;
 
 
@@ -137,11 +146,6 @@ OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRA
 PROGRAM* linefunc(FUNC* f);
 void printprog(PROGRAM* prog);
 
-static inline char* proglabel(PROGRAM* prog) {
-  char* c = malloc(8);
-  snprintf(c, 8, ".L%d", (prog->labelcnt)++);
-  return c;
-}
 static inline FULLADDR op2addr(OPERATION* op) {
   FULLADDR fa = {op->dest_type, op->dest};
   return fa;
@@ -218,6 +222,14 @@ static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
       break;
   }
   return destad;
+}
+
+static inline BBLOCK* ctblk(PROGRAM* prog) {
+  BBLOCK* retval = malloc(sizeof(BBLOCK));
+  retval->inedges = dactor(8);
+  retval->outedges = dactor(2);
+  dapush(prog->allblocks, retval);
+  return retval;
 }
 
 static inline void opn(PROGRAM* prog, OPERATION* op) {

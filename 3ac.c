@@ -920,7 +920,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       opn(prog, breakop);
       return;
     case LABEL:
-      opn(prog, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) strdup(cst->glabel)));
+      opn(prog, ct_3ac_op2(LBL_3, ISCONST | ISLABEL, (ADDRESS) strdup(cst->glabel), ISCONST, (ADDRESS) dactor(8)));
       insert(prog->labels, cst->glabel, prog->lastop);
       return;
     case CMPND: 
@@ -956,8 +956,10 @@ PROGRAM* linefunc(FUNC* f) {
   prog->continuelabels = dactor(8);
   prog->fixedvars = htctor();
   prog->labels = htctor();
+  prog->allblocks = dactor(1024);
   //initialize params
-  prog->firstop = prog->lastop = ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) strdup(f->name));
+  prog->curblock = ctblk(prog);
+  prog->curblock->firstop = prog->firstop = prog->lastop = ct_3ac_op2(LBL_3, ISCONST | ISLABEL, (ADDRESS) strdup(f->name), ISCONST, (ADDRESS) dactor(4));
   for(int i = 0; i < f->params->da->length; i++) {
     FULLADDR* newa = malloc(sizeof(FULLADDR));
     DECLARATION* pdec = pget(f->params, i);
@@ -980,6 +982,7 @@ PROGRAM* linefunc(FUNC* f) {
   }
   solidstate(f->body, prog);
   prog->lastop->nextop = NULL;
+  prog->curblock->lastop = prog->lastop;
   return prog;
 }
 
@@ -1247,6 +1250,7 @@ static void freeop(void* o2) {
         break;
       case LBL_3:
         free(op->addr0.labelname);
+        dadtor(op->dest.joins);
       default:
         break;
     }
@@ -1256,7 +1260,15 @@ static void freeop(void* o2) {
   }
 }
 
+static void freeblock(void* blk) {
+  BBLOCK* blk2 = blk;
+  dadtor(blk2->inedges);
+  dadtor(blk2->outedges);
+  free(blk);
+}
+
 void freeprog(PROGRAM* prog) {
+  dadtorcfr(prog->allblocks, freeblock);
   freeop(prog->firstop);
   dadtor(prog->breaklabels);
   dadtor(prog->continuelabels);
