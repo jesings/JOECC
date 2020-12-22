@@ -143,15 +143,6 @@ OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRA
 PROGRAM* linefunc(FUNC* f);
 void printprog(PROGRAM* prog);
 
-static inline FULLADDR op2addr(OPERATION* op) {
-  FULLADDR fa = {op->dest_type, op->dest};
-  return fa;
-}
-static inline FULLADDR op2ret(PROGRAM* prog, OPERATION* op) {
-  prog->curblock->lastop = prog->curblock->lastop->nextop = op;
-  FULLADDR fa = {op->dest_type, op->dest};
-  return fa;
-}
 static inline enum opcode_3ac cmp_osite(EXPRTYPE coptype, char negate) {
   switch(coptype) {
     case EQ:
@@ -189,36 +180,6 @@ static inline ADDRTYPE addrconv(IDTYPE* idt) {
     adt = ISSIGNED | (idt->tb & 0xf);
   }
   return adt;
-}
-
-static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
-  FULLADDR destad;
-  ADDRESS sz;
-  retidt.pointerstack->length -= 1;
-  sz.uintconst_64 = lentype(&retidt);
-  retidt.pointerstack->length += 1;
-  if(sz.uintconst_64 == 1) return fadt;
-  destad.addr.iregnum = prog->iregcnt++;
-  destad.addr_type = 8 | ISPOINTER;
-
-  switch(sz.uintconst_64) {
-    case 2:
-      sz.uintconst_64 = 1;
-      prog->curblock->lastop = prog->curblock->lastop->nextop = ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr);
-      break;
-    case 4:
-      sz.uintconst_64 = 2;
-      prog->curblock->lastop = prog->curblock->lastop->nextop = ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr);
-      break;
-    case 8:
-      sz.uintconst_64 = 3;
-      prog->curblock->lastop = prog->curblock->lastop->nextop = ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr);
-      break;
-    default:
-      prog->curblock->lastop = prog->curblock->lastop->nextop = ct_3ac_op3(MULT_U, fadt.addr_type, fadt.addr, ISCONST | 4, sz, destad.addr_type, destad.addr);
-      break;
-  }
-  return destad;
 }
 
 static inline BBLOCK* fctblk(PROGRAM* prog) {
@@ -284,6 +245,45 @@ static inline void giveblock(PROGRAM* prog, BBLOCK* pblk) {
   prog->curblock = pblk;
 }
 
+static inline FULLADDR op2addr(OPERATION* op) {
+  FULLADDR fa = {op->dest_type, op->dest};
+  return fa;
+}
+static inline FULLADDR op2ret(PROGRAM* prog, OPERATION* op) {
+  opn(prog, op);
+  FULLADDR fa = {op->dest_type, op->dest};
+  return fa;
+}
+
+static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
+  FULLADDR destad;
+  ADDRESS sz;
+  retidt.pointerstack->length -= 1;
+  sz.uintconst_64 = lentype(&retidt);
+  retidt.pointerstack->length += 1;
+  if(sz.uintconst_64 == 1) return fadt;
+  destad.addr.iregnum = prog->iregcnt++;
+  destad.addr_type = 8 | ISPOINTER;
+
+  switch(sz.uintconst_64) {
+    case 2:
+      sz.uintconst_64 = 1;
+      opn(prog, ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr));
+      break;
+    case 4:
+      sz.uintconst_64 = 2;
+      opn(prog, ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr));
+      break;
+    case 8:
+      sz.uintconst_64 = 3;
+      opn(prog, ct_3ac_op3(SHL_U, fadt.addr_type, fadt.addr, ISCONST | 1, sz, destad.addr_type, destad.addr));
+      break;
+    default:
+      opn(prog, ct_3ac_op3(MULT_U, fadt.addr_type, fadt.addr, ISCONST | 4, sz, destad.addr_type, destad.addr));
+      break;
+  }
+  return destad;
+}
 #define RGBCOLOR(R, G, B) "\033[38;2;" #R ";" #G ";" #B "m"
 #define CLEARCOLOR "\033[39;49m"
 #endif

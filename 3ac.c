@@ -707,11 +707,12 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         lparam = fparam = ct_3ac_op1(ARG_3, curaddr.addr_type, curaddr.addr);
         for(int i = 2; i < cexpr->params->length; ++i) {
           curaddr = linearitree(daget(cexpr->params, i), prog);
-          lparam = lparam->nextop = ct_3ac_op1(ARG_3, curaddr.addr_type, curaddr.addr);
+          lparam->nextop = ct_3ac_op1(ARG_3, curaddr.addr_type, curaddr.addr);
+          lparam = lparam->nextop;
         }
+        opn(prog, fparam);
+        prog->curblock->lastop = lparam;
       }
-      opn(prog, fparam);
-      prog->curblock->lastop = lparam;
       IDTYPE* frettype = cexpr->rettype;
       //struct type as well?
       if(frettype->pointerstack && frettype->pointerstack->length) {
@@ -888,7 +889,8 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       prog->curblock = NULL;
       solidstate(cst->thencond, prog);
       dapush(breakblock->inedges, prog->curblock);
-      prog->curblock->nextblock = breakblock;
+      topblock = dapeek(prog->allblocks);
+      topblock->nextblock = breakblock;
       giveblock(prog, contblock);
       solidstate(cst->elsecond, prog);
       giveblock(prog, breakblock);
