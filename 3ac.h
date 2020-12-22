@@ -32,9 +32,7 @@
   X(BLE_U), X(BLE_I), X(BLE_F), \
   X(BGT_U), X(BGT_I), X(BGT_F), \
   X(BLT_U), X(BLT_I), X(BLT_F), \
-  X(BRNCH), \
   X(JEQ_I), \
-  X(JOIN_3), \
   X(ADDR_3), \
   X(BNZ_3), X(BEZ_3), \
   X(JMP_3), \
@@ -58,6 +56,7 @@ enum opcode_3ac {
 #undef X
 
 struct op;
+struct bblock;
 
 typedef union {
   unsigned long iregnum; //integer register
@@ -68,8 +67,7 @@ typedef union {
   char* strconst;
   unsigned long* arrayconst;
   char* labelname;
-  struct op* branchop;
-  DYNARR* joins;
+  struct bblock* branchblock;
 } ADDRESS;
 
 //Extra information for SSA?
@@ -101,11 +99,12 @@ typedef struct {
   ADDRESS addr;
 } FULLADDR;
 
-typedef struct {
+typedef struct bblock {
   OPERATION* firstop;
   OPERATION* lastop;
   DYNARR* inedges;
-  DYNARR* outedges;
+  struct bblock* nextblock;
+  struct bblock* branchblock;
 } BBLOCK;
 
 typedef struct {
@@ -116,8 +115,8 @@ typedef struct {
   DYNARR* allblocks;
   HASHTABLE* fixedvars;
   HASHTABLE* labels;
-  BBLOCK* startblock;
   BBLOCK* curblock;
+  BBLOCK* finalblock;
 } PROGRAM;
 
 
@@ -129,7 +128,7 @@ OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
 FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog);
 FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog);
 void initializestate(INITIALIZER* i, PROGRAM* prog);
-OPERATION* cmptype(EXPRESSION* cmpexpr, OPERATION* op2brnch, char negate, PROGRAM* prog);
+OPERATION* cmptype(EXPRESSION* cmpexpr, char negate, PROGRAM* prog);
 void solidstate(STATEMENT* cst, PROGRAM* prog);
 FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srcexpr, PROGRAM* prog);
 OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
@@ -222,18 +221,67 @@ static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
   return destad;
 }
 
-static inline BBLOCK* ctblk(PROGRAM* prog) {
+static inline BBLOCK* fctblk(PROGRAM* prog) {
   BBLOCK* retval = malloc(sizeof(BBLOCK));
   retval->inedges = dactor(8);
-  retval->outedges = dactor(2);
+  retval->nextblock = NULL;
+  retval->branchblock = NULL;
+  retval->lastop = NULL;
   dapush(prog->allblocks, retval);
   prog->curblock = retval;
   return retval;
 }
 
+
+static inline BBLOCK* mpblk(void) {
+  BBLOCK* pblk = malloc(sizeof(BBLOCK));
+  pblk->inedges = dactor(8);
+  pblk->nextblock = NULL;
+  pblk->branchblock = NULL;
+  pblk->lastop = NULL;
+  return pblk;
+}
+
+static inline BBLOCK* ctblk(PROGRAM* prog) {
+  BBLOCK* retval = malloc(sizeof(BBLOCK));
+  retval->inedges = dactor(8);
+  retval->nextblock = NULL;
+  retval->branchblock = NULL;
+  retval->lastop = NULL;
+  BBLOCK* curblock = dapeek(prog->allblocks);
+  dapush(prog->allblocks, retval);
+  if(!curblock->nextblock) {
+    curblock->nextblock = retval;
+    dapush(retval->inedges, curblock);
+  }
+  prog->curblock = retval;
+  return retval;
+}
+
 static inline void opn(PROGRAM* prog, OPERATION* op) {
-  prog->curblock->lastop->nextop = op;
-  prog->curblock->lastop = op;
+  if(prog->curblock) {
+    if(prog->curblock->lastop) {
+      prog->curblock->lastop->nextop = op;
+      prog->curblock->lastop = op;
+    } else {
+      prog->curblock->lastop = op;
+      prog->curblock->firstop = op;
+    }
+  } else {
+    BBLOCK* blk = ctblk(prog);
+    blk->firstop = op;
+    blk->lastop = op;
+  }
+}
+
+static inline void giveblock(PROGRAM* prog, BBLOCK* pblk) {
+  BBLOCK* curblock = dapeek(prog->allblocks);
+  dapush(prog->allblocks, pblk);
+  if(!curblock->nextblock) {
+    curblock->nextblock = pblk;
+    dapush(pblk->inedges, curblock);
+  }
+  prog->curblock = pblk;
 }
 
 #define RGBCOLOR(R, G, B) "\033[38;2;" #R ";" #G ";" #B "m"

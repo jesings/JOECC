@@ -17,7 +17,6 @@ extern const char* name_STMTTYPE[];
   } while(0)
 #define FILLGREG(addrvar, type) do { \
     if((type) & ISFLOAT) FILLFREG((addrvar), (type)); else FILLIREG((addrvar), (type));} while(0)
-//TODO: ensure jmp doesn't proceed join for non cmptype cases
 
 OPERATION* ct_3ac_op0(enum opcode_3ac opcode) {
   OPERATION* retval = malloc(sizeof(OPERATION));
@@ -239,29 +238,25 @@ OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog
 }
 
 FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, ADDRESS complete_val, ADDRESS shortcircuit_val, PROGRAM* prog) {
-  DYNARR* joinarr = dactor(16);
-  DYNARR* joinarr2 = dactor(2);
-  OPERATION* joinop = ct_3ac_op1(JOIN_3, ISCONST, (ADDRESS) joinarr);
-  OPERATION* joinop2 = ct_3ac_op1(JOIN_3, ISCONST, (ADDRESS) joinarr2);
-  OPERATION* nbranch = ct_3ac_op1(BRNCH, ISLABEL | ISCONST, (ADDRESS) joinop);
+  BBLOCK* failblock = mpblk();
+  BBLOCK* finalblock = mpblk();
   FULLADDR addr2use;
   for(int i = 0; i < cexpr->params->length; i++) {
     addr2use = linearitree(daget(cexpr->params, i), prog);
-    OPERATION* brop = ct_3ac_op2(op_to_cmp, addr2use.addr_type, addr2use.addr, ISLABEL | ISCONST, (ADDRESS) joinop);
-    dapush(joinarr, brop);
-    opn(prog, brop);
+    opn(prog, ct_3ac_op2(op_to_cmp, addr2use.addr_type, addr2use.addr, ISCONST, (ADDRESS) failblock));
+    dapush(failblock->inedges, prog->curblock);
+    prog->curblock = NULL;
   }
   if(addr2use.addr_type & ISCONST || addr2use.addr_type & ISFLOAT) {
     addr2use.addr.iregnum = prog->iregcnt++;
   }
   addr2use.addr_type = 1;//maybe make it signed?
   opn(prog, ct_3ac_op2(MOV_3, ISCONST, complete_val, addr2use.addr_type, addr2use.addr));
-  opn(prog, nbranch);
-  opn(prog, joinop);
+  dapush(finalblock->inedges, prog->curblock);
+  prog->curblock->branchblock = finalblock;
+  giveblock(prog, failblock);
   opn(prog, ct_3ac_op2(MOV_3, ISCONST, shortcircuit_val, addr2use.addr_type, addr2use.addr));
-  dapush(joinarr2, nbranch);
-  dapush(joinarr2, prog->curblock->lastop);
-  opn(prog, joinop2);
+  giveblock(prog, finalblock);
   return addr2use;
 }
 
@@ -592,10 +587,12 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
     case TERNARY: ;
       //do more checking of other 
-      DYNARR* darrop = dactor(2);
-      OPERATION* ternjoin = ct_3ac_op1(JOIN_3, ISCONST | ISLABEL, (ADDRESS) darrop);
-      OPERATION* unfilledcmp = cmptype(daget(cexpr->params, 0), NULL, 1, prog);
-      opn(prog, unfilledcmp);
+      BBLOCK* joinblock = mpblk();
+      BBLOCK* failblock = mpblk();
+      opn(prog, cmptype(daget(cexpr->params, 0), 1, prog));
+      prog->curblock->branchblock = failblock;
+      dapush(failblock->inedges, failblock);
+      prog->curblock = NULL;
       IDTYPE t0t = typex(daget(cexpr->params, 0));
       IDTYPE t1t = typex(daget(cexpr->params, 1));
       IDTYPE t2t = typex(daget(cexpr->params, 2));
@@ -610,9 +607,9 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       //MOV_3 is an op2 but we don't have the second address yet so we leave it as a blank in an op1
       OPERATION* fixlater = ct_3ac_op1(MOV_3, curaddr.addr_type, curaddr.addr);
       opn(prog, fixlater);
-      opn(prog, ct_3ac_op1(BRNCH, ISCONST, (ADDRESS) ternjoin));
-      dapush(darrop, prog->curblock->lastop);
-      OPERATION* precop = prog->curblock->lastop;
+      prog->curblock->nextblock = joinblock;
+      dapush(joinblock->inedges, prog->curblock);
+      giveblock(prog, failblock);
       otheraddr = linearitree(daget(cexpr->params, 2), prog);
       if((t1t.tb & FLOATNUM) && !(t2t.tb & FLOATNUM)) {
         FULLADDR ad2;
@@ -629,9 +626,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       fixlater->dest_type = destaddr.addr_type;
       fixlater->dest = destaddr.addr;
       opn(prog, ct_3ac_op2(MOV_3, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
-      unfilledcmp->dest.branchop = precop->nextop;
-      dapush(darrop, prog->curblock->lastop);
-      opn(prog, ternjoin);
+      dapush(joinblock->inedges, prog->curblock);
+      giveblock(prog, joinblock);
       return destaddr;
       //confirm 2 addrs have same type or are coercible
 
@@ -704,17 +700,18 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       }
       return destaddr;
     case FCALL: ;
-      DYNARR* params = dactor(cexpr->params->length);
+      OPERATION* fparam,* lparam;
       EXPRESSION* fname = daget(cexpr->params, 0);
-      for(int i = 1; i < cexpr->params->length; ++i) {
-        //sequence point?
-        curaddr = linearitree(daget(cexpr->params, i), prog);
-        dapush(params, ct_3ac_op1(ARG_3, curaddr.addr_type, curaddr.addr));
+      if(cexpr->params->length > 1) {
+        curaddr = linearitree(daget(cexpr->params, 1), prog);
+        lparam = fparam = ct_3ac_op1(ARG_3, curaddr.addr_type, curaddr.addr);
+        for(int i = 2; i < cexpr->params->length; ++i) {
+          curaddr = linearitree(daget(cexpr->params, i), prog);
+          lparam = lparam->nextop = ct_3ac_op1(ARG_3, curaddr.addr_type, curaddr.addr);
+        }
       }
-      for(int i = 0; i < params->length; ++i) {
-        opn(prog, daget(params, i));
-      }
-      dadtor(params);
+      opn(prog, fparam);
+      prog->curblock->lastop = lparam;
       IDTYPE* frettype = cexpr->rettype;
       //struct type as well?
       if(frettype->pointerstack && frettype->pointerstack->length) {
@@ -734,22 +731,22 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   return curaddr;
 }
 
-OPERATION* cmptype(EXPRESSION* cmpexpr, OPERATION* op2brnch, char negate, PROGRAM* prog) {
+OPERATION* cmptype(EXPRESSION* cmpexpr, char negate, PROGRAM* prog) {
   OPERATION* dest_op;
   FULLADDR destaddr;
   //check if new register is assigned to in cmpret, decrement?
   switch(cmpexpr->type) {
     case EQ: case NEQ: case GT: case LT: case GTE: case LTE:
       dest_op = cmpret_binary_3(cmp_osite(cmpexpr->type, negate), cmpexpr, prog);//figure out signedness here or elsewhere
-      dest_op->dest_type = ISCONST | ISLABEL;
-      dest_op->dest.branchop = op2brnch;
+      //dest_op->dest_type = ISCONST | ISLABEL;
+      //dest_op->dest.branchop = op2brnch;
       return dest_op;
     case L_NOT:
       destaddr = linearitree(daget(cmpexpr->params, 0), prog);
-      return ct_3ac_op2(negate ? BNZ_3 : BEZ_3 , destaddr.addr_type, destaddr.addr, ISCONST | ISLABEL, (ADDRESS) op2brnch);
+      return ct_3ac_op1(negate ? BNZ_3 : BEZ_3 , destaddr.addr_type, destaddr.addr);
     default:
       destaddr = linearitree(cmpexpr, prog);
-      return ct_3ac_op2(negate ? BEZ_3 : BNZ_3 , destaddr.addr_type, destaddr.addr, ISCONST | ISLABEL, (ADDRESS) op2brnch);
+      return ct_3ac_op1(negate ? BEZ_3 : BNZ_3 , destaddr.addr_type, destaddr.addr);
   }
 }
 
@@ -778,8 +775,7 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
 
 void solidstate(STATEMENT* cst, PROGRAM* prog) {
   FULLADDR ret_op;
-  OPERATION* topop,* breakop,* contop;
-  ADDRESS toparr, breakarr, contarr;
+  BBLOCK* topblock,* breakblock,* contblock;
   switch(cst->type){
     case FRET:
       if(cst->expression) {
@@ -788,45 +784,50 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       } else {
         opn(prog, ct_3ac_op0(RET_0));
       }
+      prog->curblock->nextblock = prog->finalblock;
+      dapush(prog->finalblock->inedges, prog->curblock);
+      prog->curblock = NULL;
       return;
     case LBREAK:
-      breakop = dapeek(prog->breaklabels);
-      opn(prog, ct_3ac_op1(BRNCH, ISCONST, (ADDRESS) breakop));
-      dapush(breakop->addr0.joins, prog->curblock->lastop);
+      if(prog->curblock) {
+        breakblock = dapeek(prog->breaklabels);
+        dapush(breakblock->inedges, prog->curblock);
+        prog->curblock = NULL;
+      } //else dead code
       return;
     case LCONT:
-      contop = dapeek(prog->continuelabels);
-      opn(prog, ct_3ac_op1(BRNCH, ISCONST, (ADDRESS) contop));
-      dapush(contop->addr0.joins, prog->curblock->lastop);
+      if(prog->curblock) {
+        contblock = dapeek(prog->continuelabels);
+        dapush(contblock->inedges, prog->curblock);
+        prog->curblock = NULL;
+      } //else dead code
       return;
-    case JGOTO: //join stuff
+    case JGOTO:
       opn(prog, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, (ADDRESS) cst->glabel));
+      prog->curblock = NULL; //TODO: UHHHHH
       return;
     case WHILEL:
-      breakarr.joins = dactor(8);
-      contarr.joins = dactor(8);
-      breakop = ct_3ac_op1(JOIN_3, ISCONST, breakarr);
-      contop = ct_3ac_op1(JOIN_3, ISCONST, contarr);
-      dapush(prog->breaklabels, breakop);
-      dapush(contarr.joins, prog->curblock->lastop);
-      opn(prog, contop);
-      dapush(prog->continuelabels, prog->curblock->lastop);
-      opn(prog, cmptype(cst->cond, breakop, 1, prog));
-      dapush(breakarr.joins, prog->curblock->lastop);
+      breakblock = mpblk();
+      contblock = mpblk();
+      dapush(prog->breaklabels, breakblock);
+      dapush(prog->continuelabels, contblock);
+      dapush(breakblock->inedges, contblock);
+      contblock->branchblock = breakblock;
+      giveblock(prog, contblock);
+      opn(prog, cmptype(cst->cond, 1, prog));
+      prog->curblock = NULL;
       solidstate(cst->body, prog);
-      opn(prog, ct_3ac_op1(BRNCH, ISCONST, (ADDRESS) contop));
-      dapush(contarr.joins, prog->curblock->lastop);
-      opn(prog, breakop);
+      topblock = dapeek(prog->allblocks);
+      dapush(contblock->inedges, topblock);
+      topblock->nextblock = contblock;
       dapop(prog->continuelabels);
       dapop(prog->breaklabels);
+      giveblock(prog, breakblock);
       return;
-    case FORL:
-      breakarr.joins = dactor(8);
-      contarr.joins = dactor(8);
-      toparr.joins = dactor(8);
-      breakop = ct_3ac_op1(JOIN_3, ISCONST, breakarr);
-      contop = ct_3ac_op1(JOIN_3, ISCONST, contarr);
-      topop = ct_3ac_op1(JOIN_3, ISCONST, toparr);
+    case FORL: //TODO: empty for
+      breakblock = mpblk();
+      contblock = mpblk();
+      topblock = mpblk();
       if(cst->forinit->isE) {
         if(cst->forinit->E->type != NOP) 
           linearitree(cst->forinit->E, prog);
@@ -835,69 +836,68 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
           initializestate((INITIALIZER*) daget(cst->forinit->I, i), prog);
         }
       }
-      dapush(prog->continuelabels, contop);
-      dapush(prog->breaklabels, breakop);
-      dapush(toparr.joins, prog->curblock->lastop);
-      opn(prog, topop);
-      opn(prog, cmptype(cst->forcond, breakop, 1, prog));
-      dapush(breakarr.joins, prog->curblock->lastop);
+      dapush(prog->continuelabels, contblock);
+      dapush(prog->breaklabels, breakblock);
+      dapush(breakblock->inedges, topblock);
+      topblock->branchblock = breakblock;
+      giveblock(prog, topblock);
+      opn(prog, cmptype(cst->forcond, 1, prog));
+      prog->curblock = NULL;
       solidstate(cst->forbody, prog);
-      dapush(contarr.joins, prog->curblock->lastop);
-      opn(prog, contop);
+      giveblock(prog, contblock);
       linearitree(cst->increment, prog);
-      opn(prog, ct_3ac_op1(BRNCH, ISCONST, (ADDRESS) topop));
-      dapush(toparr.joins, prog->curblock->lastop);
-      opn(prog, breakop);
+      prog->curblock->nextblock = topblock;
+      dapush(topblock->inedges, prog->curblock);
       dapop(prog->continuelabels);
       dapop(prog->breaklabels);
+      giveblock(prog, breakblock);
       return;
     case DOWHILEL:
-      breakarr.joins = dactor(8);
-      contarr.joins = dactor(8);
-      breakop = ct_3ac_op1(JOIN_3, ISCONST, breakarr);
-      contop = ct_3ac_op1(JOIN_3, ISCONST, contarr);
-      dapush(prog->continuelabels, contop);
-      dapush(prog->breaklabels, breakop);
-      dapush(contarr.joins, prog->curblock->lastop);
-      opn(prog, contop);
+      breakblock = mpblk();
+      contblock = mpblk();
+      topblock = mpblk();
+      dapush(prog->continuelabels, contblock);
+      dapush(prog->breaklabels, breakblock);
+      giveblock(prog, topblock);
       solidstate(cst->body, prog);
       linearitree(cst->cond, prog);
-      opn(prog, cmptype(cst->cond, contop, 0, prog));
-      dapush(contarr.joins, prog->curblock->lastop);
-      dapush(breakarr.joins, prog->curblock->lastop);
-      opn(prog, breakop);
+      giveblock(prog, contblock);
+      opn(prog, cmptype(cst->cond, 0, prog));
+      dapush(topblock->inedges, contblock);
+      contblock->branchblock = topblock;
       dapop(prog->continuelabels);
       dapop(prog->breaklabels);
+      giveblock(prog, breakblock);
       return;
     case IFS:
-      breakarr.joins = dactor(8);
-      breakop = ct_3ac_op1(JOIN_3, ISCONST, breakarr);
-      opn(prog, cmptype(cst->ifcond, breakop, 1, prog));
-      dapush(breakarr.joins, prog->curblock->lastop);
+      breakblock = mpblk();
+      opn(prog, cmptype(cst->ifcond, 1, prog));
+      dapush(breakblock->inedges, prog->curblock);
+      prog->curblock->branchblock = breakblock;
+      prog->curblock = NULL;
       solidstate(cst->thencond, prog);
-      dapush(breakarr.joins, prog->curblock->lastop);
-      opn(prog, breakop);
+      prog->curblock = NULL;
+      giveblock(prog, breakblock);
       return;
-    case IFELSES:
-      breakarr.joins = dactor(2);
-      breakop = ct_3ac_op1(JOIN_3, ISCONST, breakarr);
-      contop = cmptype(cst->ifcond, NULL, 1, prog);
-      opn(prog, contop);
+    case IFELSES: //TODO: what if nop in if condition
+      breakblock = mpblk();
+      contblock = mpblk();
+      opn(prog, cmptype(cst->ifcond, 1, prog));
+      prog->curblock->branchblock = contblock;
+      dapush(contblock->inedges, prog->curblock);
+      prog->curblock = NULL;
       solidstate(cst->thencond, prog);
-      opn(prog, ct_3ac_op1(BRNCH, ISCONST, (ADDRESS) breakop));
-      dapush(breakarr.joins, prog->curblock->lastop);
-      topop = prog->curblock->lastop;
+      dapush(breakblock->inedges, prog->curblock);
+      prog->curblock->nextblock = breakblock;
+      giveblock(prog, contblock);
       solidstate(cst->elsecond, prog);
-      dapush(breakarr.joins, prog->curblock->lastop);
-      opn(prog, breakop);
-      contop->dest.branchop = topop->nextop;
+      giveblock(prog, breakblock);
       return;
     case SWITCH:
       //TODO: check cases, if they're all within 1024 of each other, construct jump table, else make if else with jumps, current solution, but make it more bst like
-      breakarr.joins = dactor(8);
-      breakop = ct_3ac_op1(JOIN_3, ISCONST, breakarr);
+      breakblock = mpblk();
       FULLADDR fad = linearitree(cst->cond, prog);
-      dapush(prog->breaklabels, breakop);
+      dapush(prog->breaklabels, breakblock);
       DYNARR* cll = cst->labeltable->da;
       HASHTABLE* htl = cst->labeltable->ht;
       for(int i = 0; i < cll->length; i++) {
@@ -907,20 +907,25 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
         //maybe signed is unnecessary
         opn(prog, ct_3ac_op3(JEQ_I, fad.addr_type, fad.addr, ISCONST | ISSIGNED, caseval,
                                      ISCONST | ISLABEL, caselbl));
+        //TODO: branchblock to be populated later
+        prog->curblock = NULL;
       }
       if(cst->defaultlbl) {
         ADDRESS deflbl;
         deflbl.labelname = cst->defaultlbl;
         opn(prog, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, deflbl));
       } else {
-        opn(prog, ct_3ac_op1(BRNCH, ISCONST, (ADDRESS) breakop));
+        topblock = dapeek(prog->allblocks);
+        topblock->nextblock = breakblock;
       }
+      prog->curblock = NULL;
       solidstate(cst->body, prog);
-      dapush(breakarr.joins, prog->curblock->lastop);
-      opn(prog, breakop);
+      prog->curblock = NULL;
+      giveblock(prog, breakblock);
       return;
     case LABEL:
-      opn(prog, ct_3ac_op2(LBL_3, ISCONST | ISLABEL, (ADDRESS) strdup(cst->glabel), ISCONST, (ADDRESS) dactor(8)));
+      prog->curblock = NULL; //TODO: does this mess things up?
+      opn(prog, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) strdup(cst->glabel)));
       insert(prog->labels, cst->glabel, prog->curblock->lastop);
       return;
     case CMPND: 
@@ -957,9 +962,10 @@ PROGRAM* linefunc(FUNC* f) {
   prog->fixedvars = htctor();
   prog->labels = htctor();
   prog->allblocks = dactor(1024);
+  prog->finalblock = mpblk();
+  prog->curblock = fctblk(prog);
   //initialize params
-  ctblk(prog);
-  prog->curblock->firstop = prog->curblock->lastop = ct_3ac_op2(LBL_3, ISCONST | ISLABEL, (ADDRESS) strdup(f->name), ISCONST, (ADDRESS) dactor(4));
+  opn(prog, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) strdup(f->name)));
   for(int i = 0; i < f->params->da->length; i++) {
     FULLADDR* newa = malloc(sizeof(FULLADDR));
     DECLARATION* pdec = pget(f->params, i);
@@ -981,7 +987,7 @@ PROGRAM* linefunc(FUNC* f) {
     fixedinsert(prog->fixedvars, pdec->varid, newa);
   }
   solidstate(f->body, prog);
-  prog->curblock->lastop->nextop = NULL;
+  dapush(prog->allblocks, prog->finalblock);
   return prog;
 }
 
@@ -1030,19 +1036,11 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type) {
   }
 }
 
-#define PRINTBROP3(opsymb) do { \
-    printf("\t"); \
-    printaddr(op->addr0, op->addr0_type); \
-    printf(" " #opsymb " "); \
-    printaddr(op->addr1, op->addr1_type); \
-    printf(" →  %p", op->dest.branchop); \
-  } while(0)
-
 #define PRINTBROP2(opsymb) do { \
     printf("\t"); \
-    printf("%s", #opsymb); \
     printaddr(op->addr0, op->addr0_type); \
-    printf(" →  %p", op->dest.branchop); \
+    printf(" %s ", #opsymb); \
+    printaddr(op->dest, op->dest_type); \
   } while(0)
 
 #define PRINTOP3(opsymb) do { \
@@ -1072,6 +1070,7 @@ void printprog(PROGRAM* prog) {
   //maybe we want to color?
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
+    if(!blk->lastop) continue;
     for(OPERATION* op = blk->firstop; op != blk->lastop->nextop; op = op->nextop) {
       printf("%s", opcode_3ac_names[op->opcode]);
       switch(op->opcode) {
@@ -1147,37 +1146,31 @@ void printprog(PROGRAM* prog) {
           PRINTOP3(<);
           break;
         case BEQ_U: case BEQ_I: case BEQ_F: 
-          PRINTBROP3(==);
+          PRINTBROP2(==);
           break;
         case BNE_U: case BNE_I: case BNE_F: 
-          PRINTBROP3(!=);
+          PRINTBROP2(!=);
           break;
         case BGE_U: case BGE_I: case BGE_F: 
-          PRINTBROP3(>=);
+          PRINTBROP2(>=);
           break;
         case BLE_U: case BLE_I: case BLE_F: 
-          PRINTBROP3(<=);
+          PRINTBROP2(<=);
           break;
         case BGT_U: case BGT_I: case BGT_F: 
-          PRINTBROP3(>);
+          PRINTBROP2(>);
           break;
         case BLT_U: case BLT_I: case BLT_F: 
-          PRINTBROP3(<);
+          PRINTBROP2(<);
           break;
         case BNZ_3: case BEZ_3: 
-          PRINTBROP2( );
+          PRINTOP1( );
           break;
         case JMP_3: 
           PRINTOP1( );
           break;
         case JEQ_I:
           PRINTOP3(==);
-          break;
-        case BRNCH: 
-          printf(RGBCOLOR(200,200,120) "\t%p:" CLEARCOLOR, op->addr0.branchop);
-          break;
-        case JOIN_3: 
-          printf(RGBCOLOR(120,120, 120) "\t%d" CLEARCOLOR, op->addr0.joins->length);
           break;
         case MOV_3: case ALOC_3:
           PRINTOP2( );
@@ -1246,12 +1239,8 @@ char remove_nops(PROGRAM* prog) {
 static void freeop(OPERATION* op, OPERATION* stop) {
   while(1) {
     switch(op->opcode) {
-      case JOIN_3:
-        dadtor(op->addr0.joins);
-        break;
       case LBL_3:
         free(op->addr0.labelname);
-        dadtor(op->dest.joins);
       default:
         break;
     }
@@ -1266,8 +1255,8 @@ static void freeop(OPERATION* op, OPERATION* stop) {
 static void freeblock(void* blk) {
   BBLOCK* blk2 = blk;
   dadtor(blk2->inedges);
-  dadtor(blk2->outedges);
-  freeop(blk2->firstop, blk2->lastop);
+  if(blk2->lastop)
+    freeop(blk2->firstop, blk2->lastop);
   free(blk);
 }
 

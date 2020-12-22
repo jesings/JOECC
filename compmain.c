@@ -41,11 +41,7 @@ static void* filecomp(char* filename) {
       putchar('\n');
       puts(pairthere->key);
       //treefunc(pairthere->value);
-      PROGRAM* prog = linefunc(f);
-      if(!strcmp(pairthere->key, "main")) {
-        prog->lastop = prog->lastop->nextop = ct_3ac_op1(RET_3, ISCONST | 4, (ADDRESS) 0L);
-        prog->lastop->nextop = NULL;
-      }
+      PROGRAM* prog = linefunc(f); //fix main func
       puts("---------------------------------------");
       printprog(prog);
       puts("---------------------------------------");
