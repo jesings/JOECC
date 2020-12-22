@@ -45,6 +45,7 @@ static void* filecomp(char* filename) {
       puts("---------------------------------------");
       printprog(prog);
       puts("---------------------------------------");
+      treeprog(prog, pairthere->key);
       freeprog(prog);
     }
   }

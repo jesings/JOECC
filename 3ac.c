@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <sys/stat.h>
 #include "3ac.h"
 #define X(s) #s
 const char* opcode_3ac_names[] = {
@@ -993,231 +994,272 @@ PROGRAM* linefunc(FUNC* f) {
   return prog;
 }
 
-static void printaddr(ADDRESS addr, ADDRTYPE addr_type) {
+static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char color, FILE* f) {
   if(addr_type & ISLABEL) {
-    printf(RGBCOLOR(255,200,10));
-    if(addr_type & ISDEREF) printf("({%s})", addr.labelname);
-    else                    printf("{%s}", addr.labelname);
+    if(color) fprintf(f, RGBCOLOR(255,200,10));
+    if(addr_type & ISDEREF) fprintf(f, "({%s})", addr.labelname);
+    else                    fprintf(f, "{%s}", addr.labelname);
     if(!(addr_type & ISCONST)) {
-      if(addr_type & ISFLOAT) printf(".%df", (addr_type & 0xf) * 8);
-      else                    printf(".%d%c", (addr_type & 0xf) * 8, addr_type & ISSIGNED ? 's' : 'u');
+      if(addr_type & ISFLOAT) fprintf(f, ".%df", (addr_type & 0xf) * 8);
+      else                    fprintf(f, ".%d%c", (addr_type & 0xf) * 8, addr_type & ISSIGNED ? 's' : 'u');
     }
-    printf(CLEARCOLOR);
+    if(color) fprintf(f, CLEARCOLOR);
   } else if(addr_type & ISCONST) {
     assert(!(addr_type & ISDEREF));
     if(addr_type & ISSTRCONST) {
       int l = strlen(addr.strconst);
-      printf(RGBCOLOR(90,180,180));
+      if(color) fprintf(f, RGBCOLOR(90,180,180));
       if(!l)
-        printf("\"\"");
+        fprintf(f, "\"\"");
       else if(addr.strconst[l - 1] != '\n')
-        printf("\"%s\"", addr.strconst);
+        fprintf(f, "\"%s\"", addr.strconst);
       else
-        printf("\"%.*s\\n\"", l - 1, addr.strconst);
-      printf(CLEARCOLOR);
+        fprintf(f, "\"%.*s\\n\"", l - 1, addr.strconst);
+      if(color) fprintf(f, CLEARCOLOR);
     } else {
-      printf(RGBCOLOR(250,60,60));
+      if(color) fprintf(f, RGBCOLOR(250,60,60));
       if(addr_type & ISFLOAT) 
-        printf("%lf", addr.floatconst_64);
+        fprintf(f, "%lf", addr.floatconst_64);
       else if(addr_type & ISSIGNED) 
-        printf("%ld", addr.intconst_64);
+        fprintf(f, "%ld", addr.intconst_64);
       else
-        printf("%lu", addr.intconst_64);
-      printf(CLEARCOLOR);
+        fprintf(f, "%lu", addr.intconst_64);
+      if(color) fprintf(f, CLEARCOLOR);
     }
   } else {
-    printf(RGBCOLOR(60,220,60));
+    if(color) fprintf(f, RGBCOLOR(60,220,60));
     if(addr_type & ISFLOAT) {
-      if(addr_type & ISDEREF) printf("(ireg%lu).%df", addr.fregnum, (addr_type & 0xf) * 8);
-      else                    printf("freg%lu.%d", addr.fregnum, (addr_type & 0xf) * 8);
+      if(addr_type & ISDEREF) fprintf(f, "(ireg%lu).%df", addr.fregnum, (addr_type & 0xf) * 8);
+      else                    fprintf(f, "freg%lu.%d", addr.fregnum, (addr_type & 0xf) * 8);
     } else {
-      if(addr_type & ISDEREF) printf("(ireg%lu).%d%c", addr.iregnum, (addr_type & 0xf) * 8, addr_type & ISSIGNED ? 's' : 'u');
-      else                    printf("ireg%lu.%d%c", addr.iregnum, (addr_type & 0xf) * 8, addr_type & ISSIGNED ? 's' : 'u');
+      if(addr_type & ISDEREF) fprintf(f, "(ireg%lu).%d%c", addr.iregnum, (addr_type & 0xf) * 8, addr_type & ISSIGNED ? 's' : 'u');
+      else                    fprintf(f, "ireg%lu.%d%c", addr.iregnum, (addr_type & 0xf) * 8, addr_type & ISSIGNED ? 's' : 'u');
     }
-    printf(CLEARCOLOR);
+    if(color) fprintf(f, CLEARCOLOR);
   }
 }
 
 #define PRINTBROP2(opsymb) do { \
-    printf("\t"); \
-    printaddr(op->addr0, op->addr0_type); \
-    printf(" %s ", #opsymb); \
-    printaddr(op->dest, op->dest_type); \
+    fprintf(f, "\t"); \
+    printaddr(op->addr0, op->addr0_type, color, f); \
+    fprintf(f, " %s ", #opsymb); \
+    printaddr(op->dest, op->dest_type, color, f); \
   } while(0)
 
 #define PRINTOP3(opsymb) do { \
-    printf("\t"); \
-    printaddr(op->addr0, op->addr0_type); \
-    printf(" " #opsymb " "); \
-    printaddr(op->addr1, op->addr1_type); \
-    printf(" →  "); \
-    printaddr(op->dest, op->dest_type); \
+    fprintf(f, "\t"); \
+    printaddr(op->addr0, op->addr0_type, color, f); \
+    fprintf(f, " " #opsymb " "); \
+    printaddr(op->addr1, op->addr1_type, color, f); \
+    fprintf(f, " →  "); \
+    printaddr(op->dest, op->dest_type, color, f); \
   } while(0)
 
 #define PRINTOP2(opsymb) do { \
-    printf("\t"); \
-    printf("%s", #opsymb); \
-    printaddr(op->addr0, op->addr0_type); \
-    printf(" →  "); \
-    printaddr(op->dest, op->dest_type); \
+    fprintf(f, "\t"); \
+    fprintf(f, "%s", #opsymb); \
+    printaddr(op->addr0, op->addr0_type, color, f); \
+    fprintf(f, " →  "); \
+    printaddr(op->dest, op->dest_type, color, f); \
   } while(0)
 
 #define PRINTOP1() do { \
-    printf("\t"); \
-    printaddr(op->addr0, op->addr0_type); \
+    fprintf(f, "\t"); \
+    printaddr(op->addr0, op->addr0_type, color, f); \
   } while(0)
 
+static void printop(OPERATION* op, char color, FILE* f) {
+  fprintf(f, "%s", opcode_3ac_names[op->opcode]);
+  switch(op->opcode) {
+    case NOP_3: case RET_0:
+      break;
+    case LBL_3: 
+      if(color) fprintf(f, RGBCOLOR(200,200,120));
+      fprintf(f, "\t%s:", op->addr0.labelname);
+      if(color) fprintf(f, CLEARCOLOR);
+      break;
+    case COPY_3:
+      PRINTOP3( );
+      break;
+    case ADD_U: case ADD_I: case ADD_F: 
+      PRINTOP3(+);
+      break;
+    case SUB_U: case SUB_I: case SUB_F: 
+      PRINTOP3(-);
+      break;
+    case MULT_U: case MULT_I: case MULT_F: 
+      PRINTOP3(*);
+      break;
+    case DIV_U: case DIV_I: case DIV_F: 
+      PRINTOP3(/);
+      break;
+    case MOD_U: case MOD_I: 
+      PRINTOP3(%%);
+      break;
+    case SHL_U: case SHL_I: 
+      if(color) PRINTOP3(<<);
+      else PRINTOP3(&lt;&lt;);
+      break;
+    case SHR_U: case SHR_I: 
+      if(color) PRINTOP3(>>);
+      else PRINTOP3(&gt;&gt;);
+      break;
+    case AND_U: case AND_F:
+      if(color) PRINTOP3(&);
+      else PRINTOP3(&amp;);
+      break;
+    case OR_U: case OR_F: 
+      PRINTOP3(|);
+      break;
+    case XOR_U: case XOR_F: 
+      PRINTOP3(^);
+      break;
+    case NOT_U: case NOT_F: 
+      PRINTOP2(~);
+      break;
+    case INC_U: case INC_I: case INC_F: 
+      PRINTOP2(++);
+      break;
+    case DEC_U: case DEC_I: case DEC_F: 
+      PRINTOP2(--);
+      break;
+    case NEG_I: case NEG_F: 
+      PRINTOP2(-);
+      break;
+    case ADDR_3: /*not sure if I is needed*/
+      PRINTOP2(&);
+      break;
+    case EQ_U: case EQ_I: case EQ_F: 
+      PRINTOP3(==);
+      break;
+    case NE_U: case NE_I: case NE_F: 
+      PRINTOP3(!=);
+      break;
+    case GE_U: case GE_I: case GE_F: 
+      if(color) PRINTOP3(>=);
+      else PRINTOP3(&gt;=);
+      break;
+    case LE_U: case LE_I: case LE_F: 
+      if(color) PRINTOP3(<=);
+      else PRINTOP3(&lt;=);
+      break;
+    case GT_U: case GT_I: case GT_F: 
+      if(color) PRINTOP3(>);
+      else PRINTOP3(&gt;);
+      break;
+    case LT_U: case LT_I: case LT_F: 
+      if(color) PRINTOP3(<);
+      else PRINTOP3(&lt;);
+      break;
+    case BEQ_U: case BEQ_I: case BEQ_F: 
+      PRINTBROP2(==);
+      break;
+    case BNE_U: case BNE_I: case BNE_F: 
+      PRINTBROP2(!=);
+      break;
+    case BGE_U: case BGE_I: case BGE_F: 
+      if(color) PRINTBROP2(>=);
+      else PRINTBROP2(&gt;=);
+      break;
+    case BLE_U: case BLE_I: case BLE_F: 
+      if(color) PRINTBROP2(<=);
+      else PRINTBROP2(&lt;=);
+      break;
+    case BGT_U: case BGT_I: case BGT_F: 
+      if(color) PRINTBROP2(>);
+      else PRINTBROP2(&gt;);
+      break;
+    case BLT_U: case BLT_I: case BLT_F: 
+      if(color) PRINTBROP2(<);
+      else PRINTBROP2(&lt;);
+      break;
+    case BNZ_3: case BEZ_3: 
+      PRINTOP1( );
+      break;
+    case JMP_3: 
+      PRINTOP1( );
+      break;
+    case JEQ_I:
+      PRINTOP3(==);
+      break;
+    case MOV_3: case ALOC_3:
+      PRINTOP2( );
+      break;
+    case ARG_3: case PARAM_3: case RET_3:
+      PRINTOP1( );
+      break;
+    case CALL_3:
+    case F2I: case I2F:
+      PRINTOP2( ); //perhaps use cast later, not vital
+      break;
+    case ARRIND:
+    case ARROFF:
+      fprintf(f, "\t");
+      printaddr(op->addr0, op->addr0_type, color, f);
+      fprintf(f, "[");
+      printaddr(op->addr1, op->addr1_type, color, f);
+      fprintf(f, "] ");
+      fprintf(f, " →  ");
+      printaddr(op->dest, op->dest_type, color, f);
+      break;
+    case ARRMOV:
+      fprintf(f, "\t");
+      printaddr(op->addr0, op->addr0_type, color, f);
+      fprintf(f, " →  ");
+      printaddr(op->dest, op->dest_type, color, f);
+      fprintf(f, "[");
+      printaddr(op->addr1, op->addr1_type, color, f);
+      fprintf(f, "] ");
+      break;
+    case MTP_OFF:
+      fprintf(f, "\t");
+      printaddr(op->addr0, op->addr0_type, color, f);
+      fprintf(f, " →  ");
+      printaddr(op->dest, op->dest_type, color, f);
+      fprintf(f, " + ");
+      printaddr(op->addr1, op->addr1_type, color, f);
+      break;
+    case INIT_3:
+      PRINTOP1( );
+      break;
+  }
+}
 
 void printprog(PROGRAM* prog) {
-  //maybe we want to color?
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     if(!blk->lastop) continue;
     for(OPERATION* op = blk->firstop; op != blk->lastop->nextop; op = op->nextop) {
-      printf("%s", opcode_3ac_names[op->opcode]);
-      switch(op->opcode) {
-        case NOP_3: case RET_0:
-          break;
-        case LBL_3: 
-          printf(RGBCOLOR(200,200,120) "\t%s:" CLEARCOLOR, op->addr0.labelname);
-          break;
-        case COPY_3:
-          PRINTOP3( );
-          break;
-        case ADD_U: case ADD_I: case ADD_F: 
-          PRINTOP3(+);
-          break;
-        case SUB_U: case SUB_I: case SUB_F: 
-          PRINTOP3(-);
-          break;
-        case MULT_U: case MULT_I: case MULT_F: 
-          PRINTOP3(*);
-          break;
-        case DIV_U: case DIV_I: case DIV_F: 
-          PRINTOP3(/);
-          break;
-        case MOD_U: case MOD_I: 
-          PRINTOP3(%%);
-          break;
-        case SHL_U: case SHL_I: 
-          PRINTOP3(<<);
-          break;
-        case SHR_U: case SHR_I: 
-          PRINTOP3(>>);
-          break;
-        case AND_U: case AND_F: 
-          PRINTOP3(&);
-          break;
-        case OR_U: case OR_F: 
-          PRINTOP3(|);
-          break;
-        case XOR_U: case XOR_F: 
-          PRINTOP3(^);
-          break;
-        case NOT_U: case NOT_F: 
-          PRINTOP2(~);
-          break;
-        case INC_U: case INC_I: case INC_F: 
-          PRINTOP2(++);
-          break;
-        case DEC_U: case DEC_I: case DEC_F: 
-          PRINTOP2(--);
-          break;
-        case NEG_I: case NEG_F: 
-          PRINTOP2(-);
-          break;
-        case ADDR_3: /*not sure if I is needed*/
-          PRINTOP2(&);
-          break;
-        case EQ_U: case EQ_I: case EQ_F: 
-          PRINTOP3(==);
-          break;
-        case NE_U: case NE_I: case NE_F: 
-          PRINTOP3(!=);
-          break;
-        case GE_U: case GE_I: case GE_F: 
-          PRINTOP3(>=);
-          break;
-        case LE_U: case LE_I: case LE_F: 
-          PRINTOP3(<=);
-          break;
-        case GT_U: case GT_I: case GT_F: 
-          PRINTOP3(>);
-          break;
-        case LT_U: case LT_I: case LT_F: 
-          PRINTOP3(<);
-          break;
-        case BEQ_U: case BEQ_I: case BEQ_F: 
-          PRINTBROP2(==);
-          break;
-        case BNE_U: case BNE_I: case BNE_F: 
-          PRINTBROP2(!=);
-          break;
-        case BGE_U: case BGE_I: case BGE_F: 
-          PRINTBROP2(>=);
-          break;
-        case BLE_U: case BLE_I: case BLE_F: 
-          PRINTBROP2(<=);
-          break;
-        case BGT_U: case BGT_I: case BGT_F: 
-          PRINTBROP2(>);
-          break;
-        case BLT_U: case BLT_I: case BLT_F: 
-          PRINTBROP2(<);
-          break;
-        case BNZ_3: case BEZ_3: 
-          PRINTOP1( );
-          break;
-        case JMP_3: 
-          PRINTOP1( );
-          break;
-        case JEQ_I:
-          PRINTOP3(==);
-          break;
-        case MOV_3: case ALOC_3:
-          PRINTOP2( );
-          break;
-        case ARG_3: case PARAM_3: case RET_3:
-          PRINTOP1( );
-          break;
-        case CALL_3:
-        case F2I: case I2F:
-          PRINTOP2( ); //perhaps use cast later, not vital
-          break;
-        case ARRIND:
-        case ARROFF:
-          printf("\t");
-          printaddr(op->addr0, op->addr0_type);
-          printf("[");
-          printaddr(op->addr1, op->addr1_type);
-          printf("] ");
-          printf(" →  ");
-          printaddr(op->dest, op->dest_type);
-          break;
-        case ARRMOV:
-          printf("\t");
-          printaddr(op->addr0, op->addr0_type);
-          printf(" →  ");
-          printaddr(op->dest, op->dest_type);
-          printf("[");
-          printaddr(op->addr1, op->addr1_type);
-          printf("] ");
-          break;
-        case MTP_OFF:
-          printf("\t");
-          printaddr(op->addr0, op->addr0_type);
-          printf(" →  ");
-          printaddr(op->dest, op->dest_type);
-          printf(" + ");
-          printaddr(op->addr1, op->addr1_type);
-          break;
-        case INIT_3:
-          PRINTOP1( );
-          break;
-      }
-      putchar('\n');
+      printop(op, 1, stdout);
+      fputc('\n', stdout);
     }
   }
+  return;
+}
+
+void treeprog(PROGRAM* prog, char* fname) {
+  mkdir("functions", 0777);
+  char filen[256];
+  sprintf(filen, "functions/%s.dot", fname);
+  FILE* f = fopen(filen, "w");
+  fprintf(f, "strict digraph %s {\n", fname);
+  fprintf(f, "rankdir=TB\nnode [shape=none]\n");
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    if(blk->nextblock)
+      fprintf(f, "\"%p\" -> \"%p\"\n", blk, blk->nextblock);
+    if(blk->branchblock)
+      fprintf(f, "\"%p\" -> \"%p\"\n", blk, blk->branchblock);
+    if(!blk->lastop) continue;
+    fprintf(f, "\"%p\" [label=<<TABLE BORDER=\"0\" CELLBORDER=\"1\"><TR><TD>", blk);
+    for(OPERATION* op = blk->firstop; op != blk->lastop->nextop; op = op->nextop) {
+      printop(op, 0, f);
+      fprintf(f, "<BR ALIGN=\"LEFT\"/>");
+    }
+    fprintf(f, "</TD></TR></TABLE>>]\n");
+  }
+  fprintf(f, "\n}");
+  fclose(f);
   return;
 }
 
