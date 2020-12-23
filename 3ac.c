@@ -1334,7 +1334,7 @@ static void freeop(OPERATION* op, OPERATION* stop) {
   free(op);
 }
 
-static void freeblock(void* blk) {
+void freeblock(void* blk) {
   BBLOCK* blk2 = blk;
   dadtor(blk2->inedges);
   if(blk2->lastop)

@@ -7,9 +7,8 @@ compilerasan: compiler
 nodebug: CFLAGS = -O2
 nodebug: LDFLAGS =
 nodebug: compiler
-compiler: joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o  dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o 
-	mkdir -p functions
-	$(CC) joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o -o compiler $(LDFLAGS)
+compiler: joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o  dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o opt.o
+	$(CC) joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o opt.o -o compiler $(LDFLAGS)
 gotest: compiler
 	./compiler dynarr.c
 lex.yy.c: joecc.lex
@@ -42,6 +41,8 @@ parallel.o: parallel.c
 	$(CC) parallel.c -c $(CFLAGS)
 3ac.o: 3ac.c
 	$(CC) 3ac.c -c $(CFLAGS)
+opt.o: opt.c
+	$(CC) opt.c -c $(CFLAGS)
 
 clean:
 	-rm *.o
