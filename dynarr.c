@@ -13,8 +13,10 @@ DYNARR* dactor(int initiallen) {
 
 DYNARR* damerge(DYNARR* arr1, DYNARR* arr2) {
   if(!arr1->length) {
-    dadtor(arr1);
-    return arr2;
+    if(arr1->maxlength) free(arr1->arr);
+    *arr1 = *arr2;
+    free(arr2);
+    return arr1;
   } else if(!arr2->length) {
     dadtor(arr2);
     return arr1;

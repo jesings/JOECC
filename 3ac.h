@@ -115,6 +115,7 @@ typedef struct {
   DYNARR* allblocks;
   HASHTABLE* fixedvars;
   HASHTABLE* labels;
+  HASHTABLE* unfilledlabels;
   BBLOCK* curblock;
   BBLOCK* finalblock;
 } PROGRAM;

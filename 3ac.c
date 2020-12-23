@@ -245,6 +245,7 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
   for(int i = 0; i < cexpr->params->length; i++) {
     addr2use = linearitree(daget(cexpr->params, i), prog);
     opn(prog, ct_3ac_op2(op_to_cmp, addr2use.addr_type, addr2use.addr, ISCONST, (ADDRESS) failblock));
+    prog->curblock->branchblock = failblock;
     dapush(failblock->inedges, prog->curblock);
     prog->curblock = NULL;
   }
@@ -254,7 +255,7 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
   addr2use.addr_type = 1;//maybe make it signed?
   opn(prog, ct_3ac_op2(MOV_3, ISCONST, complete_val, addr2use.addr_type, addr2use.addr));
   dapush(finalblock->inedges, prog->curblock);
-  prog->curblock->branchblock = finalblock;
+  prog->curblock->nextblock = finalblock;
   giveblock(prog, failblock);
   opn(prog, ct_3ac_op2(MOV_3, ISCONST, shortcircuit_val, addr2use.addr_type, addr2use.addr));
   giveblock(prog, finalblock);
@@ -319,11 +320,16 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
   char pointerqual = sf->type->pointerstack && sf->type->pointerstack->length;
   offaddr.intconst_64 = sf->offset;
   if(!pointerqual && (sf->type->tb & (STRUCTVAL | UNIONVAL))) {
-    FILLIREG(retaddr, ISPOINTER | 8);
     if(offaddr.intconst_64) {
+      FILLIREG(retaddr, ISPOINTER | 8);
       opn(prog, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, retaddr.addr_type, retaddr.addr));
     } else {
-      return sead;
+      if(sead.addr_type & ISDEREF) {
+        FILLIREG(retaddr, ISPOINTER | 8);
+        opn(prog, ct_3ac_op2(MOV_3, sead.addr_type, sead.addr, retaddr.addr_type, retaddr.addr));
+      } else {
+        return sead;
+      }
     }
   } else {
     FULLADDR intermediate;
@@ -331,7 +337,12 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
       FILLIREG(intermediate, ISPOINTER | 8);
       opn(prog, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, intermediate.addr_type, intermediate.addr));
     } else {
-      intermediate = sead;
+      if(sead.addr_type & ISDEREF) {
+        FILLIREG(intermediate, ISPOINTER | 8);
+        opn(prog, ct_3ac_op2(MOV_3, sead.addr_type, sead.addr, intermediate.addr_type, intermediate.addr));
+      } else {
+        intermediate = sead;
+      }
     }
     intermediate.addr_type = addrconv(&retty) | ISDEREF;
     return intermediate; //probably nothing different needs to be done with pointer or anything
@@ -627,7 +638,6 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       fixlater->dest_type = destaddr.addr_type;
       fixlater->dest = destaddr.addr;
       opn(prog, ct_3ac_op2(MOV_3, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
-      dapush(joinblock->inedges, prog->curblock);
       giveblock(prog, joinblock);
       return destaddr;
       //confirm 2 addrs have same type or are coercible
@@ -775,6 +785,23 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
   fixedinsert(prog->fixedvars, i->decl->varid, newa);
 }
 
+static void lbljmp(char* lblname, BBLOCK* block, BBLOCK** loc, PROGRAM* prog) {
+  if(!(*loc = search(prog->labels, lblname))) {
+    DYNARR* pushto,* inedges;
+    if(!(pushto = search(prog->unfilledlabels, lblname))) {
+      pushto = dactor(9);
+      insert(prog->unfilledlabels, lblname, pushto);
+      inedges = dactor(8);
+      dapush(pushto, inedges);
+    } else {
+      inedges = daget(pushto, 0);
+    }
+    dapush(inedges, block);
+    dapush(pushto, loc);
+  } else {
+  }
+}
+
 void solidstate(STATEMENT* cst, PROGRAM* prog) {
   FULLADDR ret_op;
   BBLOCK* topblock,* breakblock,* contblock;
@@ -794,6 +821,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       if(prog->curblock) {
         breakblock = dapeek(prog->breaklabels);
         dapush(breakblock->inedges, prog->curblock);
+        prog->curblock->nextblock = breakblock;
         prog->curblock = NULL;
       } //else dead code
       return;
@@ -801,11 +829,12 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       if(prog->curblock) {
         contblock = dapeek(prog->continuelabels);
         dapush(contblock->inedges, prog->curblock);
+        prog->curblock->nextblock = contblock;
         prog->curblock = NULL;
       } //else dead code
       return;
     case JGOTO:
-      opn(prog, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, (ADDRESS) cst->glabel));
+      lbljmp(cst->glabel, prog->curblock, &prog->curblock->nextblock, prog);
       prog->curblock = NULL; //TODO: UHHHHH
       return;
     case WHILEL:
@@ -889,8 +918,8 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       dapush(contblock->inedges, prog->curblock);
       prog->curblock = NULL;
       solidstate(cst->thencond, prog);
-      dapush(breakblock->inedges, prog->curblock);
       topblock = dapeek(prog->allblocks);
+      dapush(breakblock->inedges, topblock);
       topblock->nextblock = breakblock;
       giveblock(prog, contblock);
       solidstate(cst->elsecond, prog);
@@ -910,13 +939,13 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
         //maybe signed is unnecessary
         opn(prog, ct_3ac_op3(JEQ_I, fad.addr_type, fad.addr, ISCONST | ISSIGNED, caseval,
                                      ISCONST | ISLABEL, caselbl));
+        lbljmp(caselbl.labelname, prog->curblock, &prog->curblock->branchblock, prog);
         //TODO: branchblock to be populated later
         prog->curblock = NULL;
       }
       if(cst->defaultlbl) {
-        ADDRESS deflbl;
-        deflbl.labelname = cst->defaultlbl;
-        opn(prog, ct_3ac_op1(JMP_3, ISCONST | ISLABEL, deflbl));
+        ctblk(prog);
+        lbljmp(cst->defaultlbl, prog->curblock, &prog->curblock->nextblock, prog);
       } else {
         topblock = dapeek(prog->allblocks);
         topblock->nextblock = breakblock;
@@ -927,9 +956,17 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       giveblock(prog, breakblock);
       return;
     case LABEL:
-      prog->curblock = NULL; //TODO: does this mess things up?
+      prog->curblock = NULL;
       opn(prog, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) strdup(cst->glabel)));
-      insert(prog->labels, cst->glabel, prog->curblock->lastop);
+      insert(prog->labels, cst->glabel, prog->curblock);
+      DYNARR* toempty;
+      if((toempty = search(prog->unfilledlabels, cst->glabel))) {
+        for(int i = 1; i < toempty->length; i++) {
+          *(void**) daget(toempty, i) = prog->curblock;
+        }
+        damerge(prog->curblock->inedges, daget(toempty, 0));
+        dadtor(toempty);
+      }
       return;
     case CMPND: 
       //probably more stack stuff will need to be done here?
@@ -964,6 +1001,7 @@ PROGRAM* linefunc(FUNC* f) {
   prog->continuelabels = dactor(8);
   prog->fixedvars = htctor();
   prog->labels = htctor();
+  prog->unfilledlabels = htctor();
   prog->allblocks = dactor(1024);
   prog->finalblock = mpblk();
   prog->curblock = fctblk(prog);
@@ -1310,5 +1348,6 @@ void freeprog(PROGRAM* prog) {
   dadtor(prog->continuelabels);
   fhtdtorcfr(prog->fixedvars, free);
   htdtor(prog->labels);
+  htdtor(prog->unfilledlabels);//if there are remaining entries, jumps without targets exist, very bad
   free(prog);
 }
