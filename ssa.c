@@ -1,3 +1,4 @@
+#include <assert.h>
 #include "ssa.h"
 
 static BBLOCK* intersect(BBLOCK* n1, BBLOCK* n2) {
@@ -18,6 +19,33 @@ static void rpdt(BBLOCK* root, DYNARR* stack) {
   dapush(stack, root);
 }
 
+static void dfpdt(BBLOCK* root) {
+  if(!root) return;
+  if(root->visited) return;
+  if(!(root->inedges && root->inedges->length)) return; //don't look at unreachable blocks
+  root->visited = 1;
+  if(root->idominates)
+    for(int i = 0; i < root->idominates->length; i++)
+      dfpdt(daget(root->idominates, i));
+  root->df = dactor(8);
+  if(root->nextblock && root->nextblock->dom != root) { //only excludes last node
+    dapush(root->df, root->nextblock);
+  }
+  if(root->branchblock && root->branchblock->dom != root) {
+    dapush(root->df, root->branchblock);
+  }
+  if(root->idominates) {
+    for(int j = 0; j < root->idominates->length; j++) {
+      BBLOCK* ib = daget(root->idominates, j);
+      for(int k = 0; k < ib->df->length; k++) {
+        BBLOCK* kb = daget(ib->df, k);
+        if(kb->dom != root)
+          dapush(root->df, kb);
+      }
+    }
+  }
+}
+
 //TODO: implement lengauer tarjan: https://www.cl.cam.ac.uk/~mr10/lengtarj.pdf
 void ctdtree(PROGRAM* prog) {
   DYNARR* blocks = prog->allblocks;
@@ -31,8 +59,11 @@ void ctdtree(PROGRAM* prog) {
   first->dom = first;
   first->domind = blocks->length; //2 greater but we don't need a decrement
   rpdt(first->nextblock, blockstack);
-  while(1) {
-    char changed = 0;
+  rpdt(first->branchblock, blockstack);
+  //maybe reverse order now, rather than iterate backwards
+  char changed = 1;
+  while(changed) {
+    changed = 0;
     //https://www.cs.rice.edu/~keith/EMBED/dom.pdf
     for(int i = blockstack->length - 1; i >= 0; i--) {
       BBLOCK* cb = daget(blockstack, i);
@@ -50,11 +81,18 @@ void ctdtree(PROGRAM* prog) {
       if(cb->dom != new_idom) 
         cb->dom = new_idom, changed = 1;
     }
-    if(!changed) break;
-    for(int i = 0; i < blocks->length; i++) {
-      BBLOCK* cb = daget(blocks, i);
-      cb->visited = 0;
-    }
   }
+  //populate in parents
+  for(int i = 0; i < blocks->length; i++) {
+    BBLOCK* cb = daget(blocks, i);
+    if(cb->dom) {
+      if(!cb->dom->idominates)
+        cb->dom->idominates = dactor(8);
+      dapush(cb->dom->idominates, cb);
+    }
+    cb->visited = 0;
+  }
+  //dominator tree (immediate dominators) calculated
+  dfpdt(first); //populate dominance frontiers dfs
   dadtor(blockstack);
 }

@@ -6,7 +6,7 @@ char rmunreach(PROGRAM* prog) {
   char modified = 0;
   for(int i = 1; i < oldall->length; i++) {
     BBLOCK* oldb = daget(oldall, i);
-    if(oldb->inedges == 0) {
+    if(oldb->inedges->length == 0) {
       freeblock(oldb);
       modified = 1;
     } else {

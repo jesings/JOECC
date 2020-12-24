@@ -254,8 +254,8 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
   }
   addr2use.addr_type = 1;//maybe make it signed?
   opn(prog, ct_3ac_op2(MOV_3, ISCONST, complete_val, addr2use.addr_type, addr2use.addr));
-  dapush(finalblock->inedges, prog->curblock);
   prog->curblock->nextblock = finalblock;
+  dapush(finalblock->inedges, prog->curblock);
   giveblock(prog, failblock);
   opn(prog, ct_3ac_op2(MOV_3, ISCONST, shortcircuit_val, addr2use.addr_type, addr2use.addr));
   giveblock(prog, finalblock);
@@ -603,7 +603,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       BBLOCK* failblock = mpblk();
       opn(prog, cmptype(daget(cexpr->params, 0), 1, prog));
       prog->curblock->branchblock = failblock;
-      dapush(failblock->inedges, failblock);
+      dapush(failblock->inedges, prog->curblock);
       prog->curblock = NULL;
       IDTYPE t0t = typex(daget(cexpr->params, 0));
       IDTYPE t1t = typex(daget(cexpr->params, 1));
@@ -820,20 +820,21 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
     case LBREAK:
       if(prog->curblock) {
         breakblock = dapeek(prog->breaklabels);
-        dapush(breakblock->inedges, prog->curblock);
         prog->curblock->nextblock = breakblock;
+        dapush(breakblock->inedges, prog->curblock);
         prog->curblock = NULL;
       } //else dead code
       return;
     case LCONT:
       if(prog->curblock) {
         contblock = dapeek(prog->continuelabels);
-        dapush(contblock->inedges, prog->curblock);
         prog->curblock->nextblock = contblock;
+        dapush(contblock->inedges, prog->curblock);
         prog->curblock = NULL;
       } //else dead code
       return;
     case JGOTO:
+      if(!prog->curblock) ctblk(prog);
       lbljmp(cst->glabel, prog->curblock, &prog->curblock->nextblock, prog);
       prog->curblock = NULL; //TODO: UHHHHH
       return;
@@ -849,8 +850,8 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       prog->curblock = NULL;
       solidstate(cst->body, prog);
       topblock = dapeek(prog->allblocks);
-      dapush(contblock->inedges, topblock);
       topblock->nextblock = contblock;
+      dapush(contblock->inedges, topblock);
       dapop(prog->continuelabels);
       dapop(prog->breaklabels);
       giveblock(prog, breakblock);
@@ -919,8 +920,8 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       prog->curblock = NULL;
       solidstate(cst->thencond, prog);
       topblock = dapeek(prog->allblocks);
-      dapush(breakblock->inedges, topblock);
       topblock->nextblock = breakblock;
+      dapush(breakblock->inedges, topblock);
       giveblock(prog, contblock);
       solidstate(cst->elsecond, prog);
       giveblock(prog, breakblock);
@@ -946,6 +947,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       if(cst->defaultlbl) {
         ctblk(prog);
         lbljmp(cst->defaultlbl, prog->curblock, &prog->curblock->nextblock, prog);
+        prog->curblock->nextblock = (void*) 1; //dummy
       } else {
         topblock = dapeek(prog->allblocks);
         topblock->nextblock = breakblock;
@@ -1288,13 +1290,16 @@ void treeprog(PROGRAM* prog, char* fname) {
       fprintf(f, "\"%p\" -> \"%p\"\n", blk, blk->nextblock);
     if(blk->branchblock)
       fprintf(f, "\"%p\" -> \"%p\"\n", blk, blk->branchblock);
-    if(!blk->lastop) continue;
+    if(!blk->lastop) {
+      fprintf(f, "\"%p\" [xlabel=\"%d\"]", blk, blk->inedges ? blk->inedges->length : 0);
+      continue;
+    }
     fprintf(f, "\"%p\" [label=<<TABLE BORDER=\"0\" CELLBORDER=\"1\"><TR><TD>", blk);
     for(OPERATION* op = blk->firstop; op != blk->lastop->nextop; op = op->nextop) {
       printop(op, 0, f);
       fprintf(f, "<BR ALIGN=\"LEFT\"/>");
     }
-    fprintf(f, "</TD></TR></TABLE>>]\n");
+    fprintf(f, "</TD></TR></TABLE>> xlabel=\"%d\"]\n", blk->inedges ? blk->inedges->length : 0);
   }
   fprintf(f, "\n}");
   fclose(f);
@@ -1337,6 +1342,8 @@ static void freeop(OPERATION* op, OPERATION* stop) {
 void freeblock(void* blk) {
   BBLOCK* blk2 = blk;
   dadtor(blk2->inedges);
+  if(blk2->idominates) dadtor(blk2->idominates);
+  if(blk2->df) dadtor(blk2->df);
   if(blk2->lastop)
     freeop(blk2->firstop, blk2->lastop);
   free(blk);

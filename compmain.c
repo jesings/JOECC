@@ -6,6 +6,7 @@
 #include "printree.h"
 #include "3ac.h"
 #include "ssa.h"
+#include "opt.h"
 
 int yyparse(void* scanner);
 int yyset_in(FILE*, void*);
@@ -56,8 +57,8 @@ static void* filecomp(char* filename) {
   dadtorcfr(funcky, freev);
   dadtor(lctx->scopes);
   dadtorcfr(lctx->enstruct2free, (void(*)(void*)) wipestruct);
-  dadtorcfr(lctx->externglobals, (void(*)(void*))freeinit);
-  dadtorcfr(lctx->globals, (void(*)(void*))freeinit);
+  dadtorcfr(lctx->externglobals, (void(*)(void*)) freeinit);
+  dadtorcfr(lctx->globals, (void(*)(void*)) freeinit);
   htdtor(lctx->funcs);
   dadtor(lctx->argpp);
   dadtor(lctx->ls->locs);

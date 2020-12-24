@@ -105,10 +105,11 @@ typedef struct bblock {
   DYNARR* inedges;
   struct bblock* nextblock;
   struct bblock* branchblock;
-  //DYNARR* df;
   struct bblock* dom;
   int domind;
   char visited;
+  DYNARR* idominates;
+  DYNARR* df;
 } BBLOCK;
 
 typedef struct {
@@ -189,33 +190,22 @@ static inline ADDRTYPE addrconv(IDTYPE* idt) {
   return adt;
 }
 
+static inline BBLOCK* mpblk(void) {
+  BBLOCK* pblk = calloc(1, sizeof(BBLOCK));
+  pblk->inedges = dactor(8);
+  return pblk;
+}
+
 static inline BBLOCK* fctblk(PROGRAM* prog) {
-  BBLOCK* retval = malloc(sizeof(BBLOCK));
-  retval->inedges = dactor(8);
-  retval->nextblock = NULL;
-  retval->branchblock = NULL;
-  retval->lastop = NULL;
+  BBLOCK* retval = mpblk();
   dapush(prog->allblocks, retval);
   prog->curblock = retval;
   return retval;
 }
 
 
-static inline BBLOCK* mpblk(void) {
-  BBLOCK* pblk = malloc(sizeof(BBLOCK));
-  pblk->inedges = dactor(8);
-  pblk->nextblock = NULL;
-  pblk->branchblock = NULL;
-  pblk->lastop = NULL;
-  return pblk;
-}
-
 static inline BBLOCK* ctblk(PROGRAM* prog) {
-  BBLOCK* retval = malloc(sizeof(BBLOCK));
-  retval->inedges = dactor(8);
-  retval->nextblock = NULL;
-  retval->branchblock = NULL;
-  retval->lastop = NULL;
+  BBLOCK* retval = mpblk();
   BBLOCK* curblock = dapeek(prog->allblocks);
   dapush(prog->allblocks, retval);
   if(!curblock->nextblock) {
