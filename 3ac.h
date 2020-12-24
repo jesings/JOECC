@@ -105,6 +105,10 @@ typedef struct bblock {
   DYNARR* inedges;
   struct bblock* nextblock;
   struct bblock* branchblock;
+  //DYNARR* df;
+  struct bblock* dom;
+  int domind;
+  char visited;
 } BBLOCK;
 
 typedef struct {

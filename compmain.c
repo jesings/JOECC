@@ -5,6 +5,8 @@
 #include "compintern.h"
 #include "printree.h"
 #include "3ac.h"
+#include "ssa.h"
+
 int yyparse(void* scanner);
 int yyset_in(FILE*, void*);
 int yyset_debug(int flag, void*);
@@ -46,6 +48,7 @@ static void* filecomp(char* filename) {
       printprog(prog);
       puts("---------------------------------------");
       treeprog(prog, pairthere->key);
+      ctdtree(prog);
       freeprog(prog);
     }
   }
