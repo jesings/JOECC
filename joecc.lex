@@ -27,12 +27,11 @@ INTSIZE (u|U|l|L)*
   } \
 
 #undef unput
-#define unput(c, yyscanner) yyunput(c, ((struct yyguts_t*) yyscanner)->yytext_ptr, yyscanner)
+#define unput(c, yyscanner) yyunput(c, ((struct yyguts_t*) yyscanner)->yytext_ptr, yyscanner) //fix your damn program flex
 #define lctx ((struct lexctx*) yyget_extra(yyscanner))
 
 int zzparse(yyscan_t scanner);
-int check_type(char* symb, char frominitial, yyscan_t yyscanner);
-extern int ppdebug;
+int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner);
 
 struct arginfo {
   DYNSTR* argi;
@@ -43,7 +42,7 @@ struct arginfo {
 
 #define GOC(c) yylval_param->unum = c; yy_pop_state(yyscanner); return UNSIGNED_LITERAL
 #define ZGOC(c) yylval_param->unum = c; yy_pop_state(yyscanner); return UNSIGNED_LITERAL
-#define UNPUTSTR(str) unput('"', yyscanner); for(int l = strlen(str); l; unput(str[--l], yyscanner)) --yyget_lloc(yyscanner)->last_column; unput('"', yyscanner); yyget_lloc(yyscanner)->last_column -= 2;
+#define UNPUTSTR(str) unput('"', yyscanner); for(int l = strlen(str); l; unput(str[--l], yyscanner)) --yylloc->last_column; unput('"', yyscanner); yylloc->last_column -= 2;
 %}
 %option yylineno
 %option noyywrap
@@ -202,7 +201,7 @@ struct arginfo {
   line {if(!lctx->ls->skipping){yy_pop_state(yyscanner); yy_push_state(SINGLELINE_COMMENT, yyscanner);} else {yy_pop_state(yyscanner); yy_push_state(KILLUNTIL, yyscanner);}/*TODO: line directive currently doesn't apply requisite information*/}
   warning {if(!lctx->ls->skipping){yy_pop_state(yyscanner); yy_push_state(WARNING, yyscanner); yy_push_state(KILLBLANK, yyscanner);} else {yy_pop_state(yyscanner); yy_push_state(KILLUNTIL, yyscanner);}}
   error {if(!lctx->ls->skipping){yy_pop_state(yyscanner); yy_push_state(ERROR, yyscanner); yy_push_state(KILLBLANK, yyscanner);} else {yy_pop_state(yyscanner); yy_push_state(KILLUNTIL, yyscanner);}}
-  \n {yy_pop_state(yyscanner);fprintf(stderr, "PREPROCESSOR: Incorrect line end %d %s %d.%d-%d.%d\n", yyget_lloc(yyscanner)->first_line, locprint2(yylloc));}
+  \n {yy_pop_state(yyscanner);fprintf(stderr, "PREPROCESSOR: Incorrect line end %d %s %d.%d-%d.%d\n", yylloc->first_line, locprint2(yylloc));}
   . {fprintf(stderr, "PREPROCESSOR: Unexpected character encountered: %d %c %s %d.%d-%d.%d\n", *yytext, *yytext, locprint2(yylloc));}
 }
 <WARNING>\"(\\.|[^\\"]|\/[[:space:]]*\n)*\" {
@@ -223,7 +222,7 @@ struct arginfo {
 <INCLUDE>{
   "<"[^>\n]*">" {
     if(lctx->ls->stmtover){
-      fprintf(stderr, "Error: tried to include multiple files with single directive on line %d! %s %d.%d-%d.%d\n", yyget_lloc(yyscanner)->last_line, locprint2(yylloc));
+      fprintf(stderr, "Error: tried to include multiple files with single directive on line %d! %s %d.%d-%d.%d\n", yylloc->last_line, locprint2(yylloc));
     } else {
       lctx->ls->stmtover = 1;
       yytext[yyleng - 1] = '\0'; //ignore closing >
@@ -260,7 +259,7 @@ struct arginfo {
     }
   \"[^\"\n]*\" {/*"*/
     if(lctx->ls->stmtover) {
-      fprintf(stderr, "Error: tried to include multiple files with single directive on line %d! %s %d.%d-%d.%d\n", yyget_lloc(yyscanner)->last_line, locprint2(yylloc));
+      fprintf(stderr, "Error: tried to include multiple files with single directive on line %d! %s %d.%d-%d.%d\n", yylloc->last_line, locprint2(yylloc));
     } else {
       lctx->ls->stmtover = 1;
       yytext[yyleng - 1] = '\0'; //ignore closing "
@@ -295,7 +294,7 @@ struct arginfo {
     }
 }
 <INCLUDE,INCLUDENEXT>{
-  [[:space:]]+[<\"] {/*"*/yyless(1);--yyget_lloc(yyscanner)->last_column;}
+  [[:space:]]+[<\"] {/*"*/yyless(1);--yylloc->last_column;}
   [[:space:]]*\n {yy_pop_state(yyscanner); yy_pop_state(yyscanner);if(!lctx->ls->stmtover) fprintf(stderr, "Error: incomplete include %s %d.%d-%d.%d\n", locprint2(yylloc));}
   . {fprintf(stderr, "INCLUDE: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint2(yylloc));}
 }
@@ -303,7 +302,7 @@ struct arginfo {
 <INCLUDENEXT>{
   ["<][^>\n]*[>"] {
     if(lctx->ls->stmtover){
-      fprintf(stderr, "Error: tried to include multiple files with single directive on line %d! %s %d.%d-%d.%d\n", yyget_lloc(yyscanner)->last_line, locprint2(yylloc));
+      fprintf(stderr, "Error: tried to include multiple files with single directive on line %d! %s %d.%d-%d.%d\n", yylloc->last_line, locprint2(yylloc));
     } else {
       lctx->ls->stmtover = 1;
       yytext[yyleng - 1] = '\0'; //ignore closing >
@@ -480,8 +479,9 @@ struct arginfo {
       enum ifdefstate contval = ds->length ? *(enum ifdefstate*) dapeek(ds) : IFANDTRUE;
       switch(contval) {
         case IFANDTRUE: case ELSEANDFALSE:
-          if(ppdebug) 
+#if PPDEBUG
               fprintf(stderr, "Value of identifier %s is %d at %s %d.%d-%d.%d\n", lctx->ls->defname, queryval(lctx->defines, lctx->ls->defname), locprint2(yylloc));
+#endif
           if(queryval(lctx->defines, lctx->ls->defname)) {
             *rids = IFANDTRUE;
           } else {
@@ -597,7 +597,7 @@ struct arginfo {
 
   {IDENT} {
     char* dupdstr = strdup(yytext);
-    if(check_type(dupdstr, 2, yyscanner) >= 0) {
+    if(check_type(dupdstr, 2, yylloc, yyscanner) >= 0) {
       dscat(lctx->ls->dstrdly, yytext, yyleng);
       free(dupdstr);
     }
@@ -718,7 +718,9 @@ struct arginfo {
     fclose(YY_CURRENT_BUFFER->yy_input_file);
     yypop_buffer_state(yyscanner);
     yy_pop_state(yyscanner);
-    if(ppdebug) printf("now lexing buffer containing %s\n", lctx->ls->dstrdly->strptr);
+#if PPDEBUG
+    printf("now lexing buffer containing %s\n", lctx->ls->dstrdly->strptr);
+#endif
     FILE* fmm = fmemopen(NULL, lctx->ls->dstrdly->lenstr, "r+");
     fwrite(lctx->ls->dstrdly->strptr, 1, lctx->ls->dstrdly->lenstr, fmm);
     fseek(fmm, 0, SEEK_SET);
@@ -759,8 +761,9 @@ struct arginfo {
   {IDENT} {
     //maybe check completion
     yylval_param->unum = queryval(lctx->defines, yytext);
-    if(ppdebug) 
+#if PPDEBUG
       fprintf(stderr, "Value of identifier %s is %lu at %s %d.%d-%d.%d\n", yytext, yylval_param->unum, locprint2(yylloc));
+#endif
     return UNSIGNED_LITERAL;
     }
 }
@@ -769,8 +772,9 @@ struct arginfo {
   {IDENT} {
     yy_pop_state(yyscanner);
     yylval_param->unum = queryval(lctx->defines, yytext);
-    if(ppdebug) 
+#if PPDEBUG
       fprintf(stderr, "Value of identifier %s is %lu at %s %d.%d-%d.%d\n", yytext, yylval_param->unum, locprint2(yylloc));
+#endif
     return UNSIGNED_LITERAL;
     }
 }
@@ -869,7 +873,7 @@ struct arginfo {
 "." {return '.';}
 
 "__FILE__" {char* fstr = dapeek(lctx->ls->file2compile); UNPUTSTR(fstr);}
-"__LINE__" {char linebuf[16]; sprintf(linebuf, "%d", yyget_lloc(yyscanner)->last_line); UNPUTSTR(linebuf);}
+"__LINE__" {char linebuf[16]; sprintf(linebuf, "%d", yylloc->last_line); UNPUTSTR(linebuf);}
 "__DATE__" {time_t tim = time(NULL); struct tm* tms = localtime(&tim); char datebuf[14]; strftime(datebuf, 14, "%b %e %Y", tms); UNPUTSTR(datebuf);}
 "__TIME__" {time_t tim = time(NULL); struct tm* tms = localtime(&tim); char timebuf[11]; strftime(timebuf, 11, "%T",tms); UNPUTSTR(timebuf);}
 "__func__" {char* namestr = lctx->func->name; UNPUTSTR(namestr);}
@@ -879,7 +883,7 @@ struct arginfo {
   "defined"[[:blank:]]* {yy_push_state(CHECKDEFINED2, yyscanner);}
   {IDENT} {
     char* ds = strdup(yytext);
-    int mt = check_type(ds, 0, yyscanner);
+    int mt = check_type(ds, 0, yylloc, yyscanner);
     switch(mt) {
       default:
         free(ds);
@@ -906,7 +910,7 @@ struct arginfo {
 
 {IDENT} {
   char* ylstr = strdup(yytext);
-  int mt = check_type(ylstr, 1, yyscanner);
+  int mt = check_type(ylstr, 1, yylloc, yyscanner);
   switch(mt) {
     case SYMBOL: case TYPE_NAME: ;
       yylval_param->str = ylstr;
@@ -1126,7 +1130,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); lctx->ls->strcur = strctor(mallo
 <*>\n {fprintf(stderr, "Unexpected newline encountered:  %s %d.%d-%d.%d\n", locprint2(yylloc));}
 %%
 
-int check_type(char* symb, char frominitial, yyscan_t yyscanner) {
+int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) {
   struct macrodef* macdef = search(lctx->defines, symb);
   if(macdef && !queryval(lctx->withindefines, symb)) {
     char* oldname = lctx->ls->defname;
@@ -1142,7 +1146,6 @@ int check_type(char* symb, char frominitial, yyscan_t yyscanner) {
         //don't push callmacro yet
         break;
     }
-    YYLTYPE* yltg = yyget_lloc(yyscanner);
     if(macdef->args) {
       char c;
       while(1) {

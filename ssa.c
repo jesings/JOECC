@@ -99,7 +99,7 @@ void ctdtree(PROGRAM* prog) {
     cb->visited = 0;
     cb->work = 0;
   }
-  //how to handle globals
+  //no need to handle globals
   DYNARR* W = dactor(prog->allblocks->length);
   for(int i = 0; i < prog->fixedvars->length; i++) {
     FULLADDR* fadr = daget(prog->fixedvars, i);

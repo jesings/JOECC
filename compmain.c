@@ -13,7 +13,6 @@ int yyset_in(FILE*, void*);
 int yyset_debug(int flag, void*);
 void yylex_init_extra(void*, void**);
 void yylex_destroy(void*);
-int ppdebug;
 static void freev(void* v) {
   HASHPAIR* v2 = v;
   rfreefunc(v2->value);
@@ -27,7 +26,7 @@ static void* filecomp(char* filename) {
   dapush(lctx->ls->file2compile, strdup(filename));
   yylex_init_extra(lctx, &scanner);
   yyset_in(yyin, scanner);
-  yyset_debug(1, scanner);
+  yyset_debug(0, scanner);
   yyparse(scanner);
   yylex_destroy(scanner);
   dadtorcfr(lctx->enumerat2free, (void(*)(void*)) freenum);
@@ -69,7 +68,6 @@ static void* filecomp(char* filename) {
 }
 
 int main(int argc, char** argv) {
-  ppdebug = 0;
   if(argc <= 1) {
     exit(0);
   }

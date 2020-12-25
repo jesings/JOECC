@@ -444,10 +444,12 @@ param_decl:
 nameless:
   namelesstype {$$ = dactor(16); dapush($$, $1);/*read only*/ }
 | nameless ',' namelesstype {$$ = $1; dapush($$, $3);/*read only*/ }
-| params ',' namelesstype {$$ = dactor($1->ht->keys + 16); 
+| params ',' namelesstype {
+    $$ = dactor($1->ht->keys + 16); 
     for(int i = 0; i < $1->da->length; i++) {
-      IDTYPE* idt = pisearch($1, i);
-      dapush($$, idt);
+      DECLARATION* idt = pisearch($1, i);
+      dapush($$, idt->type);
+      free(idt);
     }
     dapush($$, $3);
     dadtorfr($1->da);
@@ -1089,7 +1091,7 @@ enums:
 commaopt: ',' | %empty;
 %%
 int yyerror(YYLTYPE* ylt, yyscan_t scanner, const char* s) {
-  fprintf(stderr, "ERROR: %s %s %d.%d-%d.%d\n", s, locprint((*ylt)));
+  fprintf(stderr, "ERROR: %s %s %d.%d-%d.%d\n", s, dlocprint(ylt));
   return 0;
 }
 

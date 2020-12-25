@@ -7,6 +7,8 @@
 #include "dynstr.h"
 #include "parallel.h"
 
+#define PPDEBUG 0
+
 typedef enum {
   FLOATNUM    = 0x10,
   UNSIGNEDNUM = 0x20,
@@ -24,7 +26,7 @@ typedef enum {
   INLINED     = 0x20000,
 } TYPEBITS;
 
-#define EXPRTYPELIST  \
+#define EXPRTYPELIST \
   X(NOP), X(STRING), X(INT), X(UINT), X(FLOAT), X(MEMBER), X(IDENT), X(ARRAY_LIT), X(STRUCT_LIT), \
   X(ADD), X(NEG), X(SUB), X(EQ), X(NEQ), X(GT), X(LT), X(GTE), X(LTE), X(MULT), X(DIVI), X(MOD), \
   X(PREINC), X(POSTINC), X(PREDEC), X(POSTDEC), \
@@ -374,6 +376,7 @@ void feedstruct(STRUCT* s);
 int unionlen(UNION* u);
 
 #define locprint(lv) (char*) dapeek(ctx->ls->file2compile), lv.first_line, lv.first_column, lv.last_line, lv.last_column
+#define dlocprint(lv) (char*) dapeek(ctx->ls->file2compile), lv->first_line, lv->first_column, lv->last_line, lv->last_column
 #define locprint2(lv) (char*) dapeek(lctx->ls->file2compile), lv->first_line, lv->first_column, lv->last_line, lv->last_column
 #define ctx ((struct lexctx*) yyget_extra(scanner))
 

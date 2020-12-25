@@ -977,7 +977,7 @@ struct lexctx* ctxinit(void) {
   declmacro(lct->defines, "__linux__", "1"); 
   declmacro(lct->defines, "__builtin_va_list", "byte*"); //should be typedef
   declmacro(lct->defines, "PTRDIFF_MAX", "(9223372036854775807L)");
-  //declfmacro(lct->defines, "__attribute__", "a", "");
+  declfmacro(lct->defines, "__attribute__", "a", "");
   lct->ls = malloc(sizeof(struct lstate));
   lct->ls->locs = dactor(128);
   lct->ls->file2compile = dactor(128);

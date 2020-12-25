@@ -1,4 +1,3 @@
-%locations
 %token<unum> UNSIGNED_LITERAL;
 %token<unum> INTEGER_LITERAL;
 %token SHLTK "<<" SHRTK ">>" LE "<=" GE ">=" EQTK "==" NEQTK "!=" AND "&&" OR "||"
@@ -27,14 +26,19 @@
 }
 
 %{
-  #define YYPARSE_PARAM yyscan_t scanner
-  #define YYLEX_PARAM scanner
-  #define zzlex yylex
-  int yylex(YYSTYPE* yst, YYLTYPE* ylt, void* yyscanner);
-  int yyerror(YYLTYPE* ylt, void* yyscanner, const char* s);
+  #undef yylex
+  typedef struct zzltype {int first_line, first_column, last_line, last_column;} ZZLTYPE;
+  int yylex(YYSTYPE* yst, ZZLTYPE* ylt, void* yyscanner);
+  int yyerror(void* yyscanner, const char* s);
   void* yyget_extra(void* scanner);
+  ZZLTYPE* yyget_lloc(void* scanner);
   void zz_pop_state(void*);
   void zz_push_skip(void*);
+
+  static int zzlex(YYSTYPE* yst, void* yyscanner) {
+    return yylex(yst, yyget_lloc(yyscanner), yyscanner);
+  }
+  #define yylex zzlex
 %}
 
 %%
@@ -56,7 +60,7 @@ fullifexpr:
         break;
       default:
         zz_pop_state(scanner);
-        fprintf(stderr, "ERROR: subsidiary parser reduced if or elif into non-rectifiable expression %s %d.%d-%d.%d\n", locprint(@1));
+        fprintf(stderr, "ERROR: subsidiary parser reduced if or elif into non-rectifiable expression %s %d.%d-%d.%d\n", dlocprint(yyget_lloc(scanner)));
     }
     rfreexpr($1);
     dapush(ctx->definestack, rids);
@@ -113,7 +117,7 @@ esu:
 | UNSIGNED_LITERAL {$$ = ct_uintconst_expr($1);}
 | INTEGER_LITERAL {$$ = ct_intconst_expr($1);};
 %%
-int yyerror(YYLTYPE* ylt, void* scanner, const char* s) {
-  fprintf(stderr, "Subsidiary parser encountered error %s %s %d.%d-%d.%d\n", s, locprint((*ylt)));
+int yyerror(void* scanner, const char* s) {
+  fprintf(stderr, "Subsidiary parser encountered error %s %s %d.%d-%d.%d\n", s, dlocprint(yyget_lloc(scanner)));
   return 0;
 }
