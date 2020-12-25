@@ -94,5 +94,25 @@ void ctdtree(PROGRAM* prog) {
   }
   //dominator tree (immediate dominators) calculated
   dfpdt(first); //populate dominance frontiers dfs
+  for(int i = 0; i < blocks->length; i++) {
+    BBLOCK* cb = daget(blocks, i);
+    cb->visited = 0;
+    cb->work = 0;
+  }
+  //how to handle globals
+  DYNARR* W = dactor(prog->allblocks->length);
+  for(int i = 0; i < prog->fixedvars->length; i++) {
+    FULLADDR* fadr = daget(prog->fixedvars, i);
+    //find blocks that assign to variable (could use regno?)
+    //for each block, block->work = i + 1; and push block to W
+    //for each block in W:
+    //  for each block in the dominance frontier of block
+    //    if domblock->visited != i + 1
+    //      then place phi node, domblock->visited = i + 1
+    //        if domblock->work != i + 1
+    //          domblock->work = i + 1, push domblock to W
+    (void) fadr;
+  }
+  dadtor(W);
   dadtor(blockstack);
 }

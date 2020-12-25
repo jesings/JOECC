@@ -103,13 +103,14 @@ typedef struct bblock {
   OPERATION* firstop;
   OPERATION* lastop;
   DYNARR* inedges;
+  DYNARR* idominates;
+  DYNARR* df;
   struct bblock* nextblock;
   struct bblock* branchblock;
   struct bblock* dom;
   int domind;
-  char visited;
-  DYNARR* idominates;
-  DYNARR* df;
+  int visited;
+  int work;
 } BBLOCK;
 
 typedef struct {
@@ -118,7 +119,7 @@ typedef struct {
   DYNARR* breaklabels;
   DYNARR* continuelabels;
   DYNARR* allblocks;
-  HASHTABLE* fixedvars;
+  DYNARR* fixedvars;
   HASHTABLE* labels;
   HASHTABLE* unfilledlabels;
   BBLOCK* curblock;

@@ -15,7 +15,7 @@ NOTE: JOECC is a work-in progress, and currently cannot fully compile code
 - [x] 3 address code generation
 - [ ] Static Single Assignment conversion (in progress)
 - [ ] General Optimizations (to be enumerated later)
-- [ ] Register Renaming
+- [ ] Register Allocation
 - [ ] Conversion back from Single Static Assignment
 - [ ] Assembly generation
 - [ ] Machine code generation

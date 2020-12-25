@@ -381,7 +381,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         curaddr.addr.labelname = cexpr->id->name;
         return curaddr;
       } else {
-        return *(FULLADDR*) fixedsearch(prog->fixedvars, cexpr->id->index);
+        return *(FULLADDR*) daget(prog->fixedvars, cexpr->id->index);
       }
     case ARRAY_LIT: ;
       struct declarator_part* ptrtop = dapeek(cexpr->rettype->pointerstack);
@@ -782,7 +782,8 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
       opn(prog, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
     }
   }
-  fixedinsert(prog->fixedvars, i->decl->varid, newa);
+  assert(prog->fixedvars->length == i->decl->varid);
+  dapush(prog->fixedvars, newa);
 }
 
 static void lbljmp(char* lblname, BBLOCK* block, BBLOCK** loc, PROGRAM* prog) {
@@ -1001,7 +1002,7 @@ PROGRAM* linefunc(FUNC* f) {
   PROGRAM* prog = calloc(sizeof(PROGRAM), 1);
   prog->breaklabels = dactor(8);
   prog->continuelabels = dactor(8);
-  prog->fixedvars = htctor();
+  prog->fixedvars = dactor(1024);//handle this better
   prog->labels = htctor();
   prog->unfilledlabels = htctor();
   prog->allblocks = dactor(1024);
@@ -1027,7 +1028,8 @@ PROGRAM* linefunc(FUNC* f) {
       opn(prog, ct_3ac_op3(COPY_3, newa->addr_type, newa->addr, ISCONST, tmpaddr, newa->addr_type, tmpaddr2));
       opn(prog, ct_3ac_op2(MOV_3, newa->addr_type, tmpaddr2, newa->addr_type, newa->addr));
     } 
-    fixedinsert(prog->fixedvars, pdec->varid, newa);
+    assert(prog->fixedvars->length == pdec->varid);
+    dapush(prog->fixedvars, newa);
   }
   solidstate(f->body, prog);
   dapush(prog->allblocks, prog->finalblock);
@@ -1353,7 +1355,7 @@ void freeprog(PROGRAM* prog) {
   dadtorcfr(prog->allblocks, freeblock);
   dadtor(prog->breaklabels);
   dadtor(prog->continuelabels);
-  fhtdtorcfr(prog->fixedvars, free);
+  dadtorfr(prog->fixedvars);//TODO: change fixedvars to simple dynarr, as indices should be sequential
   htdtor(prog->labels);
   htdtor(prog->unfilledlabels);//if there are remaining entries, jumps without targets exist, very bad
   free(prog);
