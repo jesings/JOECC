@@ -27,7 +27,7 @@ static void* filecomp(char* filename) {
   dapush(lctx->ls->file2compile, strdup(filename));
   yylex_init_extra(lctx, &scanner);
   yyset_in(yyin, scanner);
-  yyset_debug(0, scanner);
+  yyset_debug(1, scanner);
   yyparse(scanner);
   yylex_destroy(scanner);
   dadtorcfr(lctx->enumerat2free, (void(*)(void*)) freenum);

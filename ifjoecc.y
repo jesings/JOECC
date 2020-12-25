@@ -16,8 +16,7 @@
   #include <fcntl.h>
   #include <unistd.h>
   #include "compintern.h"
-  #include "printree.h"
-  extern DYNARR* file2compile;
+  #include "treeduce.h"
 }
 
 %param {void *scanner}
@@ -34,12 +33,33 @@
   int yylex(YYSTYPE* yst, YYLTYPE* ylt, void* yyscanner);
   int yyerror(YYLTYPE* ylt, void* yyscanner, const char* s);
   void* yyget_extra(void* scanner);
+  void zz_pop_state(void*);
+  void zz_push_skip(void*);
 %}
 
 %%
 fullifexpr:
   expression {
-    ctx->ifexpr = $1;
+    while(foldconst(&$1)) ;
+    enum ifdefstate* rids;
+    switch($1->type) {
+      case INT: case UINT:
+        if(!$1->intconst) {
+      case NOP:
+          rids = malloc(sizeof(enum ifdefstate));
+          *rids = IFANDFALSE;
+          zz_push_skip(scanner);
+          break;
+        }
+        rids = malloc(sizeof(enum ifdefstate));
+        *rids = IFANDTRUE;
+        break;
+      default:
+        zz_pop_state(scanner);
+        fprintf(stderr, "ERROR: subsidiary parser reduced if or elif into non-rectifiable expression %s %d.%d-%d.%d\n", locprint(@1));
+    }
+    rfreexpr($1);
+    dapush(ctx->definestack, rids);
     };
 expression:
   est '?' expression ':' est {$$ = ct_ternary_expr($1, $3, $5);}

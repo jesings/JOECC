@@ -15,19 +15,16 @@ INTSIZE (u|U|l|L)*
 #include "treeduce.h"
 
 #define YY_USER_ACTION \
-  do { \
-    yylloc->first_line = yylloc->last_line; \
-    yylloc->first_column = yylloc->last_column; \
-    for(int i = 0; i < yyleng; i++) { \
-        if(yytext[i] == '\n') { \
-            yylloc->last_line++; \
-            yylloc->last_column = 0; \
-        } \
-        else { \
-            yylloc->last_column++; \
-        } \
-    } \
-  } while(0);
+  yylloc->first_line = yylloc->last_line; \
+  yylloc->first_column = yylloc->last_column; \
+  for(int i = 0; i < yyleng; i++) { \
+      if(yytext[i] == '\n') { \
+          yylloc->last_line++; \
+          yylloc->last_column = 0; \
+      } else { \
+          yylloc->last_column++; \
+      } \
+  } \
 
 #undef unput
 #define unput(c, yyscanner) yyunput(c, ((struct yyguts_t*) yyscanner)->yytext_ptr, yyscanner)
@@ -46,7 +43,7 @@ struct arginfo {
 
 #define GOC(c) yylval_param->unum = c; yy_pop_state(yyscanner); return UNSIGNED_LITERAL
 #define ZGOC(c) yylval_param->unum = c; yy_pop_state(yyscanner); return UNSIGNED_LITERAL
-#define UNPUTSTR(str) for(int l = strlen(str); l; unput(str[--l], yyscanner)) --yyget_lloc(yyscanner)->last_column
+#define UNPUTSTR(str) unput('"', yyscanner); for(int l = strlen(str); l; unput(str[--l], yyscanner)) --yyget_lloc(yyscanner)->last_column; unput('"', yyscanner); yyget_lloc(yyscanner)->last_column -= 2;
 %}
 %option yylineno
 %option noyywrap
@@ -64,15 +61,15 @@ struct arginfo {
 %option noyy_scan_string
 %option noyywrap
 
-%x MULTILINE_COMMENT SINGLELINE_COMMENT
+%x PPSKIP MULTILINE_COMMENT SINGLELINE_COMMENT
 %x PREPROCESSOR INCLUDE INCLUDENEXT
 %x DEFINE UNDEF DEFARG DEFINE2
 %x WARNING ERROR
-%x IFNDEF IFDEF PPSKIP
+%x IFNDEF IFDEF 
 %x KILLBLANK KILLUNTIL
 %x STRINGLIT CHARLIT ZCHARLIT
 %x CALLMACRO FINDREPLACE
-%x WITHINIF CHECKDEFINED CHECKDEFINED2 ENDWITHINIF
+%x WITHINIF CHECKDEFINED CHECKDEFINED2
 
 %%
 <KILLBLANK>{
@@ -298,7 +295,7 @@ struct arginfo {
     }
 }
 <INCLUDE,INCLUDENEXT>{
-  [[:space:]]+[<\"] {/*"*/yyless(1);}
+  [[:space:]]+[<\"] {/*"*/yyless(1);--yyget_lloc(yyscanner)->last_column;}
   [[:space:]]*\n {yy_pop_state(yyscanner); yy_pop_state(yyscanner);if(!lctx->ls->stmtover) fprintf(stderr, "Error: incomplete include %s %d.%d-%d.%d\n", locprint2(yylloc));}
   . {fprintf(stderr, "INCLUDE: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint2(yylloc));}
 }
@@ -860,6 +857,7 @@ struct arginfo {
   "?" {return '?';}
   ":" {return ':';}
 }
+
 "=" {return '=';}
 "[" {return '[';}
 "]" {return ']';}
@@ -870,11 +868,11 @@ struct arginfo {
 "%" {return '%';}
 "." {return '.';}
 
-"__FILE__" {char* fstr = dapeek(lctx->ls->file2compile); unput('"', yyscanner); UNPUTSTR(fstr); unput('"', yyscanner);}
-"__LINE__" {char linebuf[16]; sprintf(linebuf, "%d", yyget_lloc(yyscanner)->last_line); unput('"', yyscanner); UNPUTSTR(linebuf); unput('"', yyscanner);}
-"__DATE__" {time_t tim = time(NULL); struct tm* tms = localtime(&tim); char datebuf[14]; strftime(datebuf, 14, "\"%b %e %Y\"", tms); UNPUTSTR(datebuf);}
-"__TIME__" {time_t tim = time(NULL); struct tm* tms = localtime(&tim); char timebuf[11]; strftime(timebuf, 11, "\"%T\"",tms); UNPUTSTR(timebuf);}
-"__func__" {char* namestr = lctx->func->name; unput('"', yyscanner); UNPUTSTR(namestr); unput('"', yyscanner);}
+"__FILE__" {char* fstr = dapeek(lctx->ls->file2compile); UNPUTSTR(fstr);}
+"__LINE__" {char linebuf[16]; sprintf(linebuf, "%d", yyget_lloc(yyscanner)->last_line); UNPUTSTR(linebuf);}
+"__DATE__" {time_t tim = time(NULL); struct tm* tms = localtime(&tim); char datebuf[14]; strftime(datebuf, 14, "%b %e %Y", tms); UNPUTSTR(datebuf);}
+"__TIME__" {time_t tim = time(NULL); struct tm* tms = localtime(&tim); char timebuf[11]; strftime(timebuf, 11, "%T",tms); UNPUTSTR(timebuf);}
+"__func__" {char* namestr = lctx->func->name; UNPUTSTR(namestr);}
 
 <WITHINIF>{
   "defined"[[:blank:]]*"("[[:blank:]]* {yy_push_state(CHECKDEFINED, yyscanner);}
@@ -1076,36 +1074,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); lctx->ls->strcur = strctor(mallo
 <INITIAL,WITHINIF>[[:blank:]]+ {/*Whitespace, ignored*/}
 <WITHINIF>\n {
   yy_pop_state(yyscanner);
-  yy_push_state(ENDWITHINIF, yyscanner);
-  unput('\n', yyscanner);
   return 0;
-}
-<ENDWITHINIF>\n {
-  yy_pop_state(yyscanner); 
-  while(foldconst(&lctx->ifexpr)) ;
-  enum ifdefstate* rids;
-  switch(lctx->ifexpr->type) {
-    case INT: case UINT:
-      if(ppdebug)
-        fprintf(stderr, "exprval %ld %s %d.%d-%d.%d\n", lctx->ifexpr->intconst, locprint2(yylloc));
-      if(lctx->ifexpr->intconst != 0) {
-        rids = malloc(sizeof(enum ifdefstate));
-        *rids = IFANDTRUE;
-        break;
-      }
-      //fall through
-    case NOP:
-      rids = malloc(sizeof(enum ifdefstate));
-      *rids = IFANDFALSE;
-      yy_push_state(PPSKIP, yyscanner);
-      break;
-    default:
-      yy_pop_state(yyscanner);
-      fprintf(stderr, "ERROR: subsidiary parser reduced if or elif into non-rectifiable expression %s %d.%d-%d.%d\n", locprint2(yylloc));
-  }
-  rfreexpr(lctx->ifexpr);
-  lctx->ifexpr = NULL;
-  dapush(lctx->definestack, rids);
 }
 [[:space:]] {/*Whitespace, ignored*/}
 
@@ -1243,4 +1212,7 @@ int check_type(char* symb, char frominitial, yyscan_t yyscanner) {
   }
   return SYMBOL;
 }
-
+void zz_pop_state(void*);
+void zz_push_skip(void*);
+void zz_pop_state(void* v) {yy_pop_state(v);}
+void zz_push_skip(void* v) {yy_push_state(PPSKIP, v);}

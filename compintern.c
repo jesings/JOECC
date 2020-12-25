@@ -937,6 +937,15 @@ static void declmacro(HASHTABLE* ht, const char* macroname, const char* body) {
   insert(ht, macroname, md);
 }
 
+static void declfmacro(HASHTABLE* ht, const char* macroname, const char* param, const char* body) {
+  struct macrodef* md = calloc(1, sizeof(struct macrodef));
+  int blen = strlen(body);
+  md->text = strctor(strdup(body), blen + 1, blen + 1);
+  md->args = dactor(1);
+  dapush(md->args, strdup(param));
+  insert(ht, macroname, md);
+}
+
 struct lexctx* ctxinit(void) {
   struct lexctx* lct =  malloc(sizeof(struct lexctx));
   lct->funcs = htctor();
@@ -968,6 +977,7 @@ struct lexctx* ctxinit(void) {
   declmacro(lct->defines, "__linux__", "1"); 
   declmacro(lct->defines, "__builtin_va_list", "byte*"); //should be typedef
   declmacro(lct->defines, "PTRDIFF_MAX", "(9223372036854775807L)");
+  //declfmacro(lct->defines, "__attribute__", "a", "");
   lct->ls = malloc(sizeof(struct lstate));
   lct->ls->locs = dactor(128);
   lct->ls->file2compile = dactor(128);

@@ -153,7 +153,6 @@ struct lexctx {
   FUNC* func;
   HASHTABLE* defines;
   HASHTABLE* withindefines;
-  EXPRESSION* ifexpr;
   DYNARR* argpp;
   DYNARR* enstruct2free;
   DYNARR* enumerat2free;

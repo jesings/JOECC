@@ -111,7 +111,6 @@ void ctdtree(PROGRAM* prog) {
     //      then place phi node, domblock->visited = i + 1
     //        if domblock->work != i + 1
     //          domblock->work = i + 1, push domblock to W
-    (void) fadr;
   }
   dadtor(W);
   dadtor(blockstack);
