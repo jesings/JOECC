@@ -40,6 +40,7 @@
 
   #define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
   #define dget(param, index) ((DECLARATION*) (param)->arr[(index)])
+  //TODO: For comma separated declarators, add values to scope after comma rather than whole declarator
   //TODO: Struct initializers, optional brace nesting?
   //TODO: Consider designated initializers, compound literals?
 }
@@ -83,14 +84,13 @@
 %type<idvariant> typem typews1 type typemintkw inttypem namelesstype
 %type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee escoa
 %type<stmtvariant> statement compound_statement
-%type<arrvariant> statements_and_initializers soiorno struct_decls struct_decl cs_decls enums escl escoal abstract_ptr cs_inits cs_minutes initializer array_literal structbody enumbody nameless
+%type<arrvariant> statements_and_initializers soiorno struct_decls struct_decl cs_decls enums escl escoal abstract_ptr cs_inits cs_minutes initializer array_literal structbody enumbody nameless params
 %type<unionvariant> union fullunion
 %type<structvariant> struct fullstruct
 %type<enumvariant> enum fullenum
 %type<declvariant> declarator declname param_decl sdecl fptr spefptr
 %type<funcvariant> function
 %type<firforvariant> dee
-%type<paravariant> params
 %type<vvar> program
 
 %%
@@ -112,7 +112,7 @@ program:
         id->name = a2->decl->varname;
         id->type = a2->decl->type;
         add2scope(ctx, a2->decl->varname, M_GLOBAL, id);
-        dapush(ctx->globals, a2);
+        dapushc(ctx->globals, a2);
       }
       dadtor($1);
     }
@@ -211,7 +211,7 @@ initializer:
   $$ = $2;
   INITIALIZER* ac;
   DYNARR* da = NULL;
-  if($1->tb & (ENUMVAL | STRUCTVAL | UNIONVAL)) {
+  if($1->tb & (STRUCTVAL | UNIONVAL)) {
     if(!$1->structtype->fields) {
       HASHTABLE* ht;
       if($1->tb & STRUCTVAL) {
@@ -303,18 +303,18 @@ initializer:
 | fullunion ';' {$$ = NULL;};
 cs_inits:
   cs_inits ',' declarator '=' escoa {$$ = $1; dapush($$, geninit($3, $5));}
-| declarator '=' escoa {$$ = dactor(8); dapush($$, geninit($1, $3));}
+| declarator '=' escoa {$$ = dactor(8); dapushc($$, geninit($1, $3));}
 | cs_inits ',' declarator {$$ = $1; dapush($$, geninit($3, NULL));}
-| declarator {$$ = dactor(8); dapush($$, geninit($1, NULL));};
+| declarator {$$ = dactor(8); dapushc($$, geninit($1, NULL));};
 escoa:
   esc {$$ = $1;}
 | array_literal {$$ = ct_array_lit($1);};
 cs_minutes:
   cs_minutes ',' declarator {$$ = $1; dapush($1, $3);}
-| declarator {$$ = dactor(8); dapush($$, $1);};
+| declarator {$$ = dactor(8); dapushc($$, $1);};
 declarator:
   abstract_ptr declname {$$ = $2; $2->type->pointerstack = damerge($1, $2->type->pointerstack);}
-| abstract_ptr fptr {$$ = $2; $2->type->pointerstack = damerge($2->type->pointerstack, $1);}
+| abstract_ptr fptr {$$ = $2; $2->type->pointerstack = damerge($1, $2->type->pointerstack);}
 | declname {$$ = $1;}
 | fptr {$$ = $1;};
 declname:
@@ -327,10 +327,10 @@ declname:
 | declname '(' params ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));}
 | declname '(' nameless ',' "..." ')' {$$ = $1; 
     dapush($3, NULL);
-    dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));
+    dapush($$->type->pointerstack, mkdeclpart(NAMELESS_PARAMSSPEC, $3));
     }
 | declname '(' params ',' "..." ')' {$$ = $1; 
-    pinsert($3, strdup("..."), NULL);
+    dapush($3, NULL);
     dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));
     };
 fptr:
@@ -340,30 +340,30 @@ fptr:
 | fptr'[' ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, NULL));}
 | fptr'[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, $3));/*foldconst*/}
 | fptr'(' ')' {$$ = $1;
-    DYNARR* da = dactor(1);
-    dapush($$->type->pointerstack, mkdeclpart(NAMELESS_PARAMSSPEC, NULL));
+    DYNARR* da = dactor(1 + $$->type->pointerstack->length);
+    dapushc(da, mkdeclpart(NAMELESS_PARAMSSPEC, NULL));
     $$->type->pointerstack = damerge(da, $$->type->pointerstack);
     }
 | fptr '(' nameless ')' {$$ = $1; 
-    DYNARR* da = dactor(1);
-    dapush(da, mkdeclpart(NAMELESS_PARAMSSPEC, $3));
+    DYNARR* da = dactor(1 + $$->type->pointerstack->length);
+    dapushc(da, mkdeclpart(NAMELESS_PARAMSSPEC, $3));
     $$->type->pointerstack = damerge(da, $$->type->pointerstack);
     }
 | fptr '(' params ')' {$$ = $1; 
-    DYNARR* da = dactor(1);
-    dapush(da, mkdeclpart(PARAMSSPEC, $3));
+    DYNARR* da = dactor(1 + $$->type->pointerstack->length);
+    dapushc(da, mkdeclpart(PARAMSSPEC, $3));
     $$->type->pointerstack = damerge(da, $$->type->pointerstack);
     }
 | fptr '(' nameless ',' "..." ')' {$$ = $1; 
-    DYNARR* da = dactor(1);
+    DYNARR* da = dactor(1 + $$->type->pointerstack->length);
     dapush($3, NULL);
-    dapush(da, mkdeclpart(PARAMSSPEC, $3));
+    dapushc(da, mkdeclpart(PARAMSSPEC, $3));
     $$->type->pointerstack = damerge(da, $$->type->pointerstack);
     }
 | fptr '(' params ',' "..." ')' {$$ = $1; 
-    DYNARR* da = dactor(1);
-    pinsert($3, "...", NULL); 
-    dapush(da, mkdeclpart(PARAMSSPEC, $3));
+    DYNARR* da = dactor(1 + $$->type->pointerstack->length);
+    dapush($3, NULL);
+    dapushc(da, mkdeclpart(PARAMSSPEC, $3));
     $$->type->pointerstack = damerge(da, $$->type->pointerstack);
     };
 spefptr:
@@ -374,44 +374,41 @@ spefptr:
 | spefptr'[' ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, NULL));}
 | spefptr'[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, $3));/*foldconst*/}
 | spefptr'(' ')' {$$ = $1;
-    DYNARR* da = dactor(1);
-    dapush($$->type->pointerstack, mkdeclpart(NAMELESS_PARAMSSPEC, NULL));
+    DYNARR* da = dactor(1 + $$->type->pointerstack->length);
+    dapushc(da, mkdeclpart(NAMELESS_PARAMSSPEC, NULL));
     $$->type->pointerstack = damerge(da, $$->type->pointerstack);
     }
 | spefptr '(' nameless ')' {$$ = $1; 
-    DYNARR* da = dactor(1);
-    dapush(da, mkdeclpart(NAMELESS_PARAMSSPEC, $3));
+    DYNARR* da = dactor(1 + $$->type->pointerstack->length);
+    dapushc(da, mkdeclpart(NAMELESS_PARAMSSPEC, $3));
     $$->type->pointerstack = damerge(da, $$->type->pointerstack);
     }
 | spefptr '(' params ')' {$$ = $1; 
-    DYNARR* da = dactor(1);
-    dapush(da, mkdeclpart(PARAMSSPEC, $3));
+    DYNARR* da = dactor(1 + $$->type->pointerstack->length);
+    dapushc(da, mkdeclpart(PARAMSSPEC, $3));
     $$->type->pointerstack = damerge(da, $$->type->pointerstack);
     }
 | spefptr '(' nameless ',' "..." ')' {$$ = $1; 
-    DYNARR* da = dactor(1);
+    DYNARR* da = dactor(1 + $$->type->pointerstack->length);
     dapush($3, NULL);
-    dapush(da, mkdeclpart(PARAMSSPEC, $3));
+    dapushc(da, mkdeclpart(PARAMSSPEC, $3));
     $$->type->pointerstack = damerge(da, $$->type->pointerstack);
     }
 | spefptr '(' params ',' "..." ')' {$$ = $1;
-    DYNARR* da = dactor(1);
-    pinsert($3, "...", NULL); 
-    dapush(da, mkdeclpart(PARAMSSPEC, $3));
+    DYNARR* da = dactor(1 + $$->type->pointerstack->length);
+    dapush($3, NULL); 
+    dapushc(da, mkdeclpart(PARAMSSPEC, $3));
     $$->type->pointerstack = damerge(da, $$->type->pointerstack);
     };
 params:
   param_decl {
-   $$ = paralector(); 
-   pinsert($$, $1->varname, $1);
+   $$ = dactor(8);//TODO: instead just a simple dynarr with different checks soon
+   dapushc($$, $1);
    }
 | params ',' param_decl {
     $$ = $1;
-    if(psearch($$, $3->varname)) {
-      fprintf(stderr, "Error: param with duplicate name %s in %s %d.%d-%d.%d\n", $3->varname,  locprint(@$));
-    } else {
-      pinsert($$, $3->varname, $3);
-    }};
+    dapush($$, $3);
+    };
 param_decl:
   type declarator {
     $2->type->tb |= $1->tb;
@@ -433,6 +430,7 @@ param_decl:
           ht = scopepeek(ctx)->forwardunions;
         }
         DYNARR* da = search(ht, $1->structtype->name);
+        dapop(da);
         dapush(da, &($2->type->structtype));
         free($1->structtype->name);
         free($1->structtype);
@@ -442,19 +440,18 @@ param_decl:
     $$ = $2;
     };
 nameless:
-  namelesstype {$$ = dactor(16); dapush($$, $1);/*read only*/ }
+  namelesstype {$$ = dactor(16); dapushc($$, $1);/*read only*/ }
 | nameless ',' namelesstype {$$ = $1; dapush($$, $3);/*read only*/ }
 | params ',' namelesstype {
-    $$ = dactor($1->ht->keys + 16); 
-    for(int i = 0; i < $1->da->length; i++) {
-      DECLARATION* idt = pisearch($1, i);
+    $$ = dactor($1->length + 16); 
+    for(int i = 0; i < $1->length; i++) {
+      DECLARATION* idt = daget($1, i);
       dapush($$, idt->type);
+      free(idt->varname);
       free(idt);
     }
     dapush($$, $3);
-    dadtorfr($1->da);
-    htdtor($1->ht);
-    free($1);
+    dadtor($1);
     }
 | nameless ',' param_decl {$$ = $1; dapush($$, $3->type); free($3->varname); free($3);/*read only*/ };
 namelesstype:
@@ -532,6 +529,7 @@ typews1:
   TYPE_NAME {
     $$ = malloc(sizeof(IDTYPE));
     IDTYPE* idt = scopesearch(ctx, M_TYPEDEF, $1);
+//forwardstructs
     if(idt) {
       memcpy($$, idt, sizeof(IDTYPE));
     } else {
@@ -549,9 +547,9 @@ types1o:
   types1 {$$ = $1;}
 | types1o types1 {$$ = $1 | $2;};
 abstract_ptr:
-  '*' {$$ = dactor(4); dapush($$,mkdeclptr(sizeof(intptr_t)));}
+  '*' {$$ = dactor(2); dapushc($$,mkdeclptr(sizeof(intptr_t)));}
 | '*' abstract_ptr {$$ = $2; dapush($$, mkdeclptr(sizeof(intptr_t)));}
-| '*' types1o {$$ = dactor(4); dapush($$,mkdeclptr(sizeof(intptr_t) | $2));}
+| '*' types1o {$$ = dactor(2); dapushc($$,mkdeclptr(sizeof(intptr_t) | $2));}
 | '*' types1o abstract_ptr {$$ = $3; dapush($$, mkdeclptr(sizeof(intptr_t) | $2));};
 expression:
   expression ',' esc {$$ = ct_binary_expr(COMMA, $1, $3);}
@@ -642,8 +640,21 @@ esm:
 esca:
   "++" esca {$$ = ct_unary_expr(PREINC, $2);}
 | "--" esca {$$ = ct_unary_expr(PREDEC, $2);}
-| '+' esm {$$ = $2;}
-| '-' esm {$$ = ct_unary_expr(NEG, $2);}
+| '+' esm {/*TODO: actual identity operation*/ $$ = $2;}
+| '-' esm {
+    switch($2->type) {
+      case INT: case UINT:
+        $$ = $2;
+        $2->intconst = -$2->intconst;
+        break;
+      case FLOAT:
+        $$ = $2;
+        $2->floatconst = -$2->floatconst;
+        break;
+      default:
+        $$ = ct_unary_expr(NEG, $2);
+        break;
+    }}
 | '!' esm {$$ = ct_unary_expr(L_NOT, $2);}
 | '~' esm {$$ = ct_unary_expr(B_NOT, $2);}
 | '*' esm {$$ = ct_unary_expr(DEREF, $2);}
@@ -688,11 +699,11 @@ esu:
     fprintf (stderr, "Malformed expression at %s %d.%d-%d.%d\n", locprint(@1));
     };
 escl:
-  esc {$$ = dactor(32); dapush($$, $1);}
+  esc {$$ = dactor(32); dapushc($$, $1);}
 | escl ',' esc {$$ = $1; dapush($$, $3); };
 
 escoal:
-  escoa {$$ = dactor(32); dapush($$, $1);}
+  escoa {$$ = dactor(32); dapushc($$, $1);}
 | escoal ',' escoa {$$ = $1; dapush($$, $3); };
 array_literal:
   '{' escoal commaopt '}' {$$ = $2;};
@@ -708,7 +719,7 @@ multistring:
 
 function:
   type declarator <funcvariant>{
-    PARALLEL* parammemb;
+    DYNARR* parammemb;
     struct declarator_part* dp = dapop($2->type->pointerstack);
     $2->type->tb |= $1->tb;
     if($1->pointerstack) {
@@ -725,18 +736,19 @@ function:
           ht = scopepeek(ctx)->forwardunions;
         }
         DYNARR* da = search(ht, $1->structtype->name);
+        dapop(da);
         dapush(da, &($2->type->structtype));
       }
     }
     if(!dp->params) {
-      parammemb = paralector();
+      parammemb = dactor(16);
     } else if(dp->type == PARAMSSPEC) {
       parammemb = dp->params;
     } else if(dp->type == NAMELESS_PARAMSSPEC) {
       IDTYPE* prm = dp->nameless_params->arr[0];
       assert((dp->nameless_params->length == 1 && (!prm->pointerstack || prm->pointerstack->length == 0) && prm->tb == VOIDNUM) || !fprintf (stderr, "Function has unnamed parameters at %s %d.%d-%d.%d\n", locprint(@1)));
       dadtorcfr(dp->nameless_params, (void(*)(void*)) freetype);
-      parammemb = paralector();
+      parammemb = dactor(16);
     } else {
       fprintf(stderr, "Function has malformed parameters at %s %d.%d-%d.%d\n", locprint(@1));
       assert(0);
@@ -764,11 +776,10 @@ function:
     ctx->func = $$;
 
     scopepush(ctx);
-    for(int i = 0; i < parammemb->da->length; i++) {
-      char* pname = daget(parammemb->da, i);
-      DECLARATION* declwhole = (DECLARATION*) search(parammemb->ht, pname);
-      add2scope(ctx, pname, M_VARIABLE, declwhole->type);
-      declwhole->varid = ((SCOPEMEMBER*) search(scopepeek(ctx)->members, pname))->idi->index;
+    for(int i = 0; i < parammemb->length; i++) {
+      DECLARATION* declwhole = daget(parammemb, i);
+      add2scope(ctx, declwhole->varname, M_VARIABLE, declwhole->type);
+      declwhole->varid = ((SCOPEMEMBER*) search(scopepeek(ctx)->members, declwhole->varname))->idi->index;
     }
     }
     '{' soiorno '}' {
@@ -824,8 +835,8 @@ compound_midrule: %empty {
     scopepush(ctx);
     };
 statements_and_initializers:
-  initializer {$$ = dactor(4096); if($1) dapush($$,soii($1));}
-| statement {$$ = dactor(4096); dapush($$,sois($1));}
+  initializer {$$ = dactor(256); if($1) dapushc($$,soii($1));}
+| statement {$$ = dactor(256); dapushc($$,sois($1));}
 | statements_and_initializers initializer {$$ = $1; if($2) dapush($$,soii($2));}
 | statements_and_initializers statement {$$ = $1; dapush($$,sois($2));};
 soiorno:
@@ -855,7 +866,7 @@ fullunion:
     $$ = unionctor($2, $4, ctx); 
     rmpaircfr(scopepeek(ctx)->unions, $2, free); //no-op if not predefined
     add2scope(ctx, $2, M_UNION, $$); 
-    defbackward(ctx, M_UNION, $2, $$);
+    defbackward(ctx, M_UNION, $2, (STRUCT*) $$);
     };
 union:
   fullunion {$$ = $1;}
@@ -982,7 +993,7 @@ struct_decl:
     DECLARATION* dec = malloc(sizeof(DECLARATION));
     dec->type = tt;
     dec->varname = NULL;
-    dapush($$, dec);
+    dapushc($$, dec);
     }
 | "union" structbody ';' {
     for(int i = 0; i < $2->length; i++) {
@@ -1004,11 +1015,11 @@ struct_decl:
     DECLARATION* dec = malloc(sizeof(DECLARATION));
     dec->type = tt;
     dec->varname = NULL;
-    dapush($$, dec);
+    dapushc($$, dec);
     };
 cs_decls:
   cs_decls ',' sdecl {$$ = $1; dapush($$, $3);}
-| sdecl {$$ = dactor(8); dapush($$, $1);};
+| sdecl {$$ = dactor(8); dapushc($$, $1);};
 sdecl: 
   declarator {$$ = $1;}
 | declarator ':' esc {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $3));}
@@ -1037,12 +1048,12 @@ enumbody:
 enums:
   SYMBOL {$$ = dactor(256);
     EXPRESSION* const0 = ct_intconst_expr(0);
-    dapush($$, genenumfield($1,const0)); 
+    dapushc($$, genenumfield($1,const0)); 
     add2scope(ctx, $1, M_ENUM_CONST, const0);
     }
 | SYMBOL '=' esc {$$ = dactor(256);
     ENUMFIELD* ef = genenumfield($1,$3);
-    dapush($$, ef); 
+    dapushc($$, ef); 
     add2scope(ctx, $1, M_ENUM_CONST, ef->value);
     }
 | enums ',' SYMBOL {
@@ -1066,9 +1077,10 @@ enums:
         }
         //fall through
       default:
-        newexpr->type = ADD;
-        dapush(newexpr->params, ct_intconst_expr(1));
-        dapush(newexpr->params, rclonexpr(prevexpr));
+        assert(0);
+        //newexpr->type = ADD;
+        //dapush(newexpr->params, ct_intconst_expr(1));
+        //dapush(newexpr->params, rclonexpr(prevexpr));
     }
     dapush($$, genenumfield($3, newexpr));
     if(scopequeryval(ctx, M_ENUM_CONST, $3) ||

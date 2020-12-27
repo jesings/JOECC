@@ -10,5 +10,6 @@ void dsmodsize(DYNSTR* ds, int len);
 void strdtor(DYNSTR* ds);
 void dscat(DYNSTR* ds, char* txt, int len);
 void dsccat(DYNSTR* ds, char txt);
+void dsws(DYNSTR* ds);
 #endif
 

@@ -1,5 +1,7 @@
 #ifndef TREEDUCE_H
 #define TREEDUCE_H
+#include "dynarr.h"
+#include "compintern.h"
 char puritree(EXPRESSION* cexpr);
 char purestmt(STATEMENT* stmt);
 char typequality(IDTYPE* t1, IDTYPE* t2);

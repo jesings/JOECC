@@ -365,7 +365,7 @@ struct arginfo {
   {IDENT} {
     yy_pop_state(yyscanner); 
     yy_push_state(DEFINE2, yyscanner); 
-    lctx->ls->mdstrdly = strctor(malloc(256), 0, 256); 
+    lctx->ls->mdstrdly = strctor(malloc(256), 0, 256);
     lctx->ls->defname = strdup(yytext);
     insert(lctx->withindefines, yytext, NULL);
     }
@@ -442,7 +442,11 @@ struct arginfo {
     dsccat(lctx->ls->mdstrdly, 0);
     struct macrodef* isinplace;
     if((isinplace = search(lctx->defines, lctx->ls->defname))) {
-      assert(!strcmp(isinplace->text->strptr, lctx->ls->mdstrdly->strptr));
+      if(strcmp(isinplace->text->strptr, lctx->ls->mdstrdly->strptr)) {
+        dsws(isinplace->text);
+        dsws(lctx->ls->mdstrdly);
+        assert(!strcmp(isinplace->text->strptr, lctx->ls->mdstrdly->strptr));
+      }
       freemd(isinplace);
     }
     lctx->ls->md->text = lctx->ls->mdstrdly;

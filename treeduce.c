@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
-#include "dynarr.h"
-#include "compintern.h"
 #include "treeduce.h"
 #define EPARAM(EVA, IND) ((EXPRESSION*)((EVA)->params->arr[IND]))
 #define LPARAM(EVA, IND) ((EVA)->params->arr[IND])
@@ -578,17 +576,10 @@ char foldconst(EXPRESSION** exa) {
       //get addr for deref, as struct should be fully populated at this point
       return 0;
     case SZOF:
-      //turn into intconst
-      if(ex->vartype->pointerstack && ex->vartype->pointerstack->length) {
-        return 64;//handle this better?
-      } else if(ex->vartype->tb & STRUCTVAL) {
-        feedstruct(ex->vartype->structtype);
-        return ex->vartype->structtype->size;
-      } else if(ex->vartype->tb & UNIONVAL) {
-        return unionlen(ex->vartype->uniontype);
-      } else {
-        return ex->vartype->tb & 0x7f;
-      }
+      //speed up maybe?
+      *exa = ct_intconst_expr(lentype(ex->vartype));
+      rfreexpr(ex);
+      return 1;
     case NEG:
       subexpr = EPARAM(ex, 0);
       switch(subexpr->type) {

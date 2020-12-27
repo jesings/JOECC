@@ -313,9 +313,9 @@ void treefunc(FUNC* func) {
   dprintf(funcfile, "n%d [label=\"%s\"];\n", fnn, func->name); 
   int typenoden = treetype(func->retrn);
   dprintf(funcfile, "n%d -> n%d;\n", fnn, typenoden);
-  for(int i = 0; i < func->params->da->length; i++) {
-    DECLARATION* declsrc = pget(func->params, i);
-    if(!declsrc && (i == func->params->da->length - 1)) {
+  for(int i = 0; i < func->params->length; i++) {
+    DECLARATION* declsrc = daget(func->params, i);
+    if(!declsrc && (i == func->params->length - 1)) {
       dprintf(funcfile, "n%d [label=\"...\"];\n", nodenumber++); 
       dprintf(funcfile, "n%d -> n%d;\n", fnn, nodenumber - 1);
     } else {

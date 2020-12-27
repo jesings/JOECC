@@ -246,7 +246,7 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
     addr2use = linearitree(daget(cexpr->params, i), prog);
     opn(prog, ct_3ac_op2(op_to_cmp, addr2use.addr_type, addr2use.addr, ISCONST, (ADDRESS) failblock));
     prog->curblock->branchblock = failblock;
-    dapush(failblock->inedges, prog->curblock);
+    dapushc(failblock->inedges, prog->curblock);
     prog->curblock = NULL;
   }
   if(addr2use.addr_type & ISCONST || addr2use.addr_type & ISFLOAT) {
@@ -255,7 +255,7 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
   addr2use.addr_type = 1;//maybe make it signed?
   opn(prog, ct_3ac_op2(MOV_3, ISCONST, complete_val, addr2use.addr_type, addr2use.addr));
   prog->curblock->nextblock = finalblock;
-  dapush(finalblock->inedges, prog->curblock);
+  dapushc(finalblock->inedges, prog->curblock);
   giveblock(prog, failblock);
   opn(prog, ct_3ac_op2(MOV_3, ISCONST, shortcircuit_val, addr2use.addr_type, addr2use.addr));
   giveblock(prog, finalblock);
@@ -603,7 +603,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       BBLOCK* failblock = mpblk();
       opn(prog, cmptype(daget(cexpr->params, 0), 1, prog));
       prog->curblock->branchblock = failblock;
-      dapush(failblock->inedges, prog->curblock);
+      dapushc(failblock->inedges, prog->curblock);
       prog->curblock = NULL;
       IDTYPE t0t = typex(daget(cexpr->params, 0));
       IDTYPE t1t = typex(daget(cexpr->params, 1));
@@ -620,7 +620,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       OPERATION* fixlater = ct_3ac_op1(MOV_3, curaddr.addr_type, curaddr.addr);
       opn(prog, fixlater);
       prog->curblock->nextblock = joinblock;
-      dapush(joinblock->inedges, prog->curblock);
+      dapushc(joinblock->inedges, prog->curblock);
       giveblock(prog, failblock);
       otheraddr = linearitree(daget(cexpr->params, 2), prog);
       if((t1t.tb & FLOATNUM) && !(t2t.tb & FLOATNUM)) {
@@ -793,12 +793,12 @@ static void lbljmp(char* lblname, BBLOCK* block, BBLOCK** loc, PROGRAM* prog) {
       pushto = dactor(9);
       insert(prog->unfilledlabels, lblname, pushto);
       inedges = dactor(8);
-      dapush(pushto, inedges);
+      dapushc(pushto, inedges);
     } else {
       inedges = daget(pushto, 0);
     }
-    dapush(inedges, block);
-    dapush(pushto, loc);
+    dapushc(inedges, block);
+    dapushc(pushto, loc);
   } else {
   }
 }
@@ -844,7 +844,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       contblock = mpblk();
       dapush(prog->breaklabels, breakblock);
       dapush(prog->continuelabels, contblock);
-      dapush(breakblock->inedges, contblock);
+      dapushc(breakblock->inedges, contblock);
       contblock->branchblock = breakblock;
       giveblock(prog, contblock);
       opn(prog, cmptype(cst->cond, 1, prog));
@@ -871,7 +871,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       }
       dapush(prog->continuelabels, contblock);
       dapush(prog->breaklabels, breakblock);
-      dapush(breakblock->inedges, topblock);
+      dapushc(breakblock->inedges, topblock);
       topblock->branchblock = breakblock;
       giveblock(prog, topblock);
       opn(prog, cmptype(cst->forcond, 1, prog));
@@ -905,7 +905,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
     case IFS:
       breakblock = mpblk();
       opn(prog, cmptype(cst->ifcond, 1, prog));
-      dapush(breakblock->inedges, prog->curblock);
+      dapushc(breakblock->inedges, prog->curblock);
       prog->curblock->branchblock = breakblock;
       prog->curblock = NULL;
       solidstate(cst->thencond, prog);
@@ -917,12 +917,12 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       contblock = mpblk();
       opn(prog, cmptype(cst->ifcond, 1, prog));
       prog->curblock->branchblock = contblock;
-      dapush(contblock->inedges, prog->curblock);
+      dapushc(contblock->inedges, prog->curblock);
       prog->curblock = NULL;
       solidstate(cst->thencond, prog);
       topblock = dapeek(prog->allblocks);
       topblock->nextblock = breakblock;
-      dapush(breakblock->inedges, topblock);
+      dapushc(breakblock->inedges, topblock);
       giveblock(prog, contblock);
       solidstate(cst->elsecond, prog);
       giveblock(prog, breakblock);
@@ -1010,9 +1010,9 @@ PROGRAM* linefunc(FUNC* f) {
   prog->curblock = fctblk(prog);
   //initialize params
   opn(prog, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) strdup(f->name)));
-  for(int i = 0; i < f->params->da->length; i++) {
+  for(int i = 0; i < f->params->length; i++) {
     FULLADDR* newa = malloc(sizeof(FULLADDR));
-    DECLARATION* pdec = pget(f->params, i);
+    DECLARATION* pdec = daget(f->params, i);
     newa->addr_type = addrconv(pdec->type);
     if(newa->addr_type & ISFLOAT) {
       newa->addr.fregnum = prog->fregcnt++;

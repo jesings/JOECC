@@ -21,7 +21,7 @@ static void* filecomp(char* filename) {
   void* scanner;
   FILE* yyin = fopen(filename, "r");
   if(yyin == NULL)
-    exit(1);
+    return NULL;
   struct lexctx* lctx = ctxinit();
   dapush(lctx->ls->file2compile, strdup(filename));
   yylex_init_extra(lctx, &scanner);

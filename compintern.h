@@ -114,7 +114,7 @@ typedef struct {
 typedef struct {
   char* name;
   struct stmt* body; //compound statement
-  PARALLEL* params;
+  DYNARR* params;
   IDTYPE* retrn;
   HASHTABLE* lbls;
   DYNARR* switchstack;
@@ -218,7 +218,7 @@ typedef struct {
 struct declarator_part {
   enum declpart_info type;
   union {
-    PARALLEL* params;
+    DYNARR* params;
     DYNARR* nameless_params;
     struct {
       int arrlen;
@@ -358,7 +358,7 @@ ENUMFIELD* genenumfield(char* name, EXPRESSION* value);
 struct declarator_part* mkdeclpart(enum declpart_info typ, void* d);
 struct declarator_part* mkdeclpartarr(enum declpart_info typ, EXPRESSION* d);
 struct declarator_part* mkdeclptr(TYPEBITS d);
-FUNC* ct_function(char* name, STATEMENT* body, PARALLEL* params, IDTYPE* retrn);
+FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, IDTYPE* retrn);
 struct lexctx* ctxinit(void);
 SCOPE* mkscope(void);
 SCOPE* mkfakescope(void);
@@ -369,7 +369,7 @@ SCOPE* fakescopepeek(struct lexctx* lct);
 SCOPE* scopepeek(struct lexctx* lct);
 void* scopesearch(struct lexctx* lct, enum membertype mt, char* key);
 char scopequeryval(struct lexctx* lct, enum membertype mt, char* key);
-void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, void* assignval);
+void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, STRUCT* assignval);
 void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* memberval);
 TOPBLOCK* gtb(char isfunc, void* assign);
 void feedstruct(STRUCT* s);

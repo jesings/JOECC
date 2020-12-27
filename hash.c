@@ -199,11 +199,11 @@ void rmpaircfr(HASHTABLE* ht, const char* key, void (*cfree)(void*)) {
 void* search(HASHTABLE* ht, const char* key) {
   unsigned long i = hash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
-  if(!(hp->key))
-    return NULL;
-  for(; hp; hp = hp->next) {
-    if(!strcmp(hp->key, key))
-      return hp->value;
+  if(hp->key) {
+    for(; hp; hp = hp->next) {
+      if(!strcmp(hp->key, key))
+        return hp->value;
+    }
   }
   return NULL;
 }
@@ -226,11 +226,11 @@ void* searchval(HASHTABLE* ht, const char* key, char* vallocate) {
 char queryval(HASHTABLE* ht, const char* key) {
   unsigned long i = hash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
-  if(!(hp->key))
-    return 0;
-  for(; hp; hp = hp->next) {
-    if(!strcmp(hp->key, key)) {
-      return 1;
+  if(hp->key) {
+    for(; hp; hp = hp->next) {
+      if(!strcmp(hp->key, key)) {
+        return 1;
+      }
     }
   }
   return 0;

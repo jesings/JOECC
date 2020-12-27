@@ -14,7 +14,9 @@ void dadtorfr(DYNARR* da);
 void dadtorcfr(DYNARR* da, void (*freep)(void*));
 
 void dainsert(DYNARR* da, void* val);
+void dainsertc(DYNARR* da, void* val);
 #define dapush dainsert
+#define dapushc dainsertc
 void* dapop(DYNARR* da);
 #define dapeek(A) ((A)->arr[(A)->length-1])
 #define daget(A,I) ((A)->arr[(I)])

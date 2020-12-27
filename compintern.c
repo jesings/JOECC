@@ -60,26 +60,27 @@ DYNARR* ptrdaclone(DYNARR* opointerstack) {
     memcpy(dclp, opointerstack->arr[i], sizeof(struct declarator_part));
     switch(dclp->type) {
       case PARAMSSPEC: ;
-        PARALLEL* newp = paralector();
-        for(int j = 0; j < dclp->params->da->length; j++) {
-          char* pname = daget(dclp->params->da, j);
-          if(!strcmp(pname, "...")) {
-            pinsert(newp, strdup("..."), NULL);
+        DYNARR* newp = dactor(dclp->params->length);
+        for(int j = 0; j < dclp->params->length; j++) {
+          DECLARATION* parid = daget(dclp->params, j);
+          if(!parid) {
+            dapush(newp, NULL);
           } else {
-            DECLARATION* parid = search(dclp->params->ht, pname);
             DECLARATION* newdecl = malloc(sizeof(DECLARATION));
             newdecl->type = fcid2(parid->type);
             newdecl->varname = strdup(parid->varname);
-            pinsert(newp, pname, newdecl);
+            dapush(newp, newdecl);
           }
         }
         dclp->params = newp;
         break;
       case NAMELESS_PARAMSSPEC:
-        dclp->nameless_params = daclone(dclp->nameless_params);
-        for(int j = 0; j < dclp->nameless_params->length; j++) {
-          if(dclp->nameless_params->arr[j]) {
-            dclp->nameless_params->arr[j] = fcid2(dclp->nameless_params->arr[j]);
+        if(dclp->nameless_params) {
+          dclp->nameless_params = daclone(dclp->nameless_params);
+          for(int j = 0; j < dclp->nameless_params->length; j++) {
+            if(dclp->nameless_params->arr[j]) {
+              dclp->nameless_params->arr[j] = fcid2(dclp->nameless_params->arr[j]);
+            }
           }
         }
         break;
@@ -290,7 +291,6 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim) {
   arr_memtype->pointerstack->length -= 1;
   int szstep = lentype(arr_memtype);
   if(arr_dim == 1) {
-    //TODO: array of structs oh no
     if(arr_dim == arr_memtype->pointerstack->length) {
       if(arr_memtype->tb & (STRUCTVAL | UNIONVAL)) {
         for(int i = 0; i < arr_expr->params->length; i++) {
@@ -390,16 +390,23 @@ static void fpdecl(DECLARATION* dc) {
   free(dc); //dc->varname should be freed in dadtor
 }
 
+static void fpdecl2(DECLARATION* dc) {
+  if(!dc) return;
+  freetype(dc->type);
+  free(dc->varname);
+  free(dc); //dc->varname should be freed in dadtor
+}
+
 void freetype(IDTYPE* id) {
   if(id->pointerstack) {
     for(int i = 0; i < id->pointerstack->length; i++) {
       struct declarator_part* dclp = id->pointerstack->arr[i];
       switch(dclp->type) {
         case PARAMSSPEC:
-          paraledtorcfr(dclp->params, (void (*)(void*)) fpdecl);
+          dadtorcfr(dclp->params, (void (*)(void*)) fpdecl2);
           break;
         case NAMELESS_PARAMSSPEC:
-          dadtorcfr(dclp->nameless_params, (void (*)(void*)) freetype);
+          if(dclp->nameless_params) dadtorcfr(dclp->nameless_params, (void (*)(void*)) freetype);
           break;
         case POINTERSPEC: case ARRAYSPEC:
           break;
@@ -570,7 +577,7 @@ void rfreefunc(FUNC* f) {
   free(f->name);
   freetype(f->retrn);
   rfreestate(f->body);
-  htdtorfr(f->lbls);
+  if(f->lbls) htdtorfr(f->lbls);
   dadtor(f->switchstack);
   free(f);
 }
@@ -630,7 +637,7 @@ DECLARATION* mkdeclaration(char* name) {
   DECLARATION* retval = calloc(1,sizeof(DECLARATION));
   retval->varname = name;
   IDTYPE* idt = calloc(1, sizeof(IDTYPE));
-  idt->pointerstack = dactor(4);
+  idt->pointerstack = dactor(2);
   retval->type = idt;
   return retval;
 }
@@ -728,6 +735,7 @@ STATEMENT* mklblstmt(struct lexctx* lct, char* lblval) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = LABEL;
   retval->glabel = lblval;
+  if(!lct->func->lbls) lct->func->lbls = htctor();
   insert(lct->func->lbls, lblval, NULL);
   //confirm no collision
   return retval;
@@ -797,13 +805,13 @@ struct declarator_part* mkdeclptr(TYPEBITS d) {
   return retval;
 }
 
-FUNC* ct_function(char* name, STATEMENT* body, PARALLEL* params, IDTYPE* retrn) {
+FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, IDTYPE* retrn) {
   FUNC* func = malloc(sizeof(FUNC));
   func->name = name;
   func->body = body;
   func->params = params;
   func->retrn = retrn;
-  func->lbls = htctor();
+  func->lbls = NULL;
   func->switchstack = dactor(8);
   func->caseindex = 0;
   func->numvars = 0;
@@ -831,7 +839,7 @@ SCOPE* mkfakescope(void) {
   return child;
 }
 
-void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, void* assignval) {
+void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, STRUCT* assignval) {
   DYNARR* da;
   switch(mt) {
     case M_STRUCT:
@@ -849,8 +857,8 @@ void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, void* assi
   for(int i = 0; i < da->length; i++) {
     STRUCT** vloc = daget(da, i);
     STRUCT* oloc = *vloc;
-    *vloc = assignval;
     if(oloc) free(oloc);
+    *vloc = assignval;
   }
   dadtor(da);
 }
@@ -960,10 +968,10 @@ struct lexctx* ctxinit(void) {
   lct->scopes = dactor(64);
   lct->func = NULL;
   dapush(lct->scopes, mkscope());
-  lct->enstruct2free = dactor(1024);
-  lct->enumerat2free = dactor(512);
-  lct->globals = dactor(1024);
-  lct->externglobals = dactor(256);
+  lct->enstruct2free = dactor(512);
+  lct->enumerat2free = dactor(256);
+  lct->globals = dactor(512);
+  lct->externglobals = dactor(128);
   lct->defines = htctor();
   lct->withindefines = htctor();
   declmacro(lct->defines, "__STDC__", "1");
@@ -984,8 +992,8 @@ struct lexctx* ctxinit(void) {
   declmacro(lct->defines, "__builtin_va_list", "byte*"); //should be typedef
   declfmacro(lct->defines, "__attribute__", "a", "");
   lct->ls = malloc(sizeof(struct lstate));
-  lct->ls->locs = dactor(128);
-  lct->ls->file2compile = dactor(128);
+  lct->ls->locs = dactor(32);
+  lct->ls->file2compile = dactor(32);
   lct->ls->defargs = NULL;
   lct->ls->argpp = dactor(16);
   return lct;

@@ -74,6 +74,10 @@ void dainsert(DYNARR* da, void* val) {
   da->arr[(da->length)++] = val;
 }
 
+void dainsertc(DYNARR* da, void* val) {
+  da->arr[(da->length)++] = val;
+}
+
 void* dapop(DYNARR* da) {
   return da->arr[--(da->length)];
 }

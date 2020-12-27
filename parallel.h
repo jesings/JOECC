@@ -8,6 +8,7 @@ typedef struct {
   DYNARR* da;
 } PARALLEL;
 PARALLEL* paralector(void);
+PARALLEL* paraclector(int i);
 void* psearch(PARALLEL* p, const char* key);
 void* pisearch(PARALLEL* p, int index);
 void pinsert(PARALLEL* p, const char* key, void* value);

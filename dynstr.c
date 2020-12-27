@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <assert.h>
 #include "dynstr.h"
 
@@ -35,4 +36,18 @@ void dsccat(DYNSTR* ds, char txt) {
   int lp = ds->lenstr;
   dsmodsize(ds, 1);
   ds->strptr[lp] = txt;
+}
+
+void dsws(DYNSTR* ds) { //remove trailing whitespace
+  if(ds->strptr[ds->lenstr - 1]) { //no null terminator
+    while(ds->lenstr && isblank(ds->strptr[ds->lenstr - 1])) {
+      --ds->lenstr;
+    }
+  } else {
+    --ds->lenstr;
+    while(ds->lenstr && isblank(ds->strptr[ds->lenstr - 1])) {
+      --ds->lenstr;
+    }
+    dsccat(ds, 0);
+  }
 }

@@ -5,6 +5,12 @@ PARALLEL* paralector(void) {
   p->ht = htctor();
   return p;
 }
+PARALLEL* paraclector(int i) {
+  PARALLEL* p = malloc(sizeof(PARALLEL));
+  p->da = dactor(i);
+  p->ht = htctor();
+  return p;
+}
 void* pisearch(PARALLEL* p, int index) {
   return search(p->ht, daget(p->da, index));
 }
