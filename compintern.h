@@ -138,10 +138,11 @@ typedef struct expr {
 } EXPRESSION;
 
 struct lstate {
+  DYNARR* argpp;
   DYNARR* locs;
   DYNARR* file2compile;
   DYNARR* parg;
-  char stmtover, skipping, argeaten;
+  char stmtover, argeaten;
   char* defname;
   HASHTABLE* defargs;
   int paren_depth;
@@ -155,7 +156,6 @@ struct lexctx {
   FUNC* func;
   HASHTABLE* defines;
   HASHTABLE* withindefines;
-  DYNARR* argpp;
   DYNARR* enstruct2free;
   DYNARR* enumerat2free;
   DYNARR* globals;

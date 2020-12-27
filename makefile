@@ -1,18 +1,20 @@
 CC = gcc
 LDFLAGS = -lpthread
-CFLAGS = -ggdb -g3 -Wall -Wextra -Wwrite-strings -Winit-self -Wcast-align -Wcast-qual -Wpointer-arith -Wstrict-aliasing -Wformat=2 -Wmissing-declarations -Wmissing-include-dirs -Wno-unused-parameter -Wuninitialized -Wold-style-definition -Wstrict-prototypes -Wmissing-prototypes 
+CFLAGS = -ggdb -g3 -Wall -Wextra -Wwrite-strings -Winit-self -Wcast-align -Wcast-qual -Wpointer-arith -Wstrict-aliasing -Wformat=2 -Wmissing-declarations -Wmissing-include-dirs -Wno-unused-parameter -Wuninitialized -Wold-style-definition -Wstrict-prototypes -Wmissing-prototypes -march=native
+LEXFLAGS = -d -Cfe --yylineno
 compilerasan: CFLAGS += -fsanitize=address
 compilerasan: LDFLAGS += -fsanitize=address
 compilerasan: compiler
-nodebug: CFLAGS = -O2
+nodebug: CFLAGS = -O2 -D NODEBUG -ggdb -g3 -march=native
 nodebug: LDFLAGS =
+nodebug: LEXFLAGS = -d -Cfe -p -p
 nodebug: compiler
 compiler: joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o  dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o opt.o ssa.o
 	$(CC) joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o opt.o ssa.o -o compiler $(LDFLAGS)
 gotest: compiler
 	./compiler dynarr.c
 lex.yy.c: joecc.lex
-	flex -d --header-file=lex.h joecc.lex
+	flex $(LEXFLAGS) joecc.lex
 joecc.tab.c: joecc.y
 	bison -d joecc.y #--report=all
 ifjoecc.tab.c: ifjoecc.y

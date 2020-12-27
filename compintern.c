@@ -48,7 +48,8 @@ EXPRESSION* cloneexpr(EXPRESSION* orig) {
 static IDTYPE* fcid2(IDTYPE* idt) {
   IDTYPE* idr = malloc(sizeof(IDTYPE));
   memcpy(idr, idt, sizeof(IDTYPE));
-  idr->pointerstack = ptrdaclone(idt->pointerstack);
+  if(idt->pointerstack) idr->pointerstack = ptrdaclone(idt->pointerstack);
+  else idr->pointerstack = NULL;
   return idr;
 }
 
@@ -63,7 +64,7 @@ DYNARR* ptrdaclone(DYNARR* opointerstack) {
         for(int j = 0; j < dclp->params->da->length; j++) {
           char* pname = daget(dclp->params->da, j);
           if(!strcmp(pname, "...")) {
-            pinsert(newp, strdup("..,"), NULL);
+            pinsert(newp, strdup("..."), NULL);
           } else {
             DECLARATION* parid = search(dclp->params->ht, pname);
             DECLARATION* newdecl = malloc(sizeof(DECLARATION));
@@ -105,7 +106,8 @@ EXPRESSION* ct_unary_expr(EXPRTYPE t, EXPRESSION* param) {
   retval->type = t;
   retval->rettype = NULL;
   retval->params = dactor(1);
-  dapush(retval->params, param);
+  retval->params->arr[0] = param;
+  retval->params->length = 1;
   return retval;
 }
 
@@ -128,8 +130,9 @@ EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2) {
   retval->type = t;
   retval->rettype = NULL;
   retval->params = dactor(2);
-  dapush(retval->params, param1);
-  dapush(retval->params, param2);
+  retval->params->arr[0] = param1;
+  retval->params->arr[1] = param2;
+  retval->params->length = 2;
   return retval;
 }
 
@@ -137,7 +140,8 @@ EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = CAST;
   retval->params = dactor(1);
-  dapush(retval->params, expr);
+  retval->params->arr[0] = expr;
+  retval->params->length = 1;
   retval->rettype = retval->vartype = type;
   return retval;
 }
@@ -147,9 +151,10 @@ EXPRESSION* ct_ternary_expr(EXPRESSION* param1, EXPRESSION* param2, EXPRESSION* 
   retval->type = TERNARY;
   retval->rettype = NULL;
   retval->params = dactor(3);
-  dapush(retval->params, param1);
-  dapush(retval->params, param2);
-  dapush(retval->params, param3);
+  retval->params->arr[0] = param1;
+  retval->params->arr[1] = param2;
+  retval->params->arr[2] = param3;
+  retval->params->length = 3;
   return retval;
 }
 
@@ -170,8 +175,9 @@ EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params) {
     //clone pointer stack, remove function type from it
   }
   retval->rettype = retid;
-  DYNARR* dd = dactor(1);
-  dapush(dd, func);
+  DYNARR* dd = dactor(1 + params->length);
+  dd->arr[0] = func;
+  dd->length = 1;
   retval->params = damerge(dd, params);
   return retval;
 }
@@ -181,7 +187,7 @@ EXPRESSION* ct_strconst_expr(const char* str) {
   retval->type = STRING;
   retval->rettype = malloc(sizeof(IDTYPE));
   retval->rettype->pointerstack = dactor(1);
-  dapush(retval->rettype->pointerstack, mkdeclpart(POINTERSPEC, 0));
+  dapushc(retval->rettype->pointerstack, mkdeclpart(POINTERSPEC, 0));
   retval->rettype->tb = 1 | UNSIGNEDNUM;
   retval->strconst = (char*)(unsigned long) str;
   return retval;
@@ -306,9 +312,8 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim) {
   } else {
     for(int i = 0; i < arr_expr->params->length; i++) {
       EXPRESSION* arrv = daget(arr_expr->params, i);
-      IDTYPE arrt = typex(arrv);
-      assert(typecompat(&arrt, arr_memtype));
-      tdclp->arrlen += process_array_lit(arr_memtype, arr_expr, arr_dim - 1);
+      tdclp->arrlen += process_array_lit(arr_memtype, arrv, arr_dim - 1);
+      assert(typecompat(arrv->rettype, arr_memtype));
     }
   }
   arr_memtype->pointerstack->length += 1;
@@ -577,17 +582,18 @@ EXPRESSION* rclonexpr(EXPRESSION* e) {
     default:
       e2->params = dactor(e->params->length);
       for(int i = 0; i < e->params->length; i++)
-        dapush(e2->params, rclonexpr(e->params->arr[i]));
+        dapushc(e2->params, rclonexpr(e->params->arr[i]));
     case NOP:
       break;
     case SZOF:
       e2->vartype = malloc(sizeof(IDTYPE));
       memcpy(e2->vartype, e->vartype, sizeof(IDTYPE));
       if(e->vartype->pointerstack) {
+        e2->vartype->pointerstack = dactor(e->vartype->pointerstack->length);
         for(int i = 0; i < e->vartype->pointerstack->length; i++) {
           struct declarator_part* dp = malloc(sizeof(struct declarator_part));
           memcpy(dp, e->vartype->pointerstack->arr[i], sizeof(struct declarator_part));
-          dapush(e2->vartype->pointerstack, dp);
+          dapushc(e2->vartype->pointerstack, dp);
         }
       }
       break;
@@ -595,15 +601,16 @@ EXPRESSION* rclonexpr(EXPRESSION* e) {
       e2->vartype = malloc(sizeof(IDTYPE));
       memcpy(e2->vartype, e->vartype, sizeof(IDTYPE));
       if(e->vartype->pointerstack) {
+        e2->vartype->pointerstack = dactor(e->vartype->pointerstack->length);
         for(int i = 0; i < e->vartype->pointerstack->length; i++) {
           struct declarator_part* dp = malloc(sizeof(struct declarator_part));
           memcpy(dp, e->vartype->pointerstack->arr[i], sizeof(struct declarator_part));
-          dapush(e2->vartype->pointerstack, dp);
+          dapushc(e2->vartype->pointerstack, dp);
         }
       }
       e2->params = dactor(e->params->length);
       for(int i = 0; i < e->params->length; i++)
-        dapush(e2->params, rclonexpr(e->params->arr[i]));
+        dapushc(e2->params, rclonexpr(e->params->arr[i]));
       break;
     case STRING:
       e2->strconst = strdup(e->strconst);
@@ -942,7 +949,7 @@ static void declfmacro(HASHTABLE* ht, const char* macroname, const char* param, 
   int blen = strlen(body);
   md->text = strctor(strdup(body), blen + 1, blen + 1);
   md->args = dactor(1);
-  dapush(md->args, strdup(param));
+  dapushc(md->args, strdup(param));
   insert(ht, macroname, md);
 }
 
@@ -953,13 +960,12 @@ struct lexctx* ctxinit(void) {
   lct->scopes = dactor(64);
   lct->func = NULL;
   dapush(lct->scopes, mkscope());
-  lct->withindefines = htctor();
-  lct->argpp = dactor(16);
   lct->enstruct2free = dactor(1024);
   lct->enumerat2free = dactor(512);
   lct->globals = dactor(1024);
   lct->externglobals = dactor(256);
   lct->defines = htctor();
+  lct->withindefines = htctor();
   declmacro(lct->defines, "__STDC__", "1");
   declmacro(lct->defines, "__STDC_VERSION__", "201710L");
   declmacro(lct->defines, "__STDC_HOSTED__", "1"); 
@@ -967,7 +973,7 @@ struct lexctx* ctxinit(void) {
   declmacro(lct->defines, "_DEFAULT_SOURCE", "700"); 
   declmacro(lct->defines, "_POSIX_C_SOURCE", "200809L"); 
   declmacro(lct->defines, "_XOPEN_SOURCE_EXTENDED", "1"); 
-  declmacro(lct->defines, "_USE_XOPEN_EXTENDED", "1"); 
+  declmacro(lct->defines, "_USE_XOPEN_EXTENDED", "1");
   declmacro(lct->defines, "__FILE__", NULL); 
   declmacro(lct->defines, "__LINE__", NULL); 
   declmacro(lct->defines, "__DATE__", NULL); 
@@ -976,12 +982,12 @@ struct lexctx* ctxinit(void) {
   declmacro(lct->defines, "__x86_64__", "1"); 
   declmacro(lct->defines, "__linux__", "1"); 
   declmacro(lct->defines, "__builtin_va_list", "byte*"); //should be typedef
-  declmacro(lct->defines, "PTRDIFF_MAX", "(9223372036854775807L)");
   declfmacro(lct->defines, "__attribute__", "a", "");
   lct->ls = malloc(sizeof(struct lstate));
   lct->ls->locs = dactor(128);
   lct->ls->file2compile = dactor(128);
   lct->ls->defargs = NULL;
+  lct->ls->argpp = dactor(16);
   return lct;
 }
 
