@@ -4,6 +4,11 @@ IDENT [[:alpha:]_][[:alnum:]_]*
 EXP [Ee][+-]?[[:digit:]]+
 FLOATSIZE (f|F|l|L)
 INTSIZE (u|U|l|L)*
+SKIPNEWL \\[[:blank:]]*\n
+SKIPNEWALL \\+[[:blank:]]*[^[:blank:]]
+SCOMMENT \/\/([^\\\n]|{SKIPNEWALL})*
+MCOMMENT "/*"("*"+[^*/]|[^*])*"*"+"/"
+PPSTART [[:blank:]]*#[[:blank:]]*
 %{
 //TODO: computed include? variadic macros?
 
@@ -57,7 +62,7 @@ struct arginfo {
 %option noyy_scan_string
 %option noyywrap
 
-%x PPSKIP MULTILINE_COMMENT SINGLELINE_COMMENT
+%x PPSKIP
 %x PREPROCESSOR INCLUDE INCLUDENEXT
 %x DEFINE UNDEF DEFARG DEFINE2
 %x ERROR WARNING
@@ -78,53 +83,37 @@ struct arginfo {
 }
 
 <KILLBLANK>{
-  ([[:blank:]]+|\\[[:blank:]]*\n)* {yy_pop_state(yyscanner);}
+  ([[:blank:]]+|{SKIPNEWL})* {yy_pop_state(yyscanner);}
 }
 
 <KILLUNTIL>{
-  [^/\n\\]+ {}
-  \n {yy_pop_state(yyscanner);}
-  "/" {}
-  \\ {}
-  "//" {yy_pop_state(yyscanner); yy_push_state(SINGLELINE_COMMENT, yyscanner);}
-  "/*" {yy_push_state(MULTILINE_COMMENT, yyscanner);}
+  ([^/\n\\]|{SKIPNEWALL}|"/"[^/\n*]|{MCOMMENT})*({SCOMMENT}|"/")?\n {yy_pop_state(yyscanner);}
 }
 
 <INITIAL,PREPROCESSOR,INCLUDE,DEFINE,UNDEF,DEFARG,DEFINE2,IFDEF,CALLMACRO,PPSKIP,KILLBLANK,WITHINIF>{
-  "/*" {yy_push_state(MULTILINE_COMMENT, yyscanner);}
-  "//" {yy_push_state(SINGLELINE_COMMENT, yyscanner);}
+  {MCOMMENT} {}
+  {SCOMMENT} {}
 }
 
-<MULTILINE_COMMENT>{
-  ("*"+[^*/]|[^*])+ {/*The multiline comment is not terminated*/}
-  "*"+"/" {yy_pop_state(yyscanner);}
-}
-
-<SINGLELINE_COMMENT>{
-  [^\\\n]+ {/*The single line comment is not terminated*/}
-  \\ {/*The single line comment is not terminated*/}
-  [^\\\n]+$ {yy_pop_state(yyscanner);}
-}
 
 <PPSKIP>{
-  ^[[:blank:]]*#[[:blank:]]*/if { //also covers ifdef and ifndef
+  ^{PPSTART}/if { //also covers ifdef and ifndef
     yy_push_state(PREPROCESSOR, yyscanner);
     lctx->ls->stmtover = 0;
     }
-  ^[[:blank:]]*#[[:blank:]]*/el { //covers else and elif
+  ^{PPSTART}/el { //covers else and elif
     yy_push_state(PREPROCESSOR, yyscanner);
     lctx->ls->stmtover = 0;
     }
-  ^[[:blank:]]*#[[:blank:]]*/endif {
+  ^{PPSTART}/endif {
     yy_push_state(PREPROCESSOR, yyscanner);
     lctx->ls->stmtover = 0;
     }
-  ([^\n\/#]|(\n[[:blank:]]*)+[^#\n\/[:blank:]])+ {}
-  ((\n[[:blank:]]*)+#[[:blank:]]*(define|include|include_next|undef|warning|error|line))+ {}
+  ([^\n\/#]|(\n[[:blank:]]*)+[^#\n\/[:blank:]]|(\n[[:blank:]]*)+{PPSTART}(define|include|include_next|undef|warning|error|line))+ {}
   [\/\n#] {}
 }
 
-^[[:blank:]]*#[[:blank:]]* {yy_push_state(PREPROCESSOR, yyscanner); lctx->ls->stmtover = 0;}
+^{PPSTART} {yy_push_state(PREPROCESSOR, yyscanner); lctx->ls->stmtover = 0;}
 <PREPROCESSOR>{
   include[[:blank:]]+ {yy_push_state(INCLUDE, yyscanner);}
   include_next[[:blank:]]+ {yy_push_state(INCLUDENEXT, yyscanner);}
@@ -212,7 +201,7 @@ struct arginfo {
         break;
     }
     }
-  line[[:blank:]]* {yy_pop_state(yyscanner); yy_push_state(SINGLELINE_COMMENT, yyscanner);/*TODO: line directive currently doesn't apply requisite information*/}
+  line[[:blank:]]* {yy_pop_state(yyscanner); yy_push_state(KILLUNTIL, yyscanner);/*TODO: line directive currently doesn't apply requisite information*/}
   warning[[:blank:]]* {yy_pop_state(yyscanner); yy_push_state(WARNING, yyscanner);}
   error[[:blank:]]* {yy_pop_state(yyscanner); yy_push_state(ERROR, yyscanner);}
   \n {yy_pop_state(yyscanner);fprintf(stderr, "PREPROCESSOR: Incorrect line end %d %s %d.%d-%d.%d\n", yylloc->first_line, locprint2(yylloc));}
@@ -220,7 +209,7 @@ struct arginfo {
 }
 
 <WARNING>{
-  \"(\\.|[^\\"]|\/[[:space:]]*\n)*\" {
+  \"(\\.|[^\\"]|{SKIPNEWL})*\" {
     /*WARNING, ERROR, only support single string const*/
     yy_pop_state(yyscanner); 
     yy_push_state(KILLUNTIL, yyscanner); 
@@ -229,7 +218,7 @@ struct arginfo {
   }
 }
 <ERROR>{
-  \"(\\.|[^\\"]|\/[[:space:]]*\n)*\" {/*"*/
+  \"(\\.|[^\\"]|{SKIPNEWL})*\" {/*"*/
     yy_pop_state(yyscanner); 
     yy_push_state(KILLUNTIL, yyscanner); 
     yytext[yyleng - 1] = '\0'; 
@@ -308,6 +297,7 @@ struct arginfo {
         yypush_buffer_state(ybs, yyscanner);
       } else {
         fprintf(stderr, "Invalid local file %s included! %s %d.%d-%d.%d\n", fname, locprint2(yylloc));
+        free(fname);
       }
     }
     }
@@ -362,14 +352,14 @@ struct arginfo {
 
 
 <DEFINE>{
-  {IDENT} {
+  {IDENT}|["][^"\n]*["] {
     yy_pop_state(yyscanner); 
     yy_push_state(DEFINE2, yyscanner); 
     lctx->ls->mdstrdly = strctor(malloc(256), 0, 256);
     lctx->ls->defname = strdup(yytext);
     insert(lctx->withindefines, yytext, NULL);
     }
-  {IDENT}/[[:blank:]] {
+  {IDENT}|["][^"\n]*["]/[[:blank:]] {
     yy_pop_state(yyscanner); 
     yy_push_state(DEFINE2, yyscanner); 
     lctx->ls->mdstrdly = strctor(malloc(256), 0, 256); 
@@ -435,7 +425,7 @@ struct arginfo {
 }
 
 <DEFINE2>{
-  ([^/\n]|"/"[^*/]|\\[[:blank:]]*\n)+ {dscat(lctx->ls->mdstrdly, yytext, yyleng);}
+  ([^/\n]|"/"[^*/]|{SKIPNEWL})+ {dscat(lctx->ls->mdstrdly, yytext, yyleng);}
   \n {
     yy_pop_state(yyscanner);
     yy_pop_state(yyscanner);
@@ -458,16 +448,19 @@ struct arginfo {
 }
 
 <UNDEF>{
-  {IDENT} {rmpaircfr(lctx->defines, yytext, (void(*)(void*)) freemd);}
-  {IDENT}/[[:blank:]] {rmpaircfr(lctx->defines, yytext, (void(*)(void*)) freemd); yy_push_state(KILLBLANK, yyscanner);}
+  {IDENT}|["][^"\n]*["] {
+    rmpaircfr(lctx->defines, yytext, (void(*)(void*)) freemd);}
+  {IDENT}|["][^"\n]*["]/[[:blank:]] {
+    rmpaircfr(lctx->defines, yytext, (void(*)(void*)) freemd); yy_push_state(KILLBLANK, yyscanner);}
   \n {yy_pop_state(yyscanner); yy_pop_state(yyscanner);/*error state if expr not over?*/}
   . {fprintf(stderr, "UNDEF: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint2(yylloc));}
 }
 
 
 <IFDEF>{
-  {IDENT} {lctx->ls->stmtover = 1; lctx->ls->defname = strdup(yytext);}
-  {IDENT}/[[:blank:]] {
+  {IDENT}|["][^"\n]*["] {
+    lctx->ls->stmtover = 1; lctx->ls->defname = strdup(yytext);}
+  {IDENT}|["][^"\n]*["]/[[:blank:]] {
     lctx->ls->stmtover = 1;
     lctx->ls->defname = strdup(yytext);
     yy_push_state(KILLBLANK, yyscanner);
@@ -577,11 +570,11 @@ struct arginfo {
   [^\(\)\",[:alnum:]_\0]*[^[:space:]\(\)\",[:alnum:]_\0] {/*"*/
     dscat(lctx->ls->dstrdly, yytext, yyleng);
     }
-  \"(\\.|[^\\"]|\/[[:space:]]*\n)*\" {/*"*/
+  \"(\\.|[^\\"]|{SKIPNEWL})*\" {/*"*/
   	//this is here to make sure that parenthesis depth isn't changed within strings
     dscat(lctx->ls->dstrdly, yytext, yyleng);
     }
-  \'(\\.|[^\\']|\/[[:space:]]*\n)*\' {
+  \'(\\.|[^\\']|{SKIPNEWL})*\' {
   	//this is here to make sure that parenthesis depth isn't changed within char literals
     dscat(lctx->ls->dstrdly, yytext, yyleng);
     }
@@ -666,8 +659,8 @@ struct arginfo {
       dscat(lctx->ls->dstrdly, yytext, yyleng);
     }
     }
-  ([[:blank:]]+|"/*"([^*]|\*)*"*/")*##([[:blank:]]+|"/*"([^*]|\*)*"*/")* { }
-  (\"(\\.|[^\\"]|\/[[:blank:]]*\n)*\"|'(\\.|[^\\'\n])+'|[^[:alnum:]_\'\"\n[:blank:]/#])+ {
+  ([[:blank:]]+|{MCOMMENT})*##([[:blank:]]+|{MCOMMENT})* { }
+  (\"(\\.|[^\\"]|{SKIPNEWL})*\"|'(\\.|[^\\'\n])+'|[^[:alnum:]_\'\"\n[:blank:]/#])+ {
     dscat(lctx->ls->dstrdly, yytext, yyleng);
     }
   [[:blank:]]+ {dsccat(lctx->ls->dstrdly, ' ');}
@@ -739,7 +732,7 @@ struct arginfo {
     }
 }
 
-<INITIAL,SINGLELINE_COMMENT,PREPROCESSOR,INCLUDE,INCLUDENEXT,DEFINE,UNDEF,IFDEF,DEFARG,DEFINE2,STRINGLIT,WITHINIF,KILLUNTIL,KILLBLANK,CALLMACRO>\\+[[:blank:]]*\n {/*the newline is ignored*/}
+<INITIAL,PREPROCESSOR,INCLUDE,INCLUDENEXT,DEFINE,UNDEF,IFDEF,DEFARG,DEFINE2,STRINGLIT,WITHINIF,CALLMACRO>{SKIPNEWL} {/*the newline is ignored*/}
 "->" {return ARROWTK;}
 "++" {return INC;}
 "--" {return DEC;}

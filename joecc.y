@@ -69,11 +69,10 @@
 }
 
 %{
-  typedef void* yyscan_t;
-  #define YYPARSE_PARAM yyscan_t scanner
+  #define YYPARSE_PARAM void* scanner
   #define YYLEX_PARAM scanner
-  int yylex(YYSTYPE* yst, YYLTYPE* ylt, yyscan_t yscanner);
-  int yyerror(YYLTYPE* ylt, yyscan_t scanner, const char* s);
+  int yylex(YYSTYPE* yst, YYLTYPE* ylt, void* yscanner);
+  int yyerror(YYLTYPE* ylt, void* scanner, const char* s);
   void* yyget_extra(void* scanner);
 %}
 
@@ -152,6 +151,8 @@ program:
           IDENTIFIERINFO* id = scopesearch(ctx, M_VARIABLE, a2->decl->varname);
           if(!(id->type->tb & EXTERNNUM)) {
             fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", a2->decl->varname, locprint(@$));
+            //TODO: allow redefinitions that are function prototypes
+            freeinit(a2);
           } else {
             id->type->tb &= ~EXTERNNUM;
             dapush(ctx->globals, a2);
@@ -165,7 +166,7 @@ initializer:
 "typedef" type cs_minutes ';' {
   DECLARATION* dc;
   DYNARR* da = NULL;
-  if($2->tb & (ENUMVAL | STRUCTVAL | UNIONVAL)) {
+  if($2->tb & (STRUCTVAL | UNIONVAL)) {
     if(!$2->structtype->fields) {
       HASHTABLE* ht;
       if($2->tb & STRUCTVAL) {
@@ -177,8 +178,6 @@ initializer:
       }
       da = search(ht, $2->structtype->name);
       dapop(da);
-      free($2->structtype->name);
-      free($2->structtype);
     }
   }
   for(int i = 0; i < $3->length; i++) {
@@ -191,8 +190,9 @@ initializer:
       else
         dc->type->pointerstack = nptr;
     }
-    if($2->tb & (ENUMVAL | STRUCTVAL | UNIONVAL)) {
+    if($2->tb & (STRUCTVAL | UNIONVAL)) {
       if(da) {
+        dc->type->structtype = structor(strdup($2->structtype->name), NULL, ctx);
         dapush(da, &(dc->type->structtype));
       } else {
          dc->type->structtype = $2->structtype;
@@ -216,15 +216,11 @@ initializer:
       HASHTABLE* ht;
       if($1->tb & STRUCTVAL) {
         ht = scopepeek(ctx)->forwardstructs;
-      } else if($1->tb & UNIONVAL) {
-        ht = scopepeek(ctx)->forwardunions;
       } else {
-        fprintf(stderr, "Error: forward declaration of unknown type %s at %s %d.%d-%d.%d\n", $1->structtype->name, locprint(@$));
+        ht = scopepeek(ctx)->forwardunions;
       }
       da = search(ht, $1->structtype->name);
       dapop(da);
-      free($1->structtype->name);
-      free($1->structtype);
     }
   }
   for(int i = 0; i < $$->length; i++) {
@@ -237,7 +233,7 @@ initializer:
       else 
         ac->decl->type->pointerstack = nptrst;
     }
-    if($1->tb & (STRUCTVAL | ENUMVAL | UNIONVAL)) {
+    if($1->tb & (STRUCTVAL | UNIONVAL)) {
       if(da) {
         dapush(da, &(ac->decl->type->structtype));
       } else {
@@ -255,6 +251,7 @@ initializer:
           ac->decl->varid = ((SCOPEMEMBER*) search(ht, ac->decl->varname))->idi->index;
         } else {
           fprintf(stderr, "Error: redefinition of identifier %s in %s %d.%d-%d.%d\n", ac->decl->varname, locprint(@$));
+          freeinit(ac);
         }
       } else {
       }
@@ -297,7 +294,15 @@ initializer:
   }
   free($2);
   }
-| "enum" enumbody ';' {$$ = NULL; enumctor(NULL, $2, ctx);}
+| "enum" enumbody ';' {$$ = NULL; 
+  for(int i = 0; i < $2->length; i++) {
+    ENUMFIELD* enf = daget($2, i);
+    free(enf->name);
+    //free(enf->value);
+    free(enf);
+  }
+  dadtor($2);
+}
 | fullstruct ';' {$$ = NULL;}
 | fullenum ';' {$$ = NULL;}
 | fullunion ';' {$$ = NULL;};
@@ -419,7 +424,7 @@ param_decl:
       else 
         $2->type->pointerstack = nptr;
     }
-    if($1->tb & (STRUCTVAL | ENUMVAL | UNIONVAL)) {
+    if($1->tb & (STRUCTVAL | UNIONVAL)) {
       if($1->structtype->fields) {
         $2->type->structtype = $1->structtype;
       } else {
@@ -432,8 +437,6 @@ param_decl:
         DYNARR* da = search(ht, $1->structtype->name);
         dapop(da);
         dapush(da, &($2->type->structtype));
-        free($1->structtype->name);
-        free($1->structtype);
       }
     }
     free($1);
@@ -529,7 +532,6 @@ typews1:
   TYPE_NAME {
     $$ = malloc(sizeof(IDTYPE));
     IDTYPE* idt = scopesearch(ctx, M_TYPEDEF, $1);
-//forwardstructs
     if(idt) {
       memcpy($$, idt, sizeof(IDTYPE));
     } else {
@@ -725,7 +727,7 @@ function:
     if($1->pointerstack) {
       $2->type->pointerstack = damerge(ptrdaclone($1->pointerstack), $2->type->pointerstack);
     }
-    if($1->tb & (STRUCTVAL | ENUMVAL | UNIONVAL)) {
+    if($1->tb & (STRUCTVAL | UNIONVAL)) {
       if($1->structtype->fields) {
         $2->type->structtype = $1->structtype;
       } else {
@@ -910,9 +912,7 @@ struct:
         add2scope(ctx, $2, M_STRUCT, NULL);
         insert(scopepeek(ctx)->forwardstructs, $2, dactor(16));
       }
-      $$ = malloc(sizeof(STRUCT));
-      $$->name = $2;
-      $$->fields = NULL;
+      $$ = structor($2, NULL, ctx);
     } else {
       free($2);
     }
@@ -935,7 +935,7 @@ struct_decl:
     }
     $$ = $2; 
     DYNARR* da = NULL;
-    if($1->tb & (ENUMVAL | STRUCTVAL | UNIONVAL)) {
+    if($1->tb & (STRUCTVAL | UNIONVAL)) {
       if(!$1->structtype->fields) {
         HASHTABLE* ht;
         if($1->tb & STRUCTVAL) {
@@ -947,8 +947,6 @@ struct_decl:
         }
         da = search(ht, $1->structtype->name);
         dapop(da);
-        free($1->structtype->name);
-        free($1->structtype);
       }
     }
     
@@ -963,7 +961,7 @@ struct_decl:
           dc->type->pointerstack = nptr;
         }
       }
-      if($1->tb & (ENUMVAL | STRUCTVAL | UNIONVAL)) {
+      if($1->tb & (STRUCTVAL | UNIONVAL)) {
         if(da) {
           dapush(da, &(dc->type->structtype));
         } else {
@@ -1102,7 +1100,7 @@ enums:
     };
 commaopt: ',' | %empty;
 %%
-int yyerror(YYLTYPE* ylt, yyscan_t scanner, const char* s) {
+int yyerror(YYLTYPE* ylt, void* scanner, const char* s) {
   fprintf(stderr, "ERROR: %s %s %d.%d-%d.%d\n", s, dlocprint(ylt));
   return 0;
 }

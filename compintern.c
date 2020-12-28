@@ -355,18 +355,20 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
 }
 
 void wipestruct(STRUCT* strct) {
-  for(int i = 0; i < strct->fields->length; ++i) {
-    DECLARATION* dcl = strct->fields->arr[i];
-    if(dcl->varname) {
-      free(dcl->varname);
+  if(strct->fields) {
+    for(int i = 0; i < strct->fields->length; ++i) {
+      DECLARATION* dcl = strct->fields->arr[i];
+      if(dcl->varname) {
+        free(dcl->varname);
+      }
+      if(!(dcl->type->pointerstack && dcl->type->pointerstack->length) && dcl->type->tb & (ANONMEMB)) {
+        wipestruct(dcl->type->structtype);
+      }
+      freetype(dcl->type);
+      free(dcl);
     }
-    if(!(dcl->type->pointerstack && dcl->type->pointerstack->length) && dcl->type->tb & (ANONMEMB)) {
-      wipestruct(dcl->type->structtype);
-    }
-    freetype(dcl->type);
-    free(dcl);
+    dadtor(strct->fields);
   }
-  dadtor(strct->fields);
   if(strct->offsets) htdtorfr(strct->offsets);
   if(strct->name) free(strct->name);
   free(strct);
@@ -856,8 +858,6 @@ void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, STRUCT* as
   }
   for(int i = 0; i < da->length; i++) {
     STRUCT** vloc = daget(da, i);
-    STRUCT* oloc = *vloc;
-    if(oloc) free(oloc);
     *vloc = assignval;
   }
   dadtor(da);
@@ -990,6 +990,7 @@ struct lexctx* ctxinit(void) {
   declmacro(lct->defines, "__x86_64__", "1"); 
   declmacro(lct->defines, "__linux__", "1"); 
   declmacro(lct->defines, "__builtin_va_list", "byte*"); //should be typedef
+  declmacro(lct->defines, "SDL_DISABLE_IMMINTRIN_H", "1");
   declfmacro(lct->defines, "__attribute__", "a", "");
   lct->ls = malloc(sizeof(struct lstate));
   lct->ls->locs = dactor(32);

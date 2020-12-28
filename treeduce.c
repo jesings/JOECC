@@ -211,6 +211,7 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
 #define INTOP(OP) do {\
       subexpr = EPARAM(ex, 0); \
       rectexpr = EPARAM(ex, 1); \
+      dadtor(ex->params); \
       switch(subexpr->type) { \
         case UINT: \
           switch(rectexpr->type) { \
@@ -1296,9 +1297,9 @@ char foldconst(EXPRESSION** exa) {
     case B_AND: 
       newdyn = dactor(32);
       rove = 0;
+      rectexpr = ct_uintconst_expr(-1UL);
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
-        rectexpr = ct_uintconst_expr(-1UL);
         switch(subexpr->type) {
           case B_AND:
             for(int j = 0; j < subexpr->params->length; j++) {
@@ -1351,9 +1352,9 @@ char foldconst(EXPRESSION** exa) {
     case B_OR:
       newdyn = dactor(32);
       rove = 0;
+      rectexpr = ct_uintconst_expr(0);
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
-        rectexpr = ct_uintconst_expr(0);
         switch(subexpr->type) {
           case B_OR:
             for(int j = 0; j < subexpr->params->length; j++) {
@@ -1405,9 +1406,9 @@ char foldconst(EXPRESSION** exa) {
 
     case B_XOR:
       newdyn = dactor(32);
+      rectexpr = ct_uintconst_expr(0);
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
-        rectexpr = ct_uintconst_expr(0);
         rove = 0;
         switch(subexpr->type) {
           case B_XOR:

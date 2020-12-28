@@ -7,6 +7,7 @@
 #include "3ac.h"
 #include "ssa.h"
 #include "opt.h"
+#include <coz.h>
 
 int yyparse(void* scanner);
 int yyset_in(FILE*, void*);
@@ -81,6 +82,7 @@ int main(int argc, char** argv) {
   for(int i = 1; i < argc; i += 1) {
     //if(i + 1 == argc) {
     filecomp(argv[i]);
+    COZ_PROGRESS;
     //} else {
     //  pthread_create(&pt, NULL, (void* (*)(void*)) filecomp, argv[i + 1]);
     //  filecomp(argv[i]);
