@@ -24,7 +24,7 @@ void fixedinsert(HASHTABLE* ht, long fixedkey, void* value) {
       hp->value = value;
       return;
     }
-    HASHPAIR* newpair = calloc(1, sizeof(HASHPAIR));
+    HASHPAIR* newpair = malloc(sizeof(HASHPAIR));
     newpair->fixedkey = fixedkey;
     newpair->value = value;
     newpair->next = (void*) 1;

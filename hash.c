@@ -9,7 +9,13 @@ static unsigned long hash(const char* str) {    /*courtesy of http://www.cse.yor
 }
 
 HASHTABLE* htctor(void) {
-  return calloc(1, sizeof(HASHTABLE));
+  HASHTABLE* ht = malloc(sizeof(HASHTABLE));
+  for(int i = 0; i < HASHSIZE; i++) {
+    ht->pairs[i].key = NULL;
+    ht->pairs[i].next = NULL;
+  }
+  ht->keys = 0;
+  return ht;
 }
 
 HASHTABLE* htclone(HASHTABLE* ht) {
@@ -46,9 +52,9 @@ void htdtor(HASHTABLE* ht) {
   for(int i = 0; i < HASHSIZE; i++) {
     if(ht->pairs[i].key) {
       free(ht->pairs[i].key);
+      if(ht->pairs[i].next)
+        hpdtor(ht->pairs[i].next);
     }
-    if(ht->pairs[i].next)
-      hpdtor(ht->pairs[i].next);
   }
   free(ht);
 }
@@ -57,9 +63,9 @@ static void hpdtorcfr(HASHPAIR* hp, void (*freep)(void*)) {
   if(hp->key) {
     free(hp->key);
     freep(hp->value);
-  }
-  if(hp->next) {
-    hpdtorcfr(hp->next, freep);
+    if(hp->next) {
+      hpdtorcfr(hp->next, freep);
+    }
   }
   free(hp);
 }
@@ -70,9 +76,9 @@ void htdtorfr(HASHTABLE* ht) {
     if(ht->pairs[i].key) {
       free(ht->pairs[i].key);
       free(ht->pairs[i].value);
+      if(ht->pairs[i].next)
+        hpdtorcfr(ht->pairs[i].next, free);
     }
-    if(ht->pairs[i].next)
-      hpdtorcfr(ht->pairs[i].next, free);
   }
   free(ht);
 }
@@ -82,9 +88,9 @@ void htdtorcfr(HASHTABLE* ht, void (*freep)(void*)) {
     if(ht->pairs[i].key) {
       free(ht->pairs[i].key);
       freep(ht->pairs[i].value);
+      if(ht->pairs[i].next)
+        hpdtorcfr(ht->pairs[i].next, freep);
     }
-    if(ht->pairs[i].next)
-      hpdtorcfr(ht->pairs[i].next, freep);
   }
   free(ht);
 }
@@ -106,9 +112,10 @@ void insert(HASHTABLE* ht, const char* key, void* value) {
       hp->value = value;
       return;
     }
-    HASHPAIR* newpair = calloc(1, sizeof(HASHPAIR));
+    HASHPAIR* newpair = malloc(sizeof(HASHPAIR));
     newpair->key = strdup(key);
     newpair->value = value;
+    newpair->next = NULL;
     hp->next = newpair;
   }
   ++ht->keys;
@@ -133,9 +140,10 @@ void insertcfr(HASHTABLE* ht, const char* key, void* value, void (*cfree)(void*)
       hp->value = value;
       return;
     }
-    HASHPAIR* newpair = calloc(1, sizeof(HASHPAIR));
+    HASHPAIR* newpair = malloc(sizeof(HASHPAIR));
     newpair->key = strdup(key);
     newpair->value = value;
+    newpair->next = NULL;
     hp->next = newpair;
   }
   ++ht->keys;
@@ -268,9 +276,10 @@ void intsert(HASHTABLE* ht, const char* key, long value) {
       hp->ivalue = value;
       return;
     }
-    HASHPAIR* newpair = calloc(1, sizeof(HASHPAIR));
+    HASHPAIR* newpair = malloc(sizeof(HASHPAIR));
     newpair->key = strdup(key);
     newpair->ivalue = value;
+    newpair->next = NULL;
     hp->next = newpair;
   }
   ++ht->keys;

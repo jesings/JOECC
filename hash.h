@@ -5,7 +5,7 @@
 #include <string.h>
 #include "dynarr.h"
 
-typedef struct hp{
+typedef struct hp {
   union {
     char* key;
     long fixedkey;
@@ -16,7 +16,7 @@ typedef struct hp{
   };
   struct hp* next;
 } HASHPAIR;
-typedef struct{
+typedef struct {
   HASHPAIR pairs[HASHSIZE];
   int keys;
 } HASHTABLE;

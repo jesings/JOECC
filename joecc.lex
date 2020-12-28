@@ -8,7 +8,8 @@ SKIPNEWL \\[[:blank:]]*\n
 SKIPNEWALL \\+[[:blank:]]*[^[:blank:]]
 SCOMMENT \/\/([^\\\n]|{SKIPNEWALL})*
 MCOMMENT "/*"("*"+[^*/]|[^*])*"*"+"/"
-PPSTART [[:blank:]]*#[[:blank:]]*
+BLANKC ([[:blank:]]|{MCOMMENT})*
+PPSTART [[:blank:]]*#{BLANKC}
 %{
 //TODO: computed include? variadic macros?
 
@@ -62,12 +63,10 @@ struct arginfo {
 %option noyy_scan_string
 %option noyywrap
 
-%x PPSKIP
-%x PREPROCESSOR INCLUDE INCLUDENEXT
-%x DEFINE UNDEF DEFARG DEFINE2
+%x PPSKIP KILLBLANK KILLUNTIL
+%x INCLUDE INCLUDENEXT
+%x IFDEF DEFINE UNDEF DEFARG DEFINE2
 %x ERROR WARNING
-%x IFDEF 
-%x KILLBLANK KILLUNTIL
 %x STRINGLIT CHARLIT
 %x CALLMACRO FINDREPLACE
 %x WITHINIF CHECKDEFINED CHECKDEFINED2
@@ -90,39 +89,40 @@ struct arginfo {
   ([^/\n\\]|{SKIPNEWALL}|"/"[^/\n*]|{MCOMMENT})*({SCOMMENT}|"/")?\n {yy_pop_state(yyscanner);}
 }
 
-<INITIAL,PREPROCESSOR,INCLUDE,DEFINE,UNDEF,DEFARG,DEFINE2,IFDEF,CALLMACRO,PPSKIP,KILLBLANK,WITHINIF>{
-  {MCOMMENT} {}
-  {SCOMMENT} {}
+<INITIAL,INCLUDE,DEFINE,UNDEF,DEFARG,DEFINE2,IFDEF,CALLMACRO,KILLBLANK,WITHINIF>{
+  {MCOMMENT}+|{SCOMMENT} {}
 }
 
+^{PPSTART}include{BLANKC} {yy_push_state(INCLUDE, yyscanner); lctx->ls->stmtover = 0;}
+^{PPSTART}include_next{BLANKC} {yy_push_state(INCLUDENEXT, yyscanner); lctx->ls->stmtover = 0;}
+^{PPSTART}define{BLANKC} {yy_push_state(DEFINE, yyscanner); lctx->ls->md = calloc(1, sizeof(struct macrodef));}
+^{PPSTART}undef{BLANKC} {yy_push_state(UNDEF, yyscanner);}
 
-<PPSKIP>{
-  ^{PPSTART}/if { //also covers ifdef and ifndef
-    yy_push_state(PREPROCESSOR, yyscanner);
-    lctx->ls->stmtover = 0;
-    }
-  ^{PPSTART}/el { //covers else and elif
-    yy_push_state(PREPROCESSOR, yyscanner);
-    lctx->ls->stmtover = 0;
-    }
-  ^{PPSTART}/endif {
-    yy_push_state(PREPROCESSOR, yyscanner);
-    lctx->ls->stmtover = 0;
-    }
-  ([^\n\/#]|(\n[[:blank:]]*)+[^#\n\/[:blank:]]|(\n[[:blank:]]*)+{PPSTART}(define|include|include_next|undef|warning|error|line))+ {}
-  [\/\n#] {}
-}
+^{PPSTART}line{BLANKC} {yy_push_state(KILLUNTIL, yyscanner);/*TODO: line directive currently doesn't apply requisite information*/}
+^{PPSTART}warning{BLANKC} {yy_push_state(WARNING, yyscanner);}
+^{PPSTART}error{BLANKC} {yy_push_state(ERROR, yyscanner);}
 
-^{PPSTART} {yy_push_state(PREPROCESSOR, yyscanner); lctx->ls->stmtover = 0;}
-<PREPROCESSOR>{
-  include[[:blank:]]+ {yy_push_state(INCLUDE, yyscanner);}
-  include_next[[:blank:]]+ {yy_push_state(INCLUDENEXT, yyscanner);}
-  define[[:blank:]]+ {yy_push_state(DEFINE, yyscanner); lctx->ls->md = calloc(1, sizeof(struct macrodef));}
-  undef[[:blank:]]+ {yy_push_state(UNDEF, yyscanner);}
-  ifdef[[:blank:]]+ {yy_push_state(IFDEF, yyscanner); lctx->ls->argeaten = 0;}
-  ifndef[[:blank:]]+ {yy_push_state(IFDEF, yyscanner); lctx->ls->argeaten = 1;}
-  else {
-    yy_pop_state(yyscanner);
+<INITIAL,PPSKIP>{
+  ^{PPSTART}ifdef{BLANKC} {yy_push_state(IFDEF, yyscanner); lctx->ls->argeaten = 0; lctx->ls->stmtover = 0;}
+  ^{PPSTART}ifndef{BLANKC} {yy_push_state(IFDEF, yyscanner); lctx->ls->argeaten = 1;}
+  ^{PPSTART}if{BLANKC} {
+    DYNARR* ds = lctx->definestack;
+    enum ifdefstate ids = ds->length > 0 ? *(enum ifdefstate*) dapeek(ds) : IFANDTRUE;
+    enum ifdefstate* rids;
+    switch(ids) {
+      default:
+        rids = malloc(sizeof(enum ifdefstate));
+        *rids = IFDEFDUMMY;
+        dapush(ds, rids);
+        yy_push_state(PPSKIP, yyscanner);
+        break;
+      case IFANDTRUE: case ELSEANDFALSE:
+        yy_push_state(WITHINIF, yyscanner);
+        zzparse(yyscanner);
+        break;
+    }
+    }
+  ^{PPSTART}else{BLANKC} {
     DYNARR* ds = lctx->definestack;
     assert(ds->length || !fprintf(stderr, "ERROR: else without preceding if %s %d.%d-%d.%d\n", locprint2(yylloc)));
     enum ifdefstate* ids = dapeek(ds);
@@ -143,8 +143,7 @@ struct arginfo {
         break;
     }
     }
-  elif {
-    yy_pop_state(yyscanner);
+  ^{PPSTART}elif{BLANKC} {
     DYNARR* ds = lctx->definestack;
     assert(ds->length || !fprintf(stderr, "ERROR: elif without preceding if %s %d.%d-%d.%d\n", locprint2(yylloc)));
     enum ifdefstate* ids = dapeek(ds);
@@ -165,8 +164,7 @@ struct arginfo {
         fprintf(stderr, "Error: Unexpected #elif %s %d.%d-%d.%d\n", locprint2(yylloc));
     }
     }
-  endif {
-    yy_pop_state(yyscanner);
+  ^{PPSTART}endif{BLANKC} {
     DYNARR* ds = lctx->definestack;
     if(ds->length > 0) {
       enum ifdefstate* ids = dapop(ds);
@@ -183,30 +181,14 @@ struct arginfo {
     }
     yy_push_state(KILLUNTIL, yyscanner);
     }
-  if {
-    yy_pop_state(yyscanner);
-    DYNARR* ds = lctx->definestack;
-    enum ifdefstate ids = ds->length > 0 ? *(enum ifdefstate*) dapeek(ds) : IFANDTRUE;
-    enum ifdefstate* rids;
-    switch(ids) {
-      default:
-        rids = malloc(sizeof(enum ifdefstate));
-        *rids = IFDEFDUMMY;
-        dapush(ds, rids);
-        yy_push_state(PPSKIP, yyscanner);
-        break;
-      case IFANDTRUE: case ELSEANDFALSE:
-        yy_push_state(WITHINIF, yyscanner);
-        zzparse(yyscanner);
-        break;
-    }
-    }
-  line[[:blank:]]* {yy_pop_state(yyscanner); yy_push_state(KILLUNTIL, yyscanner);/*TODO: line directive currently doesn't apply requisite information*/}
-  warning[[:blank:]]* {yy_pop_state(yyscanner); yy_push_state(WARNING, yyscanner);}
-  error[[:blank:]]* {yy_pop_state(yyscanner); yy_push_state(ERROR, yyscanner);}
-  \n {yy_pop_state(yyscanner);fprintf(stderr, "PREPROCESSOR: Incorrect line end %d %s %d.%d-%d.%d\n", yylloc->first_line, locprint2(yylloc));}
-  . {fprintf(stderr, "PREPROCESSOR: Unexpected character encountered: %d %c %s %d.%d-%d.%d\n", *yytext, *yytext, locprint2(yylloc));}
 }
+
+<PPSKIP>{
+  ([^\n\/#]|\n[[:space:]]*({PPSTART}(define|include|include_next|undef|warning|error|line)|[^#\/[:space:]])|{MCOMMENT}|{SCOMMENT}|"/"[^*/]|\n[[:blank:]]*[^#[:blank:]])+ {}
+  [\n#] {}
+}
+
+^{PPSTART} {yy_push_state(KILLUNTIL, yyscanner); fprintf(stderr, "Error: unkown preprocessor keyword encountered on line %d! %s %d.%d-%d.%d\n", yylloc->last_line, locprint2(yylloc));}
 
 <WARNING>{
   \"(\\.|[^\\"]|{SKIPNEWL})*\" {
@@ -242,7 +224,6 @@ struct arginfo {
         "/usr/include",
         };
       yy_pop_state(yyscanner);
-      yy_pop_state(yyscanner);
       int i;
       for(i = 0; i < 4 /*sizeof searchpath*/; i++) {
         FILE* newbuf;
@@ -271,7 +252,6 @@ struct arginfo {
     } else {
       lctx->ls->stmtover = 1;
       yytext[yyleng - 1] = '\0'; //ignore closing "
-      yy_pop_state(yyscanner);
       yy_pop_state(yyscanner);
       FILE* newbuf;
       char* pfstr = dapeek(lctx->ls->file2compile);
@@ -303,8 +283,7 @@ struct arginfo {
     }
 }
 <INCLUDE,INCLUDENEXT>{
-  [[:space:]]+[<\"] {/*"*/yyless(1);--yylloc->last_column;}
-  [[:space:]]*\n {yy_pop_state(yyscanner); yy_pop_state(yyscanner);if(!lctx->ls->stmtover) fprintf(stderr, "Error: incomplete include %s %d.%d-%d.%d\n", locprint2(yylloc));}
+    {BLANKC}\n {yy_pop_state(yyscanner);if(!lctx->ls->stmtover) fprintf(stderr, "Error: incomplete include %s %d.%d-%d.%d\n", locprint2(yylloc));}
   . {fprintf(stderr, "INCLUDE: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint2(yylloc));}
 }
 
@@ -322,7 +301,6 @@ struct arginfo {
         "/usr/lib/gcc/x86_64-pc-linux-gnu/10.2.0/include-fixed/",
         "/usr/include/",
         };
-      yy_pop_state(yyscanner);
       yy_pop_state(yyscanner);
       int i = 0;
       for(; i < 3 && strncmp(dapeek(lctx->ls->file2compile), searchpath[i], strlen(searchpath[i])); ++i) ;
@@ -386,7 +364,7 @@ struct arginfo {
     lctx->ls->argeaten = 0;
     insert(lctx->withindefines, yytext, NULL);
     }
-  \n {yy_pop_state(yyscanner); yy_pop_state(yyscanner);/*error state*/}
+  \n {yy_pop_state(yyscanner);/*error state*/}
   . {fprintf(stderr, "DEFINE: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint2(yylloc));}
 }
 
@@ -420,14 +398,13 @@ struct arginfo {
     yy_push_state(DEFINE2, yyscanner); 
     lctx->ls->mdstrdly = strctor(malloc(256), 0, 256);
     }
-  \n {yy_pop_state(yyscanner); yy_pop_state(yyscanner);/*error state*/}
+  \n {yy_pop_state(yyscanner); /*error state*/}
   . {fprintf(stderr, "DEFINE: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint2(yylloc));}
 }
 
 <DEFINE2>{
   ([^/\n]|"/"[^*/]|{SKIPNEWL})+ {dscat(lctx->ls->mdstrdly, yytext, yyleng);}
   \n {
-    yy_pop_state(yyscanner);
     yy_pop_state(yyscanner);
     dsccat(lctx->ls->mdstrdly, 0);
     struct macrodef* isinplace;
@@ -452,7 +429,7 @@ struct arginfo {
     rmpaircfr(lctx->defines, yytext, (void(*)(void*)) freemd);}
   {IDENT}|["][^"\n]*["]/[[:blank:]] {
     rmpaircfr(lctx->defines, yytext, (void(*)(void*)) freemd); yy_push_state(KILLBLANK, yyscanner);}
-  \n {yy_pop_state(yyscanner); yy_pop_state(yyscanner);/*error state if expr not over?*/}
+  \n {yy_pop_state(yyscanner);/*error state if expr not over?*/}
   . {fprintf(stderr, "UNDEF: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint2(yylloc));}
 }
 
@@ -467,7 +444,6 @@ struct arginfo {
     }
   \n {
     yy_pop_state(yyscanner);
-    yy_pop_state(yyscanner); 
     if(!lctx->ls->stmtover) {
       /*error state*/
       fprintf(stderr, "Incomplete ifdef! %s %d.%d-%d.%d\n", locprint2(yylloc));
@@ -732,7 +708,7 @@ struct arginfo {
     }
 }
 
-<INITIAL,PREPROCESSOR,INCLUDE,INCLUDENEXT,DEFINE,UNDEF,IFDEF,DEFARG,DEFINE2,STRINGLIT,WITHINIF,CALLMACRO>{SKIPNEWL} {/*the newline is ignored*/}
+<INCLUDE,INCLUDENEXT,DEFINE,UNDEF,IFDEF,DEFARG,DEFINE2,STRINGLIT,CALLMACRO>{SKIPNEWL} {/*the newline is ignored*/}
 "->" {return ARROWTK;}
 "++" {return INC;}
 "--" {return DEC;}
@@ -826,8 +802,8 @@ struct arginfo {
 
 
 <WITHINIF>{
-  "defined"[[:blank:]]*"("[[:blank:]]* {yy_push_state(CHECKDEFINED, yyscanner);}
-  "defined"[[:blank:]]* {yy_push_state(CHECKDEFINED2, yyscanner);}
+  "defined"{BLANKC}"("{BLANKC} {yy_push_state(CHECKDEFINED, yyscanner);}
+  "defined"{BLANKC} {yy_push_state(CHECKDEFINED2, yyscanner);}
   {IDENT} {
     char* ds = strdup(yytext);
     int mt = check_type(ds, 0, yylloc, yyscanner);
@@ -964,7 +940,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); lctx->ls->strcur = strctor(mallo
   }
 }
 <INITIAL,WITHINIF>{
-  [[:blank:]]+ {/*Whitespace, ignored*/}
+  ({SKIPNEWL}|[[:blank:]])+ {/*Whitespace, ignored*/}
   L?\' {yy_push_state(CHARLIT, yyscanner);}
 }
 <WITHINIF>\n {
@@ -980,7 +956,6 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); lctx->ls->strcur = strctor(mallo
     yyterminate();
   } else {
     yy_pop_state(yyscanner);
-    lctx->ls->stmtover = 1;
     YYLTYPE* ylt = dapop(lctx->ls->locs);
     *yylloc = *ylt;
     free(ylt);
@@ -1002,7 +977,6 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); lctx->ls->strcur = strctor(mallo
     yyterminate();
   } else {
     yy_pop_state(yyscanner);
-    lctx->ls->stmtover = 1;
     YYLTYPE* ylt = dapop(lctx->ls->locs);
     *yylloc = *ylt;
     free(ylt);
