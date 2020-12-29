@@ -5,7 +5,7 @@
 #include "treeduce.h"
 
 #define OPS_3AC \
-  X(NOP_3), X(LBL_3), \
+  X(NOP_3) /*op0*/, X(LBL_3) /*op1 (special)*/, \
   X(ADD_U), X(ADD_I), X(ADD_F), \
   X(SUB_U), X(SUB_I), X(SUB_F), \
   X(MULT_U), X(MULT_I), X(MULT_F), \
@@ -15,39 +15,36 @@
   X(SHR_U), X(SHR_I), \
   X(AND_U), X(AND_F), \
   X(OR_U), X(OR_F), \
-  X(XOR_U), X(XOR_F), \
+  X(XOR_U), X(XOR_F) /*all op3*/, \
   X(NOT_U), X(NOT_F), \
   X(INC_U), X(INC_I), X(INC_F), \
   X(DEC_U), X(DEC_I), X(DEC_F), \
-  X(NEG_I), X(NEG_F), \
+  X(NEG_I), X(NEG_F) /*all op2*/, \
   X(EQ_U), X(EQ_I), X(EQ_F), \
   X(NE_U), X(NE_I), X(NE_F), \
   X(GE_U), X(GE_I), X(GE_F), \
   X(LE_U), X(LE_I), X(LE_F), \
   X(GT_U), X(GT_I), X(GT_F), \
-  X(LT_U), X(LT_I), X(LT_F), \
+  X(LT_U), X(LT_I), X(LT_F) /*all op3*/, \
   X(BEQ_U), X(BEQ_I), X(BEQ_F), \
   X(BNE_U), X(BNE_I), X(BNE_F), \
   X(BGE_U), X(BGE_I), X(BGE_F), \
   X(BLE_U), X(BLE_I), X(BLE_F), \
   X(BGT_U), X(BGT_I), X(BGT_F), \
-  X(BLT_U), X(BLT_I), X(BLT_F), \
-  X(JEQ_I), \
-  X(ADDR_3), \
-  X(BNZ_3), X(BEZ_3), \
-  X(JMP_3), \
-  X(MOV_3), \
-  X(MTP_OFF), \
-  X(ARG_3), /*Do this for each param for CALL, must be done immediately before CALL */\
-  X(CALL_3), X(RET_3), X(RET_0),\
-  X(F2I), X(I2F), \
-  X(COPY_3), /*source (pointer), length, destination (pointer) */\
-  X(ARRIND), /*source (uintconst_64 or regnum), index, dest (index size impicit from result size) */\
-  X(ARROFF), /*source (uintconst_64 or regnum), index, dest (index size impicit from result size) */\
-  X(ARRMOV), /*source (uintconst_64 or regnum), index, dest (index size impicit from result size) */\
-  X(ALOC_3), /*Allocate stack memory for struct, op2, takes size, and outputs start index*/\
-  X(INIT_3), /*we need to add to symbol table on encountering it, 2 params: size, regnum */\
-  X(PARAM_3), /*we need to add to symbol table on encountering it, 2 params: size, regnum */
+  X(BLT_U), X(BLT_I), X(BLT_F) /*all op2 (no dest addr)*/, \
+  X(BNZ_3), X(BEZ_3) /*both op1, (no dest addr)*/, \
+  X(JEQ_I) /*op3 (dest label*/, X(JMP_3) /*op1 special, (dest label)*/, \
+  X(MOV_3) /*op3*/, \
+  X(ADDR_3) /*op2*/, \
+  X(MTP_OFF) /*op3*/, \
+  X(ARG_3) /*op1*/, X(CALL_3) /*op2, source fcall location*/, X(RET_3) /*op1*/, X(RET_0) /*op0*/, \
+  X(F2I), X(I2F), /*both op0*/\
+  X(COPY_3), /*op3, source (pointer), length, destination (pointer) */\
+  X(ARROFF), /*op3, source (uintconst_64 or regnum), index, dest (index size impicit from result size) */\
+  X(ARRMOV), /*op3, source (uintconst_64 or regnum), index, dest (index size impicit from result size) */\
+  X(ALOC_3), /*op2, Allocate stack memory for struct, takes size, and outputs start index*/\
+  X(INIT_3), X(PARAM_3), /*both op1, declare variable*/ \
+  X(PHI) /*op1 but dynarr, join node*/
 
 #define X(s) s
 enum opcode_3ac {
@@ -59,8 +56,13 @@ struct op;
 struct bblock;
 
 typedef union {
-  unsigned long iregnum; //integer register
-  unsigned long fregnum; //floating point register
+  struct {
+    unsigned int varnum;
+    union {
+      unsigned int fregnum;
+      unsigned int iregnum;
+    };
+  };
   unsigned long uintconst_64; //unsigned int 64 bit or pointer
   long intconst_64;
   double floatconst_64;
@@ -81,6 +83,7 @@ typedef enum {
   ISSTRCONST = 0x100,
   ISPOINTER = 0x200,
   ISDEREF = 0x400,
+  ISVAR = 0x800,
 } ADDRTYPE;
 
 typedef struct op {
@@ -119,7 +122,7 @@ typedef struct {
   DYNARR* breaklabels;
   DYNARR* continuelabels;
   DYNARR* allblocks;
-  DYNARR* fixedvars;
+  DYNARR* dynvars;
   HASHTABLE* labels;
   HASHTABLE* unfilledlabels;
   BBLOCK* curblock;

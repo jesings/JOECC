@@ -100,10 +100,76 @@ void ctdtree(PROGRAM* prog) {
     cb->work = 0;
   }
   //no need to handle globals
-  DYNARR* W = dactor(prog->allblocks->length);
-  for(int i = 0; i < prog->fixedvars->length; i++) {
-    FULLADDR* fadr = daget(prog->fixedvars, i);
-    //find blocks that assign to variable (could use regno?)
+  DYNARR* varas = dactor(prog->dynvars->length);
+  for(int i = 0; i < varas->maxlength; i++)
+    dapushc(varas, dactor(16)); //initialize array for blocks that modify var
+  for(int i = 0; i < blocks->length; i++) {
+    BBLOCK* cb = daget(blocks, i);
+    if(cb->lastop) {
+      OPERATION* op = cb->firstop;
+      while(1) {
+        switch(op->opcode) {
+          case ADD_U: case ADD_I: case ADD_F:
+          case SUB_U: case SUB_I: case SUB_F:
+          case MULT_U: case MULT_I: case MULT_F:
+          case DIV_U: case DIV_I: case DIV_F:
+          case MOD_U: case MOD_I:
+          case SHL_U: case SHL_I:
+          case SHR_U: case SHR_I:
+          case AND_U: case AND_F:
+          case OR_U: case OR_F:
+          case XOR_U: case XOR_F:
+          case INC_U: case INC_I: case INC_F:
+          case DEC_U: case DEC_I: case DEC_F:
+          case NEG_I: case NEG_F:
+          case EQ_U: case EQ_I: case EQ_F:
+          case NE_U: case NE_I: case NE_F:
+          case GE_U: case GE_I: case GE_F:
+          case LE_U: case LE_I: case LE_F:
+          case GT_U: case GT_I: case GT_F:
+          case LT_U: case LT_I: case LT_F:
+          case MOV_3: case CALL_3:
+          case ADDR_3: case ARROFF:
+          case F2I: case I2F: case ALOC_3:
+          //arrmov, mtp_off, copy_3 must have pointer dest
+            if((op->dest_type & (ISVAR | ISDEREF)) == ISVAR) {
+              DYNARR* dda = daget(varas, op->dest.varnum);
+              if(!dda->length || dapeek(dda) != cb)
+                dapush(dda, cb);
+            }
+          default:
+            break; //no possible correct destination
+        }
+        if(op == cb->lastop) break;
+        op = op->nextop;
+      }
+    }
+  }
+  DYNARR* W = dactor(blocks->length);
+  for(int i = 0; i < prog->dynvars->length; i++) {
+    //FULLADDR* fadr = daget(prog->dynvars, i);
+    DYNARR* blockassigns = daget(varas, i);
+    for(int j = 0; j < blockassigns->length; j++) {
+      BBLOCK* block = daget(blockassigns, j);
+      block->work = i + 1;//do this better
+      dapush(W, block);
+    }
+    for(int j = 0; j < W->length; j++) {
+      BBLOCK* block = daget(W, j);
+      if(block->df) {
+        for(int k = 0; k < block->df->length; k++) {
+          BBLOCK* domblock = daget(block->df, k);
+          if(domblock->visited != i + 1) {
+            //place phi node
+            domblock->visited = i + 1;
+            if(domblock->work != i + 1) {
+              domblock->work = i + 1;
+              dapush(W, domblock);
+            }
+          }
+        }
+      }
+    }
     //for each block, block->work = i + 1; and push block to W
     //for each block in W:
     //  for each block in the dominance frontier of block
@@ -113,5 +179,6 @@ void ctdtree(PROGRAM* prog) {
     //          domblock->work = i + 1, push domblock to W
   }
   dadtor(W);
+  dadtorcfr(varas, (void(*)(void*))dadtor);
   dadtor(blockstack);
 }

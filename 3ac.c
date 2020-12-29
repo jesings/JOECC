@@ -168,7 +168,7 @@ static FULLADDR poststep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
   IDTYPE rid = typex(cexpr);
   destaddr = linearitree(daget(cexpr->params, 0), prog);
   char baseness = destaddr.addr_type & ISFLOAT ? 2 : 0;
-  FILLGREG(actualaddr, destaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF));
+  FILLGREG(actualaddr, destaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
   opn(prog, ct_3ac_op2(MOV_3, destaddr.addr_type, destaddr.addr, actualaddr.addr_type, actualaddr.addr));
   if(rid.pointerstack && rid.pointerstack->length) {
     FULLADDR curaddr;
@@ -297,7 +297,7 @@ OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRA
   //check for no floats?
   enum opcode_3ac shlop = opcode_unsigned + (a1.addr_type & ISSIGNED ? 1 : 0);
   FULLADDR adr;
-  FILLIREG(adr, a1.addr_type & ~(ISCONST | ISLABEL | ISDEREF));
+  FILLIREG(adr, a1.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
   return ct_3ac_op3(shlop, a1.addr_type, a1.addr, a2.addr_type, a2.addr, adr.addr_type, adr.addr);
 }
 
@@ -381,7 +381,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         curaddr.addr.labelname = cexpr->id->name;
         return curaddr;
       } else {
-        return *(FULLADDR*) daget(prog->fixedvars, cexpr->id->index);
+        return *(FULLADDR*) daget(prog->dynvars, cexpr->id->index);
       }
     case ARRAY_LIT: ;
       struct declarator_part* ptrtop = dapeek(cexpr->rettype->pointerstack);
@@ -424,7 +424,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
     case NEG:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
-      destaddr.addr_type = curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF);
+      destaddr.addr_type = curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR);
       if(destaddr.addr_type & ISFLOAT) {
         destaddr.addr.fregnum = prog->fregcnt++;
         opn(prog, ct_3ac_op2(NEG_F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
@@ -436,7 +436,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case L_NOT:
       //TODO: validate lots of types
       curaddr = linearitree(daget(cexpr->params, 0), prog);
-      FILLIREG(destaddr, (curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | 0xf)) | 1);
+      FILLIREG(destaddr, (curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | 0xf | ISVAR)) | 1);
       //logical not only makes sense for ints
       otheraddr.addr.uintconst_64 = 0;
       opn(prog, ct_3ac_op3(EQ_U, curaddr.addr_type, curaddr.addr, (curaddr.addr_type & 0xf) | ISCONST, otheraddr.addr,
@@ -444,7 +444,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
     case B_NOT:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
-      destaddr.addr_type = curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF);
+      destaddr.addr_type = curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR);
       if(destaddr.addr_type & ISFLOAT) {
         destaddr.addr.fregnum = prog->fregcnt++;
         opn(prog, ct_3ac_op2(NOT_F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
@@ -764,12 +764,13 @@ OPERATION* cmptype(EXPRESSION* cmpexpr, char negate, PROGRAM* prog) {
 
 void initializestate(INITIALIZER* i, PROGRAM* prog) {
   FULLADDR* newa = malloc(sizeof(FULLADDR));
-  newa->addr_type = addrconv(i->decl->type);//addrtype should be determined from initializer type, helper function
+  newa->addr_type = addrconv(i->decl->type) | ISVAR;
   if(newa->addr_type & ISFLOAT) {
     newa->addr.fregnum = prog->fregcnt++;
   } else {
     newa->addr.iregnum = prog->iregcnt++;
   }
+  newa->addr.varnum = i->decl->varid;
   opn(prog, ct_3ac_op1(INIT_3, newa->addr_type, newa->addr));
   if(i->expr) {
     FULLADDR lastemp = linearitree(i->expr, prog);
@@ -782,8 +783,8 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
       opn(prog, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
     }
   }
-  assert(prog->fixedvars->length == i->decl->varid);
-  dapush(prog->fixedvars, newa);
+  assert(prog->dynvars->length == i->decl->varid);
+  dapush(prog->dynvars, newa);
 }
 
 static void lbljmp(char* lblname, BBLOCK* block, BBLOCK** loc, PROGRAM* prog) {
@@ -1002,10 +1003,10 @@ PROGRAM* linefunc(FUNC* f) {
   PROGRAM* prog = calloc(sizeof(PROGRAM), 1);
   prog->breaklabels = dactor(8);
   prog->continuelabels = dactor(8);
-  prog->fixedvars = dactor(1024);//handle this better
+  prog->dynvars = dactor(256);//handle this better
   prog->labels = htctor();
   prog->unfilledlabels = htctor();
-  prog->allblocks = dactor(1024);
+  prog->allblocks = dactor(256);
   prog->finalblock = mpblk();
   prog->curblock = fctblk(prog);
   //initialize params
@@ -1013,23 +1014,24 @@ PROGRAM* linefunc(FUNC* f) {
   for(int i = 0; i < f->params->length; i++) {
     FULLADDR* newa = malloc(sizeof(FULLADDR));
     DECLARATION* pdec = daget(f->params, i);
-    newa->addr_type = addrconv(pdec->type);
+    newa->addr_type = addrconv(pdec->type) | ISVAR;
     if(newa->addr_type & ISFLOAT) {
       newa->addr.fregnum = prog->fregcnt++;
     } else {
       newa->addr.iregnum = prog->iregcnt++;
     }
+    newa->addr.varnum = pdec->varid;
     opn(prog, ct_3ac_op1(PARAM_3, newa->addr_type, newa->addr));
     if(!(pdec->type->pointerstack && pdec->type->pointerstack->length) && (pdec->type->tb & (STRUCTVAL | UNIONVAL) )) {
       ADDRESS tmpaddr, tmpaddr2;
       tmpaddr.intconst_64 = pdec->type->structtype->size;
       tmpaddr2.iregnum = prog->iregcnt++;
-      opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 8, tmpaddr, newa->addr_type, tmpaddr2));
-      opn(prog, ct_3ac_op3(COPY_3, newa->addr_type, newa->addr, ISCONST, tmpaddr, newa->addr_type, tmpaddr2));
-      opn(prog, ct_3ac_op2(MOV_3, newa->addr_type, tmpaddr2, newa->addr_type, newa->addr));
+      opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 8, tmpaddr, newa->addr_type & ~ISVAR, tmpaddr2));
+      opn(prog, ct_3ac_op3(COPY_3, newa->addr_type, newa->addr, ISCONST, tmpaddr, newa->addr_type & ~ISVAR, tmpaddr2));
+      opn(prog, ct_3ac_op2(MOV_3, newa->addr_type & ~ISVAR, tmpaddr2, newa->addr_type, newa->addr));
     } 
-    assert(prog->fixedvars->length == pdec->varid);
-    dapush(prog->fixedvars, newa);
+    assert(prog->dynvars->length == pdec->varid);
+    dapush(prog->dynvars, newa);
   }
   solidstate(f->body, prog);
   dapush(prog->allblocks, prog->finalblock);
@@ -1071,11 +1073,11 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char color, FILE* f) {
   } else {
     if(color) fprintf(f, RGBCOLOR(60,220,60));
     if(addr_type & ISFLOAT) {
-      if(addr_type & ISDEREF) fprintf(f, "(ireg%lu).%df", addr.fregnum, (addr_type & 0xf) * 8);
-      else                    fprintf(f, "freg%lu.%d", addr.fregnum, (addr_type & 0xf) * 8);
+      if(addr_type & ISDEREF) fprintf(f, "(ireg%u).%df", addr.fregnum, (addr_type & 0xf) * 8);
+      else                    fprintf(f, "freg%u.%d", addr.fregnum, (addr_type & 0xf) * 8);
     } else {
-      if(addr_type & ISDEREF) fprintf(f, "(ireg%lu).%d%c", addr.iregnum, (addr_type & 0xf) * 8, addr_type & ISSIGNED ? 's' : 'u');
-      else                    fprintf(f, "ireg%lu.%d%c", addr.iregnum, (addr_type & 0xf) * 8, addr_type & ISSIGNED ? 's' : 'u');
+      if(addr_type & ISDEREF) fprintf(f, "(ireg%u).%d%c", addr.iregnum, (addr_type & 0xf) * 8, addr_type & ISSIGNED ? 's' : 'u');
+      else                    fprintf(f, "ireg%u.%d%c", addr.iregnum, (addr_type & 0xf) * 8, addr_type & ISSIGNED ? 's' : 'u');
     }
     if(color) fprintf(f, CLEARCOLOR);
   }
@@ -1113,7 +1115,7 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char color, FILE* f) {
 static void printop(OPERATION* op, char color, FILE* f) {
   fprintf(f, "%s", opcode_3ac_names[op->opcode]);
   switch(op->opcode) {
-    case NOP_3: case RET_0:
+    case NOP_3: case RET_0: case PHI:
       break;
     case LBL_3: 
       if(color) fprintf(f, RGBCOLOR(200,200,120));
@@ -1234,7 +1236,6 @@ static void printop(OPERATION* op, char color, FILE* f) {
     case F2I: case I2F:
       PRINTOP2( ); //perhaps use cast later, not vital
       break;
-    case ARRIND:
     case ARROFF:
       fprintf(f, "\t");
       printaddr(op->addr0, op->addr0_type, color, f);
@@ -1355,7 +1356,7 @@ void freeprog(PROGRAM* prog) {
   dadtorcfr(prog->allblocks, freeblock);
   dadtor(prog->breaklabels);
   dadtor(prog->continuelabels);
-  dadtorfr(prog->fixedvars);//TODO: change fixedvars to simple dynarr, as indices should be sequential
+  dadtorfr(prog->dynvars);
   htdtor(prog->labels);
   htdtor(prog->unfilledlabels);//if there are remaining entries, jumps without targets exist, very bad
   free(prog);
