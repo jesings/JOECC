@@ -76,7 +76,7 @@ void fhtdtorcfr(HASHTABLE* ht, void(*freef)(void*)) {
 }
 
 DYNARR* htfpairs(HASHTABLE* ht) {
-  DYNARR* da = dactor(4096);
+  DYNARR* da = dactor(256);
   for(int i = 0; i < HASHSIZE; i++) {
     HASHPAIR* current = &(ht->pairs[i]);
     if(current->next) {

@@ -35,7 +35,7 @@ static void* filecomp(char* filename) {
   yylex_destroy(scanner);
   dadtorcfr(lctx->enumerat2free, (void(*)(void*)) freenum);
   htdtorcfr(lctx->defines, (void (*)(void*)) freemd);
-  htdtorcfr(lctx->withindefines, (void (*)(void*)) freemd);
+  free(lctx->withindefines);
   dadtor(lctx->definestack);
   dadtor(lctx->ls->locs);
   dadtor(lctx->ls->argpp);
