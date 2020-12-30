@@ -146,12 +146,12 @@ void ctdtree(PROGRAM* prog) {
     }
   }
   DYNARR* W = dactor(blocks->length);
-  for(int i = 0; i < prog->dynvars->length; i++) {
-    //FULLADDR* fadr = daget(prog->dynvars, i);
-    DYNARR* blockassigns = daget(varas, i);
+  for(int i = 1; i <= prog->dynvars->length; i++) {
+    FULLADDR* fadr = daget(prog->dynvars, i);
+    DYNARR* blockassigns = daget(varas, i - 1);
     for(int j = 0; j < blockassigns->length; j++) {
       BBLOCK* block = daget(blockassigns, j);
-      block->work = i + 1;//do this better
+      block->work = i;//do this better
       dapush(W, block);
     }
     for(int j = 0; j < W->length; j++) {
@@ -159,24 +159,21 @@ void ctdtree(PROGRAM* prog) {
       if(block->df) {
         for(int k = 0; k < block->df->length; k++) {
           BBLOCK* domblock = daget(block->df, k);
-          if(domblock->visited != i + 1) {
-            //place phi node
-            domblock->visited = i + 1;
-            if(domblock->work != i + 1) {
-              domblock->work = i + 1;
+          if(domblock->visited != i) {
+            ADDRESS jadr;
+            jadr.joins = dactor(block->inedges->length == 2 ? 2 : 8);
+            OPERATION* phi = ct_3ac_op2(PHI, ISCONST, jadr, fadr->addr_type, fadr->addr);
+            phi->nextop = domblock->firstop;
+            domblock->firstop = phi;
+            domblock->visited = i;
+            if(domblock->work != i) {
+              domblock->work = i;
               dapush(W, domblock);
             }
           }
         }
       }
     }
-    //for each block, block->work = i + 1; and push block to W
-    //for each block in W:
-    //  for each block in the dominance frontier of block
-    //    if domblock->visited != i + 1
-    //      then place phi node, domblock->visited = i + 1
-    //        if domblock->work != i + 1
-    //          domblock->work = i + 1, push domblock to W
   }
   dadtor(W);
   dadtorcfr(varas, (void(*)(void*))dadtor);

@@ -44,7 +44,7 @@
   X(ARRMOV), /*op3, source (uintconst_64 or regnum), index, dest (index size impicit from result size) */\
   X(ALOC_3), /*op2, Allocate stack memory for struct, takes size, and outputs start index*/\
   X(INIT_3), X(PARAM_3), /*both op1, declare variable*/ \
-  X(PHI) /*op1 but dynarr, join node*/
+  X(PHI) /*op2 but dynarr, join node*/
 
 #define X(s) s
 enum opcode_3ac {
@@ -70,6 +70,7 @@ typedef union {
   unsigned long* arrayconst;
   char* labelname;
   struct bblock* branchblock;
+  DYNARR* joins;
 } ADDRESS;
 
 //Extra information for SSA?
