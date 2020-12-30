@@ -1061,6 +1061,37 @@ void freemd2(struct macrodef* mds) {
   free(mds);
 }
 
+INITIALIZER* decl2scope(DECLARATION* dec, EXPRESSION* ex, struct lexctx* lct) {
+  INITIALIZER* ac = geninit(dec, ex);
+  if(lct->func) {
+    HASHTABLE* ht = scopepeek(lct)->members;
+    SCOPEMEMBER* sm = search(ht, dec->varname);
+    if(!sm || (sm->mtype == M_VARIABLE && (sm->idi->type->tb & EXTERNNUM))) {
+      add2scope(lct, dec->varname, M_VARIABLE, dec->type);
+      dec->varid = ((SCOPEMEMBER*) search(ht, dec->varname))->idi->index;
+    } else {
+      freeinit(ac);
+      ac = NULL;
+    }
+  } else {
+    IDENTIFIERINFO* id = scopesearch(lct, M_VARIABLE, dec->varname);
+    if(!id) {
+      id = malloc(sizeof(IDENTIFIERINFO));
+      id->index = -1;
+      id->name = dec->varname;
+      id->type = dec->type;
+      if(id->type->pointerstack && id->type->pointerstack->length) {
+        struct declarator_part* dclp = dapeek(id->type->pointerstack);
+        if(dclp->type == PARAMSSPEC) {
+          id->type->tb |= GLOBALFUNC;
+        }
+      }
+      add2scope(lct, dec->varname, M_GLOBAL, id);
+    } //do nothing yet if redefinition
+  }
+  return ac;
+}
+
 void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* memberval) {
   SCOPE* scope = scopepeek(lct);
   SCOPEMEMBER* sm = malloc(sizeof(SCOPEMEMBER));

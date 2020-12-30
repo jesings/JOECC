@@ -370,6 +370,7 @@ SCOPE* scopepeek(struct lexctx* lct);
 void* scopesearch(struct lexctx* lct, enum membertype mt, char* key);
 char scopequeryval(struct lexctx* lct, enum membertype mt, char* key);
 void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, STRUCT* assignval);
+INITIALIZER* decl2scope(DECLARATION* dec, EXPRESSION* ex, struct lexctx* lct);
 void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* memberval);
 TOPBLOCK* gtb(char isfunc, void* assign);
 void feedstruct(STRUCT* s);

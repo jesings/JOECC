@@ -40,7 +40,6 @@
 
   #define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
   #define dget(param, index) ((DECLARATION*) (param)->arr[(index)])
-  //TODO: For comma separated declarators, add values to scope after comma rather than whole declarator
   //TODO: Struct initializers, optional brace nesting?
   //TODO: Consider designated initializers, compound literals?
 }
@@ -105,13 +104,11 @@ program:
     if($1) {
       for(int i = 0; i < $1->length; i++) {
         INITIALIZER* a2 = daget($1, i);
-        assert(!scopequeryval(ctx, M_VARIABLE, a2->decl->varname));
-        IDENTIFIERINFO* id = malloc(sizeof(IDENTIFIERINFO));
-        id->index = -1;
-        id->name = a2->decl->varname;
-        id->type = a2->decl->type;
-        add2scope(ctx, a2->decl->varname, M_GLOBAL, id);
-        dapushc(ctx->globals, a2);
+        if(!(a2->decl->type->tb & EXTERNNUM)) {
+          dapush(ctx->globals, a2);
+        } else {
+          dapush(ctx->externglobals, a2);
+        }
       }
       dadtor($1);
     }
@@ -130,32 +127,22 @@ program:
     if($2) {
       for(int i = 0; i < $2->length; i++) {
         INITIALIZER* a2 = daget($2, i);
-        if(!scopequeryval(ctx, M_VARIABLE, a2->decl->varname)) {
-          IDENTIFIERINFO* id = malloc(sizeof(IDENTIFIERINFO));
-          id->index = -1;
-          id->name = a2->decl->varname;
-          id->type = a2->decl->type;
-          if(id->type->pointerstack && id->type->pointerstack->length) {
-            struct declarator_part* dclp = dapeek(id->type->pointerstack);
-            if(dclp->type == PARAMSSPEC) {
-              id->type->tb |= GLOBALFUNC;
-            }
-          }
-          add2scope(ctx, a2->decl->varname, M_GLOBAL, id);
+        IDENTIFIERINFO* id = scopesearch(ctx, M_VARIABLE, a2->decl->varname);
+        if(id->type == a2->decl->type) {
+          //not redefinition
           if(!(a2->decl->type->tb & EXTERNNUM)) {
             dapush(ctx->globals, a2);
           } else {
             dapush(ctx->externglobals, a2);
           }
         } else {
-          IDENTIFIERINFO* id = scopesearch(ctx, M_VARIABLE, a2->decl->varname);
-          if(!(id->type->tb & EXTERNNUM)) {
-            fprintf(stderr, "Error: redefinition of global symbol %s in %s %d.%d-%d.%d\n", a2->decl->varname, locprint(@$));
-            //TODO: allow redefinitions that are function prototypes
-            freeinit(a2);
-          } else {
+          if(id->type->tb & EXTERNNUM) {
             id->type->tb &= ~EXTERNNUM;
             dapush(ctx->globals, a2);
+          } else {
+            //TODO: allow redefinitions that are function prototypes
+            fprintf(stderr, "Error: redefinition of non-extern global identifier in %s %d.%d-%d.%d\n", locprint(@$));
+            freeinit(a2);
           }
         }
       }
@@ -180,25 +167,30 @@ initializer:
       dapop(da);
     }
   }
+  SCOPE* topscope = dapeek(ctx->scopes);
   for(int i = 0; i < $3->length; i++) {
     dc = dget($3, i);
-    dc->type->tb |= $2->tb;
-    if($2->pointerstack) {
-      DYNARR* nptr = ptrdaclone($2->pointerstack);
-      if(dc->type->pointerstack)
-        dc->type->pointerstack = damerge(nptr, dc->type->pointerstack);
-      else
-        dc->type->pointerstack = nptr;
-    }
-    if($2->tb & (STRUCTVAL | UNIONVAL)) {
-      if(da) {
-        dc->type->structtype = structor(strdup($2->structtype->name), NULL, ctx);
-        dapush(da, &(dc->type->structtype));
-      } else {
-         dc->type->structtype = $2->structtype;
+    if(!queryval(topscope->typesdef, dc->varname)) {
+      dc->type->tb |= $2->tb;
+      if($2->pointerstack) {
+        DYNARR* nptr = ptrdaclone($2->pointerstack);
+        if(dc->type->pointerstack)
+          dc->type->pointerstack = damerge(nptr, dc->type->pointerstack);
+        else
+          dc->type->pointerstack = nptr;
       }
+      if($2->tb & (STRUCTVAL | UNIONVAL)) {
+        if(da) {
+          dc->type->structtype = structor(strdup($2->structtype->name), NULL, ctx);
+          dapush(da, &(dc->type->structtype));
+        } else {
+           dc->type->structtype = $2->structtype;
+        }
+      }
+      add2scope(ctx, dc->varname, M_TYPEDEF, dc->type);
+    } else {
+      //error
     }
-    add2scope(ctx, dc->varname, M_TYPEDEF, dc->type);
     free(dc->varname);
     free(dc);
   }
@@ -240,24 +232,7 @@ initializer:
          ac->decl->type->structtype = $1->structtype;
       }
     }
-    if(!ac->decl->type->pointerstack->length ||
-       ((((struct declarator_part*) dapeek(ac->decl->type->pointerstack))->type != PARAMSSPEC) &&
-       (((struct declarator_part*) dapeek(ac->decl->type->pointerstack))->type != NAMELESS_PARAMSSPEC))) {
-      if(ctx->func) {
-        HASHTABLE* ht = scopepeek(ctx)->members;
-        SCOPEMEMBER* sm = search(ht, ac->decl->varname);
-        if(!sm || (sm->mtype == M_VARIABLE && (sm->idi->type->tb & EXTERNNUM))) {
-          add2scope(ctx, ac->decl->varname, M_VARIABLE, ac->decl->type);
-          ac->decl->varid = ((SCOPEMEMBER*) search(ht, ac->decl->varname))->idi->index;
-        } else {
-          fprintf(stderr, "Error: redefinition of identifier %s in %s %d.%d-%d.%d\n", ac->decl->varname, locprint(@$));
-          freeinit(ac);
-        }
-      } else {
-      }
-    } else {
-      //TODO: ensure no prior definition
-      insert(ctx->funcs, ac->decl->varname, NULL);
+    if(!ctx->func) {
     }
     if(ac->expr && ac->expr->type == ARRAY_LIT) {
       DYNARR* pointy = ac->decl->type->pointerstack;
@@ -307,10 +282,18 @@ initializer:
 | fullenum ';' {$$ = NULL;}
 | fullunion ';' {$$ = NULL;};
 cs_inits:
-  cs_inits ',' declarator '=' escoa {$$ = $1; dapush($$, geninit($3, $5));}
-| declarator '=' escoa {$$ = dactor(8); dapushc($$, geninit($1, $3));}
-| cs_inits ',' declarator {$$ = $1; dapush($$, geninit($3, NULL));}
-| declarator {$$ = dactor(8); dapushc($$, geninit($1, NULL));};
+  cs_inits ',' declarator '=' escoa {$$ = $1; 
+    INITIALIZER* id = decl2scope($3, $5, ctx);
+    if(id) dapush($$, id); else fprintf(stderr, "Error: redefinition of identifier in %s %d.%d-%d.%d\n", locprint(@3)); }
+| declarator '=' escoa {$$ = dactor(8);
+    INITIALIZER* id = decl2scope($1, $3, ctx);
+    if(id) dapushc($$, id); else fprintf(stderr, "Error: redefinition of identifier in %s %d.%d-%d.%d\n", locprint(@1)); }
+| cs_inits ',' declarator {$$ = $1; 
+    INITIALIZER* id = decl2scope($3, NULL, ctx);
+    if(id) dapush($$, id); else fprintf(stderr, "Error: redefinition of identifier in %s %d.%d-%d.%d\n", locprint(@1)); }
+| declarator {$$ = dactor(8); 
+    INITIALIZER* id = decl2scope($1, NULL, ctx);
+    if(id) dapushc($$, id); else fprintf(stderr, "Error: redefinition of identifier in %s %d.%d-%d.%d\n", locprint(@1)); };
 escoa:
   esc {$$ = $1;}
 | array_literal {$$ = ct_array_lit($1);};
@@ -880,9 +863,7 @@ union:
         add2scope(ctx, $2, M_UNION, NULL);
         insert(scopepeek(ctx)->forwardunions, $2, dactor(16));
       }
-      $$ = malloc(sizeof(UNION));
-      $$->name = $2;
-      $$->fields = NULL;
+      $$ = unionctor($2, NULL, ctx);
     } else {
       free($2);
     }
