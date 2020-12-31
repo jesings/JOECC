@@ -38,6 +38,7 @@ PPSTART [[:blank:]]*#{BLANKC}
 
 int zzparse(yyscan_t scanner);
 int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner);
+void yypush_stringbuffer(char* str, int length, const char* macname, yyscan_t yyscanner);
 
 struct arginfo {
   DYNSTR* argi;
@@ -47,8 +48,6 @@ struct arginfo {
 };
 
 #define GOC(c) yylval_param->unum = c; yy_pop_state(yyscanner); return UNSIGNED_LITERAL
-#define UNPUTSTR(str) unput('"', yyscanner); for(int l = strlen(str); l; unput(str[--l], yyscanner)) --yylloc->last_column; unput('"', yyscanner); yylloc->last_column -= 2;
-#define UNPUTLIT(str) for(int l = strlen(str); l; unput(str[--l], yyscanner)) --yylloc->last_column;
 %}
 %option stack
 %option never-interactive
@@ -59,9 +58,9 @@ struct arginfo {
 
 %option warn
 %option nodefault
-%option noyy_top_state
 %option noyy_scan_string
 %option noyywrap
+%option noyymore
 
 %x PPSKIP KILLBLANK KILLUNTIL
 %x INCLUDE INCLUDENEXT
@@ -74,11 +73,40 @@ struct arginfo {
 /*TODO: traverse stack to find non-dummy for __FILE__ and __LINE__*/
 %%
 <CALLMACRO,WITHINIF,INITIAL>{
-  "__FILE__" {char* fstr = dapeek(lctx->ls->file2compile); UNPUTSTR(fstr);}
-  "__LINE__" {char linebuf[16]; sprintf(linebuf, "%d", yylloc->last_line); UNPUTLIT(linebuf);}
-  "__DATE__" {time_t tim = time(NULL); struct tm* tms = localtime(&tim); char datebuf[14]; strftime(datebuf, 14, "%b %e %Y", tms); UNPUTSTR(datebuf);}
-  "__TIME__" {time_t tim = time(NULL); struct tm* tms = localtime(&tim); char timebuf[11]; strftime(timebuf, 11, "%T",tms); UNPUTSTR(timebuf);}
-  "__func__" {char* namestr = lctx->func->name; UNPUTSTR(namestr);}
+  "__FILE__" {
+    char linebuf[300];
+    int bsize = sprintf(linebuf, "\"%s\"", (char*) dapeek(lctx->ls->file2compile));
+    yypush_stringbuffer(linebuf, bsize, "__FILE__", yyscanner);
+    yy_push_state(yy_top_state(yyscanner), yyscanner);
+  }
+  "__LINE__" {
+    char linebuf[16]; 
+    int bsize = sprintf(linebuf, "%d", yylloc->last_line); 
+    yypush_stringbuffer(linebuf, bsize, "__LINE__", yyscanner); //push dummy value
+    yy_push_state(yy_top_state(yyscanner), yyscanner);
+  }
+  "__DATE__" {
+    time_t tim = time(NULL); 
+    struct tm* tms = localtime(&tim); 
+    char datebuf[20]; 
+    size_t datesize = strftime(datebuf, 16, "\"%b %e %Y\"", tms);
+    yypush_stringbuffer(datebuf, datesize, "__DATE__", yyscanner); //push dummy value
+    yy_push_state(yy_top_state(yyscanner), yyscanner);
+  }
+  "__TIME__" {
+    time_t tim = time(NULL); 
+    struct tm* tms = localtime(&tim); 
+    char timebuf[16]; 
+    size_t timesize = strftime(timebuf, 13, "\"%T\"",tms);
+    yypush_stringbuffer(timebuf, timesize, "__TIME__", yyscanner); //push dummy value
+    yy_push_state(yy_top_state(yyscanner), yyscanner);
+  }
+  "__func__" {
+    char linebuf[300];
+    int bsize = sprintf(linebuf, "\"%s\"", lctx->func->name);
+    yypush_stringbuffer(linebuf, bsize, "__func__", yyscanner);
+    yy_push_state(yy_top_state(yyscanner), yyscanner);
+  }
 }
 
 <KILLBLANK>{
@@ -514,17 +542,7 @@ struct arginfo {
           lctx->ls->dstrdly = strctor(malloc(256), 0, 256);
           yy_pop_state(yyscanner);
           yy_push_state(FINDREPLACE, yyscanner);
-          YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
-          *ylt = *yylloc;
-          dapush(lctx->ls->locs, ylt);
-          yylloc->first_line = yylloc->last_line = 1;
-          yylloc->first_column = yylloc->last_column = 0;
-          FILE* fmm = fmemopen(NULL, mdl->text->lenstr, "r+");
-          fwrite(mdl->text->strptr, 1, mdl->text->lenstr, fmm);
-          fseek(fmm, 0, SEEK_SET);
-          rewind(fmm);
-          YY_BUFFER_STATE ybs = yy_create_buffer(fmm, YY_BUF_SIZE, yyscanner);
-          yypush_buffer_state(ybs, yyscanner);
+          yypush_stringbuffer(mdl->text->strptr, mdl->text->lenstr, NULL, yyscanner);
         }
       }
     }
@@ -573,7 +591,7 @@ struct arginfo {
     }
     }
   \0 {
-    fclose(YY_CURRENT_BUFFER->yy_input_file);
+    if(YY_CURRENT_BUFFER->yy_input_file) fclose(YY_CURRENT_BUFFER->yy_input_file);
     yypop_buffer_state(yyscanner);
     if ( !YY_CURRENT_BUFFER ) {
       yyterminate();
@@ -591,7 +609,7 @@ struct arginfo {
     }
     }
   <<EOF>> {
-    fclose(YY_CURRENT_BUFFER->yy_input_file);
+    if(YY_CURRENT_BUFFER->yy_input_file) fclose(YY_CURRENT_BUFFER->yy_input_file);
     yypop_buffer_state(yyscanner);
     if ( !YY_CURRENT_BUFFER ) {
       yyterminate();
@@ -644,19 +662,16 @@ struct arginfo {
     dsccat(lctx->ls->dstrdly, *yytext);
     }
   <<EOF>> {
-    fclose(YY_CURRENT_BUFFER->yy_input_file);
+    if(YY_CURRENT_BUFFER->yy_input_file) fclose(YY_CURRENT_BUFFER->yy_input_file);
     yypop_buffer_state(yyscanner);
     yy_pop_state(yyscanner);
 #if PPDEBUG
     printf("now lexing buffer containing %s\n", lctx->ls->dstrdly->strptr);
 #endif
-    FILE* fmm = fmemopen(NULL, lctx->ls->dstrdly->lenstr, "r+");
-    fwrite(lctx->ls->dstrdly->strptr, 1, lctx->ls->dstrdly->lenstr, fmm);
-    fseek(fmm, 0, SEEK_SET);
-    rewind(fmm);
-    YY_BUFFER_STATE ybs = yy_create_buffer(fmm, YY_BUF_SIZE, yyscanner);
-    strdtor(lctx->ls->dstrdly);
-    yypush_buffer_state(ybs, yyscanner);
+    YY_BUFFER_STATE ybs = yy_create_buffer(NULL, YY_BUF_SIZE, yyscanner);
+    yypush_buffer_state(ybs, yyscanner); //push dummy value
+    yy_scan_bytes(lctx->ls->dstrdly->strptr, lctx->ls->dstrdly->lenstr, yyscanner);
+    yy_delete_buffer(ybs, yyscanner);
     char buf[256];
     snprintf(buf, 256, "%s", lctx->ls->defname);
     yylloc->first_line = yylloc->last_line = 1;
@@ -664,6 +679,7 @@ struct arginfo {
     dapush(lctx->ls->file2compile, strdup(buf));
     rmpair(lctx->withindefines, lctx->ls->defname);
     htdtorcfr(lctx->ls->defargs, (void(*)(void*)) strdtor);
+    strdtor(lctx->ls->dstrdly);
     if(lctx->ls->argpp->length) {
       struct arginfo* argi = dapop(lctx->ls->argpp);
       if(argi->argi) {
@@ -950,7 +966,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); lctx->ls->strcur = strctor(mallo
 [[:space:]] {/*Whitespace, ignored*/}
 
 <<EOF>> {
-  fclose(YY_CURRENT_BUFFER->yy_input_file);
+  if(YY_CURRENT_BUFFER->yy_input_file) fclose(YY_CURRENT_BUFFER->yy_input_file);
   yypop_buffer_state(yyscanner);
   if ( !YY_CURRENT_BUFFER ) {
     yyterminate();
@@ -971,7 +987,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); lctx->ls->strcur = strctor(mallo
 }
 
 <*>\0 {//same as EOF
-  fclose(YY_CURRENT_BUFFER->yy_input_file);
+  if(YY_CURRENT_BUFFER->yy_input_file) fclose(YY_CURRENT_BUFFER->yy_input_file);
   yypop_buffer_state(yyscanner);
   if ( !YY_CURRENT_BUFFER ) {
     yyterminate();
@@ -1047,20 +1063,9 @@ int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) 
       lctx->ls->dstrdly = strctor(malloc(256), 0, 256);
       lctx->ls->parg = dactor(64);
     } else {
-      char* buf = malloc(256);
+      char buf[256];
       snprintf(buf, 256, "%s", symb);
-      dapush(lctx->ls->file2compile, buf);
-      YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
-      *ylt = *yltg;
-      dapush(lctx->ls->locs, ylt);
-      yltg->first_line = yltg->last_line = 1;
-      yltg->first_column = yltg->last_column = 0;
-      FILE* fmm = fmemopen(NULL, macdef->text->lenstr, "r+");
-      fwrite(macdef->text->strptr, 1, macdef->text->lenstr, fmm);
-      fseek(fmm, 0, SEEK_SET);
-      rewind(fmm);
-      YY_BUFFER_STATE yms = yy_create_buffer(fmm, YY_BUF_SIZE, yyscanner);
-      yypush_buffer_state(yms, yyscanner);
+      yypush_stringbuffer(macdef->text->strptr, macdef->text->lenstr, buf, yyscanner);
       insert(lctx->withindefines, symb, NULL);
       if(frominitial == 2) {
         struct arginfo* argi = calloc(1, sizeof(struct arginfo));
@@ -1085,6 +1090,20 @@ int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) 
     printf("Token %s treated as generic\n", symb);
 #endif
   return SYMBOL;
+}
+
+inline void yypush_stringbuffer(char* str, int length, const char* macname, yyscan_t yyscanner) {
+  YY_BUFFER_STATE ybs = yy_create_buffer(NULL, YY_BUF_SIZE, yyscanner);
+  yypush_buffer_state(ybs, yyscanner); //push dummy value
+  yy_scan_bytes(str, length, yyscanner);
+  yy_delete_buffer(ybs, yyscanner);
+  YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
+  YYLTYPE* ylc = yyget_lloc(yyscanner);
+  *ylt = *ylc;
+  dapush(lctx->ls->locs, ylt);
+  ylc->first_line = ylc->last_line = 1;
+  ylc->first_column = ylc->last_column = 0;
+  if(macname) dapush(lctx->ls->file2compile, strdup(macname));
 }
 
 void zz_pop_state(void*);
