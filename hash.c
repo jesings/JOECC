@@ -7,10 +7,27 @@ static unsigned long hash(const char* str) {    /*courtesy of http://www.cse.yor
     hash = ((hash << 5) + hash) ^ c;    /* hash* 33 + c */
   return hash % HASHSIZE;
 }
+static unsigned long bighash(const char* str) {    /*courtesy of http://www.cse.yorku.ca/~oz/hash.html */
+  unsigned long hash = 5381;
+  int c;
+  while((c = *str++))
+    hash = ((hash << 5) + hash) ^ c;    /* hash* 33 + c */
+  return hash % BIGHASHSIZE;
+}
 
 HASHTABLE* htctor(void) {
   HASHTABLE* ht = malloc(sizeof(HASHTABLE));
   for(int i = 0; i < HASHSIZE; i++) {
+    ht->pairs[i].key = NULL;
+    ht->pairs[i].next = NULL;
+  }
+  ht->keys = 0;
+  return ht;
+}
+
+BIGHASHTABLE* bightctor(void) {
+  BIGHASHTABLE* ht = malloc(sizeof(BIGHASHTABLE));
+  for(int i = 0; i < BIGHASHSIZE; i++) {
     ht->pairs[i].key = NULL;
     ht->pairs[i].next = NULL;
   }
@@ -95,8 +112,46 @@ void htdtorcfr(HASHTABLE* ht, void (*freep)(void*)) {
   free(ht);
 }
 
+void bightdtorcfr(BIGHASHTABLE* ht, void (*freep)(void*)) {
+  for(int i = 0; i < BIGHASHSIZE; i++) {
+    if(ht->pairs[i].key) {
+      free(ht->pairs[i].key);
+      freep(ht->pairs[i].value);
+      if(ht->pairs[i].next)
+        hpdtorcfr(ht->pairs[i].next, freep);
+    }
+  }
+  free(ht);
+}
+
 void insert(HASHTABLE* ht, const char* key, void* value) {
   unsigned long i = hash(key);
+  HASHPAIR* hp = &(ht->pairs[i]);
+  if(!(hp->key)) {
+    hp->key = strdup(key);
+    hp->value = value;
+  } else {
+    for(; hp->next; hp = hp->next) {
+      if(!strcmp(hp->key, key)) {
+        hp->value = value;
+        return;
+      }
+    }
+    if(!strcmp(hp->key, key)) {
+      hp->value = value;
+      return;
+    }
+    HASHPAIR* newpair = malloc(sizeof(HASHPAIR));
+    newpair->key = strdup(key);
+    newpair->value = value;
+    newpair->next = NULL;
+    hp->next = newpair;
+  }
+  ++ht->keys;
+}
+
+void biginsert(BIGHASHTABLE* ht, const char* key, void* value) {
+  unsigned long i = bighash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!(hp->key)) {
     hp->key = strdup(key);
@@ -204,6 +259,34 @@ void rmpaircfr(HASHTABLE* ht, const char* key, void (*cfree)(void*)) {
   }
 }
 
+void bigrmpaircfr(BIGHASHTABLE* ht, const char* key, void (*cfree)(void*)) {
+  unsigned long i = bighash(key);
+  HASHPAIR* hp = &(ht->pairs[i]);
+  if(!(hp->key))
+    return;
+  HASHPAIR* prev = NULL;
+  for(; hp; hp = hp->next) {
+    if(!strcmp(hp->key, key)) {
+      free(hp->key);
+      cfree(hp->value);
+      if(hp->next) {
+        HASHPAIR* temp = hp->next;
+        memcpy(hp, hp->next, sizeof(HASHPAIR));
+        free(temp);
+      } else {
+        hp->key = NULL;
+        if(prev) {
+          prev->next = NULL;
+          free(hp);
+        }
+      }
+      --ht->keys;
+      return;
+    }
+    prev = hp;
+  }
+}
+
 void* search(HASHTABLE* ht, const char* key) {
   unsigned long i = hash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
@@ -216,16 +299,13 @@ void* search(HASHTABLE* ht, const char* key) {
   return NULL;
 }
 
-void* searchval(HASHTABLE* ht, const char* key, char* vallocate) {
-  unsigned long i = hash(key);
-  *vallocate = 0;
+void* bigsearch(BIGHASHTABLE* ht, const char* key) {
+  unsigned long i = bighash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
-  if(!(hp->key))
-    return NULL;
-  for(; hp; hp = hp->next) {
-    if(!strcmp(hp->key, key)) {
-      *vallocate = 1;
-      return hp->value;
+  if(hp->key) {
+    for(; hp; hp = hp->next) {
+      if(!strcmp(hp->key, key))
+        return hp->value;
     }
   }
   return NULL;
@@ -233,6 +313,19 @@ void* searchval(HASHTABLE* ht, const char* key, char* vallocate) {
 
 char queryval(HASHTABLE* ht, const char* key) {
   unsigned long i = hash(key);
+  HASHPAIR* hp = &(ht->pairs[i]);
+  if(hp->key) {
+    for(; hp; hp = hp->next) {
+      if(!strcmp(hp->key, key)) {
+        return 1;
+      }
+    }
+  }
+  return 0;
+}
+
+char bigqueryval(BIGHASHTABLE* ht, const char* key) {
+  unsigned long i = bighash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
   if(hp->key) {
     for(; hp; hp = hp->next) {

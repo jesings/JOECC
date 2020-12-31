@@ -38,7 +38,7 @@ PPSTART [[:blank:]]*#{BLANKC}
 
 int zzparse(yyscan_t scanner);
 int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner);
-void yypush_stringbuffer(char* str, int length, const char* macname, yyscan_t yyscanner);
+void yypush_stringbuffer(char* str, int length, const char* macname, YY_BUFFER_STATE ybs, yyscan_t yyscanner);
 
 struct arginfo {
   DYNSTR* argi;
@@ -76,13 +76,13 @@ struct arginfo {
   "__FILE__" {
     char linebuf[300];
     int bsize = sprintf(linebuf, "\"%s\"", (char*) dapeek(lctx->ls->file2compile));
-    yypush_stringbuffer(linebuf, bsize, "__FILE__", yyscanner);
+    yypush_stringbuffer(linebuf, bsize, "__FILE__", YY_CURRENT_BUFFER, yyscanner);
     yy_push_state(yy_top_state(yyscanner), yyscanner);
   }
   "__LINE__" {
     char linebuf[16]; 
     int bsize = sprintf(linebuf, "%d", yylloc->last_line); 
-    yypush_stringbuffer(linebuf, bsize, "__LINE__", yyscanner); //push dummy value
+    yypush_stringbuffer(linebuf, bsize, "__LINE__", YY_CURRENT_BUFFER, yyscanner); //push dummy value
     yy_push_state(yy_top_state(yyscanner), yyscanner);
   }
   "__DATE__" {
@@ -90,7 +90,7 @@ struct arginfo {
     struct tm* tms = localtime(&tim); 
     char datebuf[20]; 
     size_t datesize = strftime(datebuf, 16, "\"%b %e %Y\"", tms);
-    yypush_stringbuffer(datebuf, datesize, "__DATE__", yyscanner); //push dummy value
+    yypush_stringbuffer(datebuf, datesize, "__DATE__", YY_CURRENT_BUFFER, yyscanner); //push dummy value
     yy_push_state(yy_top_state(yyscanner), yyscanner);
   }
   "__TIME__" {
@@ -98,13 +98,13 @@ struct arginfo {
     struct tm* tms = localtime(&tim); 
     char timebuf[16]; 
     size_t timesize = strftime(timebuf, 13, "\"%T\"",tms);
-    yypush_stringbuffer(timebuf, timesize, "__TIME__", yyscanner); //push dummy value
+    yypush_stringbuffer(timebuf, timesize, "__TIME__", YY_CURRENT_BUFFER, yyscanner); //push dummy value
     yy_push_state(yy_top_state(yyscanner), yyscanner);
   }
   "__func__" {
     char linebuf[300];
     int bsize = sprintf(linebuf, "\"%s\"", lctx->func->name);
-    yypush_stringbuffer(linebuf, bsize, "__func__", yyscanner);
+    yypush_stringbuffer(linebuf, bsize, "__func__", YY_CURRENT_BUFFER, yyscanner);
     yy_push_state(yy_top_state(yyscanner), yyscanner);
   }
 }
@@ -436,7 +436,7 @@ struct arginfo {
     yy_pop_state(yyscanner);
     dsccat(lctx->ls->mdstrdly, 0);
     struct macrodef* isinplace;
-    if((isinplace = search(lctx->defines, lctx->ls->defname))) {
+    if((isinplace = bigsearch(lctx->defines, lctx->ls->defname))) {
       if(strcmp(isinplace->text->strptr, lctx->ls->mdstrdly->strptr)) {
         dsws(isinplace->text);
         dsws(lctx->ls->mdstrdly);
@@ -445,7 +445,7 @@ struct arginfo {
       freemd(isinplace);
     }
     lctx->ls->md->text = lctx->ls->mdstrdly;
-    insert(lctx->defines, lctx->ls->defname, lctx->ls->md);
+    biginsert(lctx->defines, lctx->ls->defname, lctx->ls->md);
     rmpair(lctx->withindefines, lctx->ls->defname);
     free(lctx->ls->defname);
     lctx->ls->defname = NULL;
@@ -454,9 +454,9 @@ struct arginfo {
 
 <UNDEF>{
   {IDENT}|["][^"\n]*["] {
-    rmpaircfr(lctx->defines, yytext, (void(*)(void*)) freemd);}
+    bigrmpaircfr(lctx->defines, yytext, (void(*)(void*)) freemd);}
   {IDENT}|["][^"\n]*["]/[[:blank:]] {
-    rmpaircfr(lctx->defines, yytext, (void(*)(void*)) freemd); yy_push_state(KILLBLANK, yyscanner);}
+    bigrmpaircfr(lctx->defines, yytext, (void(*)(void*)) freemd); yy_push_state(KILLBLANK, yyscanner);}
   \n {yy_pop_state(yyscanner);/*error state if expr not over?*/}
   . {fprintf(stderr, "UNDEF: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint2(yylloc));}
 }
@@ -482,9 +482,9 @@ struct arginfo {
       switch(contval) {
         case IFANDTRUE: case ELSEANDFALSE:
 #if PPDEBUG
-              fprintf(stderr, "Value of identifier %s is %d at %s %d.%d-%d.%d\n", lctx->ls->defname, queryval(lctx->defines, lctx->ls->defname), locprint2(yylloc));
+              fprintf(stderr, "Value of identifier %s is %d at %s %d.%d-%d.%d\n", lctx->ls->defname, bigqueryval(lctx->defines, lctx->ls->defname), locprint2(yylloc));
 #endif
-          if(lctx->ls->argeaten ^ queryval(lctx->defines, lctx->ls->defname)) {
+          if(lctx->ls->argeaten ^ bigqueryval(lctx->defines, lctx->ls->defname)) {
             *rids = IFANDTRUE;
           } else {
             *rids = IFANDFALSE;
@@ -518,7 +518,7 @@ struct arginfo {
       dapush(lctx->ls->parg, lctx->ls->dstrdly);
 
       struct macrodef* mdl;
-      if(!(mdl = search(lctx->defines, lctx->ls->defname))) {
+      if(!(mdl = bigsearch(lctx->defines, lctx->ls->defname))) {
         fprintf(stderr, "Error: Malformed function-like macro call %s %d.%d-%d.%d\n", locprint2(yylloc));
         //error state
         yy_pop_state(yyscanner);
@@ -542,7 +542,7 @@ struct arginfo {
           lctx->ls->dstrdly = strctor(malloc(256), 0, 256);
           yy_pop_state(yyscanner);
           yy_push_state(FINDREPLACE, yyscanner);
-          yypush_stringbuffer(mdl->text->strptr, mdl->text->lenstr, NULL, yyscanner);
+          yypush_stringbuffer(mdl->text->strptr, mdl->text->lenstr, NULL, YY_CURRENT_BUFFER, yyscanner);
         }
       }
     }
@@ -668,10 +668,10 @@ struct arginfo {
 #if PPDEBUG
     printf("now lexing buffer containing %s\n", lctx->ls->dstrdly->strptr);
 #endif
-    YY_BUFFER_STATE ybs = yy_create_buffer(NULL, YY_BUF_SIZE, yyscanner);
-    yypush_buffer_state(ybs, yyscanner); //push dummy value
-    yy_scan_bytes(lctx->ls->dstrdly->strptr, lctx->ls->dstrdly->lenstr, yyscanner);
-    yy_delete_buffer(ybs, yyscanner);
+    YY_BUFFER_STATE ybs = YY_CURRENT_BUFFER;
+    YY_BUFFER_STATE ylbs = yy_scan_bytes(lctx->ls->dstrdly->strptr, lctx->ls->dstrdly->lenstr, yyscanner);
+    yy_switch_to_buffer(ybs, yyscanner);
+    yypush_buffer_state(ylbs, yyscanner);
     char buf[256];
     snprintf(buf, 256, "%s", lctx->ls->defname);
     yylloc->first_line = yylloc->last_line = 1;
@@ -705,7 +705,7 @@ struct arginfo {
   [[:blank:]]*\) {yy_pop_state(yyscanner);}
   {IDENT} {
     //maybe check completion
-    yylval_param->unum = queryval(lctx->defines, yytext);
+    yylval_param->unum = bigqueryval(lctx->defines, yytext);
 #if PPDEBUG
       fprintf(stderr, "Value of identifier %s is %lu at %s %d.%d-%d.%d\n", yytext, yylval_param->unum, locprint2(yylloc));
 #endif
@@ -716,7 +716,7 @@ struct arginfo {
 <CHECKDEFINED2>{
   {IDENT} {
     yy_pop_state(yyscanner);
-    yylval_param->unum = queryval(lctx->defines, yytext);
+    yylval_param->unum = bigqueryval(lctx->defines, yytext);
 #if PPDEBUG
       fprintf(stderr, "Value of identifier %s is %lu at %s %d.%d-%d.%d\n", yytext, yylval_param->unum, locprint2(yylloc));
 #endif
@@ -956,7 +956,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); lctx->ls->strcur = strctor(mallo
   }
 }
 <INITIAL,WITHINIF>{
-  ({SKIPNEWL}|[[:blank:]])+ {/*Whitespace, ignored*/}
+  ({SKIPNEWL}|[[:blank:]]|{MCOMMENT})+ {/*Whitespace, ignored*/}
   L?\' {yy_push_state(CHARLIT, yyscanner);}
 }
 <WITHINIF>\n {
@@ -1012,7 +1012,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); lctx->ls->strcur = strctor(mallo
 %%
 
 int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) {
-  struct macrodef* macdef = search(lctx->defines, symb);
+  struct macrodef* macdef = bigsearch(lctx->defines, symb);
   if(macdef && !queryval(lctx->withindefines, symb)) {
     char* oldname = lctx->ls->defname;
     lctx->ls->defname = symb;
@@ -1065,7 +1065,8 @@ int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) 
     } else {
       char buf[256];
       snprintf(buf, 256, "%s", symb);
-      yypush_stringbuffer(macdef->text->strptr, macdef->text->lenstr, buf, yyscanner);
+      struct yyguts_t* yyg = (struct yyguts_t*) yyscanner;
+      yypush_stringbuffer(macdef->text->strptr, macdef->text->lenstr, buf, YY_CURRENT_BUFFER, yyscanner);
       insert(lctx->withindefines, symb, NULL);
       if(frominitial == 2) {
         struct arginfo* argi = calloc(1, sizeof(struct arginfo));
@@ -1092,11 +1093,13 @@ int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) 
   return SYMBOL;
 }
 
-inline void yypush_stringbuffer(char* str, int length, const char* macname, yyscan_t yyscanner) {
-  YY_BUFFER_STATE ybs = yy_create_buffer(NULL, YY_BUF_SIZE, yyscanner);
-  yypush_buffer_state(ybs, yyscanner); //push dummy value
-  yy_scan_bytes(str, length, yyscanner);
-  yy_delete_buffer(ybs, yyscanner);
+inline void yypush_stringbuffer(char* str, int length, const char* macname, YY_BUFFER_STATE ybs, yyscan_t yyscanner) {
+  //YY_BUFFER_STATE ybs = yy_create_buffer(NULL, YY_BUF_SIZE, yyscanner);
+  //yypush_buffer_state(ybs, yyscanner); //push dummy value
+  YY_BUFFER_STATE ylbs = yy_scan_bytes(str, length, yyscanner);
+  yy_switch_to_buffer(ybs, yyscanner);
+  yypush_buffer_state(ylbs, yyscanner);
+  //yy_delete_buffer(ybs, yyscanner);
   YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
   YYLTYPE* ylc = yyget_lloc(yyscanner);
   *ylt = *ylc;

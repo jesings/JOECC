@@ -22,10 +22,10 @@
 
 %right THEN "else"
 /*probably could do this smarter with redesign*/
+/*for production builds, parse.assert should probably not be set*/
 %start program
-%define parse.trace
 %define parse.assert
-%define parse.error verbose
+%define parse.error detailed
 %define api.pure full
 
 %param {void *scanner}
@@ -40,7 +40,9 @@
 
   #define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
   #define dget(param, index) ((DECLARATION*) (param)->arr[(index)])
-  //TODO: Struct initializers, optional brace nesting?
+  #define YYPARSE_PARAM void* scanner
+  #define YYLEX_PARAM scanner
+  //TODO: union initializers, optional brace nesting?
   //TODO: Consider designated initializers, compound literals?
 }
 
@@ -68,8 +70,6 @@
 }
 
 %{
-  #define YYPARSE_PARAM void* scanner
-  #define YYLEX_PARAM scanner
   int yylex(YYSTYPE* yst, YYLTYPE* ylt, void* yscanner);
   int yyerror(YYLTYPE* ylt, void* scanner, const char* s);
   void* yyget_extra(void* scanner);

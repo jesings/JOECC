@@ -8,6 +8,12 @@
 #include "ssa.h"
 #include "opt.h"
 
+const char magic[16] = {0x7f, 0x45, 0x4c, 0x46, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+pthread_mutex_t printlock, listlock;
+int listptr, glargc;
+
+
+
 int yyparse(void* scanner);
 int yyset_in(FILE*, void*);
 int yyset_debug(int flag, void*);
@@ -17,11 +23,32 @@ static void freev(void* v) {
   HASHPAIR* v2 = v;
   rfreefunc(v2->value);
 }
-static void* filecomp(char* filename) {
-  void* scanner;
+static void filecomp(char* filename) {
   FILE* yyin = fopen(filename, "r");
   if(yyin == NULL)
-    return NULL;
+    return;
+  char maymagic[16];
+  size_t magiclen = fread(maymagic, 1, 16, yyin);
+  if(magiclen == 16 && !memcmp(magic, maymagic, 16)) {
+    fclose(yyin);
+    return;
+    //It's an ELF file
+    char type = fgetc(yyin);
+    switch(type) {
+      case 0: case -1:
+      case 4: //core dump
+        return; //error
+      case 1:
+        return; //need to link
+      case 2: 
+        return; //static exe
+      case 3: 
+        return; //dynamic exe
+    }
+  } else {
+    rewind(yyin);
+  }
+  void* scanner;
   struct lexctx* lctx = ctxinit();
   dapush(lctx->ls->file2compile, strdup(filename));
   yylex_init_extra(lctx, &scanner);
@@ -29,12 +56,12 @@ static void* filecomp(char* filename) {
 #ifdef NODEBUG
   yyset_debug(0, scanner);
 #else
-  yyset_debug(1, scanner);
+  yyset_debug(0, scanner);//not debugging lexer for now
 #endif
   yyparse(scanner);
   yylex_destroy(scanner);
   dadtorcfr(lctx->enumerat2free, (void(*)(void*)) freenum);
-  htdtorcfr(lctx->defines, (void (*)(void*)) freemd);
+  bightdtorcfr(lctx->defines, (void (*)(void*)) freemd);
   free(lctx->withindefines);
   dadtor(lctx->definestack);
   dadtor(lctx->ls->locs);
@@ -42,6 +69,9 @@ static void* filecomp(char* filename) {
   dadtorfr(lctx->ls->file2compile);
   //chdir("./functions");
   DYNARR* funcky = htpairs(lctx->funcs);
+#ifndef NODEBUG
+  pthread_mutex_lock(&printlock);
+#endif
   puts("Functions defined:");
   for(int i = 0; i < funcky->length; i++) {
     HASHPAIR* pairthere = daget(funcky, i);
@@ -61,6 +91,9 @@ static void* filecomp(char* filename) {
       freeprog(prog);
     }
   }
+#ifndef NODEBUG
+  pthread_mutex_unlock(&printlock);
+#endif
   scopepop(lctx);
   dadtorcfr(funcky, freev);
   dadtor(lctx->scopes);
@@ -70,21 +103,63 @@ static void* filecomp(char* filename) {
   htdtor(lctx->funcs);
   free(lctx->ls);
   free(lctx);
-  return NULL;
+  return;
+}
+
+static void* ldeleg(void* arg) {
+  char** largv = (char**) arg;
+  while(1) {
+    pthread_mutex_lock(&listlock);
+    int ws = listptr++;
+    if(listptr >= glargc) {
+      pthread_mutex_unlock(&listlock);
+      return NULL;
+    }
+    pthread_mutex_unlock(&listlock);
+    filecomp(largv[ws]);
+  }
 }
 
 int main(int argc, char** argv) {
   if(argc <= 1) {
     exit(0);
   }
-  //pthread_t pt;
-  for(int i = 1; i < argc; i += 1) {
-    //if(i + 1 == argc) {
-    filecomp(argv[i]);
-    //} else {
-    //  pthread_create(&pt, NULL, (void* (*)(void*)) filecomp, argv[i + 1]);
-    //  filecomp(argv[i]);
-    //  pthread_join(pt, NULL);
-    //}
+  pthread_t pt1, pt2, pt3, pt4;
+  listptr = 1;
+  glargc = argc;
+  pthread_mutex_init(&printlock, NULL);
+  pthread_mutex_init(&listlock, NULL);
+  switch(argc) {
+    case 1:
+      return 0;
+    default:
+      pthread_create(&pt4, NULL, ldeleg, argv);
+      //fall through
+    case 4:
+      pthread_create(&pt3, NULL, ldeleg, argv);
+      //fall through
+    case 3:
+      pthread_create(&pt2, NULL, ldeleg, argv);
+      //fall through
+    case 2:
+      pthread_create(&pt1, NULL, ldeleg, argv);
+      break;
   }
+  switch(argc) {
+    case 1:
+      return 0;
+    default:
+      pthread_join(pt4, NULL);
+      //fall through
+    case 4:
+      pthread_join(pt3, NULL);
+      //fall through
+    case 3:
+      pthread_join(pt2, NULL);
+      //fall through
+    case 2:
+      pthread_join(pt1, NULL);
+      break;
+  }
+  return 0;
 }

@@ -326,28 +326,29 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
   STRUCT* imptype = struct_memtype->structtype;
   feedstruct(imptype);
   if(struct_memtype->tb & UNIONVAL) {
-    assert(0);//union initializers not handled yet
+    //union initializers only do the first item in the union (without designators)
+    assert(struct_expr->params->length == 1);
   } else {
     assert(struct_expr->params->length == imptype->fields->length);
-    for(int i = 0; i < struct_expr->params->length; i++) {
-      EXPRESSION* member = daget(struct_expr->params, i);
-      DECLARATION* decl = daget(imptype->fields, i);
-      if(member->type == ARRAY_LIT) {
-        if(decl->type->tb & (STRUCTVAL | UNIONVAL)) {
-          process_struct_lit(decl->type, member);
-        } else {
-          int arrdim = 0;
-          for(int i = decl->type->pointerstack->length - 1; i >= 0; i--, arrdim++) {
-            struct declarator_part* pointtop = daget(decl->type->pointerstack, i);
-            if(pointtop->type != ARRAYSPEC) break;
-          }
-          assert(arrdim);
-          process_array_lit(decl->type, member, arrdim);
-        }
+  }
+  for(int i = 0; i < struct_expr->params->length; i++) {
+    EXPRESSION* member = daget(struct_expr->params, i);
+    DECLARATION* decl = daget(imptype->fields, i);
+    if(member->type == ARRAY_LIT) {
+      if(decl->type->tb & (STRUCTVAL | UNIONVAL)) {
+        process_struct_lit(decl->type, member);
       } else {
-        IDTYPE memty = typex(member);
-        assert(typecompat(&memty, decl->type));
+        int arrdim = 0;
+        for(int i = decl->type->pointerstack->length - 1; i >= 0; i--, arrdim++) {
+          struct declarator_part* pointtop = daget(decl->type->pointerstack, i);
+          if(pointtop->type != ARRAYSPEC) break;
+        }
+        assert(arrdim);
+        process_array_lit(decl->type, member, arrdim);
       }
+    } else {
+      IDTYPE memty = typex(member);
+      assert(typecompat(&memty, decl->type));
     }
   }
   struct_expr->rettype = fcid2(struct_memtype);
@@ -943,22 +944,22 @@ char scopequeryval(struct lexctx* lct, enum membertype mt, char* key) {
   return 0;
 }
 
-static void declmacro(HASHTABLE* ht, const char* macroname, const char* body) {
+static void declmacro(BIGHASHTABLE* ht, const char* macroname, const char* body) {
   struct macrodef* md = calloc(1, sizeof(struct macrodef));
   if(body) {
     int blen = strlen(body);
     md->text = strctor(strdup(body), blen + 1, blen + 1);
   }
-  insert(ht, macroname, md);
+  biginsert(ht, macroname, md);
 }
 
-static void declfmacro(HASHTABLE* ht, const char* macroname, const char* param, const char* body) {
+static void declfmacro(BIGHASHTABLE* ht, const char* macroname, const char* param, const char* body) {
   struct macrodef* md = calloc(1, sizeof(struct macrodef));
   int blen = strlen(body);
   md->text = strctor(strdup(body), blen + 1, blen + 1);
   md->args = dactor(1);
   dapushc(md->args, strdup(param));
-  insert(ht, macroname, md);
+  biginsert(ht, macroname, md);
 }
 
 struct lexctx* ctxinit(void) {
@@ -972,7 +973,7 @@ struct lexctx* ctxinit(void) {
   lct->enumerat2free = dactor(256);
   lct->globals = dactor(512);
   lct->externglobals = dactor(128);
-  lct->defines = htctor();
+  lct->defines = bightctor();
   lct->withindefines = htctor();
   declmacro(lct->defines, "__STDC__", "1");
   declmacro(lct->defines, "__STDC_VERSION__", "201710L");

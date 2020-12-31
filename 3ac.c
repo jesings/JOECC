@@ -772,15 +772,27 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
   }
   newa->addr.varnum = i->decl->varid;
   opn(prog, ct_3ac_op1(INIT_3, newa->addr_type, newa->addr));
-  if(i->expr) {
-    FULLADDR lastemp = linearitree(i->expr, prog);
-    if((lastemp.addr_type & ISFLOAT) && !(newa->addr_type & ISFLOAT)) {
-      opn(prog, ct_3ac_op2(F2I, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
-    } else if(!(lastemp.addr_type & ISFLOAT) && (newa->addr_type & ISFLOAT)) {
-      opn(prog, ct_3ac_op2(I2F, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
-    } else {
-      //force float conversion in mov if necessary?
+  if(i->decl->type->tb & (STRUCTVAL | UNIONVAL)) {
+    if(i->expr) {
+      FULLADDR lastemp = linearitree(i->expr, prog);
       opn(prog, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
+    } else {
+      ADDRESS tmpaddr;
+      feedstruct(i->decl->type->structtype);
+      tmpaddr.intconst_64 = i->decl->type->structtype->size;
+      opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 8, tmpaddr, newa->addr_type, newa->addr));
+    }
+  } else {
+    if(i->expr) {
+      FULLADDR lastemp = linearitree(i->expr, prog);
+      if((lastemp.addr_type & ISFLOAT) && !(newa->addr_type & ISFLOAT)) {
+        opn(prog, ct_3ac_op2(F2I, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
+      } else if(!(lastemp.addr_type & ISFLOAT) && (newa->addr_type & ISFLOAT)) {
+        opn(prog, ct_3ac_op2(I2F, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
+      } else {
+        //force float conversion in mov if necessary?
+        opn(prog, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
+      }
     }
   }
   assert(prog->dynvars->length == i->decl->varid);

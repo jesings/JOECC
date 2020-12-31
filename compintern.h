@@ -154,7 +154,7 @@ struct lexctx {
   DYNARR* scopes;
   DYNARR* definestack;
   FUNC* func;
-  HASHTABLE* defines;
+  BIGHASHTABLE* defines;
   HASHTABLE* withindefines;
   DYNARR* enstruct2free;
   DYNARR* enumerat2free;
