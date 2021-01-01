@@ -103,6 +103,7 @@ void ctdtree(PROGRAM* prog) {
   DYNARR* varas = dactor(prog->dynvars->length);
   for(int i = 0; i < varas->maxlength; i++)
     dapushc(varas, dactor(16)); //initialize array for blocks that modify var
+  //variable modification annotation, pass 1
   for(int i = 0; i < blocks->length; i++) {
     BBLOCK* cb = daget(blocks, i);
     if(cb->lastop) {
@@ -115,29 +116,20 @@ void ctdtree(PROGRAM* prog) {
               fad->addr_type |= ADDRSVAR;
             }
             //fall through
-          case ADD_U: case ADD_I: case ADD_F:
-          case SUB_U: case SUB_I: case SUB_F:
-          case MULT_U: case MULT_I: case MULT_F:
-          case DIV_U: case DIV_I: case DIV_F:
+          case ADD_U: case ADD_I: case ADD_F: case SUB_U: case SUB_I: case SUB_F:
+          case MULT_U: case MULT_I: case MULT_F: case DIV_U: case DIV_I: case DIV_F:
           case MOD_U: case MOD_I:
-          case SHL_U: case SHL_I:
-          case SHR_U: case SHR_I:
-          case AND_U: case AND_F:
-          case OR_U: case OR_F:
-          case XOR_U: case XOR_F:
-          case INC_U: case INC_I: case INC_F:
-          case DEC_U: case DEC_I: case DEC_F:
+          case SHL_U: case SHL_I: case SHR_U: case SHR_I:
+          case AND_U: case AND_F: case OR_U: case OR_F: case XOR_U: case XOR_F:
+          case INC_U: case INC_I: case INC_F: case DEC_U: case DEC_I: case DEC_F:
           case NEG_I: case NEG_F:
-          case EQ_U: case EQ_I: case EQ_F:
-          case NE_U: case NE_I: case NE_F:
-          case GE_U: case GE_I: case GE_F:
-          case LE_U: case LE_I: case LE_F:
-          case GT_U: case GT_I: case GT_F:
-          case LT_U: case LT_I: case LT_F:
+          case EQ_U: case EQ_I: case EQ_F: case NE_U: case NE_I: case NE_F:
+          case GE_U: case GE_I: case GE_F: case LE_U: case LE_I: case LE_F:
+          case GT_U: case GT_I: case GT_F: case LT_U: case LT_I: case LT_F:
           case MOV_3: case CALL_3: case ARROFF:
           case F2I: case I2F: case ALOC_3:
           //arrmov, mtp_off, copy_3 must have pointer dest
-            if((op->dest_type & (ISVAR | ISDEREF)) == ISVAR) {
+            if((op->dest_type & (ISVAR | ISDEREF | ADDRSVAR) == ISVAR) {
               DYNARR* dda = daget(varas, op->dest.varnum);
               if(!dda->length || dapeek(dda) != cb)
                 dapush(dda, cb);
@@ -150,14 +142,16 @@ void ctdtree(PROGRAM* prog) {
       }
     }
   }
+  //join node insertion, pass 2
   DYNARR* W = dactor(blocks->length);
   for(int i = 1; i <= prog->dynvars->length; i++) {
-    FULLADDR* fadr = daget(prog->dynvars, i);
+    FULLADDR* fadr = daget(prog->dynvars, i - 1);
+    if(fadr->addr_type & ADDRSVAR) continue;
     DYNARR* blockassigns = daget(varas, i - 1);
     for(int j = 0; j < blockassigns->length; j++) {
       BBLOCK* block = daget(blockassigns, j);
       block->work = i;//do this better
-      dapush(W, block);
+      dapushc(W, block);
     }
     for(int j = 0; j < W->length; j++) {
       BBLOCK* block = daget(W, j);
@@ -173,14 +167,21 @@ void ctdtree(PROGRAM* prog) {
             domblock->visited = i;
             if(domblock->work != i) {
               domblock->work = i;
-              dapush(W, domblock);
+              dapushc(W, domblock);
             }
           }
         }
       }
     }
   }
-  dadtor(W);
-  dadtorcfr(varas, (void(*)(void*))dadtor);
   dadtor(blockstack);
+  //variable renaming, pass 3
+  dadtor(W);
+  int* C = calloc(sizeof(int), varas->length);
+  for(int i = 0; i < varas->length; i++) {
+    DYNARR* da = daget(varas, i);
+    da->length = 0;
+  }
+  dadtorcfr(varas, (void(*)(void*))dadtor);
+
 }
