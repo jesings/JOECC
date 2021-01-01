@@ -109,6 +109,12 @@ void ctdtree(PROGRAM* prog) {
       OPERATION* op = cb->firstop;
       while(1) {
         switch(op->opcode) {
+          case ADDR_3:
+            if((op->addr0_type & (ISVAR | ISDEREF)) == ISVAR) {
+              FULLADDR* fad = daget(prog->dynvars, op->addr0.varnum);
+              fad->addr_type |= ADDRSVAR;
+            }
+            //fall through
           case ADD_U: case ADD_I: case ADD_F:
           case SUB_U: case SUB_I: case SUB_F:
           case MULT_U: case MULT_I: case MULT_F:
@@ -128,8 +134,7 @@ void ctdtree(PROGRAM* prog) {
           case LE_U: case LE_I: case LE_F:
           case GT_U: case GT_I: case GT_F:
           case LT_U: case LT_I: case LT_F:
-          case MOV_3: case CALL_3:
-          case ADDR_3: case ARROFF:
+          case MOV_3: case CALL_3: case ARROFF:
           case F2I: case I2F: case ALOC_3:
           //arrmov, mtp_off, copy_3 must have pointer dest
             if((op->dest_type & (ISVAR | ISDEREF)) == ISVAR) {

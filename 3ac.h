@@ -85,6 +85,7 @@ typedef enum {
   ISPOINTER = 0x200,
   ISDEREF = 0x400,
   ISVAR = 0x800,
+  ADDRSVAR = 0x800,
 } ADDRTYPE;
 
 typedef struct op {
@@ -129,7 +130,6 @@ typedef struct {
   BBLOCK* curblock;
   BBLOCK* finalblock;
 } PROGRAM;
-
 
 OPERATION* ct_3ac_op0(enum opcode_3ac opcode);
 OPERATION* ct_3ac_op1(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0);
