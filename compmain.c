@@ -79,6 +79,7 @@ static void filecomp(char* filename) {
       FUNC* f = pairthere->value;
       //treefunc(pairthere->value);
       PROGRAM* prog = linefunc(f); //fix main func
+      ctdtree(prog);
 #ifndef NODEBUG
       putchar('\n');
       puts(pairthere->key);
@@ -87,7 +88,6 @@ static void filecomp(char* filename) {
       puts("---------------------------------------");
       treeprog(prog, pairthere->key);
 #endif
-      ctdtree(prog);
       freeprog(prog);
     }
   }
@@ -111,7 +111,7 @@ static void* ldeleg(void* arg) {
   while(1) {
     pthread_mutex_lock(&listlock);
     int ws = listptr++;
-    if(listptr >= glargc) {
+    if(ws >= glargc) {
       pthread_mutex_unlock(&listlock);
       return NULL;
     }
@@ -124,7 +124,7 @@ int main(int argc, char** argv) {
   if(argc <= 1) {
     exit(0);
   }
-  pthread_t pt1, pt2, pt3, pt4;
+  pthread_t pt2, pt3, pt4;
   listptr = 1;
   glargc = argc;
   pthread_mutex_init(&printlock, NULL);
@@ -142,7 +142,7 @@ int main(int argc, char** argv) {
       pthread_create(&pt2, NULL, ldeleg, argv);
       //fall through
     case 2:
-      pthread_create(&pt1, NULL, ldeleg, argv);
+      ldeleg(argv);
       break;
   }
   switch(argc) {
@@ -156,9 +156,7 @@ int main(int argc, char** argv) {
       //fall through
     case 3:
       pthread_join(pt2, NULL);
-      //fall through
     case 2:
-      pthread_join(pt1, NULL);
       break;
   }
   return 0;

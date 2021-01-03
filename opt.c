@@ -17,3 +17,6 @@ char rmunreach(PROGRAM* prog) {
   dadtor(oldall);
   return modified;
 }
+//http://www.cs.toronto.edu/~pekhimenko/courses/cscd70-w20/docs/Lecture 7 [Pointer Analysis] 03.09.2020.pdf
+//http://ssabook.gforge.inria.fr/latest/book.pdf
+//https://iitd-plos.github.io/col729/lec/loop_transformations.html

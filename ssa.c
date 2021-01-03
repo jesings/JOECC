@@ -1,28 +1,34 @@
 #include <assert.h>
 #include "ssa.h"
+#define X(op) case op:
 
 static BBLOCK* intersect(BBLOCK* n1, BBLOCK* n2) {
   while(n1 != n2) {
-    while(n1->domind < n2->domind) n1 = n1->dom;
-    while(n2->domind < n1->domind) n2 = n2->dom;
+    while(n1->domind > n2->domind) n1 = n1->dom;
+    while(n2->domind > n1->domind) n2 = n2->dom;
   }
   return n1;
 }
 
-static void rpdt(BBLOCK* root, DYNARR* stack) {
+static char fixedintersect(const BBLOCK* fb, BBLOCK* gb) {
+  while(fb->domind < gb->domind) gb = gb->dom;
+  return fb->domind == gb->domind;
+}
+
+static void rpdt(BBLOCK* root, void** aclist, int* ind) {
   if(!root) return;
   if(root->visited) return;
   root->visited = 1;
-  rpdt(root->nextblock, stack);
-  rpdt(root->branchblock, stack);
-  root->domind = stack->length;
-  dapush(stack, root);
+  rpdt(root->nextblock, aclist, ind);
+  rpdt(root->branchblock, aclist, ind);
+  root->domind = *ind;
+  aclist[*ind - 1] = root;
+  --*ind;
 }
 
 static void dfpdt(BBLOCK* root) {
   if(!root) return;
   if(root->visited) return;
-  if(!(root->inedges && root->inedges->length)) return; //don't look at unreachable blocks
   root->visited = 1;
   if(root->idominates)
     for(int i = 0; i < root->idominates->length; i++)
@@ -39,11 +45,76 @@ static void dfpdt(BBLOCK* root) {
       BBLOCK* ib = daget(root->idominates, j);
       for(int k = 0; k < ib->df->length; k++) {
         BBLOCK* kb = daget(ib->df, k);
-        if(kb->dom != root)
+        char flag = 1;
+        for(int i = 0; i < root->df->length; i++) {
+          //speed this up?
+          if(daget(root->df, i) == kb) {
+            flag = 0;
+            break;
+          }
+        }
+        if(flag && kb != root && kb->dom != root) {
           dapush(root->df, kb);
+        }
       }
     }
   }
+}
+
+static void rrename(BBLOCK* block, int* C, DYNARR* S) {
+  if(!block || block->visited) return;
+  block->visited = 1;
+  if(block->lastop) {
+    OPERATION* op = block->firstop;
+    while(1) {
+      switch(op->opcode) {
+        OPS_3_3ac OPS_3_PTRDEST_3ac
+          if((op->addr1_type & (ADDRSVAR | ISVAR)) == ISVAR) 
+            op->addr1.ssaind =  (long) dapeek((DYNARR*) daget(S, op->addr1.varnum));
+          __attribute__((fallthrough));
+        OPS_2_3ac case ADDR_3:
+          if((op->addr0_type & (ADDRSVAR | ISVAR)) == ISVAR)
+            op->addr0.ssaind =  (long) dapeek((DYNARR*) daget(S, op->addr0.varnum));
+          __attribute__((fallthrough));
+        case CALL_3: case PHI:
+          if((op->dest_type & (ADDRSVAR | ISVAR)) == ISVAR) {
+            if(op->dest_type & ISDEREF) {
+              op->dest.ssaind =  (long) dapeek((DYNARR*) daget(S, op->dest.varnum));
+            } else {
+              op->dest.ssaind = C[op->dest.varnum];
+              dapush((DYNARR*) daget(S, op->dest.varnum), (void*)(long) C[op->dest.varnum]);
+              ++(C[op->dest.varnum]);
+            }
+          }
+          break;
+        OPS_NODEST_3ac
+          if((op->addr1_type & (ADDRSVAR | ISVAR)) == ISVAR) 
+            op->addr1.ssaind =  (long) dapeek((DYNARR*) daget(S, op->addr1.varnum));
+          __attribute__((fallthrough));
+        OPS_1_3ac
+          if((op->addr0_type & (ADDRSVAR | ISVAR)) == ISVAR)
+            op->addr0.ssaind =  (long) dapeek((DYNARR*) daget(S, op->addr0.varnum));
+          break;
+        OPS_1_ASSIGN_3ac
+          if((op->addr0_type & (ADDRSVAR | ISVAR)) == ISVAR) {
+            assert(!(op->addr0_type & ISDEREF));
+            assert(!C[op->addr0.varnum]); //would work if not for join nodes after scope
+            op->addr0.ssaind = 0;
+            dapush((DYNARR*) daget(S, op->addr0.varnum), NULL);
+            C[op->addr0.varnum] = 1;
+          }
+          break;
+        OPS_NOVAR_3ac
+          break;
+      }
+      if(op == block->lastop) break;
+      op = op->nextop;
+    }
+  }
+  //handle phis in children
+  rrename(block->nextblock, C, S);
+  rrename(block->branchblock, C, S);
+  //reset stack
 }
 
 //TODO: implement lengauer tarjan: https://www.cl.cam.ac.uk/~mr10/lengtarj.pdf
@@ -54,19 +125,21 @@ void ctdtree(PROGRAM* prog) {
     dtn->dom = NULL;
     dtn->visited = 0;
   }
-  DYNARR* blockstack = dactor(blocks->length - 1);
+  void** blocklist = calloc(sizeof(void*), (blocks->length - 1));
   BBLOCK* first = daget(blocks, 0);
   first->dom = first;
-  first->domind = blocks->length; //2 greater but we don't need a decrement
-  rpdt(first->nextblock, blockstack);
-  rpdt(first->branchblock, blockstack);
+  first->domind = 0;
+  int ind = blocks->length - 1;
+  rpdt(first->nextblock, blocklist, &ind);
+  rpdt(first->branchblock, blocklist, &ind);
   //maybe reverse order now, rather than iterate backwards
   char changed = 1;
   while(changed) {
     changed = 0;
     //https://www.cs.rice.edu/~keith/EMBED/dom.pdf
-    for(int i = blockstack->length - 1; i >= 0; i--) {
-      BBLOCK* cb = daget(blockstack, i);
+    for(int i = 0; i < blocks->length - 1; i++) {
+      BBLOCK* cb = blocklist[i];
+      if(!cb) continue;
       BBLOCK* new_idom = NULL;
       for(int i = 0; i < cb->inedges->length; i++) {
         BBLOCK* pred = daget(cb->inedges, i);
@@ -82,6 +155,7 @@ void ctdtree(PROGRAM* prog) {
         cb->dom = new_idom, changed = 1;
     }
   }
+  free(blocklist);
   //populate in parents
   for(int i = 0; i < blocks->length; i++) {
     BBLOCK* cb = daget(blocks, i);
@@ -115,24 +189,19 @@ void ctdtree(PROGRAM* prog) {
               FULLADDR* fad = daget(prog->dynvars, op->addr0.varnum);
               fad->addr_type |= ADDRSVAR;
             }
-            //fall through
-          case ADD_U: case ADD_I: case ADD_F: case SUB_U: case SUB_I: case SUB_F:
-          case MULT_U: case MULT_I: case MULT_F: case DIV_U: case DIV_I: case DIV_F:
-          case MOD_U: case MOD_I:
-          case SHL_U: case SHL_I: case SHR_U: case SHR_I:
-          case AND_U: case AND_F: case OR_U: case OR_F: case XOR_U: case XOR_F:
-          case INC_U: case INC_I: case INC_F: case DEC_U: case DEC_I: case DEC_F:
-          case NEG_I: case NEG_F:
-          case EQ_U: case EQ_I: case EQ_F: case NE_U: case NE_I: case NE_F:
-          case GE_U: case GE_I: case GE_F: case LE_U: case LE_I: case LE_F:
-          case GT_U: case GT_I: case GT_F: case LT_U: case LT_I: case LT_F:
-          case MOV_3: case CALL_3: case ARROFF:
-          case F2I: case I2F: case ALOC_3:
+            __attribute__((fallthrough));
+          OPS_3_3ac OPS_2_3ac case CALL_3:
           //arrmov, mtp_off, copy_3 must have pointer dest
-            if((op->dest_type & (ISVAR | ISDEREF | ADDRSVAR) == ISVAR) {
+            if((op->dest_type & (ISVAR | ISDEREF | ADDRSVAR)) == ISVAR) {
               DYNARR* dda = daget(varas, op->dest.varnum);
               if(!dda->length || dapeek(dda) != cb)
                 dapush(dda, cb);
+            }
+            break;
+          OPS_1_ASSIGN_3ac
+            if(!(op->addr0_type & ADDRSVAR)) {
+              DYNARR* dda = daget(varas, op->addr0.varnum);
+              dapushc(dda, cb);
             }
           default:
             break; //no possible correct destination
@@ -142,46 +211,61 @@ void ctdtree(PROGRAM* prog) {
       }
     }
   }
+
   //join node insertion, pass 2
   DYNARR* W = dactor(blocks->length);
-  for(int i = 1; i <= prog->dynvars->length; i++) {
-    FULLADDR* fadr = daget(prog->dynvars, i - 1);
+  int itercount = 0;
+  for(int i = 0; i < prog->dynvars->length; i++) {
+    ++itercount;
+    FULLADDR* fadr = daget(prog->dynvars, i);
     if(fadr->addr_type & ADDRSVAR) continue;
-    DYNARR* blockassigns = daget(varas, i - 1);
+    DYNARR* blockassigns = daget(varas, i);
     for(int j = 0; j < blockassigns->length; j++) {
       BBLOCK* block = daget(blockassigns, j);
-      block->work = i;//do this better
-      dapushc(W, block);
+      block->work = itercount;
+      dapush(W, block);
     }
+    BBLOCK* initblock = daget(blockassigns, 0);
     for(int j = 0; j < W->length; j++) {
       BBLOCK* block = daget(W, j);
       if(block->df) {
         for(int k = 0; k < block->df->length; k++) {
           BBLOCK* domblock = daget(block->df, k);
-          if(domblock->visited != i) {
+          if(domblock->visited < itercount && initblock != domblock && fixedintersect(initblock, domblock)) {
             ADDRESS jadr;
-            jadr.joins = dactor(block->inedges->length == 2 ? 2 : 8);
+            jadr.joins = dactor(block->inedges->length);
             OPERATION* phi = ct_3ac_op2(PHI, ISCONST, jadr, fadr->addr_type, fadr->addr);
             phi->nextop = domblock->firstop;
+            if(!domblock->lastop) domblock->lastop = phi;
             domblock->firstop = phi;
-            domblock->visited = i;
-            if(domblock->work != i) {
-              domblock->work = i;
+            domblock->visited = itercount;
+            if(domblock->work < itercount) {
+              domblock->work = itercount;
               dapushc(W, domblock);
             }
           }
         }
       }
     }
+    W->length = 0;
   }
-  dadtor(blockstack);
-  //variable renaming, pass 3
   dadtor(W);
+
+  for(int i = 0; i < blocks->length; i++) {
+    BBLOCK* cb = daget(blocks, i);
+    cb->visited = 0;
+  }
+
+  //variable renaming, pass 3
   int* C = calloc(sizeof(int), varas->length);
   for(int i = 0; i < varas->length; i++) {
     DYNARR* da = daget(varas, i);
     da->length = 0;
   }
-  dadtorcfr(varas, (void(*)(void*))dadtor);
+  rrename(first, C, varas);
 
+  dadtorcfr(varas, (void(*)(void*))dadtor);
+  free(C);
+  prog->pdone |= SSA;
 }
+#undef X
