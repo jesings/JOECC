@@ -825,6 +825,7 @@ static void lbljmp(char* lblname, BBLOCK* block, BBLOCK** loc, PROGRAM* prog) {
     dapushc(inedges, block);
     dapushc(pushto, loc);
   } else {
+    dapush((*loc)->inedges, block);
   }
 }
 
@@ -1121,14 +1122,12 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char color, FILE* f, PRO
 }
 
 #define PRINTBROP2(opsymb) do { \
-    fprintf(f, "\t"); \
     printaddr(op->addr0, op->addr0_type, color, f, prog); \
     fprintf(f, " %s ", #opsymb); \
     printaddr(op->dest, op->dest_type, color, f, prog); \
   } while(0)
 
 #define PRINTOP3(opsymb) do { \
-    fprintf(f, "\t"); \
     printaddr(op->addr0, op->addr0_type, color, f, prog); \
     fprintf(f, " " #opsymb " "); \
     printaddr(op->addr1, op->addr1_type, color, f, prog); \
@@ -1137,7 +1136,6 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char color, FILE* f, PRO
   } while(0)
 
 #define PRINTOP2(opsymb) do { \
-    fprintf(f, "\t"); \
     fprintf(f, "%s", #opsymb); \
     printaddr(op->addr0, op->addr0_type, color, f, prog); \
     fprintf(f, " →  "); \
@@ -1145,18 +1143,19 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char color, FILE* f, PRO
   } while(0)
 
 #define PRINTOP1() do { \
-    fprintf(f, "\t"); \
     printaddr(op->addr0, op->addr0_type, color, f, prog); \
   } while(0)
 
-static void printop(OPERATION* op, char color, FILE* f, PROGRAM* prog) {
+static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* prog) {
   fprintf(f, "%s", opcode_3ac_names[op->opcode]);
+  if(color) fprintf(f, "\t");
+  else      fprintf(f, "&nbsp;");
   switch(op->opcode) {
     case NOP_3: case RET_0:
       break;
     case LBL_3: 
       if(color) fprintf(f, RGBCOLOR(200,200,120));
-      fprintf(f, "\t%s:", op->addr0.labelname);
+      fprintf(f, "%s:", op->addr0.labelname);
       if(color) fprintf(f, CLEARCOLOR);
       break;
     case COPY_3:
@@ -1266,7 +1265,6 @@ static void printop(OPERATION* op, char color, FILE* f, PROGRAM* prog) {
       PRINTOP2( );
       break;
     case ARROFF:
-      fprintf(f, "\t");
       printaddr(op->addr0, op->addr0_type, color, f, prog);
       fprintf(f, "[");
       printaddr(op->addr1, op->addr1_type, color, f, prog);
@@ -1275,7 +1273,6 @@ static void printop(OPERATION* op, char color, FILE* f, PROGRAM* prog) {
       printaddr(op->dest, op->dest_type, color, f, prog);
       break;
     case ARRMOV:
-      fprintf(f, "\t");
       printaddr(op->addr0, op->addr0_type, color, f, prog);
       fprintf(f, " →  ");
       printaddr(op->dest, op->dest_type, color, f, prog);
@@ -1284,7 +1281,6 @@ static void printop(OPERATION* op, char color, FILE* f, PROGRAM* prog) {
       fprintf(f, "] ");
       break;
     case MTP_OFF:
-      fprintf(f, "\t");
       printaddr(op->addr0, op->addr0_type, color, f, prog);
       fprintf(f, " →  ");
       printaddr(op->dest, op->dest_type, color, f, prog);
@@ -1292,7 +1288,9 @@ static void printop(OPERATION* op, char color, FILE* f, PROGRAM* prog) {
       printaddr(op->addr1, op->addr1_type, color, f, prog);
       break;
     case PHI:
-      fprintf(f, "\t");
+      for(int i = 0; i < blk->inedges->length; i++)
+        fprintf(f, "%d, ", op->addr0.joins[i]);
+      fprintf(f, " →  ");
       printaddr(op->dest, op->dest_type, color, f, prog);
       break;
   }
@@ -1303,7 +1301,7 @@ void printprog(PROGRAM* prog) {
     BBLOCK* blk = daget(prog->allblocks, i);
     if(!blk->lastop) continue;
     for(OPERATION* op = blk->firstop; op != blk->lastop->nextop; op = op->nextop) {
-      printop(op, 1, stdout, prog);
+      printop(op, 1, blk, stdout, prog);
       fputc('\n', stdout);
     }
   }
@@ -1329,7 +1327,7 @@ void treeprog(PROGRAM* prog, char* fname) {
     }
     fprintf(f, "\"%p\" [label=<<TABLE BORDER=\"0\" CELLBORDER=\"1\"><TR><TD>", blk);
     for(OPERATION* op = blk->firstop; op != blk->lastop->nextop; op = op->nextop) {
-      printop(op, 0, f, prog);
+      printop(op, 0, blk, f, prog);
       fprintf(f, "<BR ALIGN=\"LEFT\"/>");
     }
     fprintf(f, "</TD></TR></TABLE>> xlabel=\"%d\"]\n", blk->domind);
@@ -1363,7 +1361,7 @@ static void freeop(OPERATION* op, OPERATION* stop) {
         free(op->addr0.labelname);
         break;
       case PHI:
-        dadtor(op->addr0.joins);
+        free(op->addr0.joins);
         break;
       default:
         break;

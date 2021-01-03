@@ -63,8 +63,10 @@ static void dfpdt(BBLOCK* root) {
 
 static void rrename(BBLOCK* block, int* C, DYNARR* S) {
   if(!block || block->visited) return;
+  DYNARR* assigns = NULL;
   block->visited = 1;
   if(block->lastop) {
+    assigns = dactor(32);
     OPERATION* op = block->firstop;
     while(1) {
       switch(op->opcode) {
@@ -83,6 +85,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S) {
             } else {
               op->dest.ssaind = C[op->dest.varnum];
               dapush((DYNARR*) daget(S, op->dest.varnum), (void*)(long) C[op->dest.varnum]);
+              dapush(assigns, (void*)(long) op->dest.varnum);
               ++(C[op->dest.varnum]);
             }
           }
@@ -101,6 +104,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S) {
             assert(!C[op->addr0.varnum]); //would work if not for join nodes after scope
             op->addr0.ssaind = 0;
             dapush((DYNARR*) daget(S, op->addr0.varnum), NULL);
+            dapush(assigns, (void*)(long)op->addr0.varnum);
             C[op->addr0.varnum] = 1;
           }
           break;
@@ -111,10 +115,35 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S) {
       op = op->nextop;
     }
   }
-  //handle phis in children
+  if(block->nextblock && block->nextblock->lastop) {
+    int i = -1;
+    while(daget(block->nextblock->inedges, ++i) != block) ;
+    OPERATION* op = block->nextblock->firstop;
+    while(op->opcode == PHI) {
+      op->addr0.joins[i] = (int) (long) dapeek((DYNARR*) daget(S, op->dest.varnum));
+      if(op == block->nextblock->lastop) break;
+      op = op->nextop;
+    }
+  }
+  if(block->branchblock && block->branchblock->lastop) {
+    int i = -1;
+    while(daget(block->branchblock->inedges, ++i) != block) ;
+    OPERATION* op = block->branchblock->firstop;
+    while(op->opcode == PHI) {
+      op->addr0.joins[i] = (int) (long) dapeek((DYNARR*) daget(S, op->dest.varnum));
+      if(op == block->branchblock->lastop) break;
+      op = op->nextop;
+    }
+  }
   rrename(block->nextblock, C, S);
   rrename(block->branchblock, C, S);
-  //reset stack
+  if(assigns) {
+    for(int i = 0; i < assigns->length; i++) {
+      long l = (long) daget(assigns, i);
+      dapop((DYNARR*) daget(S, l));
+    }
+    dadtor(assigns);
+  }
 }
 
 //TODO: implement lengauer tarjan: https://www.cl.cam.ac.uk/~mr10/lengtarj.pdf
@@ -233,7 +262,7 @@ void ctdtree(PROGRAM* prog) {
           BBLOCK* domblock = daget(block->df, k);
           if(domblock->visited < itercount && initblock != domblock && fixedintersect(initblock, domblock)) {
             ADDRESS jadr;
-            jadr.joins = dactor(block->inedges->length);
+            jadr.joins = malloc(domblock->inedges->length * sizeof(int));
             OPERATION* phi = ct_3ac_op2(PHI, ISCONST, jadr, fadr->addr_type, fadr->addr);
             phi->nextop = domblock->firstop;
             if(!domblock->lastop) domblock->lastop = phi;

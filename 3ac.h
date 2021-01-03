@@ -16,7 +16,7 @@
   X(EQ_U) X(EQ_I) X(EQ_F) X(NE_U) X(NE_I) X(NE_F) \
   X(GE_U) X(GE_I) X(GE_F) X(LE_U) X(LE_I) X(LE_F) \
   X(GT_U) X(GT_I) X(GT_F) X(LT_U) X(LT_I) X(LT_F) \
-  X(MOV_3) X(MTP_OFF)
+  X(MTP_OFF)
 #define OPS_3_PTRDEST_3ac \
   X(COPY_3) /*source (pointer) length destination (pointer) */\
   X(ARROFF) /*source (uintconst_64 or regnum) index dest (index size impicit from result size) */\
@@ -24,7 +24,7 @@
 #define OPS_2_3ac \
   X(NOT_U) X(NOT_F) X(NEG_I) X(NEG_F) \
   X(INC_U) X(INC_I) X(INC_F) X(DEC_U) X(DEC_I) X(DEC_F) \
-  X(F2I) X(I2F) \
+  X(MOV_3) X(F2I) X(I2F) \
   X(ALOC_3) /*op2 Allocate stack memory for struct takes size and outputs start index*/
 #define OPS_NODEST_3ac \
   X(BEQ_U) X(BEQ_I) X(BEQ_F) X(BNE_U) X(BNE_I) X(BNE_F) \
@@ -67,7 +67,7 @@ typedef union {
   char* strconst;
   unsigned long* arrayconst;
   char* labelname;
-  DYNARR* joins;
+  int* joins;
 } ADDRESS;
 
 typedef enum {

@@ -13,7 +13,7 @@ NOTE: JOECC is a work-in progress, and currently cannot fully compile code
 - [x] AST display using graphviz
 - [x] AST type annotation
 - [x] 3 address code generation
-- [ ] Static Single Assignment conversion (in progress)
+- [x] Static Single Assignment conversion
 - [ ] General Optimizations (to be enumerated later)
 - [ ] Register Allocation
 - [ ] Conversion back from Single Static Assignment
