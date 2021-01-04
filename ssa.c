@@ -90,7 +90,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S) {
             }
           }
           break;
-        OPS_NODEST_3ac
+        OPS_NODEST_3ac case TPHI:
           if((op->addr1_type & (ADDRSVAR | ISVAR)) == ISVAR) 
             op->addr1.ssaind =  (long) dapeek((DYNARR*) daget(S, op->addr1.varnum));
           __attribute__((fallthrough));

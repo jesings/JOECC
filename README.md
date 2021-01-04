@@ -10,11 +10,14 @@ NOTE: JOECC is a work-in progress, and currently cannot fully compile code
 - [x] Preprocessor (part of lexer)
 - [x] AST generation
 - [x] AST optimization
-- [x] AST display using graphviz
 - [x] AST type annotation
 - [x] 3 address code generation
 - [x] Static Single Assignment conversion
-- [ ] General Optimizations (to be enumerated later)
+- [ ] Constant Folding
+- [ ] Global Value Numbering
+- [ ] Conditional Constant Propagation
+- [ ] Scalar Replacement of Aggregates
+- [ ] Other Optimizations (to be enumerated later)
 - [ ] Register Allocation
 - [ ] Conversion back from Single Static Assignment
 - [ ] Assembly generation

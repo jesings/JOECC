@@ -7,22 +7,24 @@
 #define OPS_NOVAR_3ac \
   X(NOP_3) /*op0*/ X(LBL_3) /*op1 (special)*/ \
   X(JMP_3) /*op1 special (dest label)*/ X(RET_0) /*op0*/
-#define OPS_3_3ac \
-  X(ADD_U) X(ADD_I) X(ADD_F) X(SUB_U) X(SUB_I) X(SUB_F) \
-  X(MULT_U) X(MULT_I) X(MULT_F) X(DIV_U) X(DIV_I) X(DIV_F) \
+#define OPS_3_3ac_COM \
+  X(ADD_U) X(ADD_I) X(ADD_F) X(MULT_U) X(MULT_I) X(MULT_F) \
+  X(AND_U) X(OR_U) X(XOR_U) \
+  X(EQ_U) X(EQ_I) X(EQ_F) X(NE_U) X(NE_I) X(NE_F)
+#define OPS_3_3ac_NOCOM \
+  X(SUB_U) X(SUB_I) X(SUB_F) X(DIV_U) X(DIV_I) X(DIV_F) \
   X(MOD_U) X(MOD_I) \
   X(SHL_U) X(SHL_I) X(SHR_U) X(SHR_I) \
-  X(AND_U) X(AND_F) X(OR_U) X(OR_F) X(XOR_U) X(XOR_F) \
-  X(EQ_U) X(EQ_I) X(EQ_F) X(NE_U) X(NE_I) X(NE_F) \
   X(GE_U) X(GE_I) X(GE_F) X(LE_U) X(LE_I) X(LE_F) \
-  X(GT_U) X(GT_I) X(GT_F) X(LT_U) X(LT_I) X(LT_F) \
-  X(MTP_OFF)
+  X(GT_U) X(GT_I) X(GT_F) X(LT_U) X(LT_I) X(LT_F)
+#define OPS_3_3ac OPS_3_3ac_COM OPS_3_3ac_NOCOM
 #define OPS_3_PTRDEST_3ac \
   X(COPY_3) /*source (pointer) length destination (pointer) */\
   X(ARROFF) /*source (uintconst_64 or regnum) index dest (index size impicit from result size) */\
-  X(ARRMOV) /*source (uintconst_64 or regnum) index dest (index size impicit from result size) */
+  X(ARRMOV) /*source (uintconst_64 or regnum) index dest (index size impicit from result size) */\
+  X(MTP_OFF)
 #define OPS_2_3ac \
-  X(NOT_U) X(NOT_F) X(NEG_I) X(NEG_F) \
+  X(NOT_U) X(NEG_I) X(NEG_F) \
   X(INC_U) X(INC_I) X(INC_F) X(DEC_U) X(DEC_I) X(DEC_F) \
   X(MOV_3) X(F2I) X(I2F) \
   X(ALOC_3) /*op2 Allocate stack memory for struct takes size and outputs start index*/
@@ -30,14 +32,14 @@
   X(BEQ_U) X(BEQ_I) X(BEQ_F) X(BNE_U) X(BNE_I) X(BNE_F) \
   X(BGE_U) X(BGE_I) X(BGE_F) X(BLE_U) X(BLE_I) X(BLE_F) \
   X(BGT_U) X(BGT_I) X(BGT_F) X(BLT_U) X(BLT_I) X(BLT_F) \
-  X(JEQ_I) /*op3 (dest label)*/
+  X(JEQ_I) /*op3 (dest label), commut*/
 #define OPS_1_3ac \
   X(BNZ_3) X(BEZ_3) \
   X(ARG_3) X(RET_3)
 #define OPS_1_ASSIGN_3ac \
   X(INIT_3) X(PARAM_3) /*both op1 declare variable*/
 
-#define OPS_3AC OPS_NOVAR_3ac OPS_3_3ac OPS_3_PTRDEST_3ac OPS_2_3ac OPS_NODEST_3ac OPS_1_ASSIGN_3ac OPS_1_3ac X(CALL_3) X(PHI) X(ADDR_3) /*call phi and addr are special cases*/
+#define OPS_3AC OPS_NOVAR_3ac OPS_3_3ac OPS_3_PTRDEST_3ac OPS_2_3ac OPS_NODEST_3ac OPS_1_ASSIGN_3ac OPS_1_3ac X(CALL_3) X(PHI) X(TPHI) X(ADDR_3) /*call phi and addr are special cases*/
 
 #define X(s) s,
 enum opcode_3ac {
@@ -142,6 +144,7 @@ FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srce
 OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
                           ADDRTYPE addr1_type, ADDRESS addr1, PROGRAM* prog);
 OPERATION* implicit_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
+OPERATION* implicit_bitwise_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog);
 OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog);
 OPERATION* implicit_mtp_2(EXPRESSION* destexpr, EXPRESSION* fromexpr, FULLADDR a1, FULLADDR a2, PROGRAM* prog);
 FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, 

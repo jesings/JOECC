@@ -80,6 +80,7 @@ static void filecomp(char* filename) {
       //treefunc(pairthere->value);
       PROGRAM* prog = linefunc(f); //fix main func
       ctdtree(prog);
+      constfold(prog);
 #ifndef NODEBUG
       putchar('\n');
       puts(pairthere->key);

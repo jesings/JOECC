@@ -1594,10 +1594,10 @@ char pleatstate(STATEMENT** stated) {
       if(st->forinit->isE) {
         while(foldconst(&st->forinit->E)) i = 1;
       } else {
-        for(int i = 0; i < st->forinit->I->length; i++) {
-          INITIALIZER* indinit = daget(st->forinit->I, i);
+        for(int j = 0; j < st->forinit->I->length; j++) {
+          INITIALIZER* indinit = daget(st->forinit->I, j);
           if(indinit->expr) {
-            while(foldconst(&indinit->expr)) i = 1;
+            while(foldconst(&indinit->expr)) j = 1;
           }
         }
       }
@@ -1617,23 +1617,23 @@ char pleatstate(STATEMENT** stated) {
       return i || pleatstate(&st->body);
     case CMPND:
       newsdyn = dactor(st->stmtsandinits->length);
-      for(int i = 0; i < st->stmtsandinits->length; i++) {
+      for(int j = 0; j < st->stmtsandinits->length; j++) {
         CMPNDLCONT: ;
-        SOI* soi = daget(st->stmtsandinits, i);
+        SOI* soi = daget(st->stmtsandinits, j);
         if(soi->isstmt) {
-          if((soi->state->type == FRET || soi->state->type == JGOTO) && i != st->stmtsandinits->length - 1) {
-            ++i;
-            for(; i < st->stmtsandinits->length; i++) {
+          if((soi->state->type == FRET || soi->state->type == JGOTO) && j != st->stmtsandinits->length - 1) {
+            ++j;
+            for(; j < st->stmtsandinits->length; j++) {
               rfreestate(st);
-              SOI* free2 = daget(st->stmtsandinits, i);
+              SOI* free2 = daget(st->stmtsandinits, j);
               if(soi->isstmt) {
                 if(soi->state->type == LABEL || soi->state->type == CASE || soi->state->type == DEFAULT) {
                   goto CMPNDLCONT;
                 }
                 free(free2->state);
               } else {
-                for(int j = 0; j < free2->init->length; j++) {
-                  INITIALIZER* in = daget(free2->init, j);
+                for(int k = 0; k < free2->init->length; k++) {
+                  INITIALIZER* in = daget(free2->init, k);
                   if(in->expr) {
                     rfreexpr(in->expr);
                   }
@@ -1655,8 +1655,8 @@ char pleatstate(STATEMENT** stated) {
             dapush(newsdyn, soi);
           }
         } else {
-          for(int j = 0; j < soi->init->length; j++) {
-            INITIALIZER* in = daget(soi->init, j);
+          for(int k = 0; k < soi->init->length; k++) {
+            INITIALIZER* in = daget(soi->init, k);
             while(foldconst(&in->expr)) i = 1;
           }
           dapush(newsdyn, soi);

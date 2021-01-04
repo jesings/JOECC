@@ -95,6 +95,16 @@ OPERATION* implicit_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* pro
   return ct_3ac_op3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, desta.addr_type, desta.addr);
 }
 
+OPERATION* implicit_bitwise_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
+  FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
+  FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog);
+  FULLADDR desta;
+  IDTYPE retid = typex(cexpr);
+  assert(!(retid.tb & FLOATNUM));
+  FILLIREG(desta, retid.tb & 0xf);
+  return ct_3ac_op3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, desta.addr_type, desta.addr);
+}
+
 FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srcexpr, PROGRAM* prog) {
   IDTYPE destidt = typex(destexpr);
   IDTYPE srcidt = typex(srcexpr);
@@ -446,13 +456,9 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case B_NOT:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       destaddr.addr_type = curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR);
-      if(destaddr.addr_type & ISFLOAT) {
-        destaddr.addr.fregnum = prog->fregcnt++;
-        opn(prog, ct_3ac_op2(NOT_F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-      } else {
-        destaddr.addr.iregnum = prog->iregcnt++;
-        opn(prog, ct_3ac_op2(NOT_U, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-      }
+      assert(!(destaddr.addr_type & ISFLOAT));
+      destaddr.addr.iregnum = prog->iregcnt++;
+      opn(prog, ct_3ac_op2(NOT_U, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       return destaddr;
 
     case ADDR:
@@ -520,11 +526,11 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return implicit_shortcircuit_3(BNZ_3, cexpr, (ADDRESS) 0ul, (ADDRESS) 1ul, prog);
 
     case B_AND:
-      return op2ret(prog, implicit_binary_3(AND_U, cexpr, prog));
+      return op2ret(prog, implicit_bitwise_3(AND_U, cexpr, prog));
     case B_OR:
-      return op2ret(prog, implicit_binary_3(OR_U, cexpr, prog));
+      return op2ret(prog, implicit_bitwise_3(OR_U, cexpr, prog));
     case B_XOR:
-      return op2ret(prog, implicit_binary_3(XOR_U, cexpr, prog));
+      return op2ret(prog, implicit_bitwise_3(XOR_U, cexpr, prog));
 
     case SHL:
       return op2ret(prog, binshift_3(SHL_U, cexpr, prog));
@@ -599,10 +605,10 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       }
       return destaddr;
     case TERNARY: ;
-      //do more checking of other 
       BBLOCK* joinblock = mpblk();
       BBLOCK* failblock = mpblk();
       opn(prog, cmptype(daget(cexpr->params, 0), 1, prog));
+      BBLOCK* topblock = prog->curblock;
       prog->curblock->branchblock = failblock;
       dapushc(failblock->inedges, prog->curblock);
       prog->curblock = NULL;
@@ -617,11 +623,13 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         opn(prog, ct_3ac_op2(I2F, curaddr.addr_type, curaddr.addr, ad2.addr_type, ad2.addr));
         curaddr = ad2;
       }
-      //MOV_3 is an op2 but we don't have the second address yet so we leave it as a blank in an op1
-      OPERATION* fixlater = ct_3ac_op1(MOV_3, curaddr.addr_type, curaddr.addr);
-      opn(prog, fixlater);
-      prog->curblock->nextblock = joinblock;
-      dapushc(joinblock->inedges, prog->curblock);
+      if(prog->curblock) {
+        prog->curblock->nextblock = joinblock;
+        dapushc(joinblock->inedges, prog->curblock);
+      } else {
+        topblock->nextblock = joinblock;
+        dapushc(joinblock->inedges, topblock);
+      }
       giveblock(prog, failblock);
       otheraddr = linearitree(daget(cexpr->params, 2), prog);
       if((t1t.tb & FLOATNUM) && !(t2t.tb & FLOATNUM)) {
@@ -636,10 +644,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       } else {
         destaddr.addr.iregnum = prog->iregcnt++;
       }
-      fixlater->dest_type = destaddr.addr_type;
-      fixlater->dest = destaddr.addr;
-      opn(prog, ct_3ac_op2(MOV_3, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
       giveblock(prog, joinblock);
+      opn(prog, ct_3ac_op3(TPHI, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
       return destaddr;
       //confirm 2 addrs have same type or are coercible
 
@@ -1183,17 +1189,17 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
       if(color) PRINTOP3(>>);
       else PRINTOP3(&gt;&gt;);
       break;
-    case AND_U: case AND_F:
+    case AND_U:
       if(color) PRINTOP3(&);
       else PRINTOP3(&amp;);
       break;
-    case OR_U: case OR_F: 
+    case OR_U:
       PRINTOP3(|);
       break;
-    case XOR_U: case XOR_F: 
+    case XOR_U:
       PRINTOP3(^);
       break;
-    case NOT_U: case NOT_F: 
+    case NOT_U:
       PRINTOP2(~);
       break;
     case INC_U: case INC_I: case INC_F: 
@@ -1293,6 +1299,8 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
       fprintf(f, " →  ");
       printaddr(op->dest, op->dest_type, color, f, prog);
       break;
+    case TPHI:
+      PRINTOP3( or );
   }
 }
 
