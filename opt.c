@@ -1,22 +1,47 @@
 #include <stdint.h>
 #include "opt.h"
-char rmunreach(PROGRAM* prog) {
+void domark(BBLOCK* blk) {
+  blk->unreachable = 1;
+  if(blk->nextblock) {
+    dharma(blk->nextblock->inedges, blk);
+    if(blk->nextblock->inedges == 0) domark(blk->nextblock);
+  }
+  if(blk->branchblock) {
+    dharma(blk->branchblock->inedges, blk);
+    if(blk->branchblock->inedges == 0) domark(blk->branchblock);
+  }
+}
+
+char markunreach(DYNARR* pb) {
+  char marked = 0;
+  char changed = 0;
+  do {
+    //ignore first block
+    for(int i = 1; i < pb->length; i++) {
+      BBLOCK* poss = daget(pb, i);
+      if(poss->unreachable) continue;
+      if(poss->inedges->length == 0) {
+        changed = 1;
+        domark(poss);
+      }
+    }
+  } while(changed-- && (marked = 1));
+  return marked;
+}
+void rmunreach(PROGRAM* prog) {
   DYNARR* oldall = prog->allblocks;
   DYNARR* newall = dactor(oldall->length);
   dapush(newall, daget(oldall, 0));
-  char modified = 0;
   for(int i = 1; i < oldall->length; i++) {
     BBLOCK* oldb = daget(oldall, i);
-    if(oldb->inedges->length == 0) {
+    if(oldb->unreachable) {
       freeblock(oldb);
-      modified = 1;
     } else {
       dapush(newall, oldb);
     }
   }
   prog->allblocks = newall;
   dadtor(oldall);
-  return modified;
 }
 //http://www.cs.toronto.edu/~pekhimenko/courses/cscd70-w20/docs/Lecture 7 [Pointer Analysis] 03.09.2020.pdf
 //http://ssabook.gforge.inria.fr/latest/book.pdf

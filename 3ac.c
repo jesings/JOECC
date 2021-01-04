@@ -8,16 +8,10 @@ const char* opcode_3ac_names[] = {
 extern const char* name_EXPRTYPE[];
 extern const char* name_STMTTYPE[];
 #undef X
-#define FILLIREG(addrvar, type) do { \
+#define FILLREG(addrvar, type) do { \
     (addrvar).addr.iregnum = prog->iregcnt++; \
     (addrvar).addr_type = (type); \
   } while(0)
-#define FILLFREG(addrvar, type) do { \
-    (addrvar).addr.fregnum = prog->fregcnt++; \
-    (addrvar).addr_type = (type); \
-  } while(0)
-#define FILLGREG(addrvar, type) do { \
-    if((type) & ISFLOAT) FILLFREG((addrvar), (type)); else FILLIREG((addrvar), (type));} while(0)
 
 OPERATION* ct_3ac_op0(enum opcode_3ac opcode) {
   OPERATION* retval = malloc(sizeof(OPERATION));
@@ -68,28 +62,28 @@ OPERATION* implicit_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* pro
               !(arg1id.pointerstack && arg1id.pointerstack->length)) {
       a1 = ptarith(retid, a1, prog);
     }
-    FILLIREG(desta, ISPOINTER | 8);
+    FILLREG(desta, ISPOINTER | 8);
     //perhaps save regnum here?
   } else if(retid.tb & FLOATNUM) {
     op += 2;
     if(!(arg1id.tb & FLOATNUM)) {
       FULLADDR fad;
-      FILLFREG(fad, ISFLOAT | (retid.tb & 0xf));
+      FILLREG(fad, ISFLOAT | (retid.tb & 0xf));
       opn(prog, ct_3ac_op2(I2F, a1.addr_type, a1.addr, fad.addr_type, fad.addr));
       a1 = fad;
     } 
     if(!(arg2id.tb & FLOATNUM)) {
       FULLADDR fad;
-      FILLFREG(fad, ISFLOAT | (retid.tb & 0xf));
+      FILLREG(fad, ISFLOAT | (retid.tb & 0xf));
       opn(prog, ct_3ac_op2(I2F, a2.addr_type, a2.addr, fad.addr_type, fad.addr));
       a2 = fad;
     }
-    FILLFREG(desta, ISFLOAT | (retid.tb & 0xf));
+    FILLREG(desta, ISFLOAT | (retid.tb & 0xf));
   } else if(retid.tb & UNSIGNEDNUM) {
-    FILLIREG(desta, retid.tb & 0xf);
+    FILLREG(desta, retid.tb & 0xf);
   } else {
     op += 1;
-    FILLIREG(desta, (retid.tb & 0xf) | ISSIGNED);
+    FILLREG(desta, (retid.tb & 0xf) | ISSIGNED);
   }
 
   return ct_3ac_op3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, desta.addr_type, desta.addr);
@@ -101,7 +95,7 @@ OPERATION* implicit_bitwise_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* pr
   FULLADDR desta;
   IDTYPE retid = typex(cexpr);
   assert(!(retid.tb & FLOATNUM));
-  FILLIREG(desta, retid.tb & 0xf);
+  FILLREG(desta, retid.tb & 0xf);
   return ct_3ac_op3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, desta.addr_type, desta.addr);
 }
 
@@ -137,13 +131,13 @@ FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srce
       op += 2;
       if(!(srcidt.tb & FLOATNUM)) {
         FULLADDR fad;
-        FILLFREG(fad, ISFLOAT | (srcidt.tb & 0xf));
+        FILLREG(fad, ISFLOAT | (srcidt.tb & 0xf));
         opn(prog, ct_3ac_op2(I2F, srcaddr.addr_type, srcaddr.addr, fad.addr_type, fad.addr));
         srcaddr = fad;
       }
     } else if(srcidt.tb & FLOATNUM) {
         FULLADDR fad;
-        FILLFREG(fad, ISFLOAT | (srcidt.tb & 0xf));
+        FILLREG(fad, ISFLOAT | (srcidt.tb & 0xf));
         opn(prog, ct_3ac_op2(I2F, destaddr.addr_type, destaddr.addr, fad.addr_type, fad.addr));
         opn(prog, ct_3ac_op3(op, fad.addr_type, fad.addr, srcaddr.addr_type, srcaddr.addr, fad.addr_type, fad.addr));
         opn(prog, ct_3ac_op2(F2I, fad.addr_type, fad.addr, destaddr.addr_type, destaddr.addr));
@@ -178,7 +172,7 @@ static FULLADDR poststep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
   IDTYPE rid = typex(cexpr);
   destaddr = linearitree(daget(cexpr->params, 0), prog);
   char baseness = destaddr.addr_type & ISFLOAT ? 2 : 0;
-  FILLGREG(actualaddr, destaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
+  FILLREG(actualaddr, destaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
   opn(prog, ct_3ac_op2(MOV_3, destaddr.addr_type, destaddr.addr, actualaddr.addr_type, actualaddr.addr));
   if(rid.pointerstack && rid.pointerstack->length) {
     FULLADDR curaddr;
@@ -202,19 +196,19 @@ OPERATION* implicit_mtp_2(EXPRESSION* destexpr, EXPRESSION* fromexpr, FULLADDR a
   } else if(destidt.tb & FLOATNUM) {
     if(!(srcidt.tb & FLOATNUM)) {
       FULLADDR fad;
-      FILLFREG(fad, ISFLOAT | (destidt.tb & 0xf));
+      FILLREG(fad, ISFLOAT | (destidt.tb & 0xf));
       return ct_3ac_op2(I2F, a2.addr_type, a2.addr, fad.addr_type | ISDEREF, fad.addr);
     }
   } else if(destidt.tb & UNSIGNEDNUM) {
     if(srcidt.tb & FLOATNUM) {
       FULLADDR fad;
-      FILLIREG(fad, destidt.tb & 0xf);
+      FILLREG(fad, destidt.tb & 0xf);
       return ct_3ac_op2(F2I, a2.addr_type, a2.addr, fad.addr_type | ISDEREF, fad.addr);
     }
   } else {
     if(srcidt.tb & FLOATNUM) {
       FULLADDR fad;
-      FILLIREG(fad, (destidt.tb & 0xf) | ISSIGNED);
+      FILLREG(fad, (destidt.tb & 0xf) | ISSIGNED);
       return ct_3ac_op2(F2I, a2.addr_type, a2.addr, fad.addr_type | ISDEREF, fad.addr);
     }
   }
@@ -227,22 +221,22 @@ OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog
   IDTYPE retid = typex(cexpr);
   FULLADDR desta;
   if(retid.pointerstack && retid.pointerstack->length) {
-    FILLIREG(desta, ISPOINTER | 8);
+    FILLREG(desta, ISPOINTER | 8);
     //perhaps save regnum here?
   } else if(retid.tb & FLOATNUM) {
     op += 2;
     if(!(arg1id.tb & FLOATNUM)) {
       FULLADDR fad;
-      FILLFREG(fad, ISFLOAT | (retid.tb & 0xf));
+      FILLREG(fad, ISFLOAT | (retid.tb & 0xf));
       opn(prog, ct_3ac_op2(I2F, a1.addr_type, a1.addr, fad.addr_type, fad.addr));
       a1 = fad;
     } 
-    FILLFREG(desta, ISFLOAT | (retid.tb & 0xf));
+    FILLREG(desta, ISFLOAT | (retid.tb & 0xf));
   } else if(retid.tb & UNSIGNEDNUM) {
-    FILLIREG(desta, retid.tb & 0xf);
+    FILLREG(desta, retid.tb & 0xf);
   } else {
     op += 1;
-    FILLIREG(desta, (retid.tb & 0xf) | ISSIGNED);
+    FILLREG(desta, (retid.tb & 0xf) | ISSIGNED);
   }
 
   return ct_3ac_op2(op, a1.addr_type, a1.addr, desta.addr_type, desta.addr);
@@ -259,9 +253,7 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
     dapushc(failblock->inedges, prog->curblock);
     prog->curblock = NULL;
   }
-  if(addr2use.addr_type & ISCONST || addr2use.addr_type & ISFLOAT) {
-    addr2use.addr.iregnum = prog->iregcnt++;
-  }
+  addr2use.addr.iregnum = prog->iregcnt++;
   addr2use.addr_type = 1;//maybe make it signed?
   opn(prog, ct_3ac_op2(MOV_3, ISCONST, complete_val, addr2use.addr_type, addr2use.addr));
   prog->curblock->nextblock = finalblock;
@@ -278,26 +270,26 @@ OPERATION* cmpret_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog)
   IDTYPE arg1id = typex(daget(cexpr->params, 0));
   IDTYPE arg2id = typex(daget(cexpr->params, 1));
   IDTYPE retid = typex(cexpr);
-  FULLADDR desta;
-  FILLIREG(desta, (retid.tb & 0xf) | (retid.tb & UNSIGNEDNUM ? 0 : ISSIGNED));//unsigned
   if(arg1id.tb & FLOATNUM) {
     op += 2;
     if(!(arg2id.tb & FLOATNUM)) {
       FULLADDR fad;
-      FILLFREG(fad, ISFLOAT | (arg1id.tb & 0xf));
+      FILLREG(fad, ISFLOAT | (arg1id.tb & 0xf));
       opn(prog, ct_3ac_op2(I2F, a2.addr_type, a2.addr, fad.addr_type, fad.addr));
       a2 = fad;
     }
   } else if(arg2id.tb & FLOATNUM) {
     op += 2;
     FULLADDR fad;
-    FILLFREG(fad, ISFLOAT | (arg2id.tb & 0xf));
+    FILLREG(fad, ISFLOAT | (arg2id.tb & 0xf));
     opn(prog, ct_3ac_op2(I2F, a1.addr_type, a1.addr, fad.addr_type, fad.addr));
     a2 = fad;
   } else if(!((arg1id.tb & UNSIGNEDNUM) || (arg2id.tb & UNSIGNEDNUM))) {
     op += 1;
   }
 
+  FULLADDR desta;
+  FILLREG(desta, (retid.tb & 0xf) | (retid.tb & UNSIGNEDNUM ? 0 : ISSIGNED));//unsigned
   return ct_3ac_op3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, desta.addr_type, desta.addr);
 }
 
@@ -307,7 +299,7 @@ OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRA
   //check for no floats?
   enum opcode_3ac shlop = opcode_unsigned + (a1.addr_type & ISSIGNED ? 1 : 0);
   FULLADDR adr;
-  FILLIREG(adr, a1.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
+  FILLREG(adr, a1.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
   return ct_3ac_op3(shlop, a1.addr_type, a1.addr, a2.addr_type, a2.addr, adr.addr_type, adr.addr);
 }
 
@@ -331,11 +323,11 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
   offaddr.intconst_64 = sf->offset;
   if(!pointerqual && (sf->type->tb & (STRUCTVAL | UNIONVAL))) {
     if(offaddr.intconst_64) {
-      FILLIREG(retaddr, ISPOINTER | 8);
+      FILLREG(retaddr, ISPOINTER | 8);
       opn(prog, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, retaddr.addr_type, retaddr.addr));
     } else {
       if(sead.addr_type & ISDEREF) {
-        FILLIREG(retaddr, ISPOINTER | 8);
+        FILLREG(retaddr, ISPOINTER | 8);
         opn(prog, ct_3ac_op2(MOV_3, sead.addr_type, sead.addr, retaddr.addr_type, retaddr.addr));
       } else {
         return sead;
@@ -344,11 +336,11 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
   } else {
     FULLADDR intermediate;
     if(offaddr.intconst_64) {
-      FILLIREG(intermediate, ISPOINTER | 8);
+      FILLREG(intermediate, ISPOINTER | 8);
       opn(prog, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, intermediate.addr_type, intermediate.addr));
     } else {
       if(sead.addr_type & ISDEREF) {
-        FILLIREG(intermediate, ISPOINTER | 8);
+        FILLREG(intermediate, ISPOINTER | 8);
         opn(prog, ct_3ac_op2(MOV_3, sead.addr_type, sead.addr, intermediate.addr_type, intermediate.addr));
       } else {
         sead.addr_type |= ISDEREF;
@@ -396,7 +388,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       }
     case ARRAY_LIT: ;
       struct declarator_part* ptrtop = dapeek(cexpr->rettype->pointerstack);
-      FILLIREG(destaddr, ISPOINTER | 0x8);
+      FILLREG(destaddr, ISPOINTER | 0x8);
       assert(ptrtop->type == ARRAYSPEC);
       curaddr.addr.uintconst_64 = ptrtop->arrlen;
       opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 0x8, curaddr.addr, destaddr.addr_type, destaddr.addr));
@@ -421,7 +413,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       }
       return destaddr;
     case STRUCT_LIT:
-      FILLIREG(destaddr, ISPOINTER | 0x8);
+      FILLREG(destaddr, ISPOINTER | 0x8);
       curaddr.addr.uintconst_64 = cexpr->rettype->structtype->size;
       opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 0x8, curaddr.addr, destaddr.addr_type, destaddr.addr));
       for(int i = 0; i < cexpr->params->length; i++) {
@@ -436,18 +428,17 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case NEG:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       destaddr.addr_type = curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR);
+      destaddr.addr.iregnum = prog->iregcnt++;
       if(destaddr.addr_type & ISFLOAT) {
-        destaddr.addr.fregnum = prog->fregcnt++;
         opn(prog, ct_3ac_op2(NEG_F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       } else {
-        destaddr.addr.iregnum = prog->iregcnt++;
         opn(prog, ct_3ac_op2(NEG_I, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       }
       return destaddr;
     case L_NOT:
       //TODO: validate lots of types
       curaddr = linearitree(daget(cexpr->params, 0), prog);
-      FILLIREG(destaddr, (curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | 0xf | ISVAR)) | 1);
+      FILLREG(destaddr, (curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | 0xf | ISVAR)) | 1);
       //logical not only makes sense for ints
       otheraddr.addr.uintconst_64 = 0;
       opn(prog, ct_3ac_op3(EQ_U, curaddr.addr_type, curaddr.addr, (curaddr.addr_type & 0xf) | ISCONST, otheraddr.addr,
@@ -560,17 +551,17 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       if(cexpr->vartype->pointerstack && cexpr->vartype->pointerstack->length) {
         assert(!(curaddr.addr_type & ISFLOAT));
-        FILLIREG(destaddr, 8 | ISPOINTER);
+        FILLREG(destaddr, 8 | ISPOINTER);
         opn(prog, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       } else if(cexpr->vartype->tb & FLOATNUM) {
-        FILLFREG(destaddr, (cexpr->vartype->tb & 0xf) | ISSIGNED | ISFLOAT);
+        FILLREG(destaddr, (cexpr->vartype->tb & 0xf) | ISSIGNED | ISFLOAT);
         if(curaddr.addr_type & ISFLOAT) {
           opn(prog, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         } else {
           opn(prog, ct_3ac_op2(I2F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         }
       } else if(cexpr->vartype->tb & UNSIGNEDNUM) {
-        FILLIREG(destaddr, cexpr->vartype->tb & 0xf);
+        FILLREG(destaddr, cexpr->vartype->tb & 0xf);
         if(curaddr.addr_type & ISFLOAT) {
           opn(prog, ct_3ac_op2(F2I, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         } else {
@@ -580,7 +571,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         return curaddr; //not sure how this should be handled
       } else if(cexpr->vartype->tb & UNIONVAL) { 
         UNION* castdest = cexpr->vartype->uniontype;
-        FILLIREG(destaddr, ISPOINTER | 0x8);
+        FILLREG(destaddr, ISPOINTER | 0x8);
         unionlen(castdest);
         otheraddr.addr.uintconst_64 = castdest->size;
         opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 8, otheraddr.addr, destaddr.addr_type, destaddr.addr));
@@ -593,7 +584,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         }
         assert(0);
       } else if(cexpr->vartype->tb & 0xf) {
-        FILLIREG(destaddr, (cexpr->vartype->tb & 0xf) | ISSIGNED);
+        FILLREG(destaddr, (cexpr->vartype->tb & 0xf) | ISSIGNED);
         if(curaddr.addr_type & ISFLOAT) {
           opn(prog, ct_3ac_op2(F2I, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         } else {
@@ -608,7 +599,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       BBLOCK* joinblock = mpblk();
       BBLOCK* failblock = mpblk();
       opn(prog, cmptype(daget(cexpr->params, 0), 1, prog));
-      BBLOCK* topblock = prog->curblock;
+      BBLOCK* topblock;
       prog->curblock->branchblock = failblock;
       dapushc(failblock->inedges, prog->curblock);
       prog->curblock = NULL;
@@ -619,7 +610,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       curaddr = linearitree(daget(cexpr->params, 1), prog);
       if(!(t1t.tb & FLOATNUM) && (t2t.tb & FLOATNUM)) {
         FULLADDR ad2;
-        FILLFREG(ad2, (t0t.tb & 0xf) | ISFLOAT | ISSIGNED);
+        FILLREG(ad2, (t0t.tb & 0xf) | ISFLOAT | ISSIGNED);
         opn(prog, ct_3ac_op2(I2F, curaddr.addr_type, curaddr.addr, ad2.addr_type, ad2.addr));
         curaddr = ad2;
       }
@@ -627,23 +618,22 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         prog->curblock->nextblock = joinblock;
         dapushc(joinblock->inedges, prog->curblock);
       } else {
-        topblock->nextblock = joinblock;
-        dapushc(joinblock->inedges, topblock);
+        topblock = dapeek(prog->allblocks);
+        if(!topblock->nextblock) {
+          topblock->nextblock = joinblock;
+          dapushc(joinblock->inedges, topblock);
+        }
       }
       giveblock(prog, failblock);
       otheraddr = linearitree(daget(cexpr->params, 2), prog);
       if((t1t.tb & FLOATNUM) && !(t2t.tb & FLOATNUM)) {
         FULLADDR ad2;
-        FILLFREG(ad2, (t0t.tb & 0xf) | ISFLOAT | ISSIGNED);
+        FILLREG(ad2, (t0t.tb & 0xf) | ISFLOAT | ISSIGNED);
         opn(prog, ct_3ac_op2(I2F, otheraddr.addr_type, otheraddr.addr, ad2.addr_type, ad2.addr));
         otheraddr = ad2;
       }
       destaddr.addr_type = addrconv(&t3t);
-      if(destaddr.addr_type & ISFLOAT) {
-        destaddr.addr.fregnum = prog->fregcnt++;
-      } else {
-        destaddr.addr.iregnum = prog->iregcnt++;
-      }
+      destaddr.addr.iregnum = prog->iregcnt++;
       giveblock(prog, joinblock);
       opn(prog, ct_3ac_op3(TPHI, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
       return destaddr;
@@ -734,29 +724,29 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       IDTYPE* frettype = cexpr->rettype;
       //struct type as well?
       if(frettype->pointerstack && frettype->pointerstack->length) {
-        FILLIREG(destaddr, ISPOINTER | 8);
+        FILLREG(destaddr, ISPOINTER | 8);
       } else if(frettype->tb & FLOATNUM) {
-        FILLIREG(destaddr, ISFLOAT | (frettype->tb & 0xf));
+        FILLREG(destaddr, ISFLOAT | (frettype->tb & 0xf));
       } else if(frettype->tb & UNSIGNEDNUM) {
-        FILLIREG(destaddr, frettype->tb & 0xf);
+        FILLREG(destaddr, frettype->tb & 0xf);
       } else {
-        FILLIREG(destaddr, ISSIGNED | (frettype->tb & 0xf));
+        FILLREG(destaddr, ISSIGNED | (frettype->tb & 0xf));
       }
       opn(prog, ct_3ac_op2(CALL_3, ISCONST | ISLABEL, (ADDRESS) fname->id->name, destaddr.addr_type, destaddr.addr));
       return destaddr;
   }
   fprintf(stderr, "Error: reduction of expression %s to 3 address code failed\n", name_EXPRTYPE[cexpr->type]);
-  FILLIREG(curaddr, 0);
+  FILLREG(curaddr, 0);
   return curaddr;
 }
 
 OPERATION* cmptype(EXPRESSION* cmpexpr, char negate, PROGRAM* prog) {
   OPERATION* dest_op;
   FULLADDR destaddr;
-  //check if new register is assigned to in cmpret, decrement?
   switch(cmpexpr->type) {
     case EQ: case NEQ: case GT: case LT: case GTE: case LTE:
       dest_op = cmpret_binary_3(cmp_osite(cmpexpr->type, negate), cmpexpr, prog);//figure out signedness here or elsewhere
+      --prog->iregcnt; //dealloc allocated register, ignore third operand
       //dest_op->dest_type = ISCONST | ISLABEL;
       //dest_op->dest.branchop = op2brnch;
       return dest_op;
@@ -828,8 +818,9 @@ static void lbljmp(char* lblname, BBLOCK* block, BBLOCK** loc, PROGRAM* prog) {
     } else {
       inedges = daget(pushto, 0);
     }
-    dapushc(inedges, block);
-    dapushc(pushto, loc);
+    dapush(inedges, block);
+    dapush(pushto, loc);
+    *loc = (void*) 1; //dummy, so nextblock can't get populated
   } else {
     dapush((*loc)->inedges, block);
   }
@@ -869,22 +860,25 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
     case JGOTO:
       if(!prog->curblock) ctblk(prog);
       lbljmp(cst->glabel, prog->curblock, &prog->curblock->nextblock, prog);
-      prog->curblock = NULL; //TODO: UHHHHH
+      prog->curblock = NULL;
       return;
     case WHILEL:
       breakblock = mpblk();
       contblock = mpblk();
       dapush(prog->breaklabels, breakblock);
       dapush(prog->continuelabels, contblock);
-      dapushc(breakblock->inedges, contblock);
       contblock->branchblock = breakblock;
+      dapushc(breakblock->inedges, contblock);
       giveblock(prog, contblock);
       opn(prog, cmptype(cst->cond, 1, prog));
       prog->curblock = NULL;
+      giveblock(prog, mpblk());
       solidstate(cst->body, prog);
       topblock = dapeek(prog->allblocks);
-      topblock->nextblock = contblock;
-      dapush(contblock->inedges, topblock);
+      if(!topblock->nextblock) {
+        topblock->nextblock = contblock;
+        dapush(contblock->inedges, topblock);
+      }
       dapop(prog->continuelabels);
       dapop(prog->breaklabels);
       giveblock(prog, breakblock);
@@ -903,11 +897,12 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       }
       dapush(prog->continuelabels, contblock);
       dapush(prog->breaklabels, breakblock);
-      dapushc(breakblock->inedges, topblock);
       topblock->branchblock = breakblock;
+      dapushc(breakblock->inedges, topblock);
       giveblock(prog, topblock);
       opn(prog, cmptype(cst->forcond, 1, prog));
       prog->curblock = NULL;
+      giveblock(prog, mpblk());
       solidstate(cst->forbody, prog);
       giveblock(prog, contblock);
       linearitree(cst->increment, prog);
@@ -928,18 +923,22 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       linearitree(cst->cond, prog);
       giveblock(prog, contblock);
       opn(prog, cmptype(cst->cond, 0, prog));
-      dapush(topblock->inedges, contblock);
+      contblock = dapeek(prog->allblocks);
+      assert(!contblock->branchblock);
       contblock->branchblock = topblock;
+      dapush(topblock->inedges, contblock);
       dapop(prog->continuelabels);
       dapop(prog->breaklabels);
       giveblock(prog, breakblock);
       return;
     case IFS:
       breakblock = mpblk();
+      contblock = mpblk();
       opn(prog, cmptype(cst->ifcond, 1, prog));
-      dapushc(breakblock->inedges, prog->curblock);
       prog->curblock->branchblock = breakblock;
+      dapushc(breakblock->inedges, prog->curblock);
       prog->curblock = NULL;
+      giveblock(prog, contblock);
       solidstate(cst->thencond, prog);
       prog->curblock = NULL;
       giveblock(prog, breakblock);
@@ -951,10 +950,13 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       prog->curblock->branchblock = contblock;
       dapushc(contblock->inedges, prog->curblock);
       prog->curblock = NULL;
+      giveblock(prog, mpblk());
       solidstate(cst->thencond, prog);
       topblock = dapeek(prog->allblocks);
-      topblock->nextblock = breakblock;
-      dapushc(breakblock->inedges, topblock);
+      if(!topblock->nextblock) {
+        topblock->nextblock = breakblock;
+        dapushc(breakblock->inedges, topblock);
+      }
       giveblock(prog, contblock);
       solidstate(cst->elsecond, prog);
       giveblock(prog, breakblock);
@@ -974,19 +976,20 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
         opn(prog, ct_3ac_op3(JEQ_I, fad.addr_type, fad.addr, ISCONST | ISSIGNED, caseval,
                                      ISCONST | ISLABEL, caselbl));
         lbljmp(caselbl.labelname, prog->curblock, &prog->curblock->branchblock, prog);
-        //TODO: branchblock to be populated later
         prog->curblock = NULL;
       }
       if(cst->defaultlbl) {
         ctblk(prog);
         lbljmp(cst->defaultlbl, prog->curblock, &prog->curblock->nextblock, prog);
-        prog->curblock->nextblock = (void*) 1; //dummy
       } else {
         topblock = dapeek(prog->allblocks);
-        topblock->nextblock = breakblock;
-        dapush(breakblock->inedges, topblock);
+        if(!topblock->nextblock) {
+          topblock->nextblock = breakblock;
+          dapush(breakblock->inedges, topblock);
+        }
       }
       prog->curblock = NULL;
+      giveblock(prog, mpblk());
       solidstate(cst->body, prog);
       dapop(prog->breaklabels);
       prog->curblock = NULL;
@@ -1114,13 +1117,8 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char color, FILE* f, PRO
         else                    fprintf(f, "%s", adname);
       }
     } else {
-      if(addr_type & ISFLOAT) {
-        if(addr_type & ISDEREF) fprintf(f, "(ireg%lu)", addr.fregnum);
-        else                    fprintf(f, "freg%lu", addr.fregnum);
-      } else {
-        if(addr_type & ISDEREF) fprintf(f, "(ireg%lu)", addr.iregnum);
-        else                    fprintf(f, "ireg%lu", addr.iregnum);
-      }
+      if(addr_type & ISDEREF) fprintf(f, "(ireg%lu)", addr.iregnum);
+      else                    fprintf(f, "%creg%lu", addr_type & ISFLOAT ? 'f' : 'i', addr.iregnum);
     }
     fprintf(f, ".%d%c", sz, addr_type & ISFLOAT ? 'f' : addr_type & ISSIGNED ? 's' : 'u');
     if(color) fprintf(f, CLEARCOLOR);
@@ -1130,7 +1128,7 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char color, FILE* f, PRO
 #define PRINTBROP2(opsymb) do { \
     printaddr(op->addr0, op->addr0_type, color, f, prog); \
     fprintf(f, " %s ", #opsymb); \
-    printaddr(op->dest, op->dest_type, color, f, prog); \
+    printaddr(op->addr1, op->addr1_type, color, f, prog); \
   } while(0)
 
 #define PRINTOP3(opsymb) do { \
@@ -1330,7 +1328,7 @@ void treeprog(PROGRAM* prog, char* fname) {
     if(blk->branchblock)
       fprintf(f, "\"%p\" -> \"%p\"\n", blk, blk->branchblock);
     if(!blk->lastop) {
-      fprintf(f, "\"%p\" [xlabel=\"%d\"]", blk, blk->domind);
+      fprintf(f, "\"%p\" [xlabel=\"%d\"]", blk, blk->inedges ? blk->inedges->length : 0);
       continue;
     }
     fprintf(f, "\"%p\" [label=<<TABLE BORDER=\"0\" CELLBORDER=\"1\"><TR><TD>", blk);
@@ -1338,7 +1336,7 @@ void treeprog(PROGRAM* prog, char* fname) {
       printop(op, 0, blk, f, prog);
       fprintf(f, "<BR ALIGN=\"LEFT\"/>");
     }
-    fprintf(f, "</TD></TR></TABLE>> xlabel=\"%d\"]\n", blk->domind);
+    fprintf(f, "</TD></TR></TABLE>> xlabel=\"%d\"]\n", blk->inedges ? blk->inedges->length : 0);
   }
   fprintf(f, "\n}");
   fclose(f);

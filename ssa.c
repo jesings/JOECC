@@ -1,5 +1,6 @@
 #include <assert.h>
 #include "ssa.h"
+#include "opt.h"
 #define X(op) case op:
 
 static BBLOCK* intersect(BBLOCK* n1, BBLOCK* n2) {
@@ -15,15 +16,14 @@ static char fixedintersect(const BBLOCK* fb, BBLOCK* gb) {
   return fb->domind == gb->domind;
 }
 
-static void rpdt(BBLOCK* root, void** aclist, int* ind) {
+static void rpdt(BBLOCK* root, BBLOCK** aclist, int* ind) {
   if(!root) return;
   if(root->visited) return;
   root->visited = 1;
   rpdt(root->nextblock, aclist, ind);
   rpdt(root->branchblock, aclist, ind);
   root->domind = *ind;
-  aclist[*ind - 1] = root;
-  --*ind;
+  aclist[--(*ind)] = root;
 }
 
 static void dfpdt(BBLOCK* root) {
@@ -61,7 +61,7 @@ static void dfpdt(BBLOCK* root) {
   }
 }
 
-static void rrename(BBLOCK* block, int* C, DYNARR* S) {
+static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
   if(!block || block->visited) return;
   DYNARR* assigns = NULL;
   block->visited = 1;
@@ -83,10 +83,10 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S) {
             if(op->dest_type & ISDEREF) {
               op->dest.ssaind =  (long) dapeek((DYNARR*) daget(S, op->dest.varnum));
             } else {
+              C[op->dest.varnum] = prog->iregcnt++;
               op->dest.ssaind = C[op->dest.varnum];
               dapush((DYNARR*) daget(S, op->dest.varnum), (void*)(long) C[op->dest.varnum]);
               dapush(assigns, (void*)(long) op->dest.varnum);
-              ++(C[op->dest.varnum]);
             }
           }
           break;
@@ -101,11 +101,11 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S) {
         OPS_1_ASSIGN_3ac
           if((op->addr0_type & (ADDRSVAR | ISVAR)) == ISVAR) {
             assert(!(op->addr0_type & ISDEREF));
-            assert(!C[op->addr0.varnum]); //would work if not for join nodes after scope
-            op->addr0.ssaind = 0;
-            dapush((DYNARR*) daget(S, op->addr0.varnum), NULL);
+            assert(!C[op->addr0.varnum]);
+            C[op->addr0.varnum] = prog->iregcnt++;
+            op->addr0.ssaind = C[op->addr0.varnum];
+            dapush((DYNARR*) daget(S, op->addr0.varnum), (void*)(long) C[op->addr0.varnum]);
             dapush(assigns, (void*)(long)op->addr0.varnum);
-            C[op->addr0.varnum] = 1;
           }
           break;
         OPS_NOVAR_3ac
@@ -135,8 +135,8 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S) {
       op = op->nextop;
     }
   }
-  rrename(block->nextblock, C, S);
-  rrename(block->branchblock, C, S);
+  rrename(block->nextblock, C, S, prog);
+  rrename(block->branchblock, C, S, prog);
   if(assigns) {
     for(int i = 0; i < assigns->length; i++) {
       long l = (long) daget(assigns, i);
@@ -153,20 +153,28 @@ void ctdtree(PROGRAM* prog) {
     BBLOCK* dtn = daget(blocks, i);
     dtn->dom = NULL;
     dtn->visited = 0;
+    dtn->domind = -1;
   }
-  void** blocklist = calloc(sizeof(void*), (blocks->length - 1));
+  BBLOCK** blocklist = calloc(sizeof(BBLOCK*), (blocks->length - 1));
   BBLOCK* first = daget(blocks, 0);
   first->dom = first;
   first->domind = 0;
   int ind = blocks->length - 1;
   rpdt(first->nextblock, blocklist, &ind);
   rpdt(first->branchblock, blocklist, &ind);
-  //maybe reverse order now, rather than iterate backwards
+  for(int i = 0; i < blocks->length; i++) {
+    BBLOCK* dtn = daget(blocks, i);
+    if(dtn->domind == -1) domark(dtn);
+  }
+  int oldlen = blocks->length;
+  rmunreach(prog);
+  blocks = prog->allblocks;
+
   char changed = 1;
   while(changed) {
     changed = 0;
     //https://www.cs.rice.edu/~keith/EMBED/dom.pdf
-    for(int i = 0; i < blocks->length - 1; i++) {
+    for(int i = ind; i < oldlen - 1; i++) {
       BBLOCK* cb = blocklist[i];
       if(!cb) continue;
       BBLOCK* new_idom = NULL;
@@ -260,7 +268,7 @@ void ctdtree(PROGRAM* prog) {
       if(block->df) {
         for(int k = 0; k < block->df->length; k++) {
           BBLOCK* domblock = daget(block->df, k);
-          if(domblock->visited < itercount && initblock != domblock && fixedintersect(initblock, domblock)) {
+          if(domblock->visited < itercount && initblock != domblock && fixedintersect(initblock, domblock) && domblock != prog->finalblock) {
             ADDRESS jadr;
             jadr.joins = malloc(domblock->inedges->length * sizeof(int));
             OPERATION* phi = ct_3ac_op2(PHI, ISCONST, jadr, fadr->addr_type, fadr->addr);
@@ -291,10 +299,14 @@ void ctdtree(PROGRAM* prog) {
     DYNARR* da = daget(varas, i);
     da->length = 0;
   }
-  rrename(first, C, varas);
+  rrename(first, C, varas, prog);
 
   dadtorcfr(varas, (void(*)(void*))dadtor);
   free(C);
   prog->pdone |= SSA;
 }
+
+void ctsedag(PROGRAM* prog) { //Constructs Strong Equivalence DAG
+}
+//https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/gvn_sas04.pdf
 #undef X

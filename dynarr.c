@@ -81,3 +81,12 @@ void dainsertc(DYNARR* da, void* val) {
 void* dapop(DYNARR* da) {
   return da->arr[--(da->length)];
 }
+
+void dharma(DYNARR* da, void* val) {
+  int i;
+  for(i = 0; i < da->length && da->arr[i] != val; i++) ;
+  if(i != da->length) {
+    --da->length;
+    memmove(da->arr + i, da->arr + i + 1, sizeof(void*) * (da->length - i));
+  }
+}

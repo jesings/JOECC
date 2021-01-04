@@ -61,7 +61,6 @@ typedef union {
     unsigned int varnum;
     unsigned int ssaind;
   };
-  unsigned long fregnum;
   unsigned long iregnum;
   unsigned long uintconst_64; //unsigned int 64 bit or pointer
   long intconst_64;
@@ -113,11 +112,11 @@ typedef struct bblock {
   int domind;
   int visited;
   int work;
+  int unreachable;
 } BBLOCK;
 
 typedef struct {
   unsigned long iregcnt;
-  unsigned long fregcnt;
   DYNARR* breaklabels;
   DYNARR* continuelabels;
   DYNARR* allblocks;
