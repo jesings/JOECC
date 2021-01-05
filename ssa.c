@@ -306,25 +306,26 @@ void ctdtree(PROGRAM* prog) {
   prog->pdone |= SSA;
 }
 
-static SEDNODE* ctsednode(void) {
+static SEDNODE* ctsednode(int hc) {
   SEDNODE* retval = malloc(sizeof(SEDNODE));
-  retval->hasconst = 0;
+  retval->hasconst = hc;
   retval->equivs = dactor(8);
   return retval;
 }
 
 static SEDAG* ctsedag(PROGRAM* prog) {
   SEDAG* retval = malloc(sizeof(SEDAG));
-  retval->nodes = dactor(256);
+  retval->nodes = dactor(1024);
   retval->varnodes = dactor(prog->iregcnt);
   retval->varnodes->length = prog->iregcnt;
   memset(retval->varnodes->arr, 0, prog->iregcnt * sizeof(void*));
   retval->intconsthash = htctor();
   retval->floatconsthash = htctor();
+  retval->strconsthash = htctor();
   retval->opnodes = dactor(ADDR_3 + 1); //addr_3 is the last op
   retval->opnodes->length = prog->iregcnt;
   for(int i = 0; i <= ADDR_3; i++) {
-    retval->opnodes->arr[i] = dactor(32);//tailor better per-op
+    retval->opnodes->arr[i] = dactor(32);//tailor better per-op, maybe htctor?
   }
   return retval;
 }
@@ -339,12 +340,79 @@ static void freesedag(SEDAG* sed) {
   dadtor(sed->varnodes);
   fhtdtor(sed->intconsthash);
   fhtdtor(sed->floatconsthash);
+  fhtdtor(sed->strconsthash);
   dadtorcfr(sed->opnodes, (void(*)(void*)) dadtor);
   free(sed);
 }
 
-void popsedag(BBLOCK* blk) { //Constructs, populates Strong Equivalence DAG
-  //iterate over ops in block
+static SEDNODE* nodefromaddr(SEDAG* sedag, ADDRTYPE adt, ADDRESS adr, PROGRAM* prog) {
+  SEDNODE* cn = NULL;
+  if(adt & ISCONST) {
+    if(adt & ISSTRCONST) {
+      cn = search(sedag->strconsthash, adr.strconst);
+      if(!cn) {
+        cn = ctsednode(STRCONST);
+        cn->strconst = adr.strconst;
+        insert(sedag->strconsthash, adr.strconst, cn);
+      }
+
+    } else {
+      char floatness = adt & ISFLOAT;
+      cn = fixedsearch(floatness ? sedag->floatconsthash : sedag->intconsthash, adr.intconst_64);
+      if(!cn) {
+        cn = ctsednode(floatness ? FLOATCONST : INTCONST);
+        cn->intconst = adr.intconst_64;
+        fixedinsert(floatness ? sedag->floatconsthash : sedag->intconsthash, adr.intconst_64, cn);
+      }
+    }
+  } else {
+    if(adt & (ISLABEL | ISDEREF)) {
+      //ignore
+    } else {
+      FULLADDR* adstore = daget(prog->dynvars, adr.iregnum);
+      if(!(adstore->addr_type & ADDRSVAR)) {
+        cn = daget(sedag->varnodes, adr.iregnum);
+        if(!cn) {
+          //populate
+        }
+      }
+    }
+  }
+  return cn;
+}
+
+void popsedag(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
+  SEDAG* dagnabbit = ctsedag(prog);
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    if(blk->lastop) {
+      OPERATION* op = blk->firstop;
+      SEDNODE* sen1;
+      while(1) {
+        switch(op->opcode) {
+          OPS_NOVAR_3ac OPS_NODEST_3ac OPS_1_3ac//maybe we do want op for nodest?
+            break; //nothing for nop, lbl, jmp, branching ops, or arg/ret
+          OPS_3_3ac_COM
+          OPS_3_3ac_NOCOM
+          OPS_3_PTRDEST_3ac
+          OPS_2_3ac_MUT
+            break;
+          case MOV_3:
+            sen1 = nodefromaddr(dagnabbit, op->addr0_type, op->addr0, prog);
+            break;
+          case CALL_3:
+          case ADDR_3:
+          case PHI:
+          case TPHI:
+          OPS_1_ASSIGN_3ac
+            break;
+        }
+        if(op == blk->lastop) break;
+        op = op->nextop;
+      }
+    }
+  }
+  freesedag(dagnabbit);
 }
 //https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/gvn_sas04.pdf
 #undef X

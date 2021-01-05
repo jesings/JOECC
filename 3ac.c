@@ -1110,15 +1110,15 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char color, FILE* f, PRO
     if(addr_type & ISVAR) {
       char* adname = daget(prog->dynchars, addr.varnum);
       if(prog->pdone & SSA && !(addr_type & ADDRSVAR)) {
-        if(addr_type & ISDEREF) fprintf(f, "(%s_%d)", adname, addr.ssaind);
-        else                    fprintf(f, "%s_%d", adname, addr.ssaind);
+        if(addr_type & ISDEREF) fprintf(f, "(%s_%u)", adname, addr.ssaind);
+        else                    fprintf(f, "%s_%u", adname, addr.ssaind);
       } else {
         if(addr_type & ISDEREF) fprintf(f, "(%s)", adname);
         else                    fprintf(f, "%s", adname);
       }
     } else {
-      if(addr_type & ISDEREF) fprintf(f, "(ireg%lu)", addr.iregnum);
-      else                    fprintf(f, "%creg%lu", addr_type & ISFLOAT ? 'f' : 'i', addr.iregnum);
+      if(addr_type & ISDEREF) fprintf(f, "(ireg%u)", addr.iregnum);
+      else                    fprintf(f, "%creg%u", addr_type & ISFLOAT ? 'f' : 'i', addr.iregnum);
     }
     fprintf(f, ".%d%c", sz, addr_type & ISFLOAT ? 'f' : addr_type & ISSIGNED ? 's' : 'u');
     if(color) fprintf(f, CLEARCOLOR);

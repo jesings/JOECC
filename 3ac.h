@@ -23,11 +23,12 @@
   X(ARROFF) /*source (uintconst_64 or regnum) index dest (index size impicit from result size) */\
   X(ARRMOV) /*source (uintconst_64 or regnum) index dest (index size impicit from result size) */\
   X(MTP_OFF)
-#define OPS_2_3ac \
+#define OPS_2_3ac_MUT \
   X(NOT_U) X(NEG_I) X(NEG_F) \
   X(INC_U) X(INC_I) X(INC_F) X(DEC_U) X(DEC_I) X(DEC_F) \
-  X(MOV_3) X(F2I) X(I2F) \
+  X(F2I) X(I2F) \
   X(ALOC_3) /*op2 Allocate stack memory for struct takes size and outputs start index*/
+#define OPS_2_3ac OPS_2_3ac_MUT X(MOV_3)
 #define OPS_NODEST_3ac \
   X(BEQ_U) X(BEQ_I) X(BEQ_F) X(BNE_U) X(BNE_I) X(BNE_F) \
   X(BGE_U) X(BGE_I) X(BGE_F) X(BLE_U) X(BLE_I) X(BLE_F) \
@@ -59,9 +60,11 @@ struct bblock;
 typedef union {
   struct {
     unsigned int varnum;
-    unsigned int ssaind;
+    union {
+      unsigned int ssaind;
+      unsigned int iregnum; //enforce same storage space
+    };
   };
-  unsigned long iregnum;
   unsigned long uintconst_64; //unsigned int 64 bit or pointer
   long intconst_64;
   double floatconst_64;

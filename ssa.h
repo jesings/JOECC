@@ -15,8 +15,12 @@ typedef struct sedi{
 
 typedef struct {
   DYNARR* equivs;
-  FULLADDR constant;
-  char hasconst;
+  union {
+    long intconst;
+    double floatconst;
+    char* strconst;
+  };
+  enum {NOCONST, INTCONST, FLOATCONST, STRCONST} hasconst;
 } SEDNODE;
 
 typedef struct {
@@ -24,9 +28,10 @@ typedef struct {
   DYNARR* varnodes;
   HASHTABLE* intconsthash;
   HASHTABLE* floatconsthash;
+  HASHTABLE* strconsthash;
   DYNARR* opnodes;//one entry for every operation
 } SEDAG;
 
 void ctdtree(PROGRAM* prog);
-void popsedag(BBLOCK* blk);
+void popsedag(PROGRAM* prog);
 #endif
