@@ -306,7 +306,45 @@ void ctdtree(PROGRAM* prog) {
   prog->pdone |= SSA;
 }
 
-void ctsedag(PROGRAM* prog) { //Constructs Strong Equivalence DAG
+static SEDNODE* ctsednode(void) {
+  SEDNODE* retval = malloc(sizeof(SEDNODE));
+  retval->hasconst = 0;
+  retval->equivs = dactor(8);
+  return retval;
+}
+
+static SEDAG* ctsedag(PROGRAM* prog) {
+  SEDAG* retval = malloc(sizeof(SEDAG));
+  retval->nodes = dactor(256);
+  retval->varnodes = dactor(prog->iregcnt);
+  retval->varnodes->length = prog->iregcnt;
+  memset(retval->varnodes->arr, 0, prog->iregcnt * sizeof(void*));
+  retval->intconsthash = htctor();
+  retval->floatconsthash = htctor();
+  retval->opnodes = dactor(ADDR_3 + 1); //addr_3 is the last op
+  retval->opnodes->length = prog->iregcnt;
+  for(int i = 0; i <= ADDR_3; i++) {
+    retval->opnodes->arr[i] = dactor(32);//tailor better per-op
+  }
+  return retval;
+}
+
+static void freesednode(SEDNODE* sednode) {
+  dadtor(sednode->equivs);
+  free(sednode);
+}
+
+static void freesedag(SEDAG* sed) {
+  dadtorcfr(sed->nodes, (void(*)(void*)) freesednode);
+  dadtor(sed->varnodes);
+  fhtdtor(sed->intconsthash);
+  fhtdtor(sed->floatconsthash);
+  dadtorcfr(sed->opnodes, (void(*)(void*)) dadtor);
+  free(sed);
+}
+
+void popsedag(BBLOCK* blk) { //Constructs, populates Strong Equivalence DAG
+  //iterate over ops in block
 }
 //https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/gvn_sas04.pdf
 #undef X
