@@ -25,9 +25,7 @@
   X(MTP_OFF)
 #define OPS_2_3ac_MUT \
   X(NOT_U) X(NEG_I) X(NEG_F) \
-  X(INC_U) X(INC_I) X(INC_F) X(DEC_U) X(DEC_I) X(DEC_F) \
-  X(F2I) X(I2F) \
-  X(ALOC_3) /*op2 Allocate stack memory for struct takes size and outputs start index*/
+  X(F2I) X(I2F)
 #define OPS_2_3ac OPS_2_3ac_MUT X(MOV_3)
 #define OPS_NODEST_3ac \
   X(BEQ_U) X(BEQ_I) X(BEQ_F) X(BNE_U) X(BNE_I) X(BNE_F) \
@@ -40,7 +38,7 @@
 #define OPS_1_ASSIGN_3ac \
   X(INIT_3) X(PARAM_3) /*both op1 declare variable*/
 
-#define OPS_3AC OPS_NOVAR_3ac OPS_3_3ac OPS_3_PTRDEST_3ac OPS_2_3ac OPS_NODEST_3ac OPS_1_ASSIGN_3ac OPS_1_3ac X(CALL_3) X(PHI) X(TPHI) X(ADDR_3) /*call phi and addr are special cases*/
+#define OPS_3AC OPS_NOVAR_3ac OPS_3_3ac OPS_3_PTRDEST_3ac OPS_2_3ac OPS_NODEST_3ac OPS_1_ASSIGN_3ac OPS_1_3ac X(CALL_3) X(PHI) X(TPHI) X(ALOC_3) X(ADDR_3) /*call, phi, alloc, and addr are special cases*/
 
 #define X(s) s,
 enum opcode_3ac {

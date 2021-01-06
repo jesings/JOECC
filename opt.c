@@ -292,30 +292,6 @@ char constfold(PROGRAM* prog) {
               op->addr0.floatconst_64 = -op->addr0.floatconst_64;
             }
             break;
-          case INC_U: case INC_I:
-            if(op->addr0_type & ISCONST) {
-              op->opcode = MOV_3;
-              ++op->addr0.intconst_64;
-            }
-            break;
-          case INC_F:
-            if(op->addr0_type & ISCONST) {
-              op->opcode = MOV_3;
-              ++op->addr0.floatconst_64;
-            }
-            break;
-          case DEC_U: case DEC_I:
-            if(op->addr0_type & ISCONST) {
-              op->opcode = MOV_3;
-              --op->addr0.intconst_64;
-            }
-            break;
-          case DEC_F:
-            if(op->addr0_type & ISCONST) {
-              op->opcode = MOV_3;
-              --op->addr0.floatconst_64;
-            }
-            break;
           case F2I:
             if(op->addr0_type & ISCONST) {
               op->opcode = MOV_3;

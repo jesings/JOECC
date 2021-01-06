@@ -152,37 +152,35 @@ FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srce
 }
 
 static FULLADDR prestep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
-  FULLADDR destaddr;
+  FULLADDR destaddr, curaddr;
   IDTYPE rid = typex(cexpr);
   destaddr = linearitree(daget(cexpr->params, 0), prog);
   char baseness = destaddr.addr_type & ISFLOAT ? 2 : 0;
   if(rid.pointerstack && rid.pointerstack->length) {
-    FULLADDR curaddr;
     rid.pointerstack->length -= 1;
     curaddr.addr.uintconst_64 = lentype(&rid);
     rid.pointerstack->length += 1;
-    opn(prog, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, destaddr.addr_type, destaddr.addr, ISCONST | 8, curaddr.addr, destaddr.addr_type, destaddr.addr));
   } else {
-    opn(prog, ct_3ac_op2((isinc ? INC_U : DEC_U) + baseness, destaddr.addr_type, destaddr.addr, destaddr.addr_type, destaddr.addr));
+    curaddr.addr.uintconst_64 = 1;
   }
+  opn(prog, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, destaddr.addr_type, destaddr.addr, ISCONST | 8, curaddr.addr, destaddr.addr_type, destaddr.addr));
   return destaddr;
 }
 static FULLADDR poststep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
-  FULLADDR destaddr, actualaddr;
+  FULLADDR destaddr, actualaddr, curaddr;
   IDTYPE rid = typex(cexpr);
   destaddr = linearitree(daget(cexpr->params, 0), prog);
   char baseness = destaddr.addr_type & ISFLOAT ? 2 : 0;
   FILLREG(actualaddr, destaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
   opn(prog, ct_3ac_op2(MOV_3, destaddr.addr_type, destaddr.addr, actualaddr.addr_type, actualaddr.addr));
   if(rid.pointerstack && rid.pointerstack->length) {
-    FULLADDR curaddr;
     rid.pointerstack->length -= 1;
     curaddr.addr.uintconst_64 = lentype(&rid);
     rid.pointerstack->length += 1;
-    opn(prog, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, destaddr.addr_type, destaddr.addr, ISCONST | 8, curaddr.addr, destaddr.addr_type, destaddr.addr));
   } else {
-    opn(prog, ct_3ac_op2((isinc ? INC_U : DEC_U) + baseness, destaddr.addr_type, destaddr.addr, destaddr.addr_type, destaddr.addr));
+    curaddr.addr.uintconst_64 = 1;
   }
+  opn(prog, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, destaddr.addr_type, destaddr.addr, ISCONST | 8, curaddr.addr, destaddr.addr_type, destaddr.addr));
   return actualaddr;
 }
 
@@ -1199,12 +1197,6 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
       break;
     case NOT_U:
       PRINTOP2(~);
-      break;
-    case INC_U: case INC_I: case INC_F: 
-      PRINTOP2(++);
-      break;
-    case DEC_U: case DEC_I: case DEC_F: 
-      PRINTOP2(--);
       break;
     case NEG_I: case NEG_F: 
       PRINTOP2(-);
