@@ -2,17 +2,6 @@
 #define SSA_H
 #include "3ac.h"
 
-typedef struct sedi{
-  enum opcode_3ac op; //if INIT_3 (or PARAM_3) then it's a regno
-  union {
-    struct {
-      struct sedi* arg0;
-      struct sedi* arg1;
-    };
-    int regno;
-  };
-} SEDITEM;
-
 typedef struct {
   DYNARR* equivs;
   union {
@@ -22,6 +11,18 @@ typedef struct {
   };
   enum {NOCONST, INTCONST, FLOATCONST, STRCONST} hasconst;
 } SEDNODE;
+
+typedef struct {
+  enum opcode_3ac op; //if INIT_3 (or PARAM_3) then it's a regno
+  union {
+    struct {
+      SEDNODE* arg0;
+      SEDNODE* arg1;
+    };
+    unsigned int regno;
+  };
+} SEDITEM;
+
 
 typedef struct {
   DYNARR* nodes;//of SEDNODES

@@ -13,8 +13,8 @@ NOTE: JOECC is a work-in progress, and currently cannot fully compile code
 - [x] AST type annotation
 - [x] 3 address code generation
 - [x] Static Single Assignment conversion
-- [ ] Constant Folding
-- [ ] Global Value Numbering
+- [x] Constant Folding
+- [ ] Global Value Numbering (in progress)
 - [ ] Conditional Constant Propagation
 - [ ] Scalar Replacement of Aggregates
 - [ ] Other Optimizations (to be enumerated later)

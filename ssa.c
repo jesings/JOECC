@@ -330,6 +330,21 @@ static SEDAG* ctsedag(PROGRAM* prog) {
   return retval;
 }
 
+static SEDITEM* ctsedi(unsigned int regno) {
+  SEDITEM* retval = malloc(sizeof(SEDITEM));
+  retval->regno = regno;
+  retval->op = PARAM_3;
+  return retval;
+}
+
+static SEDITEM* ctsedib(enum opcode_3ac opc, SEDNODE* eq1, SEDNODE* eq2) {
+  SEDITEM* retval = malloc(sizeof(SEDITEM));
+  retval->op = opc;
+  retval->arg0 = eq1;
+  retval->arg1 = eq2;
+  return retval;
+}
+
 static void freesednode(SEDNODE* sednode) {
   dadtor(sednode->equivs);
   free(sednode);
@@ -367,13 +382,15 @@ static SEDNODE* nodefromaddr(SEDAG* sedag, ADDRTYPE adt, ADDRESS adr, PROGRAM* p
     }
   } else {
     if(adt & (ISLABEL | ISDEREF)) {
-      //ignore
+      //ignore (for now) TODO: pointer analysis
     } else {
       FULLADDR* adstore = daget(prog->dynvars, adr.iregnum);
       if(!(adstore->addr_type & ADDRSVAR)) {
         cn = daget(sedag->varnodes, adr.iregnum);
         if(!cn) {
-          //populate
+          cn = ctsednode(NOCONST);
+          dapush(cn->equivs, ctsedi(adr.iregnum));
+          sedag->varnodes->arr[adr.iregnum] = cn;
         }
       }
     }
@@ -399,6 +416,13 @@ void popsedag(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
             break;
           case MOV_3:
             sen1 = nodefromaddr(dagnabbit, op->addr0_type, op->addr0, prog);
+            if(!(op->dest_type & (ISLABEL | ISDEREF | ADDRSVAR))) {
+              if(sen1) {
+                sen1 = ctsednode(NOCONST);
+              }
+              dapush(sen1->equivs, ctsedi(op->dest.iregnum));
+              dagnabbit->varnodes->arr[op->dest.iregnum] = sen1;
+            }
             break;
           case CALL_3:
           case ADDR_3:
