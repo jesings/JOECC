@@ -20,8 +20,8 @@
 #define OPS_3_3ac OPS_3_3ac_COM OPS_3_3ac_NOCOM
 #define OPS_3_PTRDEST_3ac \
   X(COPY_3) /*source (pointer) length destination (pointer) */\
-  X(ARROFF) /*source (uintconst_64 or regnum) index dest (index size impicit from result size) */\
-  X(ARRMOV) /*source (uintconst_64 or regnum) index dest (index size impicit from result size) */\
+  X(ARROFF) /*source (uintconst or reg) index dest (index size implicit from result) */\
+  X(ARRMOV) /*source (uintconst or reg) index dest (index size implicit from result) */\
   X(MTP_OFF)
 #define OPS_2_3ac_MUT \
   X(NOT_U) X(NEG_I) X(NEG_F) \
@@ -45,6 +45,7 @@ enum opcode_3ac {
   OPS_3AC
 };
 #undef X
+extern const char* opcode_3ac_names[];
 
 enum passes {
   SSA = 1,

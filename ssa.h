@@ -10,6 +10,7 @@ typedef struct {
     char* strconst;
   };
   enum {NOCONST, INTCONST, FLOATCONST, STRCONST} hasconst;
+  int index;
 } SEDNODE;
 
 typedef struct {

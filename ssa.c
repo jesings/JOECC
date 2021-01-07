@@ -306,10 +306,12 @@ void ctdtree(PROGRAM* prog) {
   prog->pdone |= SSA;
 }
 
-static SEDNODE* ctsednode(int hc) {
+static SEDNODE* ctsednode(SEDAG* sedag, int hc) {
   SEDNODE* retval = malloc(sizeof(SEDNODE));
   retval->hasconst = hc;
   retval->equivs = dactor(8);
+  retval->index = sedag->nodes->length;
+  dapush(sedag->nodes, retval);
   return retval;
 }
 
@@ -346,7 +348,7 @@ static SEDITEM* ctsedib(enum opcode_3ac opc, SEDNODE* eq1, SEDNODE* eq2) {
 }
 
 static void freesednode(SEDNODE* sednode) {
-  dadtor(sednode->equivs);
+  dadtorfr(sednode->equivs);
   free(sednode);
 }
 
@@ -355,8 +357,8 @@ static void freesedag(SEDAG* sed) {
   dadtor(sed->varnodes);
   fhtdtor(sed->intconsthash);
   fhtdtor(sed->floatconsthash);
-  fhtdtor(sed->strconsthash);
-  dadtorcfr(sed->opnodes, (void(*)(void*)) htdtor);
+  htdtor(sed->strconsthash);
+  dadtorcfr(sed->opnodes, (void(*)(void*)) fhtdtor);
   free(sed);
 }
 
@@ -366,7 +368,7 @@ static SEDNODE* nodefromaddr(SEDAG* sedag, ADDRTYPE adt, ADDRESS adr, PROGRAM* p
     if(adt & ISSTRCONST) {
       cn = search(sedag->strconsthash, adr.strconst);
       if(!cn) {
-        cn = ctsednode(STRCONST);
+        cn = ctsednode(sedag, STRCONST);
         cn->strconst = adr.strconst;
         insert(sedag->strconsthash, adr.strconst, cn);
       }
@@ -375,7 +377,7 @@ static SEDNODE* nodefromaddr(SEDAG* sedag, ADDRTYPE adt, ADDRESS adr, PROGRAM* p
       char floatness = adt & ISFLOAT;
       cn = fixedsearch(floatness ? sedag->floatconsthash : sedag->intconsthash, adr.intconst_64);
       if(!cn) {
-        cn = ctsednode(floatness ? FLOATCONST : INTCONST);
+        cn = ctsednode(sedag, floatness ? FLOATCONST : INTCONST);
         cn->intconst = adr.intconst_64;
         fixedinsert(floatness ? sedag->floatconsthash : sedag->intconsthash, adr.intconst_64, cn);
       }
@@ -391,7 +393,7 @@ static SEDNODE* nodefromaddr(SEDAG* sedag, ADDRTYPE adt, ADDRESS adr, PROGRAM* p
     }
     cn = daget(sedag->varnodes, adr.iregnum);
     if(!cn) {
-      cn = ctsednode(NOCONST);
+      cn = ctsednode(sedag, NOCONST);
       dapush(cn->equivs, ctsedi(adr.iregnum));
       sedag->varnodes->arr[adr.iregnum] = cn;
     }
@@ -405,32 +407,140 @@ void popsedag(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
     BBLOCK* blk = daget(prog->allblocks, i);
     if(blk->lastop) {
       OPERATION* op = blk->firstop;
-      SEDNODE* sen1;
+      SEDNODE* sen1,* sen2,* destsen;
+      long combind;
+      HASHTABLE* ophash;
       while(1) {
         switch(op->opcode) {
           OPS_NOVAR_3ac OPS_NODEST_3ac OPS_1_3ac//maybe we do want op for nodest?
+          OPS_3_PTRDEST_3ac //nothing to be done here
             break; //nothing for nop, lbl, jmp, branching ops, or arg/ret
-          OPS_3_3ac_COM
           OPS_3_3ac_NOCOM
-          OPS_3_PTRDEST_3ac
+            sen1 = nodefromaddr(dagnabbit, op->addr0_type, op->addr0, prog);
+            sen2 = nodefromaddr(dagnabbit, op->addr1_type, op->addr1, prog);
+            if(!(op->dest_type & (ISLABEL | ISDEREF))) {
+              if(op->dest_type & ISVAR) {
+                FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
+                if(adstore->addr_type & ADDRSVAR) break;
+              }
+              if(sen1 && sen2) {
+                ophash = daget(dagnabbit->opnodes, op->opcode);
+                combind = ((long) sen1->index << 32) + sen2->index;
+                destsen = fixedsearch(ophash, combind);
+                if(!destsen) {
+                  destsen = ctsednode(dagnabbit, NOCONST);
+                  dapush(destsen->equivs, ctsedib(op->opcode, sen1, sen2));
+                  fixedinsert(ophash, combind, destsen);
+                }
+                dapush(destsen->equivs, ctsedi(op->dest.iregnum));
+                dagnabbit->varnodes->arr[op->dest.iregnum] = destsen;
+              }
+            }
+            break;
+          OPS_3_3ac_COM
+            sen1 = nodefromaddr(dagnabbit, op->addr0_type, op->addr0, prog);
+            sen2 = nodefromaddr(dagnabbit, op->addr1_type, op->addr1, prog);
+            if(!(op->dest_type & (ISLABEL | ISDEREF))) {
+              if(op->dest_type & ISVAR) {
+                FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
+                if(adstore->addr_type & ADDRSVAR) break;
+              }
+              if(sen1 && sen2) {
+                ophash = daget(dagnabbit->opnodes, op->opcode);
+                combind = ((long) sen1->index << 32) + sen2->index;
+                destsen = fixedsearch(ophash, combind);
+                if(!destsen) {
+                  destsen = fixedsearch(ophash, ((long) sen2->index << 32) + sen1->index);
+                }
+                if(!destsen) {
+                  destsen = ctsednode(dagnabbit, NOCONST);
+                  dapush(destsen->equivs, ctsedib(op->opcode, sen1, sen2));
+                  fixedinsert(ophash, combind, destsen);
+                }
+                dapush(destsen->equivs, ctsedi(op->dest.iregnum));
+                dagnabbit->varnodes->arr[op->dest.iregnum] = destsen;
+              }
+            }
+            break;
           OPS_2_3ac_MUT
+            sen1 = nodefromaddr(dagnabbit, op->addr0_type, op->addr0, prog);
+            if(!(op->dest_type & (ISLABEL | ISDEREF))) {
+              if(op->dest_type & ISVAR) {
+                FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
+                if(adstore->addr_type & ADDRSVAR) break;
+              }
+              if(sen1) {
+                ophash = daget(dagnabbit->opnodes, op->opcode);
+                destsen = fixedsearch(ophash, (long) sen1->index);
+                if(!destsen) {
+                  destsen = ctsednode(dagnabbit, NOCONST);
+                  dapush(destsen->equivs, ctsedib(op->opcode, sen1, NULL));
+                  fixedinsert(ophash, (long) sen1->index, destsen);
+                }
+                dapush(destsen->equivs, ctsedi(op->dest.iregnum));
+                dagnabbit->varnodes->arr[op->dest.iregnum] = destsen;
+              }
+            }
             break;
           case MOV_3:
             sen1 = nodefromaddr(dagnabbit, op->addr0_type, op->addr0, prog);
-            if(!(op->dest_type & (ISLABEL | ISDEREF | ADDRSVAR))) {
+            if(!(op->dest_type & (ISLABEL | ISDEREF))) {
+              if(op->dest_type & ISVAR) {
+                FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
+                if(adstore->addr_type & ADDRSVAR) break;
+              }
               if(!sen1) {
-                sen1 = ctsednode(NOCONST);
+                sen1 = ctsednode(dagnabbit, NOCONST);
               }
               dapush(sen1->equivs, ctsedi(op->dest.iregnum));
               dagnabbit->varnodes->arr[op->dest.iregnum] = sen1;
             }
             break;
-          case CALL_3:
           case ADDR_3:
-            //we don't care about label or nodest or deref
-          case PHI:
+            //TODO: we don't care about label or nodest or even deref, but how to represent?
+            break;
           case TPHI:
+            sen1 = nodefromaddr(dagnabbit, op->addr0_type, op->addr0, prog);
+            sen2 = nodefromaddr(dagnabbit, op->addr1_type, op->addr1, prog);
+            if(!(op->dest_type & (ISLABEL | ISDEREF))) {
+              if(op->dest_type & ISVAR) {
+                FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
+                if(adstore->addr_type & ADDRSVAR) break;
+              }
+              if(sen1 && sen2) {
+                combind = ((long) sen1->index << 32) + sen2->index;
+                if(sen1 == sen2) {
+                  destsen = sen1;
+                  sen1 = fixedsearch(ophash, combind);
+                  if(!sen1)
+                    sen1 = fixedsearch(ophash, ((long) sen2->index << 32) + sen1->index);
+                  if(!sen1) {
+                    fixedinsert(ophash, combind, destsen);
+                  }
+                } else {
+                  ophash = daget(dagnabbit->opnodes, op->opcode);
+                  destsen = fixedsearch(ophash, combind);
+                  if(!destsen) {
+                    destsen = fixedsearch(ophash, ((long) sen2->index << 32) + sen1->index);
+                  }
+                  if(!destsen) {
+                    destsen = ctsednode(dagnabbit, NOCONST);
+                    dapush(destsen->equivs, ctsedib(op->opcode, sen1, sen2));
+                    fixedinsert(ophash, combind, destsen);
+                  }
+                }
+                dapush(destsen->equivs, ctsedi(op->dest.iregnum));
+                dagnabbit->varnodes->arr[op->dest.iregnum] = destsen;
+              }
+            }
+            break;
+          case PHI: //TODO: get phi node handling loop at end
+            nodefromaddr(dagnabbit, op->dest_type, op->dest, prog);
+            break;
+          case CALL_3: //no pure functions for now
           case ALOC_3:
+            nodefromaddr(dagnabbit, op->dest_type, op->dest, prog);
+            break;
           OPS_1_ASSIGN_3ac
             nodefromaddr(dagnabbit, op->addr0_type, op->addr0, prog);
             break;
@@ -440,6 +550,46 @@ void popsedag(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
       }
     }
   }
+
+  for(int i = 0; i < dagnabbit->nodes->length; i++) {
+    SEDNODE* sen = daget(dagnabbit->nodes, i);
+    printf("%d: ", sen->index);
+    for(int j = 0; j < sen->equivs->length; j++) {
+      SEDITEM* sed = daget(sen->equivs, j);
+      printf("%s", opcode_3ac_names[sed->op]);
+      switch(sed->op) {
+          OPS_NOVAR_3ac OPS_NODEST_3ac OPS_1_3ac OPS_3_PTRDEST_3ac
+            assert(0);
+          OPS_3_3ac_NOCOM OPS_3_3ac_COM case TPHI:
+            printf("(%d, %d) ", sed->arg0->index, sed->arg1->index);
+            break;
+          OPS_2_3ac_MUT
+            printf("(%d) ", sed->arg0->index);
+            break;
+          case MOV_3: case ADDR_3: case PHI: case CALL_3: case ALOC_3:
+            assert(0);
+          OPS_1_ASSIGN_3ac
+            printf("[%u] ", sed->regno);
+      }
+      printf(", ");
+    }
+    switch(sen->hasconst) {
+      case INTCONST:
+        printf("intconst %ld ", sen->intconst);
+        break;
+      case FLOATCONST:
+        printf("floatconst %lf ", sen->floatconst);
+        break;
+      case STRCONST:
+        printf("strconst \"%s\"", sen->strconst);
+        break;
+      case NOCONST:
+        printf("no const");
+        break;
+    }
+    putchar('\n');
+  }
+
   freesedag(dagnabbit);
 }
 //https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/gvn_sas04.pdf
