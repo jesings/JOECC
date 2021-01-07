@@ -321,18 +321,6 @@ char constfold(PROGRAM* prog) {
               op->addr0.floatconst_64 = op->addr1.floatconst_64 == op->addr0.floatconst_64;
             }
             break;
-          case BNE_U: case BNE_I:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = BNZ_3;
-              op->addr0.intconst_64 = op->addr1.intconst_64 != op->addr0.intconst_64;
-            }
-            break;
-          case BNE_F:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = BNZ_3;
-              op->addr0.floatconst_64 = op->addr1.floatconst_64 != op->addr0.floatconst_64;
-            }
-            break;
           case BGE_U:
             if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
               op->opcode = BNZ_3;
@@ -351,24 +339,6 @@ char constfold(PROGRAM* prog) {
               op->addr0.floatconst_64 = op->addr0.floatconst_64 >= op->addr1.floatconst_64;
             }
             break;
-          case BLE_U:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = BNZ_3;
-              op->addr0.uintconst_64 = op->addr0.uintconst_64 <= op->addr1.uintconst_64;
-            }
-            break;
-          case BLE_I:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = BNZ_3;
-              op->addr0.intconst_64 = op->addr0.intconst_64 <= op->addr1.intconst_64;
-            }
-            break;
-          case BLE_F:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = BNZ_3;
-              op->addr0.floatconst_64 = op->addr0.floatconst_64 <= op->addr1.floatconst_64;
-            }
-            break;
           case BGT_U:
             if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
               op->opcode = BNZ_3;
@@ -385,24 +355,6 @@ char constfold(PROGRAM* prog) {
             if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
               op->opcode = BNZ_3;
               op->addr0.floatconst_64 = op->addr0.floatconst_64 > op->addr1.floatconst_64;
-            }
-            break;
-          case BLT_U:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = BNZ_3;
-              op->addr0.uintconst_64 = op->addr0.uintconst_64 < op->addr1.uintconst_64;
-            }
-            break;
-          case BLT_I:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = BNZ_3;
-              op->addr0.intconst_64 = op->addr0.intconst_64 < op->addr1.intconst_64;
-            }
-            break;
-          case BLT_F:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = BNZ_3;
-              op->addr0.floatconst_64 = op->addr0.floatconst_64 < op->addr1.floatconst_64;
             }
             break;
         }

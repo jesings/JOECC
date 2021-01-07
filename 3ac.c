@@ -742,11 +742,17 @@ OPERATION* cmptype(EXPRESSION* cmpexpr, char negate, PROGRAM* prog) {
   OPERATION* dest_op;
   FULLADDR destaddr;
   switch(cmpexpr->type) {
-    case EQ: case NEQ: case GT: case LT: case GTE: case LTE:
-      dest_op = cmpret_binary_3(cmp_osite(cmpexpr->type, negate), cmpexpr, prog);//figure out signedness here or elsewhere
+    case NEQ: case LT: case LTE:
+      negate = !negate;
+      //fall through
+    case EQ: case GT: case GTE:
+      if(negate) {
+        void* tmp = cmpexpr->params->arr[0];
+        cmpexpr->params->arr[0] = cmpexpr->params->arr[1];
+        cmpexpr->params->arr[1] = tmp;
+      }
+      dest_op = cmpret_binary_3(cmp_osite(cmpexpr->type), cmpexpr, prog);//figure out signedness here or elsewhere
       --prog->iregcnt; //dealloc allocated register, ignore third operand
-      //dest_op->dest_type = ISCONST | ISLABEL;
-      //dest_op->dest.branchop = op2brnch;
       return dest_op;
     case L_NOT:
       destaddr = linearitree(daget(cmpexpr->params, 0), prog);
@@ -1229,26 +1235,15 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
     case BEQ_U: case BEQ_I: case BEQ_F: 
       PRINTBROP2(==);
       break;
-    case BNE_U: case BNE_I: case BNE_F: 
-      PRINTBROP2(!=);
-      break;
     case BGE_U: case BGE_I: case BGE_F: 
       if(color) PRINTBROP2(>=);
       else PRINTBROP2(&gt;=);
-      break;
-    case BLE_U: case BLE_I: case BLE_F: 
-      if(color) PRINTBROP2(<=);
-      else PRINTBROP2(&lt;=);
       break;
     case BGT_U: case BGT_I: case BGT_F: 
       if(color) PRINTBROP2(>);
       else PRINTBROP2(&gt;);
       break;
-    case BLT_U: case BLT_I: case BLT_F: 
-      if(color) PRINTBROP2(<);
-      else PRINTBROP2(&lt;);
-      break;
-    case BNZ_3: case BEZ_3: case JMP_3: 
+    case BNZ_3: case BEZ_3: case JMP_3:
     case ARG_3: case PARAM_3: case RET_3: case INIT_3:
       PRINTOP1( );
       break;

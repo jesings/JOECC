@@ -28,9 +28,9 @@
   X(F2I) X(I2F)
 #define OPS_2_3ac OPS_2_3ac_MUT X(MOV_3)
 #define OPS_NODEST_3ac \
-  X(BEQ_U) X(BEQ_I) X(BEQ_F) X(BNE_U) X(BNE_I) X(BNE_F) \
-  X(BGE_U) X(BGE_I) X(BGE_F) X(BLE_U) X(BLE_I) X(BLE_F) \
-  X(BGT_U) X(BGT_I) X(BGT_F) X(BLT_U) X(BLT_I) X(BLT_F) \
+  X(BEQ_U) X(BEQ_I) X(BEQ_F) \
+  X(BGE_U) X(BGE_I) X(BGE_F) \
+  X(BGT_U) X(BGT_I) X(BGT_F) \
   X(JEQ_I) /*op3 (dest label), commut*/
 #define OPS_1_3ac \
   X(BNZ_3) X(BEZ_3) \
@@ -155,24 +155,18 @@ PROGRAM* linefunc(FUNC* f);
 void printprog(PROGRAM* prog);
 void treeprog(PROGRAM* prog, char* fname);
 
-static inline enum opcode_3ac cmp_osite(EXPRTYPE coptype, char negate) {
+static inline enum opcode_3ac cmp_osite(EXPRTYPE coptype) {
   switch(coptype) {
-    case EQ:
-      return negate ? BNE_U : BEQ_U;
-    case NEQ:
-      return negate ? BEQ_U : BNE_U;
-    case GT:
-      return negate ? BLE_U : BGT_U;
-    case LT:
-      return negate ? BGE_U : BLT_U;
-    case GTE:
-      return negate ? BLT_U : BGE_U;
-    case LTE:
-      return negate ? BGT_U : BLE_U;
+    case EQ: case NEQ:
+      return BEQ_U;
+    case GT: case LTE:
+      return BGT_U;
+    case GTE: case LT:
+      return BGE_U;
     case L_NOT:
-      return negate ? BNZ_3 : BEZ_3;
+      return BEZ_3;
     default:
-      return negate ? BEZ_3 : BNZ_3;
+      return BNZ_3;
   }
 }
 char remove_nops(PROGRAM* prog);

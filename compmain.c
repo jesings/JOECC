@@ -54,8 +54,6 @@ static void filecomp(char* filename) {
   yylex_init_extra(lctx, &scanner);
   yyset_in(yyin, scanner);
 #ifdef NODEBUG
-  yyset_debug(0, scanner);
-#else
   yyset_debug(0, scanner);//not debugging lexer for now
 #endif
   yyparse(scanner);
@@ -67,7 +65,6 @@ static void filecomp(char* filename) {
   dadtor(lctx->ls->locs);
   dadtor(lctx->ls->argpp);
   dadtorfr(lctx->ls->file2compile);
-  //chdir("./functions");
   DYNARR* funcky = htpairs(lctx->funcs);
 #ifndef NODEBUG
   pthread_mutex_lock(&printlock);
@@ -81,6 +78,7 @@ static void filecomp(char* filename) {
       PROGRAM* prog = linefunc(f); //fix main func
       ctdtree(prog);
       constfold(prog);
+      popsedag(prog);
 #ifndef NODEBUG
       putchar('\n');
       puts(pairthere->key);

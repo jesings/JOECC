@@ -323,9 +323,9 @@ static SEDAG* ctsedag(PROGRAM* prog) {
   retval->floatconsthash = htctor();
   retval->strconsthash = htctor();
   retval->opnodes = dactor(ADDR_3 + 1); //addr_3 is the last op
-  retval->opnodes->length = prog->iregcnt;
+  retval->opnodes->length = ADDR_3 + 1;
   for(int i = 0; i <= ADDR_3; i++) {
-    retval->opnodes->arr[i] = dactor(32);//tailor better per-op, maybe htctor?
+    retval->opnodes->arr[i] = htctor();
   }
   return retval;
 }
@@ -356,12 +356,12 @@ static void freesedag(SEDAG* sed) {
   fhtdtor(sed->intconsthash);
   fhtdtor(sed->floatconsthash);
   fhtdtor(sed->strconsthash);
-  dadtorcfr(sed->opnodes, (void(*)(void*)) dadtor);
+  dadtorcfr(sed->opnodes, (void(*)(void*)) htdtor);
   free(sed);
 }
 
 static SEDNODE* nodefromaddr(SEDAG* sedag, ADDRTYPE adt, ADDRESS adr, PROGRAM* prog) {
-  SEDNODE* cn = NULL;
+  SEDNODE* cn;
   if(adt & ISCONST) {
     if(adt & ISSTRCONST) {
       cn = search(sedag->strconsthash, adr.strconst);
@@ -383,16 +383,17 @@ static SEDNODE* nodefromaddr(SEDAG* sedag, ADDRTYPE adt, ADDRESS adr, PROGRAM* p
   } else {
     if(adt & (ISLABEL | ISDEREF)) {
       //ignore (for now) TODO: pointer analysis
-    } else {
-      FULLADDR* adstore = daget(prog->dynvars, adr.iregnum);
-      if(!(adstore->addr_type & ADDRSVAR)) {
-        cn = daget(sedag->varnodes, adr.iregnum);
-        if(!cn) {
-          cn = ctsednode(NOCONST);
-          dapush(cn->equivs, ctsedi(adr.iregnum));
-          sedag->varnodes->arr[adr.iregnum] = cn;
-        }
-      }
+      return NULL;
+    }
+    if(adt & ISVAR) {
+      FULLADDR* adstore = daget(prog->dynvars, adr.varnum);
+      if(adstore->addr_type & ADDRSVAR) return NULL;
+    }
+    cn = daget(sedag->varnodes, adr.iregnum);
+    if(!cn) {
+      cn = ctsednode(NOCONST);
+      dapush(cn->equivs, ctsedi(adr.iregnum));
+      sedag->varnodes->arr[adr.iregnum] = cn;
     }
   }
   return cn;
@@ -417,7 +418,7 @@ void popsedag(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
           case MOV_3:
             sen1 = nodefromaddr(dagnabbit, op->addr0_type, op->addr0, prog);
             if(!(op->dest_type & (ISLABEL | ISDEREF | ADDRSVAR))) {
-              if(sen1) {
+              if(!sen1) {
                 sen1 = ctsednode(NOCONST);
               }
               dapush(sen1->equivs, ctsedi(op->dest.iregnum));
