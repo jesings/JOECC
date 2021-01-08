@@ -240,10 +240,22 @@ OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog
   return ct_3ac_op2(op, a1.addr_type, a1.addr, desta.addr_type, desta.addr);
 }
 
-FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, ADDRESS complete_val, ADDRESS shortcircuit_val, PROGRAM* prog) {
-  BBLOCK* failblock = mpblk();
-  BBLOCK* finalblock = mpblk();
+void implicit_shortcircuit_noret(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, BBLOCK* branchto, PROGRAM* prog) {
   FULLADDR addr2use;
+  for(int i = 0; i < cexpr->params->length; i++) {
+    addr2use = linearitree(daget(cexpr->params, i), prog);
+    opn(prog, ct_3ac_op1(op_to_cmp, addr2use.addr_type, addr2use.addr));
+    prog->curblock->branchblock = branchto;
+    dapushc(branchto->inedges, prog->curblock);
+    prog->curblock = NULL;
+  }
+}
+
+FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, ADDRESS complete_val, ADDRESS shortcircuit_val, PROGRAM* prog) {
+  BBLOCK* failblock,* finalblock;
+  finalblock = mpblk();
+  failblock= mpblk();
+  FULLADDR addr2use, addr2use2, destaddr2use;
   for(int i = 0; i < cexpr->params->length; i++) {
     addr2use = linearitree(daget(cexpr->params, i), prog);
     opn(prog, ct_3ac_op1(op_to_cmp, addr2use.addr_type, addr2use.addr));
@@ -257,9 +269,14 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
   prog->curblock->nextblock = finalblock;
   dapushc(finalblock->inedges, prog->curblock);
   giveblock(prog, failblock);
-  opn(prog, ct_3ac_op2(MOV_3, ISCONST, shortcircuit_val, addr2use.addr_type, addr2use.addr));
+  addr2use2.addr.iregnum = prog->iregcnt++;
+  addr2use2.addr_type = 1;//maybe make it signed?
+  opn(prog, ct_3ac_op2(MOV_3, ISCONST, shortcircuit_val, addr2use2.addr_type, addr2use2.addr));
   giveblock(prog, finalblock);
-  return addr2use;
+  destaddr2use.addr.iregnum = prog->iregcnt++;
+  destaddr2use.addr_type = 1;//maybe make it signed?
+  opn(prog, ct_3ac_op3(TPHI, addr2use.addr_type, addr2use.addr, addr2use2.addr_type, addr2use2.addr, destaddr2use.addr_type, destaddr2use.addr));
+  return destaddr2use;
 }
 
 OPERATION* cmpret_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
@@ -596,7 +613,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case TERNARY: ;
       BBLOCK* joinblock = mpblk();
       BBLOCK* failblock = mpblk();
-      opn(prog, cmptype(daget(cexpr->params, 0), 1, prog));
+      cmptype(daget(cexpr->params, 0), 1, prog);
       BBLOCK* topblock;
       prog->curblock->branchblock = failblock;
       dapushc(failblock->inedges, prog->curblock);
@@ -738,7 +755,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   return curaddr;
 }
 
-OPERATION* cmptype(EXPRESSION* cmpexpr, char negate, PROGRAM* prog) {
+void cmptype(EXPRESSION* cmpexpr, char negate, PROGRAM* prog) {
   OPERATION* dest_op;
   FULLADDR destaddr;
   switch(cmpexpr->type) {
@@ -753,13 +770,23 @@ OPERATION* cmptype(EXPRESSION* cmpexpr, char negate, PROGRAM* prog) {
       }
       dest_op = cmpret_binary_3(cmp_osite(cmpexpr->type), cmpexpr, prog);//figure out signedness here or elsewhere
       --prog->iregcnt; //dealloc allocated register, ignore third operand
-      return dest_op;
-    case L_NOT:
-      destaddr = linearitree(daget(cmpexpr->params, 0), prog);
-      return ct_3ac_op1(negate ? BNZ_3 : BEZ_3 , destaddr.addr_type, destaddr.addr);
-    default:
-      destaddr = linearitree(cmpexpr, prog);
-      return ct_3ac_op1(negate ? BEZ_3 : BNZ_3 , destaddr.addr_type, destaddr.addr);
+      opn(prog, dest_op);
+      return;
+     //case L_AND:
+     //  implicit_shortcircuit_noret(cmpexpr, BEZ_3, block, prog);
+     //  return;
+     //case L_OR:
+     //  implicit_shortcircuit_noret(cmpexpr, BNZ_3, successblock, prog);
+     //  //branch to failblock
+     //  return;
+     case L_NOT:
+       destaddr = linearitree(daget(cmpexpr->params, 0), prog);
+       opn(prog, ct_3ac_op1(negate ? BNZ_3 : BEZ_3 , destaddr.addr_type, destaddr.addr));
+       return;
+     default:
+       destaddr = linearitree(cmpexpr, prog);
+       opn(prog, ct_3ac_op1(negate ? BEZ_3 : BNZ_3 , destaddr.addr_type, destaddr.addr));
+       return;
   }
 }
 
@@ -874,7 +901,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       contblock->branchblock = breakblock;
       dapushc(breakblock->inedges, contblock);
       giveblock(prog, contblock);
-      opn(prog, cmptype(cst->cond, 1, prog));
+      cmptype(cst->cond, 1, prog);
       prog->curblock = NULL;
       giveblock(prog, mpblk());
       solidstate(cst->body, prog);
@@ -904,7 +931,8 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       topblock->branchblock = breakblock;
       dapushc(breakblock->inedges, topblock);
       giveblock(prog, topblock);
-      opn(prog, cmptype(cst->forcond, 1, prog));
+      if(cst->forcond->type != NOP) //no break cond
+        cmptype(cst->forcond, 1, prog);
       prog->curblock = NULL;
       giveblock(prog, mpblk());
       solidstate(cst->forbody, prog);
@@ -926,7 +954,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       solidstate(cst->body, prog);
       linearitree(cst->cond, prog);
       giveblock(prog, contblock);
-      opn(prog, cmptype(cst->cond, 0, prog));
+      cmptype(cst->cond, 0, prog);
       contblock = dapeek(prog->allblocks);
       assert(!contblock->branchblock);
       contblock->branchblock = topblock;
@@ -938,7 +966,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
     case IFS:
       breakblock = mpblk();
       contblock = mpblk();
-      opn(prog, cmptype(cst->ifcond, 1, prog));
+      cmptype(cst->ifcond, 1, prog);
       prog->curblock->branchblock = breakblock;
       dapushc(breakblock->inedges, prog->curblock);
       prog->curblock = NULL;
@@ -950,7 +978,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
     case IFELSES: //TODO: what if nop in if condition
       breakblock = mpblk();
       contblock = mpblk();
-      opn(prog, cmptype(cst->ifcond, 1, prog));
+      cmptype(cst->ifcond, 1, prog);
       prog->curblock->branchblock = contblock;
       dapushc(contblock->inedges, prog->curblock);
       prog->curblock = NULL;

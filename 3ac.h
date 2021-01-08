@@ -139,7 +139,7 @@ OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
 FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog);
 FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog);
 void initializestate(INITIALIZER* i, PROGRAM* prog);
-OPERATION* cmptype(EXPRESSION* cmpexpr, char negate, PROGRAM* prog);
+void cmptype(EXPRESSION* cmpexpr, char negate, PROGRAM* prog);
 void solidstate(STATEMENT* cst, PROGRAM* prog);
 FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srcexpr, PROGRAM* prog);
 OPERATION* implicit_3ac_3(enum opcode_3ac opcode_unsigned, ADDRTYPE addr0_type, ADDRESS addr0,
@@ -148,6 +148,7 @@ OPERATION* implicit_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr,
 OPERATION* implicit_bitwise_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog);
 OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog);
 OPERATION* implicit_mtp_2(EXPRESSION* destexpr, EXPRESSION* fromexpr, FULLADDR a1, FULLADDR a2, PROGRAM* prog);
+void implicit_shortcircuit_noret(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, BBLOCK* branchto, PROGRAM* prog);
 FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, 
                                  ADDRESS complete_val, ADDRESS shortcircuit_val, PROGRAM* prog);
 OPERATION* cmpret_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);

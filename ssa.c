@@ -589,6 +589,89 @@ void popsedag(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
     }
     putchar('\n');
   }
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    SEDNODE* sen;
+    if(blk->lastop) {
+      OPERATION* op = blk->firstop;
+      while(1) {
+        switch(op->opcode) {
+          OPS_3_3ac_NOCOM OPS_3_3ac_COM case TPHI: OPS_3_PTRDEST_3ac
+            sen = nodefromaddr(dagnabbit, op->dest_type, op->dest, prog);
+            if(sen && (sen->hasconst != NOCONST)) {
+              op->opcode = NOP_3;
+              break;
+            }
+            __attribute__((fallthrough));
+          OPS_NODEST_3ac
+            sen = nodefromaddr(dagnabbit, op->addr1_type, op->addr1, prog);
+            if(sen && (sen->hasconst != NOCONST)) {
+              op->addr1_type &= 0xf | ISSIGNED;
+              op->addr1_type |= ISCONST;
+              if(sen->hasconst == STRCONST) op->addr1_type |= ISSTRCONST;
+              else if(sen->hasconst == FLOATCONST) op->addr1_type |= ISFLOAT;
+              op->addr1.intconst_64 = sen->intconst; //could be anything
+            }
+            __attribute__((fallthrough));
+          OPS_1_3ac
+            sen = nodefromaddr(dagnabbit, op->addr0_type, op->addr0, prog);
+            if(sen && (sen->hasconst != NOCONST)) {
+              op->addr0_type &= 0xf | ISSIGNED;
+              op->addr0_type |= ISCONST;
+              if(sen->hasconst == STRCONST) op->addr0_type |= ISSTRCONST;
+              else if(sen->hasconst == FLOATCONST) op->addr0_type |= ISFLOAT;
+              op->addr0.intconst_64 = sen->intconst; //could be anything
+            }
+            break;
+          OPS_2_3ac_MUT case MOV_3: case ADDR_3:
+            sen = nodefromaddr(dagnabbit, op->dest_type, op->dest, prog);
+            if(sen && (sen->hasconst != NOCONST)) {
+              op->opcode = NOP_3;
+              break;
+            }
+            sen = nodefromaddr(dagnabbit, op->addr0_type, op->addr0, prog);
+            if(sen && (sen->hasconst != NOCONST)) {
+              op->addr0_type &= 0xf | ISSIGNED;
+              op->addr0_type |= ISCONST;
+              if(sen->hasconst == STRCONST) op->addr0_type |= ISSTRCONST;
+              else if(sen->hasconst == FLOATCONST) op->addr0_type |= ISFLOAT;
+              op->addr0.intconst_64 = sen->intconst; //could be anything
+            }
+            break;
+          case CALL_3: case ALOC_3:
+            sen = nodefromaddr(dagnabbit, op->dest_type, op->dest, prog);
+            if(sen && (sen->hasconst != NOCONST)) {
+              op->opcode = NOP_3;
+            }
+            break;
+          case PHI: 
+            sen = nodefromaddr(dagnabbit, op->dest_type, op->dest, prog);
+            if(sen && (sen->hasconst != NOCONST)) {
+              op->opcode = NOP_3;
+              free(op->addr0.joins);
+              break;
+            }
+            for(int k = 0; k < blk->inedges->length; k++) {
+              int l = op->addr0.joins[k];
+              sen = daget(dagnabbit->varnodes, l);
+              if(sen && (sen->hasconst != NOCONST)) {
+              }
+            }
+            break;
+          OPS_1_ASSIGN_3ac
+            sen = nodefromaddr(dagnabbit, op->addr0_type, op->addr0, prog);
+            if(sen && (sen->hasconst != NOCONST)) {
+              op->opcode = NOP_3;
+            }
+            break;
+          OPS_NOVAR_3ac
+            break;
+        }
+        if(op == blk->lastop) break;
+        op = op->nextop;
+      }
+    }
+  }
 
   freesedag(dagnabbit);
 }
