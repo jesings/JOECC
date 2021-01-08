@@ -247,7 +247,7 @@ void implicit_shortcircuit_noret(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, B
     opn(prog, ct_3ac_op1(op_to_cmp, addr2use.addr_type, addr2use.addr));
     prog->curblock->branchblock = branchto;
     dapushc(branchto->inedges, prog->curblock);
-    prog->curblock = NULL;
+    if(i + 1 != cexpr->params->length) prog->curblock = NULL;//TODO: not so dumb
   }
 }
 
@@ -255,7 +255,7 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
   BBLOCK* failblock,* finalblock;
   finalblock = mpblk();
   failblock= mpblk();
-  FULLADDR addr2use, addr2use2, destaddr2use;
+  FULLADDR addr2use;
   for(int i = 0; i < cexpr->params->length; i++) {
     addr2use = linearitree(daget(cexpr->params, i), prog);
     opn(prog, ct_3ac_op1(op_to_cmp, addr2use.addr_type, addr2use.addr));
@@ -263,20 +263,14 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
     dapushc(failblock->inedges, prog->curblock);
     prog->curblock = NULL;
   }
-  addr2use.addr.iregnum = prog->iregcnt++;
-  addr2use.addr_type = 1;//maybe make it signed?
-  opn(prog, ct_3ac_op2(MOV_3, ISCONST, complete_val, addr2use.addr_type, addr2use.addr));
+  giveblock(prog, mpblk());
   prog->curblock->nextblock = finalblock;
   dapushc(finalblock->inedges, prog->curblock);
   giveblock(prog, failblock);
-  addr2use2.addr.iregnum = prog->iregcnt++;
-  addr2use2.addr_type = 1;//maybe make it signed?
-  opn(prog, ct_3ac_op2(MOV_3, ISCONST, shortcircuit_val, addr2use2.addr_type, addr2use2.addr));
   giveblock(prog, finalblock);
-  destaddr2use.addr.iregnum = prog->iregcnt++;
-  destaddr2use.addr_type = 1;//maybe make it signed?
-  opn(prog, ct_3ac_op3(TPHI, addr2use.addr_type, addr2use.addr, addr2use2.addr_type, addr2use2.addr, destaddr2use.addr_type, destaddr2use.addr));
-  return destaddr2use;
+  addr2use.addr.iregnum = prog->iregcnt++;
+  opn(prog, ct_3ac_op3(TPHI, 1, shortcircuit_val, 1, complete_val, 1, addr2use.addr));
+  return addr2use;
 }
 
 OPERATION* cmpret_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
@@ -612,16 +606,16 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
     case TERNARY: ;
       BBLOCK* joinblock = mpblk();
+      BBLOCK* succblock = mpblk();
       BBLOCK* failblock = mpblk();
-      cmptype(daget(cexpr->params, 0), 1, prog);
+      cmptype(daget(cexpr->params, 0), failblock, succblock, prog);
       BBLOCK* topblock;
-      prog->curblock->branchblock = failblock;
-      dapushc(failblock->inedges, prog->curblock);
       prog->curblock = NULL;
       IDTYPE t0t = typex(daget(cexpr->params, 0));
       IDTYPE t1t = typex(daget(cexpr->params, 1));
       IDTYPE t2t = typex(daget(cexpr->params, 2));
       IDTYPE t3t = typex(cexpr);
+      giveblock(prog, succblock);
       curaddr = linearitree(daget(cexpr->params, 1), prog);
       if(!(t1t.tb & FLOATNUM) && (t2t.tb & FLOATNUM)) {
         FULLADDR ad2;
@@ -629,15 +623,10 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         opn(prog, ct_3ac_op2(I2F, curaddr.addr_type, curaddr.addr, ad2.addr_type, ad2.addr));
         curaddr = ad2;
       }
-      if(prog->curblock) {
-        prog->curblock->nextblock = joinblock;
-        dapushc(joinblock->inedges, prog->curblock);
-      } else {
-        topblock = dapeek(prog->allblocks);
-        if(!topblock->nextblock) {
-          topblock->nextblock = joinblock;
-          dapushc(joinblock->inedges, topblock);
-        }
+      topblock = dapeek(prog->allblocks);
+      if(!topblock->nextblock) {
+        topblock->nextblock = joinblock;
+        dapushc(joinblock->inedges, topblock);
       }
       giveblock(prog, failblock);
       otheraddr = linearitree(daget(cexpr->params, 2), prog);
@@ -755,12 +744,13 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   return curaddr;
 }
 
-void cmptype(EXPRESSION* cmpexpr, char negate, PROGRAM* prog) {
+void cmptype(EXPRESSION* cmpexpr, BBLOCK* failblock, BBLOCK* successblock, PROGRAM* prog) {
   OPERATION* dest_op;
   FULLADDR destaddr;
+  char negate = 0;
   switch(cmpexpr->type) {
     case NEQ: case LT: case LTE:
-      negate = !negate;
+      negate = 1;
       //fall through
     case EQ: case GT: case GTE:
       if(negate) {
@@ -771,23 +761,27 @@ void cmptype(EXPRESSION* cmpexpr, char negate, PROGRAM* prog) {
       dest_op = cmpret_binary_3(cmp_osite(cmpexpr->type), cmpexpr, prog);//figure out signedness here or elsewhere
       --prog->iregcnt; //dealloc allocated register, ignore third operand
       opn(prog, dest_op);
-      return;
-     //case L_AND:
-     //  implicit_shortcircuit_noret(cmpexpr, BEZ_3, block, prog);
-     //  return;
-     //case L_OR:
-     //  implicit_shortcircuit_noret(cmpexpr, BNZ_3, successblock, prog);
-     //  //branch to failblock
-     //  return;
+      break;
+     case L_AND:
+       implicit_shortcircuit_noret(BEZ_3, cmpexpr, failblock, prog);
+       break;
+     case L_OR:
+       implicit_shortcircuit_noret(BNZ_3, cmpexpr, successblock, prog);
+       break;
      case L_NOT:
        destaddr = linearitree(daget(cmpexpr->params, 0), prog);
-       opn(prog, ct_3ac_op1(negate ? BNZ_3 : BEZ_3 , destaddr.addr_type, destaddr.addr));
-       return;
+       opn(prog, ct_3ac_op1(BEZ_3 , destaddr.addr_type, destaddr.addr));
+       break;
      default:
        destaddr = linearitree(cmpexpr, prog);
-       opn(prog, ct_3ac_op1(negate ? BEZ_3 : BNZ_3 , destaddr.addr_type, destaddr.addr));
-       return;
+       opn(prog, ct_3ac_op1(BNZ_3 , destaddr.addr_type, destaddr.addr));
+       break;
   }
+  prog->curblock->nextblock = successblock;
+  prog->curblock->branchblock = failblock;
+  dapush(successblock->inedges, prog->curblock);
+  dapush(failblock->inedges, prog->curblock);
+  prog->curblock = NULL;
 }
 
 void initializestate(INITIALIZER* i, PROGRAM* prog) {
@@ -859,7 +853,7 @@ static void lbljmp(char* lblname, BBLOCK* block, BBLOCK** loc, PROGRAM* prog) {
 
 void solidstate(STATEMENT* cst, PROGRAM* prog) {
   FULLADDR ret_op;
-  BBLOCK* topblock,* breakblock,* contblock;
+  BBLOCK* topblock,* breakblock,* contblock,* otherblock;
   switch(cst->type){
     case FRET:
       if(cst->expression) {
@@ -896,14 +890,13 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
     case WHILEL:
       breakblock = mpblk();
       contblock = mpblk();
+      otherblock = mpblk();
       dapush(prog->breaklabels, breakblock);
       dapush(prog->continuelabels, contblock);
-      contblock->branchblock = breakblock;
-      dapushc(breakblock->inedges, contblock);
       giveblock(prog, contblock);
-      cmptype(cst->cond, 1, prog);
+      cmptype(cst->cond, breakblock, otherblock, prog);
       prog->curblock = NULL;
-      giveblock(prog, mpblk());
+      giveblock(prog, otherblock);
       solidstate(cst->body, prog);
       topblock = dapeek(prog->allblocks);
       if(!topblock->nextblock) {
@@ -928,13 +921,11 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       }
       dapush(prog->continuelabels, contblock);
       dapush(prog->breaklabels, breakblock);
-      topblock->branchblock = breakblock;
-      dapushc(breakblock->inedges, topblock);
       giveblock(prog, topblock);
-      if(cst->forcond->type != NOP) //no break cond
-        cmptype(cst->forcond, 1, prog);
-      prog->curblock = NULL;
-      giveblock(prog, mpblk());
+      otherblock = mpblk();
+      if(cst->forcond->type != NOP)
+        cmptype(cst->forcond, breakblock, otherblock, prog);
+      giveblock(prog, otherblock);
       solidstate(cst->forbody, prog);
       giveblock(prog, contblock);
       linearitree(cst->increment, prog);
@@ -954,11 +945,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       solidstate(cst->body, prog);
       linearitree(cst->cond, prog);
       giveblock(prog, contblock);
-      cmptype(cst->cond, 0, prog);
-      contblock = dapeek(prog->allblocks);
-      assert(!contblock->branchblock);
-      contblock->branchblock = topblock;
-      dapush(topblock->inedges, contblock);
+      cmptype(cst->cond, breakblock, topblock, prog);
       dapop(prog->continuelabels);
       dapop(prog->breaklabels);
       giveblock(prog, breakblock);
@@ -966,9 +953,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
     case IFS:
       breakblock = mpblk();
       contblock = mpblk();
-      cmptype(cst->ifcond, 1, prog);
-      prog->curblock->branchblock = breakblock;
-      dapushc(breakblock->inedges, prog->curblock);
+      cmptype(cst->ifcond, breakblock, contblock, prog);
       prog->curblock = NULL;
       giveblock(prog, contblock);
       solidstate(cst->thencond, prog);
@@ -978,11 +963,10 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
     case IFELSES: //TODO: what if nop in if condition
       breakblock = mpblk();
       contblock = mpblk();
-      cmptype(cst->ifcond, 1, prog);
-      prog->curblock->branchblock = contblock;
-      dapushc(contblock->inedges, prog->curblock);
+      otherblock = mpblk();
+      cmptype(cst->ifcond, contblock, otherblock, prog);
       prog->curblock = NULL;
-      giveblock(prog, mpblk());
+      giveblock(prog, otherblock);
       solidstate(cst->thencond, prog);
       topblock = dapeek(prog->allblocks);
       if(!topblock->nextblock) {
@@ -1339,9 +1323,9 @@ void treeprog(PROGRAM* prog, char* fname) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     if(blk->nextblock)
-      fprintf(f, "\"%p\" -> \"%p\"\n", blk, blk->nextblock);
+      fprintf(f, "\"%p\" -> \"%p\" [color=blue]\n", blk, blk->nextblock);
     if(blk->branchblock)
-      fprintf(f, "\"%p\" -> \"%p\"\n", blk, blk->branchblock);
+      fprintf(f, "\"%p\" -> \"%p\" [color=red]\n", blk, blk->branchblock);
     if(!blk->lastop) {
       fprintf(f, "\"%p\" [xlabel=\"%d\"]", blk, blk->inedges ? blk->inedges->length : 0);
       continue;
