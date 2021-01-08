@@ -269,7 +269,8 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
   giveblock(prog, failblock);
   giveblock(prog, finalblock);
   addr2use.addr.iregnum = prog->iregcnt++;
-  opn(prog, ct_3ac_op3(TPHI, 1, shortcircuit_val, 1, complete_val, 1, addr2use.addr));
+  addr2use.addr_type = 1;
+  opn(prog, ct_3ac_op3(TPHI, ISCONST | 1, shortcircuit_val, ISCONST | 1, complete_val, 1, addr2use.addr));
   return addr2use;
 }
 
@@ -769,12 +770,11 @@ void cmptype(EXPRESSION* cmpexpr, BBLOCK* failblock, BBLOCK* successblock, PROGR
        implicit_shortcircuit_noret(BNZ_3, cmpexpr, successblock, prog);
        break;
      case L_NOT:
-       destaddr = linearitree(daget(cmpexpr->params, 0), prog);
-       opn(prog, ct_3ac_op1(BEZ_3 , destaddr.addr_type, destaddr.addr));
-       break;
+       cmptype(daget(cmpexpr->params, 0), successblock, failblock, prog);
+       return;
      default:
        destaddr = linearitree(cmpexpr, prog);
-       opn(prog, ct_3ac_op1(BNZ_3 , destaddr.addr_type, destaddr.addr));
+       opn(prog, ct_3ac_op1(BNZ_3, destaddr.addr_type, destaddr.addr));
        break;
   }
   prog->curblock->nextblock = successblock;
