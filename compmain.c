@@ -79,6 +79,7 @@ static void filecomp(char* filename) {
       ctdtree(prog);
       constfold(prog);
       popsedag(prog);
+      remove_nops(prog);
 #ifndef NODEBUG
       putchar('\n');
       puts(pairthere->key);

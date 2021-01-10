@@ -172,7 +172,6 @@ static inline enum opcode_3ac cmp_osite(EXPRTYPE coptype) {
       return BNZ_3;
   }
 }
-char remove_nops(PROGRAM* prog);
 void freeblock(void* blk);
 void freeprog(PROGRAM* prog);
 

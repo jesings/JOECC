@@ -1349,23 +1349,6 @@ void treeprog(PROGRAM* prog, char* fname) {
   return;
 }
 
-char remove_nops(PROGRAM* prog) {
-  //DYNARR* da = prog->ops;
-  //OPERATION** adr = (OPERATION**) da->arr;
-  //int newlen = 0;
-  //for(int i = 0; i < da->length; i++) {
-  //  OPERATION* cad = adr[i];
-  //  if(cad->opcode != NOP_3) {
-  //    adr[newlen] = cad;
-  //    newlen++;
-  //  }
-  //}
-  //int prevlen = da->length;
-  //da->length = newlen;
-  //return prevlen == newlen;
-  return 0;
-}
-
 static void freeop(OPERATION* op, OPERATION* stop) {
   while(1) {
     switch(op->opcode) {

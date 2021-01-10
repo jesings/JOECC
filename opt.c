@@ -47,6 +47,44 @@ void rmunreach(PROGRAM* prog) {
 //http://ssabook.gforge.inria.fr/latest/book.pdf
 //https://iitd-plos.github.io/col729/lec/loop_transformations.html
 
+char remove_nops(PROGRAM* prog) {
+  DYNARR* da = prog->allblocks;
+  for(int i = 0; i < da->length; i++) {
+    BBLOCK* b = daget(da, i);
+    if(!b->lastop) continue;
+    OPERATION* op = b->firstop;
+    while(op->opcode == NOP_3 && op != b->lastop) {
+      OPERATION* prevop = op;
+      op = op->nextop;
+      free(prevop);
+    } //first ops
+    b->firstop = op;
+    OPERATION* lastop;
+    if(op == b->lastop) {
+      lastop = NULL;
+    } else {
+      lastop = op;
+      op = op->nextop;
+      while(op != b->lastop) {
+        if(op->opcode == NOP_3) {
+          lastop->nextop = op->nextop;
+          free(op);
+          op = lastop;
+        } else {
+          lastop = op;
+        }
+        op = op->nextop;
+      }
+    }
+    if(op->opcode == NOP_3) {
+      free(op);
+      b->lastop = lastop;
+    } //last op
+  }
+  return 0;
+}
+
+
 char constfold(PROGRAM* prog) {
   DYNARR* blocks = prog->allblocks;
   //char modified = 0;
