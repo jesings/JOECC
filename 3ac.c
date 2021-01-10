@@ -246,9 +246,10 @@ void implicit_shortcircuit_noret(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, B
     addr2use = linearitree(daget(cexpr->params, i), prog);
     opn(prog, ct_3ac_op1(op_to_cmp, addr2use.addr_type, addr2use.addr));
     prog->curblock->branchblock = branchto;
-    dapushc(branchto->inedges, prog->curblock);
-    if(i + 1 != cexpr->params->length) prog->curblock = NULL;//TODO: not so dumb
+    dapush(branchto->inedges, prog->curblock);
+    prog->curblock = NULL;
   }
+  prog->curblock = dapeek(prog->allblocks);
 }
 
 FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, ADDRESS complete_val, ADDRESS shortcircuit_val, PROGRAM* prog) {
@@ -260,7 +261,7 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
     addr2use = linearitree(daget(cexpr->params, i), prog);
     opn(prog, ct_3ac_op1(op_to_cmp, addr2use.addr_type, addr2use.addr));
     prog->curblock->branchblock = failblock;
-    dapushc(failblock->inedges, prog->curblock);
+    dapush(failblock->inedges, prog->curblock);
     prog->curblock = NULL;
   }
   giveblock(prog, mpblk());
@@ -765,10 +766,14 @@ void cmptype(EXPRESSION* cmpexpr, BBLOCK* failblock, BBLOCK* successblock, PROGR
       break;
      case L_AND:
        implicit_shortcircuit_noret(BEZ_3, cmpexpr, failblock, prog);
-       break;
+       prog->curblock->nextblock = successblock;
+       dapush(successblock->inedges, prog->curblock);
+       return;
      case L_OR:
        implicit_shortcircuit_noret(BNZ_3, cmpexpr, successblock, prog);
-       break;
+       prog->curblock->nextblock = failblock;
+       dapush(failblock->inedges, prog->curblock);
+       return;
      case L_NOT:
        cmptype(daget(cmpexpr->params, 0), successblock, failblock, prog);
        return;
@@ -778,8 +783,8 @@ void cmptype(EXPRESSION* cmpexpr, BBLOCK* failblock, BBLOCK* successblock, PROGR
        break;
   }
   prog->curblock->nextblock = successblock;
-  prog->curblock->branchblock = failblock;
   dapush(successblock->inedges, prog->curblock);
+  prog->curblock->branchblock = failblock;
   dapush(failblock->inedges, prog->curblock);
   prog->curblock = NULL;
 }
@@ -1291,8 +1296,10 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
       printaddr(op->addr1, op->addr1_type, color, f, prog);
       break;
     case PHI:
-      for(int i = 0; i < blk->inedges->length; i++)
-        fprintf(f, "%d, ", op->addr0.joins[i]);
+      for(int i = 0; i < blk->inedges->length; i++) {
+        printaddr(op->addr0.joins[i].addr, op->addr0.joins[i].addr_type, color, f, prog);
+        fprintf(f, ", ");
+      }
       fprintf(f, " →  ");
       printaddr(op->dest, op->dest_type, color, f, prog);
       break;

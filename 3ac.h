@@ -55,6 +55,7 @@ enum passes {
 
 struct op;
 struct bblock;
+struct fulladdr;
 
 typedef union {
   struct {
@@ -70,7 +71,7 @@ typedef union {
   char* strconst;
   unsigned long* arrayconst;
   char* labelname;
-  int* joins;
+  struct fulladdr* joins;
 } ADDRESS;
 
 typedef enum {
@@ -97,7 +98,7 @@ typedef struct op {
   struct op* nextop;
 } OPERATION;
 
-typedef struct {
+typedef struct fulladdr{
   ADDRTYPE addr_type;
   ADDRESS addr;
 } FULLADDR;
