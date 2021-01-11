@@ -37,9 +37,9 @@ typedef struct {
 void ctdtree(PROGRAM* prog);
 void popsedag(PROGRAM* prog);
 #define bfalloc(length) calloc(1, (length + 7) >> 3)
-#define bfclone(bitfield, length) memcpy(malloc((length + 7) >> 3), bitfield, (length + 7) >> 3)
-#define bfget(bitfield, index) bitfield[index >> 3] & (1 << (index & 7))
-#define bfset(bitfield, index) bitfield[index >> 3] | (1 << (index & 7))
-#define bfunset(bitfield, index) bitfield[index >> 3] & ~(1 << (index & 7))
+#define bfclone(bitfield, length) memcpy(malloc(((length) + 7) >> 3), (bitfield), ((length) + 7) >> 3)
+#define bfget(bitfield, index) ((bitfield)[(index) >> 3] & (1 << ((index) & 7)))
+#define bfset(bitfield, index) ((bitfield)[(index) >> 3] | (1 << ((index) & 7)))
+#define bfunset(bitfield, index) ((bitfield)[(index) >> 3] & ~(1 << ((index) & 7)))
 #define BITFIELD char*
 #endif
