@@ -415,21 +415,20 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
         OPS_3_3ac_NOCOM OPS_3_3ac_COM case TPHI:
           sen = nodefromaddr(sed, op->dest_type, op->dest, prog);
           if(sen) {
-            if(sen->hasconst != NOCONST) {
+            if(sen->hasconst != NOCONST || bfget(bf, sen->index)) {
               op->opcode = NOP_3;
               break;
             } else {
-              if(!bfget(bf, sen->index)) {
-                bfset(bf, sen->index);
-                sen->regno = op->dest.iregnum;
-              } else {
-                op->opcode = NOP_3;
-                break;
-              }
+              bfset(bf, sen->index);
+              sen->regno = op->dest.iregnum;
             }
+          } else {
+            __attribute__((fallthrough));
+        OPS_NODEST_3ac
+            ;
           }
           __attribute__((fallthrough));
-        OPS_NODEST_3ac OPS_3_PTRDEST_3ac
+        OPS_3_PTRDEST_3ac
           sen = nodefromaddr(sed, op->addr1_type, op->addr1, prog);
           if(sen) {
             if(sen->hasconst != NOCONST) {
@@ -439,13 +438,10 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
               else if(sen->hasconst == FLOATCONST) op->addr1_type |= ISFLOAT;
               op->addr1.intconst_64 = sen->intconst; //could be anything
             } else {
-              if(!bfget(bf, sen->index)) {
-                bfset(bf, sen->index);
-                sen->regno = op->addr1.iregnum;
-              } else {
-                op->addr1.iregnum = sen->regno;
-              }
+              assert(bfget(bf, sen->index) || op->opcode == TPHI);
+              op->addr1.iregnum = sen->regno;
             }
+          } else {
           }
           __attribute__((fallthrough));
         OPS_1_3ac
@@ -458,30 +454,23 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
               else if(sen->hasconst == FLOATCONST) op->addr0_type |= ISFLOAT;
               op->addr0.intconst_64 = sen->intconst; //could be anything
             } else {
-              if(!bfget(bf, sen->index)) {
-                bfset(bf, sen->index);
-                sen->regno = op->addr0.iregnum;
-              } else {
-                op->addr0.iregnum = sen->regno;
-              }
+              assert(bfget(bf, sen->index) || op->opcode == TPHI);
+              op->addr0.iregnum = sen->regno;
             }
+          } else {
           }
           break;
         OPS_2_3ac_MUT case MOV_3: case ADDR_3:
           sen = nodefromaddr(sed, op->dest_type, op->dest, prog);
           if(sen) {
-            if(sen->hasconst != NOCONST) {
+            if(sen->hasconst != NOCONST || bfget(bf, sen->index)) {
               op->opcode = NOP_3;
               break;
             } else {
-              if(!bfget(bf, sen->index)) {
-                bfset(bf, sen->index);
-                sen->regno = op->dest.iregnum;
-              } else {
-                op->opcode = NOP_3;
-                break;
-              }
+              bfset(bf, sen->index);
+              sen->regno = op->dest.iregnum;
             }
+          } else {
           }
           sen = nodefromaddr(sed, op->addr0_type, op->addr0, prog);
           if(sen) {
@@ -492,27 +481,24 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
               else if(sen->hasconst == FLOATCONST) op->addr0_type |= ISFLOAT;
               op->addr0.intconst_64 = sen->intconst; //could be anything
             } else {
-              if(!bfget(bf, sen->index)) {
-                bfset(bf, sen->index);
-                sen->regno = op->addr0.iregnum;
-              } else {
-                op->addr0.iregnum = sen->regno;
-              }
+              assert(bfget(bf, sen->index));
+              op->addr0.iregnum = sen->regno;
             }
+          } else {
           }
           break;
         case CALL_3: case ALOC_3:
           sen = nodefromaddr(sed, op->dest_type, op->dest, prog);
           if(sen) {
-            if(sen->hasconst != NOCONST) {
+            if(sen->hasconst != NOCONST || bfget(bf, sen->index)) {
               op->opcode = NOP_3;
+              fprintf(stderr, "Somehow function output is part of an equivalence class\n");
+              assert(0);
             } else {
-              if(bfget(bf, sen->index)) {
-                op->opcode = NOP_3;
-                fprintf(stderr, "Somehow function output is part of an equivalence class\n");
-                assert(0);
-              }
+              bfset(bf, sen->index);
+              sen->regno = op->dest.iregnum;
             }
+          } else {
           }
           break;
         case PHI:  ;
@@ -527,29 +513,29 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
                 else if(sen->hasconst == FLOATCONST) addrs[k].addr_type |= ISFLOAT;
                 addrs[k].addr.intconst_64 = sen->intconst; //could be anything
               } else {
-                if(!bfget(bf, sen->index)) {
-                  bfset(bf, sen->index);
-                  sen->regno = addrs[k].addr.iregnum;
-                } else {
+                if(bfget(bf, sen->index)) { //cannot assert here
                   addrs[k].addr.iregnum = sen->regno;
                 }
               }
+            } else {
             }
           }
+          sen = nodefromaddr(sed, op->dest_type, op->dest, prog);
+          assert(sen->hasconst == NOCONST);
+          assert(!bfget(bf, sen->index));
+          bfset(bf, sen->index);
+          sen->regno = op->dest.iregnum;
           break;
         OPS_1_ASSIGN_3ac
           sen = nodefromaddr(sed, op->addr0_type, op->addr0, prog);
           if(sen) {
-            if(sen->hasconst != NOCONST) {
+            if(sen->hasconst != NOCONST || bfget(bf, sen->index)) {
               op->opcode = NOP_3;
             } else {
-              if(!bfget(bf, sen->index)) {
-                bfset(bf, sen->index);
-                sen->regno = op->addr0.iregnum;
-              } else {
-                op->opcode = NOP_3;
-              }
+              bfset(bf, sen->index);
+              sen->regno = op->addr0.iregnum;
             }
+          } else {
           }
           break;
         OPS_NOVAR_3ac
@@ -560,9 +546,9 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
     }
   }
   if(blk->idominates) {
-    for(int i = 1; i < blk->idominates->length; i++) {
+    for(int i = 0; i < blk->idominates->length; i++) {
       BITFIELD cbf = bfclone(bf, sed->nodes->length);
-      replacenode(daget(blk->idominates, i), sed, bf, prog);
+      replacenode(daget(blk->idominates, i), sed, cbf, prog);
       free(cbf);
     }
   }

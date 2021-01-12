@@ -488,12 +488,19 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         varty = typex(cexpr);
         if(varty.pointerstack && varty.pointerstack->length) {
           struct declarator_part* dclp2 = dapeek(varty.pointerstack);
-          if(dclp2->type != ARRAYSPEC)
-            destaddr.addr_type |= ISDEREF;
+          if(dclp2->type != ARRAYSPEC) {
+            goto REALDEREF;
+          }
         } else {
-          destaddr.addr_type |= ISDEREF;
+          goto REALDEREF;
         }
       } else {
+        REALDEREF:
+        if(destaddr.addr_type & ISDEREF) {
+          FILLREG(otheraddr, destaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
+          opn(prog, ct_3ac_op2(MOV_3, destaddr.addr_type, destaddr.addr, otheraddr.addr_type, otheraddr.addr));
+          destaddr = otheraddr;
+        }
         destaddr.addr_type |= ISDEREF;
       }
       return destaddr;
@@ -654,7 +661,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       if(!(varty.pointerstack && varty.pointerstack->length) && varty.tb & (STRUCTVAL | UNIONVAL)) {
         feedstruct(varty.structtype);
         otheraddr.addr.uintconst_64 = varty.structtype->size;
-        opn(prog, ct_3ac_op3(COPY_3, curaddr.addr_type, curaddr.addr, ISCONST | 8, otheraddr.addr, destaddr.addr_type, destaddr.addr));
+        opn(prog, ct_3ac_op3(COPY_3, curaddr.addr_type | ISDEREF, curaddr.addr, ISCONST | 8, otheraddr.addr, destaddr.addr_type | ISDEREF, destaddr.addr));
       } else {
         if(destaddr.addr_type & ISDEREF) {
           opn(prog, implicit_mtp_2(daget(cexpr->params, 0), daget(cexpr->params, 1), destaddr, curaddr, prog));
@@ -730,8 +737,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         prog->curblock->lastop = lparam;
       }
       IDTYPE* frettype = cexpr->rettype;
-      //struct type as well?
-      if(frettype->pointerstack && frettype->pointerstack->length) {
+      //TODO: copy in struct types
+      if((frettype->pointerstack && frettype->pointerstack->length) || frettype->tb & (STRUCTVAL | UNIONVAL)) {
         FILLREG(destaddr, ISPOINTER | 8);
       } else if(frettype->tb & FLOATNUM) {
         FILLREG(destaddr, ISFLOAT | (frettype->tb & 0xf));
@@ -1083,7 +1090,7 @@ PROGRAM* linefunc(FUNC* f) {
       tmpaddr.intconst_64 = pdec->type->structtype->size;
       tmpaddr2.iregnum = prog->iregcnt++;
       opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 8, tmpaddr, newa->addr_type & ~ISVAR, tmpaddr2));
-      opn(prog, ct_3ac_op3(COPY_3, newa->addr_type, newa->addr, ISCONST, tmpaddr, newa->addr_type & ~ISVAR, tmpaddr2));
+      opn(prog, ct_3ac_op3(COPY_3, newa->addr_type | ISDEREF, newa->addr, ISCONST, tmpaddr, (newa->addr_type & ~ISVAR) | ISDEREF, tmpaddr2));
       opn(prog, ct_3ac_op2(MOV_3, newa->addr_type & ~ISVAR, tmpaddr2, newa->addr_type, newa->addr));
     } 
     assert(prog->dynvars->length == pdec->varid);
@@ -1185,7 +1192,7 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
       fprintf(f, "%s:", op->addr0.labelname);
       if(color) fprintf(f, CLEARCOLOR);
       break;
-    case COPY_3:
+    case COPY_3: //TODO: make sure deref is safe
       PRINTOP3( );
       break;
     case ADD_U: case ADD_I: case ADD_F: 
@@ -1322,10 +1329,10 @@ void printprog(PROGRAM* prog) {
   return;
 }
 
-void treeprog(PROGRAM* prog, char* fname) {
+void treeprog(PROGRAM* prog, char* fname, const char* pass) {
   mkdir("functions", 0777);
   char filen[256];
-  sprintf(filen, "functions/%s.dot", fname);
+  sprintf(filen, "functions/%s_%s.dot", fname, pass);
   FILE* f = fopen(filen, "w");
   fprintf(f, "strict digraph %s {\n", fname);
   fprintf(f, "rankdir=TB\nnode [shape=none]\n");

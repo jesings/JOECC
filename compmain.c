@@ -77,16 +77,19 @@ static void filecomp(char* filename) {
       //treefunc(pairthere->value);
       PROGRAM* prog = linefunc(f); //fix main func
       ctdtree(prog);
+#ifndef NODEBUG
+      putchar('\n');
+      puts(pairthere->key);
+      treeprog(prog, pairthere->key, "justssa");
+#endif
       constfold(prog);
       popsedag(prog);
       remove_nops(prog);
 #ifndef NODEBUG
-      putchar('\n');
-      puts(pairthere->key);
-      puts("---------------------------------------");
-      printprog(prog);
-      puts("---------------------------------------");
-      treeprog(prog, pairthere->key);
+      //puts("---------------------------------------");
+      //printprog(prog);
+      //puts("---------------------------------------");
+      treeprog(prog, pairthere->key, "withgvn");
 #endif
       freeprog(prog);
     }

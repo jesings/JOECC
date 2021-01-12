@@ -156,7 +156,7 @@ OPERATION* cmpret_binary_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, P
 OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog);
 PROGRAM* linefunc(FUNC* f);
 void printprog(PROGRAM* prog);
-void treeprog(PROGRAM* prog, char* fname);
+void treeprog(PROGRAM* prog, char* fname, const char* pass);
 
 static inline enum opcode_3ac cmp_osite(EXPRTYPE coptype) {
   switch(coptype) {
