@@ -493,6 +493,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         } else {
           destaddr.addr_type |= ISDEREF;
         }
+      } else {
+        destaddr.addr_type |= ISDEREF;
       }
       return destaddr;
     case ADD:

@@ -315,6 +315,7 @@ static SEDNODE* ctsednode(SEDAG* sedag, int hc) {
   retval->hasconst = hc;
   retval->equivs = dactor(8);
   retval->index = sedag->nodes->length;
+  retval->regno = -1;
   dapush(sedag->nodes, retval);
   return retval;
 }
@@ -419,6 +420,11 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
               break;
             } else {
               if(!bfget(bf, sen->index)) {
+                bfset(bf, sen->index);
+                sen->regno = op->dest.iregnum;
+              } else {
+                op->opcode = NOP_3;
+                break;
               }
             }
           }
@@ -434,6 +440,10 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
               op->addr1.intconst_64 = sen->intconst; //could be anything
             } else {
               if(!bfget(bf, sen->index)) {
+                bfset(bf, sen->index);
+                sen->regno = op->addr1.iregnum;
+              } else {
+                op->addr1.iregnum = sen->regno;
               }
             }
           }
@@ -449,6 +459,10 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
               op->addr0.intconst_64 = sen->intconst; //could be anything
             } else {
               if(!bfget(bf, sen->index)) {
+                bfset(bf, sen->index);
+                sen->regno = op->addr0.iregnum;
+              } else {
+                op->addr0.iregnum = sen->regno;
               }
             }
           }
@@ -461,6 +475,11 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
               break;
             } else {
               if(!bfget(bf, sen->index)) {
+                bfset(bf, sen->index);
+                sen->regno = op->dest.iregnum;
+              } else {
+                op->opcode = NOP_3;
+                break;
               }
             }
           }
@@ -474,6 +493,10 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
               op->addr0.intconst_64 = sen->intconst; //could be anything
             } else {
               if(!bfget(bf, sen->index)) {
+                bfset(bf, sen->index);
+                sen->regno = op->addr0.iregnum;
+              } else {
+                op->addr0.iregnum = sen->regno;
               }
             }
           }
@@ -484,7 +507,10 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
             if(sen->hasconst != NOCONST) {
               op->opcode = NOP_3;
             } else {
-              if(!bfget(bf, sen->index)) {
+              if(bfget(bf, sen->index)) {
+                op->opcode = NOP_3;
+                fprintf(stderr, "Somehow function output is part of an equivalence class\n");
+                assert(0);
               }
             }
           }
@@ -502,6 +528,10 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
                 addrs[k].addr.intconst_64 = sen->intconst; //could be anything
               } else {
                 if(!bfget(bf, sen->index)) {
+                  bfset(bf, sen->index);
+                  sen->regno = addrs[k].addr.iregnum;
+                } else {
+                  addrs[k].addr.iregnum = sen->regno;
                 }
               }
             }
@@ -514,6 +544,10 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
               op->opcode = NOP_3;
             } else {
               if(!bfget(bf, sen->index)) {
+                bfset(bf, sen->index);
+                sen->regno = op->addr0.iregnum;
+              } else {
+                op->opcode = NOP_3;
               }
             }
           }
