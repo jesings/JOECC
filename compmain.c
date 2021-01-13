@@ -76,6 +76,7 @@ static void filecomp(char* filename) {
       FUNC* f = pairthere->value;
       //treefunc(pairthere->value);
       PROGRAM* prog = linefunc(f); //fix main func
+      prunebranch(prog); //esp for do while 0
       ctdtree(prog);
 #ifndef NODEBUG
       putchar('\n');

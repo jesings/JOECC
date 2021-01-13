@@ -959,7 +959,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       solidstate(cst->body, prog);
       linearitree(cst->cond, prog);
       giveblock(prog, contblock);
-      cmptype(cst->cond, breakblock, topblock, prog);
+      cmptype(cst->cond, topblock, breakblock, prog);
       dapop(prog->continuelabels);
       dapop(prog->breaklabels);
       giveblock(prog, breakblock);

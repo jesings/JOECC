@@ -84,6 +84,49 @@ char remove_nops(PROGRAM* prog) {
   return 0;
 }
 
+void prunebranch(PROGRAM* prog) {
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    if(blk->lastop) {
+      switch(blk->lastop->opcode) {
+        case BNZ_3:
+          if(blk->lastop->addr0_type & ISCONST) {
+            blk->lastop->opcode = NOP_3;
+            if(blk->lastop->addr0.intconst_64 != 0) {
+              dharma(blk->nextblock->inedges, blk);
+              blk->nextblock = blk->branchblock;
+            } else {
+              dharma(blk->branchblock->inedges, blk);
+            }
+            blk->branchblock = NULL;
+          }
+          break;
+        case BEZ_3:
+          if(blk->lastop->addr0_type & ISCONST) {
+            blk->lastop->opcode = NOP_3;
+            if(blk->lastop->addr0.intconst_64 == 0) {
+              dharma(blk->nextblock->inedges, blk);
+              blk->nextblock = blk->branchblock;
+            } else {
+              dharma(blk->branchblock->inedges, blk);
+            }
+            blk->branchblock = NULL;
+          }
+          break;
+        case BEQ_U: case BEQ_I:
+        case BEQ_F:
+        case BGT_U:
+        case BGT_I:
+        case BGT_F:
+        case BGE_U:
+        case BGE_I:
+        case BGE_F:
+        default:
+          break;
+      }
+    }
+  }
+}
 
 char constfold(PROGRAM* prog) {
   DYNARR* blocks = prog->allblocks;
