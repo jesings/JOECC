@@ -1304,7 +1304,7 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
       fprintf(f, " + ");
       printaddr(op->addr1, op->addr1_type, color, f, prog);
       break;
-    case PHI:
+    case PHI: case EPHI:
       for(int i = 0; i < blk->inedges->length; i++) {
         printaddr(op->addr0.joins[i].addr, op->addr0.joins[i].addr_type, color, f, prog);
         fprintf(f, ", ");
@@ -1314,6 +1314,7 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
       break;
     case TPHI:
       PRINTOP3( or );
+      break;
   }
 }
 
@@ -1364,7 +1365,7 @@ static void freeop(OPERATION* op, OPERATION* stop) {
       case LBL_3:
         free(op->addr0.labelname);
         break;
-      case PHI:
+      case PHI: case EPHI:
         free(op->addr0.joins);
         break;
       default:

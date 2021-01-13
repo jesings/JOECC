@@ -110,6 +110,8 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
           break;
         OPS_NOVAR_3ac
           break;
+        case EPHI:
+          assert(0);
       }
       if(op == block->lastop) break;
       op = op->nextop;
@@ -422,13 +424,9 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
               bfset(bf, sen->index);
               sen->regno = op->dest.iregnum;
             }
-          } else {
-            __attribute__((fallthrough));
-        OPS_NODEST_3ac
-            ;
           }
           __attribute__((fallthrough));
-        OPS_3_PTRDEST_3ac
+        OPS_NODEST_3ac OPS_3_PTRDEST_3ac
           sen = nodefromaddr(sed, op->addr1_type, op->addr1, prog);
           if(sen) {
             if(sen->hasconst != NOCONST) {
@@ -441,7 +439,6 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
               assert(bfget(bf, sen->index) || op->opcode == TPHI);
               op->addr1.iregnum = sen->regno;
             }
-          } else {
           }
           __attribute__((fallthrough));
         OPS_1_3ac
@@ -457,7 +454,6 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
               assert(bfget(bf, sen->index) || op->opcode == TPHI);
               op->addr0.iregnum = sen->regno;
             }
-          } else {
           }
           break;
         OPS_2_3ac_MUT case MOV_3: case ADDR_3:
@@ -484,7 +480,6 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
               assert(bfget(bf, sen->index));
               op->addr0.iregnum = sen->regno;
             }
-          } else {
           }
           break;
         case CALL_3: case ALOC_3:
@@ -498,14 +493,16 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
               bfset(bf, sen->index);
               sen->regno = op->dest.iregnum;
             }
-          } else {
           }
           break;
         case PHI:  ;
           FULLADDR* addrs = op->addr0.joins;
+          void* sen_tinel = NULL;
           for(int k = 0; k < blk->inedges->length; k++) {
             sen = daget(sed->varnodes, addrs[k].addr.ssaind);
             if(sen) {
+              if(!sen_tinel) sen_tinel = sen;
+              else if(sen_tinel != sen) sen_tinel = (void*) -1;
               if(sen->hasconst != NOCONST) {
                 addrs[k].addr_type &= 0xf | ISSIGNED;
                 addrs[k].addr_type |= ISCONST;
@@ -518,8 +515,10 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
                 }
               }
             } else {
+              sen_tinel = (void*) -1;
             }
           }
+          if(sen_tinel != (void*) -1) op->opcode = EPHI;
           sen = nodefromaddr(sed, op->dest_type, op->dest, prog);
           assert(sen->hasconst == NOCONST);
           assert(!bfget(bf, sen->index));
@@ -535,11 +534,12 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
               bfset(bf, sen->index);
               sen->regno = op->addr0.iregnum;
             }
-          } else {
           }
           break;
         OPS_NOVAR_3ac
           break;
+        case EPHI:
+          assert(0);
       }
       if(op == blk->lastop) break;
       op = op->nextop;
@@ -704,6 +704,8 @@ void popsedag(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
           OPS_1_ASSIGN_3ac
             nodefromaddr(dagnabbit, op->addr0_type, op->addr0, prog);
             break;
+          case EPHI:
+            assert(0);
         }
         if(op == blk->lastop) break;
         op = op->nextop;
@@ -727,10 +729,11 @@ void popsedag(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
           OPS_2_3ac_MUT
             printf("(%d) ", sed->arg0->index);
             break;
-          case MOV_3: case ADDR_3: case PHI: case CALL_3: case ALOC_3:
+          case MOV_3: case ADDR_3: case PHI: case CALL_3: case ALOC_3: case EPHI:
             assert(0);
           OPS_1_ASSIGN_3ac
             printf("[%u] ", sed->regno);
+            break;
       }
       printf(", ");
     }

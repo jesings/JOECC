@@ -14,10 +14,11 @@ NOTE: JOECC is a work-in progress, and currently cannot fully compile code
 - [x] 3 address code generation
 - [x] Static Single Assignment conversion
 - [x] Constant Folding
-- [ ] Global Value Numbering (in progress)
+- [x] Global Value Numbering
+- [ ] Avail based removal and Partial redundancy elimination (in progress)
 - [ ] Conditional Constant Propagation
 - [ ] Scalar Replacement of Aggregates
-- [ ] Other Optimizations (to be enumerated later)
+- [ ] Other Optimizations (to be enumerated further later)
 - [ ] Register Allocation
 - [ ] Conversion back from Single Static Assignment
 - [ ] Assembly generation
