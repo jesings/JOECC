@@ -84,6 +84,13 @@ char remove_nops(PROGRAM* prog) {
   return 0;
 }
 
+static char feq(OPERATION* op) { //TODO: behave differently if ssa
+  if(op->addr0_type != op->addr1_type) return 0;
+  if(op->addr0_type & ISLABEL) return !strcmp(op->addr0.labelname, op->addr1.labelname);
+  if(op->addr0_type & ISVAR) return op->addr0.varnum == op->addr1.varnum;
+  return op->addr0.iregnum == op->addr1.iregnum;
+}
+
 void prunebranch(PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
@@ -123,7 +130,12 @@ void prunebranch(PROGRAM* prog) {
               dharma(blk->branchblock->inedges, blk);
             }
             blk->branchblock = NULL;
+          } else if(feq(blk->lastop)) {
+            blk->lastop->opcode = NOP_3;
+            dharma(blk->branchblock->inedges, blk);
+            blk->branchblock = NULL;
           }
+          break;
         case BEQ_F:
           if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
             blk->lastop->opcode = NOP_3;
@@ -134,7 +146,12 @@ void prunebranch(PROGRAM* prog) {
               dharma(blk->branchblock->inedges, blk);
             }
             blk->branchblock = NULL;
+          } else if(feq(blk->lastop)) {
+            blk->lastop->opcode = NOP_3;
+            dharma(blk->branchblock->inedges, blk);
+            blk->branchblock = NULL;
           }
+          break;
         case BGT_U:
           if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
             blk->lastop->opcode = NOP_3;
@@ -145,7 +162,13 @@ void prunebranch(PROGRAM* prog) {
               dharma(blk->branchblock->inedges, blk);
             }
             blk->branchblock = NULL;
+          } else if(feq(blk->lastop)) {
+            blk->lastop->opcode = NOP_3;
+            dharma(blk->nextblock->inedges, blk);
+            blk->nextblock = blk->branchblock;
+            blk->branchblock = NULL;
           }
+          break;
         case BGT_I:
           if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
             blk->lastop->opcode = NOP_3;
@@ -156,7 +179,13 @@ void prunebranch(PROGRAM* prog) {
               dharma(blk->branchblock->inedges, blk);
             }
             blk->branchblock = NULL;
+          } else if(feq(blk->lastop)) {
+            blk->lastop->opcode = NOP_3;
+            dharma(blk->nextblock->inedges, blk);
+            blk->nextblock = blk->branchblock;
+            blk->branchblock = NULL;
           }
+          break;
         case BGT_F:
           if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
             blk->lastop->opcode = NOP_3;
@@ -167,7 +196,13 @@ void prunebranch(PROGRAM* prog) {
               dharma(blk->branchblock->inedges, blk);
             }
             blk->branchblock = NULL;
+          } else if(feq(blk->lastop)) {
+            blk->lastop->opcode = NOP_3;
+            dharma(blk->nextblock->inedges, blk);
+            blk->nextblock = blk->branchblock;
+            blk->branchblock = NULL;
           }
+          break;
         case BGE_U:
           if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
             blk->lastop->opcode = NOP_3;
@@ -178,7 +213,12 @@ void prunebranch(PROGRAM* prog) {
               dharma(blk->branchblock->inedges, blk);
             }
             blk->branchblock = NULL;
+          } else if(feq(blk->lastop)) {
+            blk->lastop->opcode = NOP_3;
+            dharma(blk->branchblock->inedges, blk);
+            blk->branchblock = NULL;
           }
+          break;
         case BGE_I:
           if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
             blk->lastop->opcode = NOP_3;
@@ -189,7 +229,12 @@ void prunebranch(PROGRAM* prog) {
               dharma(blk->branchblock->inedges, blk);
             }
             blk->branchblock = NULL;
+          } else if(feq(blk->lastop)) {
+            blk->lastop->opcode = NOP_3;
+            dharma(blk->branchblock->inedges, blk);
+            blk->branchblock = NULL;
           }
+          break;
         case BGE_F:
           if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
             blk->lastop->opcode = NOP_3;
@@ -200,7 +245,12 @@ void prunebranch(PROGRAM* prog) {
               dharma(blk->branchblock->inedges, blk);
             }
             blk->branchblock = NULL;
+          } else if(feq(blk->lastop)) {
+            blk->lastop->opcode = NOP_3;
+            dharma(blk->branchblock->inedges, blk);
+            blk->branchblock = NULL;
           }
+          break;
         default:
           break;
       }
