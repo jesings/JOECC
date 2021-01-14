@@ -112,6 +112,8 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
           break;
         case EPHI:
           assert(0);
+        case ASM:
+          assert(0);//unimplemented
       }
       if(op == block->lastop) break;
       op = op->nextop;
@@ -540,6 +542,8 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
           break;
         case EPHI:
           assert(0);
+        case ASM:
+          assert(0); //unimplemented
       }
       if(op == blk->lastop) break;
       op = op->nextop;
@@ -706,6 +710,8 @@ void popsedag(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
             break;
           case EPHI:
             assert(0);
+          case ASM:
+            assert(0); //unimplemented
         }
         if(op == blk->lastop) break;
         op = op->nextop;
@@ -713,7 +719,7 @@ void popsedag(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
     }
   }
 
-#ifndef NODEBUG
+#if 0
   for(int i = 0; i < dagnabbit->nodes->length; i++) {
     SEDNODE* sen = daget(dagnabbit->nodes, i);
     printf("%d: ", sen->index);
@@ -729,7 +735,7 @@ void popsedag(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
           OPS_2_3ac_MUT
             printf("(%d) ", sed->arg0->index);
             break;
-          case MOV_3: case ADDR_3: case PHI: case CALL_3: case ALOC_3: case EPHI:
+          case MOV_3: case ADDR_3: case PHI: case CALL_3: case ALOC_3: case EPHI: case ASM:
             assert(0);
           OPS_1_ASSIGN_3ac
             printf("[%u] ", sed->regno);

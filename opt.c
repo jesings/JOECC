@@ -576,3 +576,19 @@ char constfold(PROGRAM* prog) {
   }
   return 0;
 }
+
+int countops(PROGRAM* prog) {
+  int opcount = 0;
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    if(blk->lastop) {
+      OPERATION* op = blk->firstop;
+      while(op != blk->lastop) {
+        ++opcount;
+        op = op->nextop;
+      }
+      ++opcount;
+    }
+  }
+  return opcount;
+}

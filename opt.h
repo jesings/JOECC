@@ -7,4 +7,5 @@ void rmunreach(PROGRAM* prog);
 char markunreach(DYNARR* pb);
 char remove_nops(PROGRAM* prog);
 void prunebranch(PROGRAM* prog);
+int countops(PROGRAM* prog);
 #endif

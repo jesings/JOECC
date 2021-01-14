@@ -75,17 +75,22 @@ static void filecomp(char* filename) {
     if(pairthere->value) {
       FUNC* f = pairthere->value;
       //treefunc(pairthere->value);
-      PROGRAM* prog = linefunc(f); //fix main func
-      prunebranch(prog); //esp for do while 0
-      ctdtree(prog);
 #ifndef NODEBUG
       putchar('\n');
       puts(pairthere->key);
+#endif
+      PROGRAM* prog = linefunc(f); //fix main func
+      prunebranch(prog); //esp for do while 0
+      printf("Ops before SSA %d\n", countops(prog)); 
+      ctdtree(prog);
+      printf("Ops after SSA %d\n", countops(prog)); 
+#ifndef NODEBUG
       treeprog(prog, pairthere->key, "justssa");
 #endif
       constfold(prog);
       popsedag(prog);
       remove_nops(prog);
+      printf("Ops after GVN %d\n", countops(prog));
 #ifndef NODEBUG
       //puts("---------------------------------------");
       //printprog(prog);

@@ -737,7 +737,6 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         prog->curblock->lastop = lparam;
       }
       IDTYPE* frettype = cexpr->rettype;
-      //TODO: copy in struct types
       if((frettype->pointerstack && frettype->pointerstack->length) || frettype->tb & (STRUCTVAL | UNIONVAL)) {
         FILLREG(destaddr, ISPOINTER | 8);
       } else if(frettype->tb & FLOATNUM) {
@@ -748,6 +747,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         FILLREG(destaddr, ISSIGNED | (frettype->tb & 0xf));
       }
       opn(prog, ct_3ac_op2(CALL_3, ISCONST | ISLABEL, (ADDRESS) fname->id->name, destaddr.addr_type, destaddr.addr));
+      //TODO: copy out struct type
       return destaddr;
   }
   fprintf(stderr, "Error: reduction of expression %s to 3 address code failed\n", name_EXPRTYPE[cexpr->type]);
@@ -1315,6 +1315,8 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
     case TPHI:
       PRINTOP3( or );
       break;
+    case ASM:
+      assert(0); //unimplemented
   }
 }
 
