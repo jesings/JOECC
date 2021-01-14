@@ -82,11 +82,15 @@ void* dapop(DYNARR* da) {
   return da->arr[--(da->length)];
 }
 
-void dharma(DYNARR* da, void* val) {
+void dharma(DYNARR* da, void* val) { //order not preserved
   int i;
   for(i = 0; i < da->length && da->arr[i] != val; i++) ;
-  if(i != da->length) {
-    --da->length;
-    memmove(da->arr + i, da->arr + i + 1, sizeof(void*) * (da->length - i));
-  }
+  if(i != da->length)
+    da->arr[i] = da->arr[--da->length];
+}
+
+void darpa(DYNARR* da, void* val, void* rpval) { //order not preserved
+  int i;
+  for(i = 0; i < da->length && da->arr[i] != val; i++) ;
+  if(i != da->length) da->arr[i] = rpval;
 }

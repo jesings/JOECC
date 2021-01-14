@@ -114,13 +114,93 @@ void prunebranch(PROGRAM* prog) {
           }
           break;
         case BEQ_U: case BEQ_I:
+          if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
+            blk->lastop->opcode = NOP_3;
+            if(blk->lastop->addr0.intconst_64 == blk->lastop->addr1.intconst_64) {
+              dharma(blk->nextblock->inedges, blk);
+              blk->nextblock = blk->branchblock;
+            } else {
+              dharma(blk->branchblock->inedges, blk);
+            }
+            blk->branchblock = NULL;
+          }
         case BEQ_F:
+          if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
+            blk->lastop->opcode = NOP_3;
+            if(blk->lastop->addr0.floatconst_64 == blk->lastop->addr1.floatconst_64) {
+              dharma(blk->nextblock->inedges, blk);
+              blk->nextblock = blk->branchblock;
+            } else {
+              dharma(blk->branchblock->inedges, blk);
+            }
+            blk->branchblock = NULL;
+          }
         case BGT_U:
+          if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
+            blk->lastop->opcode = NOP_3;
+            if(blk->lastop->addr0.uintconst_64 > blk->lastop->addr1.uintconst_64) {
+              dharma(blk->nextblock->inedges, blk);
+              blk->nextblock = blk->branchblock;
+            } else {
+              dharma(blk->branchblock->inedges, blk);
+            }
+            blk->branchblock = NULL;
+          }
         case BGT_I:
+          if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
+            blk->lastop->opcode = NOP_3;
+            if(blk->lastop->addr0.intconst_64 > blk->lastop->addr1.intconst_64) {
+              dharma(blk->nextblock->inedges, blk);
+              blk->nextblock = blk->branchblock;
+            } else {
+              dharma(blk->branchblock->inedges, blk);
+            }
+            blk->branchblock = NULL;
+          }
         case BGT_F:
+          if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
+            blk->lastop->opcode = NOP_3;
+            if(blk->lastop->addr0.floatconst_64 > blk->lastop->addr1.floatconst_64) {
+              dharma(blk->nextblock->inedges, blk);
+              blk->nextblock = blk->branchblock;
+            } else {
+              dharma(blk->branchblock->inedges, blk);
+            }
+            blk->branchblock = NULL;
+          }
         case BGE_U:
+          if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
+            blk->lastop->opcode = NOP_3;
+            if(blk->lastop->addr0.uintconst_64 >= blk->lastop->addr1.uintconst_64) {
+              dharma(blk->nextblock->inedges, blk);
+              blk->nextblock = blk->branchblock;
+            } else {
+              dharma(blk->branchblock->inedges, blk);
+            }
+            blk->branchblock = NULL;
+          }
         case BGE_I:
+          if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
+            blk->lastop->opcode = NOP_3;
+            if(blk->lastop->addr0.intconst_64 >= blk->lastop->addr1.intconst_64) {
+              dharma(blk->nextblock->inedges, blk);
+              blk->nextblock = blk->branchblock;
+            } else {
+              dharma(blk->branchblock->inedges, blk);
+            }
+            blk->branchblock = NULL;
+          }
         case BGE_F:
+          if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
+            blk->lastop->opcode = NOP_3;
+            if(blk->lastop->addr0.floatconst_64 >= blk->lastop->addr1.floatconst_64) {
+              dharma(blk->nextblock->inedges, blk);
+              blk->nextblock = blk->branchblock;
+            } else {
+              dharma(blk->branchblock->inedges, blk);
+            }
+            blk->branchblock = NULL;
+          }
         default:
           break;
       }
