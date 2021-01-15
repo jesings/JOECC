@@ -314,18 +314,18 @@ void ctdtree(PROGRAM* prog) {
   prog->pdone |= SSA;
 }
 
-static SEDNODE* ctsednode(SEDAG* sedag, int hc) {
-  SEDNODE* retval = malloc(sizeof(SEDNODE));
+static EQNODE* cteqnode(EQONTAINER* eqcontainer, int hc) {
+  EQNODE* retval = malloc(sizeof(EQNODE));
   retval->hasconst = hc;
   retval->equivs = dactor(8);
-  retval->index = sedag->nodes->length;
+  retval->index = eqcontainer->nodes->length;
   retval->regno = -1;
-  dapush(sedag->nodes, retval);
+  dapush(eqcontainer->nodes, retval);
   return retval;
 }
 
-static SEDAG* ctsedag(PROGRAM* prog) {
-  SEDAG* retval = malloc(sizeof(SEDAG));
+static EQONTAINER* cteq(PROGRAM* prog) {
+  EQONTAINER* retval = malloc(sizeof(EQONTAINER));
   retval->nodes = dactor(1024);
   retval->varnodes = dactor(prog->iregcnt);
   retval->varnodes->length = prog->iregcnt;
@@ -341,54 +341,54 @@ static SEDAG* ctsedag(PROGRAM* prog) {
   return retval;
 }
 
-static SEDITEM* ctsedi(unsigned int regno) {
-  SEDITEM* retval = malloc(sizeof(SEDITEM));
+static EQITEM* cteqi(unsigned int regno) {
+  EQITEM* retval = malloc(sizeof(EQITEM));
   retval->regno = regno;
   retval->op = PARAM_3;
   return retval;
 }
 
-static SEDITEM* ctsedib(enum opcode_3ac opc, SEDNODE* eq1, SEDNODE* eq2) {
-  SEDITEM* retval = malloc(sizeof(SEDITEM));
+static EQITEM* cteqib(enum opcode_3ac opc, EQNODE* eq1, EQNODE* eq2) {
+  EQITEM* retval = malloc(sizeof(EQITEM));
   retval->op = opc;
   retval->arg0 = eq1;
   retval->arg1 = eq2;
   return retval;
 }
 
-static void freesednode(SEDNODE* sednode) {
-  dadtorfr(sednode->equivs);
-  free(sednode);
+static void freqnode(EQNODE* eqnode) {
+  dadtorfr(eqnode->equivs);
+  free(eqnode);
 }
 
-static void freesedag(SEDAG* sed) {
-  dadtorcfr(sed->nodes, (void(*)(void*)) freesednode);
-  dadtor(sed->varnodes);
-  fhtdtor(sed->intconsthash);
-  fhtdtor(sed->floatconsthash);
-  htdtor(sed->strconsthash);
-  dadtorcfr(sed->opnodes, (void(*)(void*)) fhtdtor);
-  free(sed);
+static void freeq(EQONTAINER* eq) {
+  dadtorcfr(eq->nodes, (void(*)(void*)) freqnode);
+  dadtor(eq->varnodes);
+  fhtdtor(eq->intconsthash);
+  fhtdtor(eq->floatconsthash);
+  htdtor(eq->strconsthash);
+  dadtorcfr(eq->opnodes, (void(*)(void*)) fhtdtor);
+  free(eq);
 }
 
-static SEDNODE* nodefromaddr(SEDAG* sedag, ADDRTYPE adt, ADDRESS adr, PROGRAM* prog) {
-  SEDNODE* cn;
+static EQNODE* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, PROGRAM* prog) {
+  EQNODE* cn;
   if(adt & ISCONST) {
     if(adt & ISSTRCONST) {
-      cn = search(sedag->strconsthash, adr.strconst);
+      cn = search(eqcontainer->strconsthash, adr.strconst);
       if(!cn) {
-        cn = ctsednode(sedag, STRCONST);
+        cn = cteqnode(eqcontainer, STRCONST);
         cn->strconst = adr.strconst;
-        insert(sedag->strconsthash, adr.strconst, cn);
+        insert(eqcontainer->strconsthash, adr.strconst, cn);
       }
 
     } else {
       char floatness = adt & ISFLOAT;
-      cn = fixedsearch(floatness ? sedag->floatconsthash : sedag->intconsthash, adr.intconst_64);
+      cn = fixedsearch(floatness ? eqcontainer->floatconsthash : eqcontainer->intconsthash, adr.intconst_64);
       if(!cn) {
-        cn = ctsednode(sedag, floatness ? FLOATCONST : INTCONST);
+        cn = cteqnode(eqcontainer, floatness ? FLOATCONST : INTCONST);
         cn->intconst = adr.intconst_64;
-        fixedinsert(floatness ? sedag->floatconsthash : sedag->intconsthash, adr.intconst_64, cn);
+        fixedinsert(floatness ? eqcontainer->floatconsthash : eqcontainer->intconsthash, adr.intconst_64, cn);
       }
     }
   } else {
@@ -400,24 +400,24 @@ static SEDNODE* nodefromaddr(SEDAG* sedag, ADDRTYPE adt, ADDRESS adr, PROGRAM* p
       FULLADDR* adstore = daget(prog->dynvars, adr.varnum);
       if(adstore->addr_type & ADDRSVAR) return NULL;
     }
-    cn = daget(sedag->varnodes, adr.iregnum);
+    cn = daget(eqcontainer->varnodes, adr.iregnum);
     if(!cn) {
-      cn = ctsednode(sedag, NOCONST);
-      dapush(cn->equivs, ctsedi(adr.iregnum));
-      sedag->varnodes->arr[adr.iregnum] = cn;
+      cn = cteqnode(eqcontainer, NOCONST);
+      dapush(cn->equivs, cteqi(adr.iregnum));
+      eqcontainer->varnodes->arr[adr.iregnum] = cn;
     }
   }
   return cn;
 }
 
-static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
-  SEDNODE* sen;
+static void replacenode(BBLOCK* blk, EQONTAINER* eq, BITFIELD bf, PROGRAM* prog) {
+  EQNODE* sen;
   if(blk->lastop) {
     OPERATION* op = blk->firstop;
     while(1) {
       switch(op->opcode) {
         OPS_3_3ac_NOCOM OPS_3_3ac_COM case TPHI:
-          sen = nodefromaddr(sed, op->dest_type, op->dest, prog);
+          sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
           if(sen) {
             if(sen->hasconst != NOCONST || bfget(bf, sen->index)) {
               op->opcode = NOP_3;
@@ -429,7 +429,7 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
           }
           __attribute__((fallthrough));
         OPS_NODEST_3ac OPS_3_PTRDEST_3ac
-          sen = nodefromaddr(sed, op->addr1_type, op->addr1, prog);
+          sen = nodefromaddr(eq, op->addr1_type, op->addr1, prog);
           if(sen) {
             if(sen->hasconst != NOCONST) {
               op->addr1_type &= 0xf | ISSIGNED;
@@ -444,7 +444,7 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
           }
           __attribute__((fallthrough));
         OPS_1_3ac
-          sen = nodefromaddr(sed, op->addr0_type, op->addr0, prog);
+          sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
           if(sen) {
             if(sen->hasconst != NOCONST) {
               op->addr0_type &= 0xf | ISSIGNED;
@@ -459,7 +459,7 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
           }
           break;
         OPS_2_3ac_MUT case MOV_3: case ADDR_3:
-          sen = nodefromaddr(sed, op->dest_type, op->dest, prog);
+          sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
           if(sen) {
             if(sen->hasconst != NOCONST || bfget(bf, sen->index)) {
               op->opcode = NOP_3;
@@ -470,7 +470,7 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
             }
           } else {
           }
-          sen = nodefromaddr(sed, op->addr0_type, op->addr0, prog);
+          sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
           if(sen) {
             if(sen->hasconst != NOCONST) {
               op->addr0_type &= 0xf | ISSIGNED;
@@ -485,7 +485,7 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
           }
           break;
         case CALL_3: case ALOC_3:
-          sen = nodefromaddr(sed, op->dest_type, op->dest, prog);
+          sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
           if(sen) {
             if(sen->hasconst != NOCONST || bfget(bf, sen->index)) {
               op->opcode = NOP_3;
@@ -501,7 +501,7 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
           FULLADDR* addrs = op->addr0.joins;
           void* sen_tinel = NULL;
           for(int k = 0; k < blk->inedges->length; k++) {
-            sen = daget(sed->varnodes, addrs[k].addr.ssaind);
+            sen = daget(eq->varnodes, addrs[k].addr.ssaind);
             if(sen) {
               if(!sen_tinel) sen_tinel = sen;
               else if(sen_tinel != sen) sen_tinel = (void*) -1;
@@ -521,14 +521,14 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
             }
           }
           if(sen_tinel != (void*) -1) op->opcode = EPHI;
-          sen = nodefromaddr(sed, op->dest_type, op->dest, prog);
+          sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
           assert(sen->hasconst == NOCONST);
           assert(!bfget(bf, sen->index));
           bfset(bf, sen->index);
           sen->regno = op->dest.iregnum;
           break;
         OPS_1_ASSIGN_3ac
-          sen = nodefromaddr(sed, op->addr0_type, op->addr0, prog);
+          sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
           if(sen) {
             if(sen->hasconst != NOCONST || bfget(bf, sen->index)) {
               op->opcode = NOP_3;
@@ -551,20 +551,20 @@ static void replacenode(BBLOCK* blk, SEDAG* sed, BITFIELD bf, PROGRAM* prog) {
   }
   if(blk->idominates) {
     for(int i = 0; i < blk->idominates->length; i++) {
-      BITFIELD cbf = bfclone(bf, sed->nodes->length);
-      replacenode(daget(blk->idominates, i), sed, cbf, prog);
+      BITFIELD cbf = bfclone(bf, eq->nodes->length);
+      replacenode(daget(blk->idominates, i), eq, cbf, prog);
       free(cbf);
     }
   }
 }
 
-void popsedag(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
-  SEDAG* dagnabbit = ctsedag(prog);
+void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
+  EQONTAINER* eqcontainer = cteq(prog);
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     if(blk->lastop) {
       OPERATION* op = blk->firstop;
-      SEDNODE* sen1,* sen2,* destsen;
+      EQNODE* sen1,* sen2,* destsen;
       long combind;
       HASHTABLE* ophash;
       while(1) {
@@ -572,97 +572,97 @@ void popsedag(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
           OPS_NOVAR_3ac
             break; //nothing for nop, lbl, jmp, branching ops, or arg/ret
           OPS_3_3ac_NOCOM
-            sen1 = nodefromaddr(dagnabbit, op->addr0_type, op->addr0, prog);
-            sen2 = nodefromaddr(dagnabbit, op->addr1_type, op->addr1, prog);
+            sen1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
+            sen2 = nodefromaddr(eqcontainer, op->addr1_type, op->addr1, prog);
             if(!(op->dest_type & (ISLABEL | ISDEREF))) {
               if(op->dest_type & ISVAR) {
                 FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
                 if(adstore->addr_type & ADDRSVAR) break;
               }
               if(sen1 && sen2) {
-                ophash = daget(dagnabbit->opnodes, op->opcode);
+                ophash = daget(eqcontainer->opnodes, op->opcode);
                 combind = ((long) sen1->index << 32) + sen2->index;
                 destsen = fixedsearch(ophash, combind);
                 if(!destsen) {
-                  destsen = ctsednode(dagnabbit, NOCONST);
-                  dapush(destsen->equivs, ctsedib(op->opcode, sen1, sen2));
+                  destsen = cteqnode(eqcontainer, NOCONST);
+                  dapush(destsen->equivs, cteqib(op->opcode, sen1, sen2));
                   fixedinsert(ophash, combind, destsen);
                 }
               } else {
-                destsen = ctsednode(dagnabbit, NOCONST);
+                destsen = cteqnode(eqcontainer, NOCONST);
               }
-              dapush(destsen->equivs, ctsedi(op->dest.iregnum));
-              dagnabbit->varnodes->arr[op->dest.iregnum] = destsen;
+              dapush(destsen->equivs, cteqi(op->dest.iregnum));
+              eqcontainer->varnodes->arr[op->dest.iregnum] = destsen;
             }
             break;
           OPS_3_3ac_COM
-            sen1 = nodefromaddr(dagnabbit, op->addr0_type, op->addr0, prog);
-            sen2 = nodefromaddr(dagnabbit, op->addr1_type, op->addr1, prog);
+            sen1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
+            sen2 = nodefromaddr(eqcontainer, op->addr1_type, op->addr1, prog);
             if(!(op->dest_type & (ISLABEL | ISDEREF))) {
               if(op->dest_type & ISVAR) {
                 FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
                 if(adstore->addr_type & ADDRSVAR) break;
               }
               if(sen1 && sen2) {
-                ophash = daget(dagnabbit->opnodes, op->opcode);
+                ophash = daget(eqcontainer->opnodes, op->opcode);
                 combind = ((long) sen1->index << 32) + sen2->index;
                 destsen = fixedsearch(ophash, combind);
                 if(!destsen) {
-                  destsen = ctsednode(dagnabbit, NOCONST);
-                  dapush(destsen->equivs, ctsedib(op->opcode, sen1, sen2));
+                  destsen = cteqnode(eqcontainer, NOCONST);
+                  dapush(destsen->equivs, cteqib(op->opcode, sen1, sen2));
                   fixedinsert(ophash, combind, destsen);
                   fixedinsert(ophash, ((long) sen2->index << 32) + sen1->index, destsen);
                 }
               } else {
-                destsen = ctsednode(dagnabbit, NOCONST);
+                destsen = cteqnode(eqcontainer, NOCONST);
               }
-              dapush(destsen->equivs, ctsedi(op->dest.iregnum));
-              dagnabbit->varnodes->arr[op->dest.iregnum] = destsen;
+              dapush(destsen->equivs, cteqi(op->dest.iregnum));
+              eqcontainer->varnodes->arr[op->dest.iregnum] = destsen;
             }
             break;
           OPS_2_3ac_MUT
-            sen1 = nodefromaddr(dagnabbit, op->addr0_type, op->addr0, prog);
+            sen1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
             if(!(op->dest_type & (ISLABEL | ISDEREF))) {
               if(op->dest_type & ISVAR) {
                 FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
                 if(adstore->addr_type & ADDRSVAR) break;
               }
               if(sen1) {
-                ophash = daget(dagnabbit->opnodes, op->opcode);
+                ophash = daget(eqcontainer->opnodes, op->opcode);
                 destsen = fixedsearch(ophash, (long) sen1->index);
                 if(!destsen) {
-                  destsen = ctsednode(dagnabbit, NOCONST);
-                  dapush(destsen->equivs, ctsedib(op->opcode, sen1, NULL));
+                  destsen = cteqnode(eqcontainer, NOCONST);
+                  dapush(destsen->equivs, cteqib(op->opcode, sen1, NULL));
                   fixedinsert(ophash, (long) sen1->index, destsen);
                 }
               } else {
-                destsen = ctsednode(dagnabbit, NOCONST);
+                destsen = cteqnode(eqcontainer, NOCONST);
               }
-              dapush(destsen->equivs, ctsedi(op->dest.iregnum));
-              dagnabbit->varnodes->arr[op->dest.iregnum] = destsen;
+              dapush(destsen->equivs, cteqi(op->dest.iregnum));
+              eqcontainer->varnodes->arr[op->dest.iregnum] = destsen;
             }
             break;
           case MOV_3:
-            sen1 = nodefromaddr(dagnabbit, op->addr0_type, op->addr0, prog);
+            sen1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
             if(!(op->dest_type & (ISLABEL | ISDEREF))) {
               if(op->dest_type & ISVAR) {
                 FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
                 if(adstore->addr_type & ADDRSVAR) break;
               }
               if(!sen1) {
-                sen1 = ctsednode(dagnabbit, NOCONST);
+                sen1 = cteqnode(eqcontainer, NOCONST);
               }
-              dapush(sen1->equivs, ctsedi(op->dest.iregnum));
-              dagnabbit->varnodes->arr[op->dest.iregnum] = sen1;
+              dapush(sen1->equivs, cteqi(op->dest.iregnum));
+              eqcontainer->varnodes->arr[op->dest.iregnum] = sen1;
             }
             break;
           case ADDR_3:
             //TODO: we don't care about label or nodest or even deref, but how to represent?
-            nodefromaddr(dagnabbit, op->dest_type, op->dest, prog);
+            nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
             break;
           case TPHI:
-            sen1 = nodefromaddr(dagnabbit, op->addr0_type, op->addr0, prog);
-            sen2 = nodefromaddr(dagnabbit, op->addr1_type, op->addr1, prog);
+            sen1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
+            sen2 = nodefromaddr(eqcontainer, op->addr1_type, op->addr1, prog);
             if(!(op->dest_type & (ISLABEL | ISDEREF))) {
               if(op->dest_type & ISVAR) {
                 FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
@@ -673,40 +673,40 @@ void popsedag(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
                 if(sen1 == sen2) {
                   destsen = sen1;
                 } else {
-                  ophash = daget(dagnabbit->opnodes, op->opcode);
+                  ophash = daget(eqcontainer->opnodes, op->opcode);
                   destsen = fixedsearch(ophash, combind);
                   if(!destsen) {
                     destsen = fixedsearch(ophash, ((long) sen2->index << 32) + sen1->index);
                   }
                   if(!destsen) {
-                    destsen = ctsednode(dagnabbit, NOCONST);
-                    dapush(destsen->equivs, ctsedib(op->opcode, sen1, sen2));
+                    destsen = cteqnode(eqcontainer, NOCONST);
+                    dapush(destsen->equivs, cteqib(op->opcode, sen1, sen2));
                     fixedinsert(ophash, combind, destsen);
                   }
                 }
               } else {
-                destsen = ctsednode(dagnabbit, NOCONST);
+                destsen = cteqnode(eqcontainer, NOCONST);
               }
-              dapush(destsen->equivs, ctsedi(op->dest.iregnum));
-              dagnabbit->varnodes->arr[op->dest.iregnum] = destsen;
+              dapush(destsen->equivs, cteqi(op->dest.iregnum));
+              eqcontainer->varnodes->arr[op->dest.iregnum] = destsen;
             }
-            nodefromaddr(dagnabbit, op->dest_type, op->dest, prog);
+            nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
             break;
           case PHI: //TODO: get phi node handling loop at end
-            nodefromaddr(dagnabbit, op->dest_type, op->dest, prog);
+            nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
             break;
           OPS_3_PTRDEST_3ac OPS_NODEST_3ac
-            nodefromaddr(dagnabbit, op->addr1_type, op->addr1, prog);
+            nodefromaddr(eqcontainer, op->addr1_type, op->addr1, prog);
             __attribute__((fallthrough));
           OPS_1_3ac 
-            nodefromaddr(dagnabbit, op->addr0_type, op->addr0, prog);
+            nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
             break;
           case CALL_3: //no pure functions for now
           case ALOC_3:
-            nodefromaddr(dagnabbit, op->dest_type, op->dest, prog);
+            nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
             break;
           OPS_1_ASSIGN_3ac
-            nodefromaddr(dagnabbit, op->addr0_type, op->addr0, prog);
+            nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
             break;
           case EPHI:
             assert(0);
@@ -720,25 +720,25 @@ void popsedag(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
   }
 
 #if 0
-  for(int i = 0; i < dagnabbit->nodes->length; i++) {
-    SEDNODE* sen = daget(dagnabbit->nodes, i);
+  for(int i = 0; i < eqcontainer->nodes->length; i++) {
+    EQNODE* sen = daget(eqcontainer->nodes, i);
     printf("%d: ", sen->index);
     for(int j = 0; j < sen->equivs->length; j++) {
-      SEDITEM* sed = daget(sen->equivs, j);
-      printf("%s", opcode_3ac_names[sed->op]);
-      switch(sed->op) {
+      EQITEM* eq = daget(sen->equivs, j);
+      printf("%s", opcode_3ac_names[eq->op]);
+      switch(eq->op) {
           OPS_NOVAR_3ac OPS_NODEST_3ac OPS_1_3ac OPS_3_PTRDEST_3ac
             assert(0);
           OPS_3_3ac_NOCOM OPS_3_3ac_COM case TPHI:
-            printf("(%d, %d) ", sed->arg0->index, sed->arg1->index);
+            printf("(%d, %d) ", eq->arg0->index, eq->arg1->index);
             break;
           OPS_2_3ac_MUT
-            printf("(%d) ", sed->arg0->index);
+            printf("(%d) ", eq->arg0->index);
             break;
           case MOV_3: case ADDR_3: case PHI: case CALL_3: case ALOC_3: case EPHI: case ASM:
             assert(0);
           OPS_1_ASSIGN_3ac
-            printf("[%u] ", sed->regno);
+            printf("[%u] ", eq->regno);
             break;
       }
       printf(", ");
@@ -761,11 +761,11 @@ void popsedag(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
   }
 #endif
 
-  BITFIELD bf = bfalloc(dagnabbit->nodes->length);
-  replacenode(daget(prog->allblocks, 0), dagnabbit, bf, prog);
+  BITFIELD bf = bfalloc(eqcontainer->nodes->length);
+  replacenode(daget(prog->allblocks, 0), eqcontainer, bf, prog);
   free(bf);
 
-  freesedag(dagnabbit);
+  freeq(eqcontainer);
 }
 //https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/gvn_sas04.pdf
 #undef X

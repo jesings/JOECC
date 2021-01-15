@@ -88,7 +88,7 @@ static void filecomp(char* filename) {
       treeprog(prog, pairthere->key, "justssa");
 #endif
       constfold(prog);
-      popsedag(prog);
+      gvn(prog);
       remove_nops(prog);
       printf("Ops after GVN %d\n", countops(prog));
 #ifndef NODEBUG
@@ -139,8 +139,6 @@ int main(int argc, char** argv) {
   pthread_mutex_init(&printlock, NULL);
   pthread_mutex_init(&listlock, NULL);
   switch(argc) {
-    case 1:
-      return 0;
     default:
       pthread_create(&pt4, NULL, ldeleg, argv);
       //fall through
@@ -152,11 +150,10 @@ int main(int argc, char** argv) {
       //fall through
     case 2:
       ldeleg(argv);
+    case 1:
       break;
   }
   switch(argc) {
-    case 1:
-      return 0;
     default:
       pthread_join(pt4, NULL);
       //fall through
@@ -166,6 +163,7 @@ int main(int argc, char** argv) {
     case 3:
       pthread_join(pt2, NULL);
     case 2:
+    case 1:
       break;
   }
   return 0;

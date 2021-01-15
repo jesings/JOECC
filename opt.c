@@ -258,9 +258,33 @@ void prunebranch(PROGRAM* prog) {
   }
 }
 
+#define bincf(constkind, operator) \
+            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) { \
+              op->opcode = MOV_3; \
+              op->addr0.constkind operator op->addr1.constkind; \
+            } \
+            break;
+#define binef(constkind, operator) \
+            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) { \
+              op->opcode = MOV_3; \
+              op->addr0.constkind = op->addr0.constkind operator op->addr1.constkind; \
+            } \
+            break;
+#define uncf(constkind, operator) \
+            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) { \
+              op->opcode = MOV_3; \
+              op->addr0.constkind = operator op->addr1.constkind; \
+            } \
+            break;
+#define brcf(constkind, operator) \
+            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) { \
+              op->opcode = BNZ_3; \
+              op->addr0.constkind = op->addr0.constkind operator op->addr1.constkind; \
+            } \
+            break;
+
 char constfold(PROGRAM* prog) {
   DYNARR* blocks = prog->allblocks;
-  //char modified = 0;
   for(int i = 0; i < blocks->length; i++) {
     BBLOCK* blk = daget(blocks, i);
     if(blk->lastop) {
@@ -270,47 +294,19 @@ char constfold(PROGRAM* prog) {
           default:
             break;
           case ADD_U: case ADD_I:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.intconst_64 += op->addr1.intconst_64;
-            }
-            break;
+            bincf(intconst_64, +=);
           case ADD_F:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.floatconst_64 += op->addr1.floatconst_64;
-            }
-            break;
+            bincf(floatconst_64, +=);
           case SUB_U: case SUB_I:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.intconst_64 -= op->addr1.intconst_64;
-            }
-            break;
+            bincf(intconst_64, -=);
           case SUB_F:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.floatconst_64 -= op->addr1.floatconst_64;
-            }
-            break;
+            bincf(floatconst_64, -=);
           case MULT_U: 
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.uintconst_64 *= op->addr1.uintconst_64;
-            }
-            break;
+            bincf(uintconst_64, *=);
           case MULT_I:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.intconst_64 *= op->addr1.intconst_64;
-            }
-            break;
+            bincf(intconst_64, *=);
           case MULT_F:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.floatconst_64 *= op->addr1.floatconst_64;
-            }
-            break;
+            bincf(floatconst_64, *=);
           case DIV_U:
             if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
               if(op->addr0.uintconst_64 == 0) break;
@@ -327,11 +323,7 @@ char constfold(PROGRAM* prog) {
             }
             break;
           case DIV_F:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.floatconst_64 /= op->addr1.floatconst_64;
-            }
-            break;
+            bincf(floatconst_64, /=);
           case MOD_U: 
             if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
               if(op->addr0.uintconst_64 == 0) break;
@@ -348,161 +340,57 @@ char constfold(PROGRAM* prog) {
             }
             break;
           case AND_U:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.intconst_64 &= op->addr1.intconst_64;
-            }
-            break;
+            bincf(uintconst_64, &=);
           case OR_U:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.intconst_64 |= op->addr1.intconst_64;
-            }
-            break;
+            bincf(uintconst_64, |=);
           case XOR_U:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.intconst_64 ^= op->addr1.intconst_64;
-            }
-            break;
+            bincf(uintconst_64, ^=);
           case EQ_U: case EQ_I:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.intconst_64 = op->addr1.intconst_64 == op->addr0.intconst_64;
-            }
-            break;
+            binef(intconst_64, ==);
           case EQ_F:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.floatconst_64 = op->addr1.floatconst_64 == op->addr0.floatconst_64;
-            }
-            break;
+            binef(floatconst_64, ==);
           case NE_U: case NE_I:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.intconst_64 = op->addr1.intconst_64 != op->addr0.intconst_64;
-            }
-            break;
+            binef(intconst_64, !=);
           case NE_F:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.floatconst_64 = op->addr1.floatconst_64 != op->addr0.floatconst_64;
-            }
-            break;
+            binef(floatconst_64, !=);
           case SHL_U:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.uintconst_64 <<= op->addr1.uintconst_64;
-            }
-            break;
+            bincf(uintconst_64, <<=);
           case SHL_I:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.intconst_64 <<= op->addr1.intconst_64;
-            }
-            break;
+            bincf(intconst_64, <<=);
           case SHR_U:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.uintconst_64 >>= op->addr1.uintconst_64;
-            }
-            break;
+            bincf(uintconst_64, >>=);
           case SHR_I:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.intconst_64 >>= op->addr1.intconst_64;
-            }
-            break;
+            bincf(intconst_64, >>=);
           case GE_U:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.uintconst_64 = op->addr0.uintconst_64 >= op->addr1.uintconst_64;
-            }
-            break;
+            binef(uintconst_64, >=);
           case GE_I:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.intconst_64 = op->addr0.intconst_64 >= op->addr1.intconst_64;
-            }
-            break;
+            binef(intconst_64, >=);
           case GE_F:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.floatconst_64 = op->addr0.floatconst_64 >= op->addr1.floatconst_64;
-            }
-            break;
+            binef(floatconst_64, >=);
           case LE_U:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.uintconst_64 = op->addr0.uintconst_64 <= op->addr1.uintconst_64;
-            }
-            break;
+            binef(uintconst_64, <=);
           case LE_I:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.intconst_64 = op->addr0.intconst_64 <= op->addr1.intconst_64;
-            }
-            break;
+            binef(intconst_64, <=);
           case LE_F:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.floatconst_64 = op->addr0.floatconst_64 <= op->addr1.floatconst_64;
-            }
-            break;
+            binef(floatconst_64, <=);
           case GT_U:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.uintconst_64 = op->addr0.uintconst_64 > op->addr1.uintconst_64;
-            }
-            break;
+            binef(uintconst_64, >);
           case GT_I:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.intconst_64 = op->addr0.intconst_64 > op->addr1.intconst_64;
-            }
-            break;
+            binef(intconst_64, >);
           case GT_F:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.floatconst_64 = op->addr0.floatconst_64 > op->addr1.floatconst_64;
-            }
-            break;
+            binef(floatconst_64, >);
           case LT_U:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.uintconst_64 = op->addr0.uintconst_64 < op->addr1.uintconst_64;
-            }
-            break;
+            binef(uintconst_64, <);
           case LT_I:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.intconst_64 = op->addr0.intconst_64 < op->addr1.intconst_64;
-            }
-            break;
+            binef(intconst_64, <);
           case LT_F:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = MOV_3;
-              op->addr0.floatconst_64 = op->addr0.floatconst_64 < op->addr1.floatconst_64;
-            }
-            break;
+            binef(floatconst_64, <);
           case NOT_U:
-            if(op->addr0_type & ISCONST) {
-              op->opcode = MOV_3;
-              op->addr0.uintconst_64 = ~op->addr0.uintconst_64;
-            }
-            break;
+            uncf(uintconst_64, ~);
           case NEG_I:
-            if(op->addr0_type & ISCONST) {
-              op->opcode = MOV_3;
-              op->addr0.intconst_64 = -op->addr0.intconst_64;
-            }
-            break;
+            uncf(intconst_64, -);
           case NEG_F:
-            if(op->addr0_type & ISCONST) {
-              op->opcode = MOV_3;
-              op->addr0.floatconst_64 = -op->addr0.floatconst_64;
-            }
-            break;
+            uncf(floatconst_64, -);
           case F2I:
             if(op->addr0_type & ISCONST) {
               op->opcode = MOV_3;
@@ -521,53 +409,21 @@ char constfold(PROGRAM* prog) {
             }
             break;
           case BEQ_U: case BEQ_I:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = BNZ_3;
-              op->addr0.intconst_64 = op->addr1.intconst_64 == op->addr0.intconst_64;
-            }
-            break;
+            brcf(intconst_64, ==);
           case BEQ_F:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = BNZ_3;
-              op->addr0.floatconst_64 = op->addr1.floatconst_64 == op->addr0.floatconst_64;
-            }
-            break;
+            brcf(floatconst_64, ==);
           case BGE_U:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = BNZ_3;
-              op->addr0.uintconst_64 = op->addr0.uintconst_64 >= op->addr1.uintconst_64;
-            }
-            break;
+            brcf(intconst_64, >=);
           case BGE_I:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = BNZ_3;
-              op->addr0.intconst_64 = op->addr0.intconst_64 >= op->addr1.intconst_64;
-            }
-            break;
+            brcf(intconst_64, >=);
           case BGE_F:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = BNZ_3;
-              op->addr0.floatconst_64 = op->addr0.floatconst_64 >= op->addr1.floatconst_64;
-            }
-            break;
+            brcf(floatconst_64, >=);
           case BGT_U:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = BNZ_3;
-              op->addr0.uintconst_64 = op->addr0.uintconst_64 > op->addr1.uintconst_64;
-            }
-            break;
+            brcf(uintconst_64, >);
           case BGT_I:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = BNZ_3;
-              op->addr0.intconst_64 = op->addr0.intconst_64 > op->addr1.intconst_64;
-            }
-            break;
+            brcf(intconst_64, >);
           case BGT_F:
-            if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
-              op->opcode = BNZ_3;
-              op->addr0.floatconst_64 = op->addr0.floatconst_64 > op->addr1.floatconst_64;
-            }
-            break;
+            brcf(floatconst_64, >);
         }
         if(blk->lastop == op) break;
         op = op->nextop;
