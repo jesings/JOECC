@@ -259,7 +259,7 @@ static int statemeant(STATEMENT* stmt) {
       for(int i = 0; i < pl->da->length; i++) {
         int scnn = nodenumber++;
         unsigned long key = (unsigned long) pl->da->arr[i];
-        char* lname = pfsearch(pl, key);
+        char* lname = fixedsearch(pl->ht, key);
         dprintf(funcfile, "n%d[label=\"%s\"];\n", scnn, lname);
         dprintf(funcfile, "n%d -> n%d [color=blue];\n", statenode, scnn); 
         dprintf(funcfile, "n%d -> n%ld;\n", scnn, key); 

@@ -9,12 +9,7 @@ typedef struct {
 } PARALLEL;
 PARALLEL* paralector(void);
 PARALLEL* paraclector(int i);
-void* psearch(PARALLEL* p, const char* key);
-void* pisearch(PARALLEL* p, int index);
 void pinsert(PARALLEL* p, const char* key, void* value);
-char pquery(PARALLEL* p, const char* key);
-void* pfsearch(PARALLEL* p, long unsigned key);
-char pfquery(PARALLEL* p, long unsigned key);
 void pfinsert(PARALLEL* p, long unsigned key, void* value);
 void paraledtor(PARALLEL* p);
 void paraledtorcfr(PARALLEL* p, void (*freefunc)(void*));

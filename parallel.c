@@ -11,25 +11,9 @@ PARALLEL* paraclector(int i) {
   p->ht = htctor();
   return p;
 }
-void* pisearch(PARALLEL* p, int index) {
-  return search(p->ht, daget(p->da, index));
-}
-void* psearch(PARALLEL* p, const char* key) {
-  return search(p->ht, key);
-}
-char pquery(PARALLEL* p, const char* key) {
-  return queryval(p->ht, key);
-}
 void pinsert(PARALLEL* p, const char* key, void* value) {
   dapush(p->da, (char *)(unsigned long) key);
   insert(p->ht, key, value);
-}
-
-void* pfsearch(PARALLEL* p, long unsigned key) {
-  return fixedsearch(p->ht, key);
-}
-char pfquery(PARALLEL* p, long unsigned key) {
-  return fixedqueryval(p->ht, key);
 }
 void pfinsert(PARALLEL* p, long unsigned key, void* value) {
   dapush(p->da, (char *)(unsigned long) key);

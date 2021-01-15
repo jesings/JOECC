@@ -9,8 +9,8 @@ nodebug: CFLAGS = -O2 -D NODEBUG -ggdb -g3 -march=native
 nodebug: LEXFLAGS = -d -Cfer -p -p
 nodebug: LDFLAGS +=
 nodebug: compiler
-compiler: joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o  dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o opt.o ssa.o dstore.o
-	$(CC) joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o opt.o ssa.o dstore.o -o compiler $(LDFLAGS)
+compiler: joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o  dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o opt.o ssa.o
+	$(CC) joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o opt.o ssa.o -o compiler $(LDFLAGS)
 gotest: compiler
 	./compiler dynarr.c
 lex.yy.c: joecc.lex
@@ -47,8 +47,6 @@ opt.o: opt.c
 	$(CC) opt.c -c $(CFLAGS)
 ssa.o: ssa.c
 	$(CC) ssa.c -c $(CFLAGS)
-dstore.o: dstore.c
-	$(CC) dstore.c -c $(CFLAGS)
 
 clean:
 	-rm *.o
