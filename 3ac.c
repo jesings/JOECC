@@ -788,7 +788,7 @@ void cmptype(EXPRESSION* cmpexpr, BBLOCK* failblock, BBLOCK* successblock, PROGR
        return;
      default:
        destaddr = linearitree(cmpexpr, prog);
-       opn(prog, ct_3ac_op1(BNZ_3, destaddr.addr_type, destaddr.addr));
+       opn(prog, ct_3ac_op1(BEZ_3, destaddr.addr_type, destaddr.addr));
        break;
   }
   prog->curblock->nextblock = successblock;

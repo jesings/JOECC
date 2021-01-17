@@ -314,12 +314,12 @@ void ctdtree(PROGRAM* prog) {
   prog->pdone |= SSA;
 }
 
-static EQNODE* cteqnode(EQONTAINER* eqcontainer, int hc) {
+static EQNODE* cteqnode(EQONTAINER* eqcontainer, int hc, ADDRESS adr) {
   EQNODE* retval = malloc(sizeof(EQNODE));
   retval->hasconst = hc;
   retval->equivs = dactor(8);
   retval->index = eqcontainer->nodes->length;
-  retval->regno = -1;
+  retval->regno = hc == NOCONST ? -1 : (int) adr.iregnum;
   dapush(eqcontainer->nodes, retval);
   return retval;
 }
@@ -377,7 +377,7 @@ static EQNODE* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, 
     if(adt & ISSTRCONST) {
       cn = search(eqcontainer->strconsthash, adr.strconst);
       if(!cn) {
-        cn = cteqnode(eqcontainer, STRCONST);
+        cn = cteqnode(eqcontainer, STRCONST, adr);
         cn->strconst = adr.strconst;
         insert(eqcontainer->strconsthash, adr.strconst, cn);
       }
@@ -386,7 +386,7 @@ static EQNODE* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, 
       char floatness = adt & ISFLOAT;
       cn = fixedsearch(floatness ? eqcontainer->floatconsthash : eqcontainer->intconsthash, adr.intconst_64);
       if(!cn) {
-        cn = cteqnode(eqcontainer, floatness ? FLOATCONST : INTCONST);
+        cn = cteqnode(eqcontainer, floatness ? FLOATCONST : INTCONST, adr);
         cn->intconst = adr.intconst_64;
         fixedinsert(floatness ? eqcontainer->floatconsthash : eqcontainer->intconsthash, adr.intconst_64, cn);
       }
@@ -402,9 +402,10 @@ static EQNODE* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, 
     }
     cn = daget(eqcontainer->varnodes, adr.iregnum);
     if(!cn) {
-      cn = cteqnode(eqcontainer, NOCONST);
+      cn = cteqnode(eqcontainer, NOCONST, adr);
       dapush(cn->equivs, cteqi(adr.iregnum));
       eqcontainer->varnodes->arr[adr.iregnum] = cn;
+      cn->regno = adr.iregnum;
     }
   }
   return cn;
@@ -424,7 +425,6 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, BITFIELD bf, PROGRAM* prog)
               break;
             } else {
               bfset(bf, sen->index);
-              sen->regno = op->dest.iregnum;
             }
           }
           __attribute__((fallthrough));
@@ -466,7 +466,6 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, BITFIELD bf, PROGRAM* prog)
               break;
             } else {
               bfset(bf, sen->index);
-              sen->regno = op->dest.iregnum;
             }
           } else {
           }
@@ -493,7 +492,6 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, BITFIELD bf, PROGRAM* prog)
               assert(0);
             } else {
               bfset(bf, sen->index);
-              sen->regno = op->dest.iregnum;
             }
           }
           break;
@@ -525,7 +523,6 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, BITFIELD bf, PROGRAM* prog)
           assert(sen->hasconst == NOCONST);
           assert(!bfget(bf, sen->index));
           bfset(bf, sen->index);
-          sen->regno = op->dest.iregnum;
           break;
         OPS_1_ASSIGN_3ac
           sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
@@ -534,7 +531,6 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, BITFIELD bf, PROGRAM* prog)
               op->opcode = NOP_3;
             } else {
               bfset(bf, sen->index);
-              sen->regno = op->addr0.iregnum;
             }
           }
           break;
@@ -584,14 +580,15 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
                 combind = ((long) sen1->index << 32) + sen2->index;
                 destsen = fixedsearch(ophash, combind);
                 if(!destsen) {
-                  destsen = cteqnode(eqcontainer, NOCONST);
+                  destsen = cteqnode(eqcontainer, NOCONST, op->dest);
                   dapush(destsen->equivs, cteqib(op->opcode, sen1, sen2));
                   fixedinsert(ophash, combind, destsen);
                 }
               } else {
-                destsen = cteqnode(eqcontainer, NOCONST);
+                destsen = cteqnode(eqcontainer, NOCONST, op->dest);
               }
               dapush(destsen->equivs, cteqi(op->dest.iregnum));
+              if(destsen->regno == -1) destsen->regno = op->dest.iregnum;
               eqcontainer->varnodes->arr[op->dest.iregnum] = destsen;
             }
             break;
@@ -608,15 +605,16 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
                 combind = ((long) sen1->index << 32) + sen2->index;
                 destsen = fixedsearch(ophash, combind);
                 if(!destsen) {
-                  destsen = cteqnode(eqcontainer, NOCONST);
+                  destsen = cteqnode(eqcontainer, NOCONST, op->dest);
                   dapush(destsen->equivs, cteqib(op->opcode, sen1, sen2));
                   fixedinsert(ophash, combind, destsen);
                   fixedinsert(ophash, ((long) sen2->index << 32) + sen1->index, destsen);
                 }
               } else {
-                destsen = cteqnode(eqcontainer, NOCONST);
+                destsen = cteqnode(eqcontainer, NOCONST, op->dest);
               }
               dapush(destsen->equivs, cteqi(op->dest.iregnum));
+              if(destsen->regno == -1) destsen->regno = op->dest.iregnum;
               eqcontainer->varnodes->arr[op->dest.iregnum] = destsen;
             }
             break;
@@ -631,14 +629,15 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
                 ophash = daget(eqcontainer->opnodes, op->opcode);
                 destsen = fixedsearch(ophash, (long) sen1->index);
                 if(!destsen) {
-                  destsen = cteqnode(eqcontainer, NOCONST);
+                  destsen = cteqnode(eqcontainer, NOCONST, op->dest);
                   dapush(destsen->equivs, cteqib(op->opcode, sen1, NULL));
                   fixedinsert(ophash, (long) sen1->index, destsen);
                 }
               } else {
-                destsen = cteqnode(eqcontainer, NOCONST);
+                destsen = cteqnode(eqcontainer, NOCONST, op->dest);
               }
               dapush(destsen->equivs, cteqi(op->dest.iregnum));
+              if(destsen->regno == -1) destsen->regno = op->dest.iregnum;
               eqcontainer->varnodes->arr[op->dest.iregnum] = destsen;
             }
             break;
@@ -650,9 +649,10 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
                 if(adstore->addr_type & ADDRSVAR) break;
               }
               if(!sen1) {
-                sen1 = cteqnode(eqcontainer, NOCONST);
+                sen1 = cteqnode(eqcontainer, NOCONST, op->dest);
               }
               dapush(sen1->equivs, cteqi(op->dest.iregnum));
+              if(sen1->regno == -1) sen1->regno = op->dest.iregnum;
               eqcontainer->varnodes->arr[op->dest.iregnum] = sen1;
             }
             break;
@@ -679,15 +679,16 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
                     destsen = fixedsearch(ophash, ((long) sen2->index << 32) + sen1->index);
                   }
                   if(!destsen) {
-                    destsen = cteqnode(eqcontainer, NOCONST);
+                    destsen = cteqnode(eqcontainer, NOCONST, op->dest);
                     dapush(destsen->equivs, cteqib(op->opcode, sen1, sen2));
                     fixedinsert(ophash, combind, destsen);
                   }
                 }
               } else {
-                destsen = cteqnode(eqcontainer, NOCONST);
+                destsen = cteqnode(eqcontainer, NOCONST, op->dest);
               }
               dapush(destsen->equivs, cteqi(op->dest.iregnum));
+              if(destsen->regno == -1) destsen->regno = op->dest.iregnum;
               eqcontainer->varnodes->arr[op->dest.iregnum] = destsen;
             }
             nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
