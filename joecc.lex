@@ -87,17 +87,19 @@ struct arginfo {
   }
   "__DATE__" {
     time_t tim = time(NULL); 
-    struct tm* tms = localtime(&tim); 
+    struct tm tms;
+    localtime_r(&tim, &tms);
     char datebuf[20]; 
-    size_t datesize = strftime(datebuf, 16, "\"%b %e %Y\"", tms);
+    size_t datesize = strftime(datebuf, 16, "\"%b %e %Y\"", &tms);
     yypush_stringbuffer(datebuf, datesize, "__DATE__", YY_CURRENT_BUFFER, yyscanner); //push dummy value
     yy_push_state(yy_top_state(yyscanner), yyscanner);
   }
   "__TIME__" {
     time_t tim = time(NULL); 
-    struct tm* tms = localtime(&tim); 
+    struct tm tms;
+    localtime_r(&tim, &tms); 
     char timebuf[16]; 
-    size_t timesize = strftime(timebuf, 13, "\"%T\"",tms);
+    size_t timesize = strftime(timebuf, 13, "\"%T\"", &tms);
     yypush_stringbuffer(timebuf, timesize, "__TIME__", YY_CURRENT_BUFFER, yyscanner); //push dummy value
     yy_push_state(yy_top_state(yyscanner), yyscanner);
   }
@@ -846,17 +848,21 @@ struct arginfo {
 
 <INITIAL,WITHINIF>{
   0[bB]{BIN}+{INTSIZE}? {
-        yylval_param->unum = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
-                         return UNSIGNED_LITERAL;}
+    yylval_param->unum = strtoul(yytext+2,NULL,2);//every intconst is 8 bytes
+    return UNSIGNED_LITERAL;
+  }
   0{OCT}+{INTSIZE}? {
-        yylval_param->unum = strtoul(yytext,NULL,8);//every intconst is 8 bytes
-                     return UNSIGNED_LITERAL;}
+    yylval_param->unum = strtoul(yytext,NULL,8);//every intconst is 8 bytes
+    return UNSIGNED_LITERAL;
+  }
   [[:digit:]]+{INTSIZE}?  {
-        yylval_param->snum = strtoul(yytext,NULL,10);//every intconst is 8 bytes
-                           if(strchr(yytext,'u') || strchr(yytext,'U')) return UNSIGNED_LITERAL; return INTEGER_LITERAL;}
+    yylval_param->snum = strtoul(yytext,NULL,10);//every intconst is 8 bytes
+    if(strchr(yytext,'u') || strchr(yytext,'U')) return UNSIGNED_LITERAL; return INTEGER_LITERAL;
+  }
   0[xX][[:xdigit:]]+{INTSIZE}? {
-        yylval_param->unum = strtoul(yytext,NULL,16);
-                                return UNSIGNED_LITERAL;}
+    yylval_param->unum = strtoul(yytext,NULL,16);
+    return UNSIGNED_LITERAL;
+  }
 }
 
 [[:digit:]]+{EXP}{FLOATSIZE}?|[[:digit:]]*"."?[[:digit:]]+({EXP})?{FLOATSIZE}?|[[:digit:]]+"."?[[:digit:]]*({EXP})?{FLOATSIZE}?  {
