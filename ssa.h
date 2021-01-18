@@ -28,7 +28,7 @@ typedef struct {
 
 typedef struct {
   DYNARR* nodes;//of EQNODES
-  DYNARR* varnodes;
+  EQNODE** varnodes;
   HASHTABLE* intconsthash;
   HASHTABLE* floatconsthash;
   HASHTABLE* strconsthash;
