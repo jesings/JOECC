@@ -110,8 +110,6 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
           break;
         OPS_NOVAR_3ac
           break;
-        case EPHI:
-          assert(0);
         case ASM:
           assert(0);//unimplemented
       }
@@ -518,7 +516,10 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, BITFIELD bf, PROGRAM* prog)
               sen_tinel = (void*) -1;
             }
           }
-          if(sen_tinel != (void*) -1) op->opcode = EPHI;
+          if(sen_tinel != (void*) -1) {
+            op->opcode = NOP_3;
+            free(op->addr0.joins);
+          }
           sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
           assert(sen->hasconst == NOCONST);
           assert(!bfget(bf, sen->index));
@@ -536,8 +537,6 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, BITFIELD bf, PROGRAM* prog)
           break;
         OPS_NOVAR_3ac
           break;
-        case EPHI:
-          assert(0);
         case ASM:
           assert(0); //unimplemented
       }
@@ -549,7 +548,7 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, BITFIELD bf, PROGRAM* prog)
     for(int i = 0; i < blk->idominates->length; i++) {
       BITFIELD cbf = bfclone(bf, eq->nodes->length);
       replacenode(daget(blk->idominates, i), eq, cbf, prog);
-      free(cbf);
+      ((BBLOCK*) daget(blk->idominates, i))->tmpstore = cbf;
     }
   }
 }
@@ -709,8 +708,6 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
           OPS_1_ASSIGN_3ac
             nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
             break;
-          case EPHI:
-            assert(0);
           case ASM:
             assert(0); //unimplemented
         }
@@ -736,7 +733,7 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
           OPS_2_3ac_MUT
             printf("(%d) ", eq->arg0->index);
             break;
-          case MOV_3: case ADDR_3: case PHI: case CALL_3: case ALOC_3: case EPHI: case ASM:
+          case MOV_3: case ADDR_3: case PHI: case CALL_3: case ALOC_3: case ASM:
             assert(0);
           OPS_1_ASSIGN_3ac
             printf("[%u] ", eq->regno);
@@ -764,7 +761,34 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
 
   BITFIELD bf = bfalloc(eqcontainer->nodes->length);
   replacenode(daget(prog->allblocks, 0), eqcontainer, bf, prog);
-  free(bf);
+  ((BBLOCK*) daget(prog->allblocks, 0))->tmpstore = bf;
+
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    if(blk->lastop) {
+      OPERATION* op = blk->firstop;
+      while(1) {
+        int ind;
+        switch(op->opcode) {
+          OPS_NOVAR_3ac case ADDR_3: OPS_3_PTRDEST_3ac OPS_NODEST_3ac OPS_1_3ac
+          case CALL_3: case ALOC_3: OPS_1_ASSIGN_3ac case ASM: //should never be redundant... assert?
+            break;
+          OPS_3_3ac_NOCOM OPS_3_3ac_COM OPS_2_3ac_MUT
+          case PHI: case MOV_3: case TPHI:
+            if(!(op->dest_type & ISLABEL) && bfget((BITFIELD) blk->tmpstore, op->dest.iregnum)) {
+              ind = op->dest.iregnum;
+            }
+            break;
+        }
+        if(op == blk->lastop) break;
+        op = op->nextop;
+      }
+    }
+  }
+
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    free(((BBLOCK*) daget(prog->allblocks, i))->tmpstore);
+  }
 
   freeq(eqcontainer);
 }

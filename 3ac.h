@@ -40,8 +40,7 @@
 
 #define OPS_3AC OPS_NOVAR_3ac OPS_3_3ac OPS_3_PTRDEST_3ac OPS_2_3ac \
         OPS_NODEST_3ac OPS_1_ASSIGN_3ac OPS_1_3ac X(CALL_3) X(PHI) X(TPHI) \
-        X(ALOC_3) X(ADDR_3) /*call, phi, alloc, and addr are special cases*/ \
-        X(ASM) X(EPHI) //equivalent phi, all joins are part of the same equivalence class
+        X(ALOC_3) X(ADDR_3) X(ASM) /*call, phi, alloc, asm, and addr are special cases*/ \
 
 #define X(s) s,
 enum opcode_3ac {
@@ -119,6 +118,7 @@ typedef struct bblock {
   int visited;
   int work;
   int unreachable;
+  void* tmpstore;
 } BBLOCK;
 
 typedef struct {
