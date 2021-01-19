@@ -47,6 +47,21 @@ void rmunreach(PROGRAM* prog) {
 //http://ssabook.gforge.inria.fr/latest/book.pdf
 //https://iitd-plos.github.io/col729/lec/loop_transformations.html
 
+OPERATION* exciseop(BBLOCK* blk, OPERATION* prevop, OPERATION* curop) {
+  if(prevop == NULL) {
+    if(curop == blk->lastop) {
+      blk->lastop = NULL;
+    } else {
+      blk->firstop = curop->nextop;
+    }
+  } else if(curop == blk->lastop) {
+    blk->lastop = prevop;
+  } else {
+    prevop->nextop = curop->nextop;
+  }
+  return curop;
+}
+
 char remove_nops(PROGRAM* prog) {
   DYNARR* da = prog->allblocks;
   for(int i = 0; i < da->length; i++) {
