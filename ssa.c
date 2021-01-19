@@ -161,11 +161,11 @@ void ctdtree(PROGRAM* prog) {
     dtn->visited = 0;
     dtn->domind = -1;
   }
-  BBLOCK** blocklist = calloc(sizeof(BBLOCK*), (blocks->length - 1));
+  BBLOCK** blocklist = calloc(sizeof(BBLOCK*), (blocks->length));
   BBLOCK* first = daget(blocks, 0);
   first->dom = first;
-  first->domind = 0;
-  int ind = blocks->length - 1;
+  first->domind = 1;
+  int ind = blocks->length;
   rpdt(first->nextblock, blocklist, &ind);
   rpdt(first->branchblock, blocklist, &ind);
   for(int i = 0; i < blocks->length; i++) {
@@ -180,7 +180,7 @@ void ctdtree(PROGRAM* prog) {
   while(changed) {
     changed = 0;
     //https://www.cs.rice.edu/~keith/EMBED/dom.pdf
-    for(int i = ind; i < oldlen - 1; i++) {
+    for(int i = ind; i < oldlen; i++) {
       BBLOCK* cb = blocklist[i];
       if(!cb) continue;
       BBLOCK* new_idom = NULL;
@@ -421,6 +421,7 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, BITFIELD bf, PROGRAM* prog)
             } else {
               bfset(bf, sen->index);
               sen->regno = op->dest.iregnum;
+              prog->tmpstore[op->dest.iregnum] = blk->domind;
             }
           }
           __attribute__((fallthrough));
@@ -463,6 +464,7 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, BITFIELD bf, PROGRAM* prog)
             } else {
               bfset(bf, sen->index);
               sen->regno = op->dest.iregnum;
+              prog->tmpstore[op->dest.iregnum] = blk->domind;
             }
           } else {
           }
@@ -490,6 +492,7 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, BITFIELD bf, PROGRAM* prog)
             } else {
               bfset(bf, sen->index);
               sen->regno = op->dest.iregnum;
+              prog->tmpstore[op->dest.iregnum] = blk->domind;
             }
           }
           break;
@@ -525,6 +528,7 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, BITFIELD bf, PROGRAM* prog)
           assert(!bfget(bf, sen->index));
           bfset(bf, sen->index);
           sen->regno = op->dest.iregnum;
+          prog->tmpstore[op->dest.iregnum] = blk->domind;
           break;
         OPS_1_ASSIGN_3ac
           sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
@@ -534,6 +538,7 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, BITFIELD bf, PROGRAM* prog)
             } else {
               bfset(bf, sen->index);
               sen->regno = op->addr0.iregnum;
+              prog->tmpstore[op->addr0.iregnum] = blk->domind;
             }
           }
           break;
@@ -757,6 +762,7 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
 #endif
 
   BITFIELD bf = bfalloc(eqcontainer->nodes->length);
+  prog->tmpstore = calloc(prog->iregcnt, sizeof(int));
   replacenode(daget(prog->allblocks, 0), eqcontainer, bf, prog);
   ((BBLOCK*) daget(prog->allblocks, 0))->tmpstore = bf;
 
@@ -787,6 +793,8 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
       }
     }
   }
+
+  free(prog->tmpstore);
 
   for(int i = 0; i < prog->allblocks->length; i++) {
     free(((BBLOCK*) daget(prog->allblocks, i))->tmpstore);

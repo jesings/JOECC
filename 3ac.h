@@ -91,6 +91,7 @@ typedef enum {
 
 typedef struct op {
   enum opcode_3ac opcode;
+  int oprank;
   ADDRTYPE addr0_type;
   ADDRESS addr0;
   ADDRTYPE addr1_type;
@@ -132,6 +133,7 @@ typedef struct {
   HASHTABLE* unfilledlabels;
   BBLOCK* curblock;
   BBLOCK* finalblock;
+  int* tmpstore;
   enum passes pdone;
 } PROGRAM;
 
