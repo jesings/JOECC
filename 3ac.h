@@ -182,7 +182,7 @@ void freeprog(PROGRAM* prog);
 
 static inline ADDRTYPE addrconv(IDTYPE* idt) {
   ADDRTYPE adt;
-  if(idt->pointerstack && idt->pointerstack->length) {
+  if(ispointer(idt)) {
     adt = ISPOINTER | 0x8;
   } else if(idt->tb & (STRUCTVAL | UNIONVAL)) {
     adt = ISPOINTER | 0x8;

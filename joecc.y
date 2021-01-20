@@ -646,7 +646,7 @@ esca:
 | '&' esm {$$ = ct_unary_expr(ADDR, $2);}
 | "sizeof" '(' type abstract_ptr ')' {$$ = ct_uintconst_expr(sizeof(uintptr_t)); free($3); dadtorfr($4);}
 | "sizeof" '(' type ')' {
-    if($3->pointerstack && $3->pointerstack->length) {
+    if(ispointer($3)) {
       free($3);
       $$ = ct_uintconst_expr(sizeof(uintptr_t));
     } else {

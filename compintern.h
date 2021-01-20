@@ -380,9 +380,11 @@ int unionlen(UNION* u);
 #define dlocprint(lv) (char*) dapeek(ctx->ls->file2compile), lv->first_line, lv->first_column, lv->last_line, lv->last_column
 #define locprint2(lv) (char*) dapeek(lctx->ls->file2compile), lv->first_line, lv->first_column, lv->last_line, lv->last_column
 #define ctx ((struct lexctx*) yyget_extra(scanner))
+#define ispointer(x) ((x)->pointerstack && (x)->pointerstack->length)
+#define ispointer2(x) ((x).pointerstack && (x).pointerstack->length)
 
 static inline int lentype(IDTYPE* idt) {
-  if(idt->pointerstack && idt->pointerstack->length) {
+  if(ispointer(idt)) {
     struct declarator_part* pointtop = dapeek(idt->pointerstack);
     if(pointtop->type != ARRAYSPEC) return 0x8;
     else return pointtop->arrlen;

@@ -128,7 +128,7 @@ static int treetype(IDTYPE* type) {
     dprintf(funcfile, "n%d [label=\"%s\"];\n", subtnode, ntb);
     free(ntb);
   }
-  if(type->pointerstack && type->pointerstack->length)
+  if(ispointer(type))
     dprintf(funcfile, "n%d -> n%d [xlabel=\"%dx *\"];\n", typenode, subtnode, type->pointerstack->length);
   else
     dprintf(funcfile, "n%d -> n%d;\n", typenode, subtnode);

@@ -259,9 +259,9 @@ char isglobal(struct lexctx* lct, char* ident) {
 }
 
 char typecompat(IDTYPE* t1, IDTYPE* t2) {
-  if(t1->pointerstack && t1->pointerstack->length)
-    return t2->pointerstack && t2->pointerstack->length; //array special case?
-  if(t2->pointerstack && t2->pointerstack->length)
+  if(ispointer(t1))
+    return ispointer(t2); //array special case?
+  if(ispointer(t2))
     return 0;
   if(t1->tb & (STRUCTVAL | UNIONVAL)) {
     if(!(t2->tb & (STRUCTVAL | UNIONVAL)))
@@ -362,7 +362,7 @@ void wipestruct(STRUCT* strct) {
       if(dcl->varname) {
         free(dcl->varname);
       }
-      if(!(dcl->type->pointerstack && dcl->type->pointerstack->length) && dcl->type->tb & (ANONMEMB)) {
+      if(!(ispointer(dcl->type)) && dcl->type->tb & (ANONMEMB)) {
         wipestruct(dcl->type->structtype);
       }
       freetype(dcl->type);
@@ -1081,7 +1081,7 @@ INITIALIZER* decl2scope(DECLARATION* dec, EXPRESSION* ex, struct lexctx* lct) {
       id->index = -1;
       id->name = dec->varname;
       id->type = dec->type;
-      if(id->type->pointerstack && id->type->pointerstack->length) {
+      if(ispointer(id->type)) {
         struct declarator_part* dclp = dapeek(id->type->pointerstack);
         if(dclp->type == PARAMSSPEC) {
           id->type->tb |= GLOBALFUNC;
@@ -1154,7 +1154,7 @@ void feedstruct(STRUCT* s) {
         int esize;
         //TODO: handle bitfield
         char keepmmi = 1;
-        if(mmi->type->pointerstack && mmi->type->pointerstack->length) {
+        if(ispointer(mmi->type)) {
           esize = 8;
           dapush(newmm, mmi);
         } else {
@@ -1225,7 +1225,7 @@ int unionlen(UNION* u) {
         DECLARATION* mmi = daget(mm, i);
         int esize;
         char keepmmi = 1;
-        if(mmi->type->pointerstack && mmi->type->pointerstack->length) {
+        if(ispointer(mmi->type)) {
           esize = 8;
           dapush(newmm, mmi);
         } else {

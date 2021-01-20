@@ -299,9 +299,9 @@ char treequals(EXPRESSION* e1, EXPRESSION* e2) {
 }
 
 static IDTYPE simplbinprec(IDTYPE id1, IDTYPE id2) {
-  if(id1.pointerstack && id1.pointerstack->length) {
+  if(ispointer2(id1)) {
     return id1;
-  } else if(id2.pointerstack && id2.pointerstack->length) {
+  } else if(ispointer2(id2)) {
     return id2;
   } else if(id1.tb & FLOATNUM) {
     if(id2.tb & FLOATNUM) {
@@ -326,7 +326,7 @@ static IDTYPE simplbinprec(IDTYPE id1, IDTYPE id2) {
 }
 
 static IDTYPE simplbinprecnoptr(IDTYPE id1, IDTYPE id2) {
-  assert(!((id1.pointerstack && id1.pointerstack->length) || (id2.pointerstack && id2.pointerstack->length)));
+  assert(!(ispointer2(id1) || ispointer2(id2)));
   if(id1.tb & FLOATNUM) {
     if(id2.tb & FLOATNUM) {
       if((id1.tb & 0xf) >= (id2.tb & 0xf)) {
@@ -437,7 +437,7 @@ IDTYPE typex(EXPRESSION* ex) {
     case DEREF:
       idt = typex(daget(ex->params, 0));
       idt.pointerstack = daclone(idt.pointerstack);
-      assert(idt.pointerstack && idt.pointerstack->length);
+      assert(ispointer2(idt));
       dapop(idt.pointerstack);
       break;
 
@@ -497,7 +497,7 @@ char foldconst(EXPRESSION** exa) {
       return 0;
     case CAST:
       subexpr = EPARAM(ex, 0);
-      if(ex->vartype->pointerstack && ex->vartype->pointerstack->length) return 0;
+      if(ispointer(ex->vartype)) return 0;
       //support for casting to union in 3ac
       if(ex->vartype->tb & (UNIONVAL | STRUCTVAL | ENUMVAL)) return 0;
       switch(subexpr->type) {
