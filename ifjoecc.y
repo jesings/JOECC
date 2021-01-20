@@ -27,7 +27,7 @@
 
 %{
   #undef yylex
-  typedef struct zzltype {int first_line, first_column, last_line, last_column;} ZZLTYPE;
+  typedef struct zzltype {int first_line, first_column, last_line, last_column; char* filename;} ZZLTYPE;
   int yylex(YYSTYPE* yst, ZZLTYPE* ylt, void* yyscanner);
   int yyerror(void* yyscanner, const char* s);
   void* yyget_extra(void* scanner);

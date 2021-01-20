@@ -29,6 +29,8 @@
 %define api.pure full
 
 %param {void *scanner}
+%parse-param {void *filename}
+
 
 %code requires{
   #include <stdint.h>
@@ -37,6 +39,9 @@
   #include "compintern.h"
   #include "dynarr.h"
   #include "parallel.h"
+
+  struct yyltype {int first_line, last_line, first_column, last_column; char* filename;};
+  #define YYLTYPE struct yyltype
 
   #define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
   #define dget(param, index) ((DECLARATION*) (param)->arr[(index)])
@@ -70,10 +75,16 @@
 }
 
 %{
+  
   int yylex(YYSTYPE* yst, YYLTYPE* ylt, void* yscanner);
-  int yyerror(YYLTYPE* ylt, void* scanner, const char* s);
+  int yyerror(YYLTYPE* ylt, void* scanner, char* filename, const char* s); //filename is ignored
   void* yyget_extra(void* scanner);
+  struct yyltype* yyget_lloc(void*);
 %}
+
+%initial-action {
+  @$.filename = filename;
+}
 
 %type<str> generic_symbol
 %type<dstr> multistring
@@ -1081,7 +1092,7 @@ enums:
     };
 commaopt: ',' | %empty;
 %%
-int yyerror(YYLTYPE* ylt, void* scanner, const char* s) {
+int yyerror(YYLTYPE* ylt, void* scanner, char* filename, const char* s) {
   fprintf(stderr, "ERROR: %s %s %d.%d-%d.%d\n", s, dlocprint(ylt));
   return 0;
 }

@@ -12,13 +12,15 @@ const char magic[16] = {0x7f, 0x45, 0x4c, 0x46, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0,
 pthread_mutex_t printlock, listlock;
 int listptr, glargc;
 
+struct yyltype {int first_line, last_line, first_column, last_column; char* filename;};
 
-
-int yyparse(void* scanner);
+struct yyltype* yyget_lloc(void*);
+int yyparse(void* scanner, char* filename);
 int yyset_in(FILE*, void*);
 int yyset_debug(int flag, void*);
 void yylex_init_extra(void*, void**);
 void yylex_destroy(void*);
+
 static void freev(void* v) {
   HASHPAIR* v2 = v;
   rfreefunc(v2->value);
@@ -50,13 +52,12 @@ static void filecomp(char* filename) {
   }
   void* scanner;
   struct lexctx* lctx = ctxinit();
-  dapush(lctx->ls->file2compile, strdup(filename));
   yylex_init_extra(lctx, &scanner);
   yyset_in(yyin, scanner);
 #ifdef NODEBUG
   yyset_debug(0, scanner);//not debugging lexer for now
 #endif
-  yyparse(scanner);
+  yyparse(scanner, filename);
   yylex_destroy(scanner);
   dadtorcfr(lctx->enumerat2free, (void(*)(void*)) freenum);
   bightdtorcfr(lctx->defines, (void (*)(void*)) freemd);
@@ -64,7 +65,6 @@ static void filecomp(char* filename) {
   dadtor(lctx->definestack);
   dadtor(lctx->ls->locs);
   dadtor(lctx->ls->argpp);
-  dadtorfr(lctx->ls->file2compile);
   DYNARR* funcky = htpairs(lctx->funcs);
 #ifndef NODEBUG
   pthread_mutex_lock(&printlock);

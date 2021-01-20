@@ -466,7 +466,6 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, BITFIELD bf, PROGRAM* prog)
               sen->regno = op->dest.iregnum;
               prog->tmpstore[op->dest.iregnum] = blk->domind;
             }
-          } else {
           }
           sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
           if(sen) {

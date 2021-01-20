@@ -995,7 +995,6 @@ struct lexctx* ctxinit(void) {
   declfmacro(lct->defines, "__attribute__", "a", "");
   lct->ls = malloc(sizeof(struct lstate));
   lct->ls->locs = dactor(32);
-  lct->ls->file2compile = dactor(32);
   lct->ls->defargs = NULL;
   lct->ls->argpp = dactor(16);
   return lct;

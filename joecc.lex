@@ -19,6 +19,7 @@ PPSTART [[:blank:]]*#{BLANKC}
 #include "joecc.tab.h"
 #include "compintern.h"
 #include "treeduce.h"
+#define YYLTYPE struct yyltype
 
 #define YY_USER_ACTION \
   yylloc->first_line = yylloc->last_line; \
@@ -75,7 +76,7 @@ struct arginfo {
 <CALLMACRO,WITHINIF,INITIAL>{
   "__FILE__" {
     char linebuf[300];
-    int bsize = sprintf(linebuf, "\"%s\"", (char*) dapeek(lctx->ls->file2compile));
+    int bsize = sprintf(linebuf, "\"%s\"", yylloc->filename);
     yypush_stringbuffer(linebuf, bsize, "__FILE__", YY_CURRENT_BUFFER, yyscanner);
     yy_push_state(yy_top_state(yyscanner), yyscanner);
   }
@@ -264,7 +265,7 @@ struct arginfo {
           dapush(lctx->ls->locs, ylt);
           yylloc->first_line = yylloc->last_line = 1;
           yylloc->first_column = yylloc->last_column = 0;
-          dapush(lctx->ls->file2compile, strdup(pathbuf));
+          yylloc->filename = strdup(pathbuf);
           YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE, yyscanner);
           yy_push_state(INITIAL, yyscanner);
           yypush_buffer_state(ybs, yyscanner);
@@ -284,7 +285,7 @@ struct arginfo {
       yytext[yyleng - 1] = '\0'; //ignore closing "
       yy_pop_state(yyscanner);
       FILE* newbuf;
-      char* pfstr = dapeek(lctx->ls->file2compile);
+      char* pfstr = yylloc->filename;
       char* fname = yytext + 1;
       if(strchr(pfstr, '/')) {
         char pathbuf[512];
@@ -301,7 +302,7 @@ struct arginfo {
         dapush(lctx->ls->locs, ylt);
         yylloc->first_line = yylloc->last_line = 1;
         yylloc->first_column = yylloc->last_column = 0;
-        dapush(lctx->ls->file2compile, fname);
+        yylloc->filename = fname;
         YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE, yyscanner);
         yy_push_state(INITIAL, yyscanner);
         yypush_buffer_state(ybs, yyscanner);
@@ -333,7 +334,7 @@ struct arginfo {
         };
       yy_pop_state(yyscanner);
       int i = 0;
-      for(; i < 3 && strncmp(dapeek(lctx->ls->file2compile), searchpath[i], strlen(searchpath[i])); ++i) ;
+      for(; i < 3 && strncmp(yylloc->filename, searchpath[i], strlen(searchpath[i])); ++i) ;
       ++i;
       for(; i < 4 /*sizeof searchpath*/; ++i) {
         FILE* newbuf;
@@ -344,7 +345,7 @@ struct arginfo {
           dapush(lctx->ls->locs, ylt);
           yylloc->first_line = yylloc->last_line = 1;
           yylloc->first_column = yylloc->last_column = 0;
-          dapush(lctx->ls->file2compile, strdup(pathbuf));
+          yylloc->filename = strdup(pathbuf);
           YY_BUFFER_STATE ybs = yy_create_buffer(newbuf, YY_BUF_SIZE, yyscanner);
           yy_push_state(INITIAL, yyscanner);
           yypush_buffer_state(ybs, yyscanner);
@@ -600,9 +601,9 @@ struct arginfo {
     } else {
       yy_pop_state(yyscanner);
       YYLTYPE* ylt = dapop(lctx->ls->locs);
+      free(yylloc->filename);
       *yylloc = *ylt;
       free(ylt);
-      free(dapop(lctx->ls->file2compile));
       struct arginfo* ai = dapop(lctx->ls->argpp);
       rmpair(lctx->withindefines, lctx->ls->defname);
       free(lctx->ls->defname);
@@ -618,9 +619,9 @@ struct arginfo {
     } else {
       yy_pop_state(yyscanner);
       YYLTYPE* ylt = dapop(lctx->ls->locs);
+      free(yylloc->filename);
       *yylloc = *ylt;
       free(ylt);
-      free(dapop(lctx->ls->file2compile));
       struct arginfo* ai = dapop(lctx->ls->argpp);
       rmpair(lctx->withindefines, lctx->ls->defname);
       free(lctx->ls->defname);
@@ -678,7 +679,7 @@ struct arginfo {
     snprintf(buf, 256, "%s", lctx->ls->defname);
     yylloc->first_line = yylloc->last_line = 1;
     yylloc->first_column = yylloc->last_column = 0;
-    dapush(lctx->ls->file2compile, strdup(buf));
+    yylloc->filename = strdup(buf);
     rmpair(lctx->withindefines, lctx->ls->defname);
     htdtorcfr(lctx->ls->defargs, (void(*)(void*)) strdtor);
     strdtor(lctx->ls->dstrdly);
@@ -979,11 +980,10 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); lctx->ls->strcur = strctor(mallo
   } else {
     yy_pop_state(yyscanner);
     YYLTYPE* ylt = dapop(lctx->ls->locs);
+    rmpair(lctx->withindefines, yylloc->filename);
+    free(yylloc->filename);
     *yylloc = *ylt;
     free(ylt);
-    char* ismac = dapop(lctx->ls->file2compile);
-    rmpair(lctx->withindefines, ismac);
-    free(ismac);
     if(lctx->ls->defname) {
       free(lctx->ls->defname);
       lctx->ls->defname = NULL;
@@ -1000,11 +1000,10 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); lctx->ls->strcur = strctor(mallo
   } else {
     yy_pop_state(yyscanner);
     YYLTYPE* ylt = dapop(lctx->ls->locs);
+    rmpair(lctx->withindefines, yylloc->filename);
+    free(yylloc->filename);
     *yylloc = *ylt;
     free(ylt);
-    char* ismac = dapop(lctx->ls->file2compile);
-    rmpair(lctx->withindefines, ismac);
-    free(ismac);
     if(lctx->ls->defname) {
       free(lctx->ls->defname);
       lctx->ls->defname = NULL;
@@ -1112,7 +1111,8 @@ inline void yypush_stringbuffer(char* str, int length, const char* macname, YY_B
   dapush(lctx->ls->locs, ylt);
   ylc->first_line = ylc->last_line = 1;
   ylc->first_column = ylc->last_column = 0;
-  if(macname) dapush(lctx->ls->file2compile, strdup(macname));
+  if(macname) ylc->filename = strdup(macname); 
+  else ylc->filename = NULL;
 }
 
 void zz_pop_state(void*);
