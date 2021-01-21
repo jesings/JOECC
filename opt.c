@@ -99,7 +99,7 @@ char remove_nops(PROGRAM* prog) {
   return 0;
 }
 
-static char feq(OPERATION* op) { //TODO: behave differently if ssa
+static char feq(OPERATION* op) {
   if(op->addr0_type != op->addr1_type) return 0;
   if(op->addr0_type & ISLABEL) return !strcmp(op->addr0.labelname, op->addr1.labelname);
   if(op->addr0_type & ISVAR) return op->addr0.varnum == op->addr1.varnum;
@@ -302,6 +302,25 @@ void prunebranch(PROGRAM* prog) {
               op->opcode = MOV_3; \
               break; \
             }
+#define first1(constkind, floatness, ident) \
+            if((op->addr0_type & (ISCONST | (floatness))) && (op->addr0.constkind == ident)) { \
+              op->addr0_type = op->addr1_type; \
+              op->addr0 = op->addr1; \
+              op->opcode = MOV_3; \
+              break; \
+            }
+/*
+#define last1z(constkind, floatness, ident) \
+            if((op->addr1_type & (ISCONST | (floatness))) && (op->addr1.constkind == ident)) { \
+              op->opcode = MOV_3; \
+              break; \
+            }
+#define first1z(constkind, floatness, ident) \
+            if((op->addr1_type & (ISCONST | (floatness))) && (op->addr1.constkind == ident)) { \
+              op->opcode = MOV_3; \
+              break; \
+            }
+*/
 
 char constfold(PROGRAM* prog) {
   DYNARR* blocks = prog->allblocks;
@@ -315,9 +334,11 @@ char constfold(PROGRAM* prog) {
             break;
           case ADD_U: case ADD_I:
             last1(intconst_64, 0, 0);
+            first1(intconst_64, 0, 0);
             bincf(intconst_64, +=);
           case ADD_F:
             last1(floatconst_64, ISFLOAT, 0.0);
+            first1(floatconst_64, ISFLOAT, 0.0);
             bincf(floatconst_64, +=);
           case SUB_U: case SUB_I:
             if(feq(op)) {
@@ -326,6 +347,10 @@ char constfold(PROGRAM* prog) {
               break;
             }
             last1(intconst_64, 0, 0);
+            if((op->addr0_type & ISCONST) && (op->addr0.intconst_64 == 0)) {
+              op->opcode = NEG_I;
+              break;
+            }
             bincf(intconst_64, -=);
           case SUB_F:
             if(feq(op)) {
@@ -334,15 +359,22 @@ char constfold(PROGRAM* prog) {
               break;
             }
             last1(floatconst_64, ISFLOAT, 0.0);
+            if((op->addr0_type & ISCONST) && (op->addr0.floatconst_64 == 0)) {
+              op->opcode = NEG_F;
+              break;
+            }
             bincf(floatconst_64, -=);
           case MULT_U: 
             last1(uintconst_64, 0, 1);
+            first1(uintconst_64, 0, 1);
             bincf(uintconst_64, *=);
           case MULT_I:
             last1(intconst_64, 0, 1);
+            first1(intconst_64, 0, 1);
             bincf(intconst_64, *=);
           case MULT_F:
             last1(floatconst_64, 0, 1.0);
+            first1(floatconst_64, ISFLOAT, 1.0);
             bincf(floatconst_64, *=);
           case DIV_U:
             last1(uintconst_64, 0, 1);
@@ -383,12 +415,15 @@ char constfold(PROGRAM* prog) {
             break;
           case AND_U:
             last1(uintconst_64, 0, 0xffffffffffffffffL);
+            first1(uintconst_64, 0, 0xffffffffffffffffL);
             bincf(uintconst_64, &=);
           case OR_U:
             last1(uintconst_64, 0, 0);
+            first1(uintconst_64, 0, 0);
             bincf(uintconst_64, |=);
           case XOR_U:
             last1(uintconst_64, 0, 0);
+            first1(uintconst_64, 0, 0);
             bincf(uintconst_64, ^=);
           case EQ_U: case EQ_I:
             binef(intconst_64, ==);
