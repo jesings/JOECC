@@ -337,8 +337,6 @@ char constfold(PROGRAM* prog) {
             first1(intconst_64, 0, 0);
             bincf(intconst_64, +=);
           case ADD_F:
-            last1(floatconst_64, ISFLOAT, 0.0);
-            first1(floatconst_64, ISFLOAT, 0.0);
             bincf(floatconst_64, +=);
           case SUB_U: case SUB_I:
             if(feq(op)) {
@@ -353,16 +351,6 @@ char constfold(PROGRAM* prog) {
             }
             bincf(intconst_64, -=);
           case SUB_F:
-            if(feq(op)) {
-              op->opcode = MOV_3;
-              op->addr0.floatconst_64 = 0;
-              break;
-            }
-            last1(floatconst_64, ISFLOAT, 0.0);
-            if((op->addr0_type & ISCONST) && (op->addr0.floatconst_64 == 0)) {
-              op->opcode = NEG_F;
-              break;
-            }
             bincf(floatconst_64, -=);
           case MULT_U: 
             last1(uintconst_64, 0, 1);
@@ -373,8 +361,6 @@ char constfold(PROGRAM* prog) {
             first1(intconst_64, 0, 1);
             bincf(intconst_64, *=);
           case MULT_F:
-            last1(floatconst_64, 0, 1.0);
-            first1(floatconst_64, ISFLOAT, 1.0);
             bincf(floatconst_64, *=);
           case DIV_U:
             last1(uintconst_64, 0, 1);
@@ -394,7 +380,6 @@ char constfold(PROGRAM* prog) {
             }
             break;
           case DIV_F:
-            last1(floatconst_64, ISFLOAT, 1.0);
             bincf(floatconst_64, /=);
           case MOD_U: 
             last1(uintconst_64, 0, 1);
@@ -531,4 +516,25 @@ int countops(PROGRAM* prog) {
     }
   }
   return opcount;
+}
+
+void splitcrit(PROGRAM* prog) {
+  int blen = prog->allblocks->length;
+  for(int i = 0; i < blen; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    if(blk->branchblock) {//two or more successors
+      if(blk->nextblock->inedges->length > 1) {//two or more predecessors
+        BBLOCK* blka = calloc(1, sizeof(BBLOCK));
+        blka->nextblock = blk->nextblock;
+        blk->nextblock = blka;
+        dapush(prog->allblocks, blka);
+      }
+      if(blk->branchblock->inedges->length > 1) {//two or more predecessors
+        BBLOCK* blka = calloc(1, sizeof(BBLOCK));
+        blka->nextblock = blk->branchblock;
+        blk->branchblock = blka;
+        dapush(prog->allblocks, blka);
+      }
+    }
+  } 
 }
