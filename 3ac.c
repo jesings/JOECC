@@ -1384,8 +1384,9 @@ void freeblock(void* blk) {
   dadtor(blk2->inedges);
   if(blk2->idominates) dadtor(blk2->idominates);
   if(blk2->df) dadtor(blk2->df);
-  if(blk2->lastop)
-    freeop(blk2->firstop, blk2->lastop);
+  if(blk2->lastop) freeop(blk2->firstop, blk2->lastop);
+  if(blk2->anticipable) htdtor(blk2->anticipable);
+  if(blk2->earliestness) htdtor(blk2->earliestness);
   free(blk);
 }
 

@@ -767,6 +767,8 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
 
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
+    blk->anticipable = htctor();
+    blk->earliestness = htctor();
     if(blk->lastop) {
       OPERATION* op = blk->firstop;
       EQNODE* eqn;

@@ -119,6 +119,9 @@ typedef struct bblock {
   int visited;
   int work;
   int unreachable;
+
+  HASHTABLE* anticipable;
+  HASHTABLE* earliestness;
   void* tmpstore;
 } BBLOCK;
 
