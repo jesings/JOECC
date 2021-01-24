@@ -742,47 +742,50 @@ struct arginfo {
 "^=" {return XOR_GETS;}
 "|=" {return OR_GETS;}
 "..." {return ELLIPSIS;}
-"typedef" {return TYPEDEF;}
-"static" {return STATIC;}
-"extern" {return EXTERN;}
-"inline" {return INLINE;}
-"signed" {return SIGNED;}
-"unsigned" {return UNSIGNED;}
-"const" {return CONST;}
-"volatile" {return VOLATILE;}
-"restrict" {return RESTRICT;}
-"char" {return CHAR;}
-"short" {return INT16;}
-"int" {return INT32;}
-"long" {return INT64;}
-"int8" {return INT8;}
-"int16" {return INT16;}
-"int32" {return INT32;}
-"int64" {return INT64;}
-"byte" {return BYTE;}
-"dbyte" {return DBYTE;}
-"qbyte" {return QBYTE;}
-"obyte" {return OBYTE;}
-"single" {return SINGLE;}
-"float" {return SINGLE;}
-"double" {return DOUBLE;}
-"void" {return VOID;}
-"case" {return CASETK;}
-"default" {return DEFAULTTK;}
-"if" {return IF;}
-"else" {return ELSE;}
-"switch" {return SWITCHTK;}
-"while" {return WHILE;}
-"do" {return DO;}
-"for" {return FOR;}
-"goto" {return GOTO;}
-"continue" {return CONTINUE;}
-"break" {return BREAK;}
-"return" {return RETURN;}
-"sizeof" {return SIZEOF;}
-"struct" {return STRUCTTK;}
-"enum" {return ENUMTK;}
-"union" {return UNIONTK;}
+typedef {return TYPEDEF;}
+static {return STATIC;}
+extern {return EXTERN;}
+inline {return INLINE;}
+signed {return SIGNED;}
+unsigned {return UNSIGNED;}
+const {return CONST;}
+volatile {return VOLATILE;}
+restrict {return RESTRICT;}
+char {return CHAR;}
+short {return INT16;}
+int {return INT32;}
+long {return INT64;}
+int8 {return INT8;}
+int16 {return INT16;}
+int32 {return INT32;}
+int64 {return INT64;}
+byte {return BYTE;}
+dbyte {return DBYTE;}
+qbyte {return QBYTE;}
+obyte {return OBYTE;}
+single {return SINGLE;}
+float {return SINGLE;}
+double {return DOUBLE;}
+void {return VOID;}
+case {return CASETK;}
+default {return DEFAULTTK;}
+if {return IF;}
+else {return ELSE;}
+switch {return SWITCHTK;}
+while {return WHILE;}
+do {return DO;}
+for {return FOR;}
+goto {return GOTO;}
+continue {return CONTINUE;}
+break {return BREAK;}
+return {return RETURN;}
+sizeof {return SIZEOF;}
+struct {return STRUCTTK;}
+enum {return ENUMTK;}
+union {return UNIONTK;}
+asm {return ASM;}
+__asm__ {return ASM;}
+
 <INITIAL,WITHINIF>{
   "<<" {return SHLTK;}
   ">>" {return SHRTK;}
@@ -821,8 +824,8 @@ struct arginfo {
 
 
 <WITHINIF>{
-  "defined"{BLANKC}"("{BLANKC} {yy_push_state(CHECKDEFINED, yyscanner);}
-  "defined"{BLANKC} {yy_push_state(CHECKDEFINED2, yyscanner);}
+  defined{BLANKC}"("{BLANKC} {yy_push_state(CHECKDEFINED, yyscanner);}
+  defined{BLANKC} {yy_push_state(CHECKDEFINED2, yyscanner);}
   {IDENT} {
     char* ds = strdup(yytext);
     int mt = check_type(ds, 0, yylloc, yyscanner);

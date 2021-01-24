@@ -15,10 +15,10 @@
 %token INT8 "int8" INT16 "int16" INT32 "int32" INT64 "int64" BYTE "byte"
 %token DBYTE "dbyte" QBYTE "qbyte" OBYTE "obyte" SINGLE "single" DOUBLE "double" 
 %token CASETK "case" DEFAULTTK "default" IF "if" ELSE "else" SWITCHTK "switch"
-%token WHILE "while" DO "do" FOR "for" GOTO "goto" CONTINUE "continue" 
+%token WHILE "while" DO "do" FOR "for" GOTO "goto" CONTINUE "continue"
 %token BREAK "break" RETURN "return" SIZEOF "sizeof" UNSIGNED "unsigned"
 %token STRUCTTK "struct" ENUMTK "enum" UNIONTK "union" SIGNED "signed"
-%token CONST "const" VOLATILE "volatile" RESTRICT "restrict" INLINE "inline"
+%token CONST "const" VOLATILE "volatile" RESTRICT "restrict" INLINE "inline" ASM "asm"
 
 %right THEN "else"
 /*probably could do this smarter with redesign*/
@@ -784,6 +784,10 @@ function:
     $$->body = mkcmpndstmt($5); 
     ctx->func = NULL;
     };
+operands:
+  %empty;
+clobbers:
+  %empty;
 statement:
   compound_statement {$$ = $1;}
 |  SYMBOL ':' {$$ = mklblstmt(ctx, $1);}
@@ -815,6 +819,10 @@ statement:
 | "return" ';' {$$ = mkexprstmt(FRET,NULL);}
 | "return" expression ';' {$$ = mkexprstmt(FRET,$2);}
 | expression ';' {$$ = mkexprstmt(EXPR,$1);}
+| "asm" '(' multistring ')' ';' {$$ = NULL;}
+| "asm" '(' multistring ':' operands ')' ';' {$$ = NULL;}
+| "asm" '(' multistring ':' operands ':' operands ')' ';' {$$ = NULL;}
+| "asm" '(' multistring ':' operands ':' operands ':' clobbers ')' ';' {$$ = NULL;}
 | ';' {$$ = mknopstmt();};
 ee: 
   expression {$$ = $1;}
