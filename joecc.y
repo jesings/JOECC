@@ -93,7 +93,7 @@
 %type<idvariant> typem typews1 type typemintkw inttypem namelesstype
 %type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee escoa
 %type<stmtvariant> statement compound_statement
-%type<arrvariant> statements_and_initializers soiorno struct_decls struct_decl cs_decls enums escl escoal abstract_ptr cs_inits cs_minutes initializer array_literal structbody enumbody nameless params
+%type<arrvariant> statements_and_initializers soiorno struct_decls struct_decl cs_decls enums escl escoal abstract_ptr cs_inits cs_minutes initializer array_literal structbody enumbody nameless params clobberlist clobbers operands operandlist
 %type<unionvariant> union fullunion
 %type<structvariant> struct fullstruct
 %type<enumvariant> enum fullenum
@@ -784,10 +784,18 @@ function:
     $$->body = mkcmpndstmt($5); 
     ctx->func = NULL;
     };
-operands:
-  %empty;
+clobberlist:
+  clobberlist ',' multistring {$$ = $1; dapush($$, $3->strptr); free($3);}
+| multistring {$$ = dactor(8); dapush($$, $1->strptr); free($1);};
 clobbers:
-  %empty;
+  %empty {$$ = NULL;}
+| clobberlist {$$ = $1;};
+operandlist:
+  operandlist ',' multistring '(' expression ')' {$$ = $1; dapush($$, genoperand($3->strptr, $5)); free($3);}
+| multistring '(' expression ')' {$$ = dactor(8); dapush($$, genoperand($1->strptr, $3)); free($1);};
+operands:
+  %empty {$$ = NULL;}
+| operandlist {$$ = $1;};
 statement:
   compound_statement {$$ = $1;}
 |  SYMBOL ':' {$$ = mklblstmt(ctx, $1);}
@@ -819,10 +827,10 @@ statement:
 | "return" ';' {$$ = mkexprstmt(FRET,NULL);}
 | "return" expression ';' {$$ = mkexprstmt(FRET,$2);}
 | expression ';' {$$ = mkexprstmt(EXPR,$1);}
-| "asm" '(' multistring ')' ';' {$$ = NULL;}
-| "asm" '(' multistring ':' operands ')' ';' {$$ = NULL;}
-| "asm" '(' multistring ':' operands ':' operands ')' ';' {$$ = NULL;}
-| "asm" '(' multistring ':' operands ':' operands ':' clobbers ')' ';' {$$ = NULL;}
+| "asm" '(' multistring ')' ';' {$$ = mkasmstmt($3->strptr, NULL, NULL, NULL); free($3);}
+| "asm" '(' multistring ':' operands ')' ';' {$$ = mkasmstmt($3->strptr, $5, NULL, NULL); free($3);}
+| "asm" '(' multistring ':' operands ':' operands ')' ';' {$$ = mkasmstmt($3->strptr, $5, $7, NULL); free($3);}
+| "asm" '(' multistring ':' operands ':' operands ':' clobbers ')' ';' {$$ = mkasmstmt($3->strptr, $5, $7, $9); free($3);}
 | ';' {$$ = mknopstmt();};
 ee: 
   expression {$$ = $1;}

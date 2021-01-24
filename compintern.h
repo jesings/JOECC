@@ -55,6 +55,7 @@ typedef enum {
   X(CASE), X(LABEL), \
   X(CMPND), \
   X(EXPR), X(NOPSTMT), \
+  X(ASMSTMT), \
   X(DEFAULT)
 #define X(name) name
 enum stmttype {
@@ -102,6 +103,11 @@ typedef struct {
   long offset;
   IDTYPE* type;
 } STRUCTFIELD;
+
+typedef struct {
+  char* constraint;
+  struct expr* varin;
+} OPERAND;
 
 typedef struct {
   //int index;//index of type within scope (i.e. parameter index)
@@ -194,6 +200,12 @@ typedef struct stmt {
     struct { //case
       EXPRESSION* casecond;
       char* caselabel;
+    };
+    struct {
+      char* asmstmts;
+      DYNARR* outputs;
+      DYNARR* inputs;
+      DYNARR* clobbers;
     };
     //IDENTIFIERINFO* label; //case or label, maybe also goto?
     char* glabel; //for label and goto
@@ -307,6 +319,7 @@ struct macrodef {
 STRUCT* structor(char* name, DYNARR* fields, struct lexctx* lct);
 UNION* unionctor(char* name, DYNARR* fields, struct lexctx* lct);
 ENUM* enumctor(char* name, DYNARR* fields, struct lexctx* lct);
+OPERAND* genoperand(char* constraint, EXPRESSION* varin);
 EXPRESSION* cloneexpr(EXPRESSION* orig);
 DYNARR* ptrdaclone(DYNARR* opointerstack);
 EXPRESSION* ct_nop_expr(void);
@@ -353,6 +366,7 @@ STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits);
 STATEMENT* mklblstmt(struct lexctx* lct, char* lblval);
 STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label);
 STATEMENT* mkdefaultstmt(struct lexctx* lct, char* label);
+STATEMENT* mkasmstmt(char* asmstmts, DYNARR* outputs, DYNARR* inputs, DYNARR* clobbers);
 ENUMFIELD* genenumfield(char* name, EXPRESSION* value);
 struct declarator_part* mkdeclpart(enum declpart_info typ, void* d);
 struct declarator_part* mkdeclpartarr(enum declpart_info typ, EXPRESSION* d);

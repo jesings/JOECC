@@ -32,6 +32,13 @@ ENUM* enumctor(char* name, DYNARR* fields, struct lexctx* lct) {
     return retval;
 }
 
+OPERAND* genoperand(char* constraint, EXPRESSION* varin) {
+  OPERAND* retval = malloc(sizeof(OPERAND));
+  retval->constraint = constraint;
+  retval->varin = varin;
+  return retval;
+}
+
 static IDTYPE* fcid(IDTYPE* idt) {
   IDTYPE* idr = malloc(sizeof(IDTYPE));
   memcpy(idr, idt, sizeof(IDTYPE));
@@ -571,6 +578,30 @@ void rfreestate(STATEMENT* s) {
       rfreestate(s->thencond);
       rfreexpr(s->ifcond);
       break;
+    case ASMSTMT:
+      free(s->asmstmts);
+      if(s->inputs) {
+        for(int i = 0; i < s->inputs->length; i++) {
+          OPERAND* op = daget(s->inputs, i);
+          free(op->constraint);
+          rfreexpr(op->varin);
+          free(op);
+        }
+        dadtor(s->inputs);
+      }
+      if(s->outputs) {
+        for(int i = 0; i < s->outputs->length; i++) {
+          OPERAND* op = daget(s->outputs, i);
+          free(op->constraint);
+          rfreexpr(op->varin);
+          free(op);
+        }
+        dadtor(s->outputs);
+      }
+      if(s->clobbers) {
+        dadtorfr(s->clobbers);
+      }
+      break;
   }
   free(s);
 }
@@ -762,6 +793,15 @@ STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label) {
 STATEMENT* mkdefaultstmt(struct lexctx* lct, char* label) {
   ((SWITCHINFO*) dapeek(lct->func->switchstack))->defaultval = label;
   return mklblstmt(lct, label);
+}
+
+STATEMENT* mkasmstmt(char* asmstmts, DYNARR* outputs, DYNARR* inputs, DYNARR* clobbers) {
+  STATEMENT* retval = malloc(sizeof(STATEMENT));
+  retval->asmstmts = asmstmts;
+  retval->outputs = outputs;
+  retval->inputs = inputs;
+  retval->clobbers = clobbers;
+  return retval;
 }
 
 ENUMFIELD* genenumfield(char* name, EXPRESSION* value) {

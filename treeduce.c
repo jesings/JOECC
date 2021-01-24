@@ -40,6 +40,8 @@ char purestmt(STATEMENT* stmt) {
       return 1;
     case JGOTO: case WHILEL: case DOWHILEL: case FORL:
       return 0;
+    case ASMSTMT:
+      return 0;//parse input and outputs later
     case CMPND:
       for(int i = 0; i < stmt->stmtsandinits->length; i++) {
         SOI* s = stmt->stmtsandinits->arr[i];
@@ -1565,7 +1567,7 @@ char pleatstate(STATEMENT** stated) {
   DYNARR* newsdyn;
   int i = 0;
   switch(st->type) {
-    case LBREAK: case JGOTO: case LCONT: case LABEL: case CASE: case DEFAULT: case NOPSTMT:
+    case LBREAK: case JGOTO: case LCONT: case LABEL: case CASE: case DEFAULT: case NOPSTMT: case ASMSTMT:
       //We don't reduce case statement here
       return 0;
     case SWITCH: case DOWHILEL:

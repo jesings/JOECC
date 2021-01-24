@@ -242,6 +242,8 @@ static int statemeant(STATEMENT* stmt) {
   int statenode = nodenumber++;
   dprintf(funcfile, "n%d [label=\"%s\"];\n", statenode, name_STMTTYPE[stmt->type]); 
   switch(stmt->type) {
+    case ASMSTMT:
+      break; //not handled yet, maybe never
     case JGOTO: case LABEL: ;
       int lnn = nodenumber++;
       dprintf(funcfile, "n%d[label=\"%s\"];\n", lnn, stmt->glabel); 
