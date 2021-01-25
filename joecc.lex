@@ -410,8 +410,8 @@ struct arginfo {
   {IDENT}/[[:blank:]] {
     if(lctx->ls->argeaten) 
       fprintf(stderr, "Error: unexpected macro argument %s %d.%d-%d.%d\n", locprint2(yylloc)); 
-    lctx->ls->argeaten = 1;
-    /*new arg encountered*/ yy_push_state(KILLBLANK, yyscanner); 
+    lctx->ls->argeaten = 1; /*new arg encountered*/
+    yy_push_state(KILLBLANK, yyscanner); 
     dapush(lctx->ls->md->args, strdup(yytext));
     /*probably should confirm no 2 args have the same name*/
     }
@@ -1102,12 +1102,9 @@ int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) 
 }
 
 inline void yypush_stringbuffer(char* str, int length, const char* macname, YY_BUFFER_STATE ybs, yyscan_t yyscanner) {
-  //YY_BUFFER_STATE ybs = yy_create_buffer(NULL, YY_BUF_SIZE, yyscanner);
-  //yypush_buffer_state(ybs, yyscanner); //push dummy value
   YY_BUFFER_STATE ylbs = yy_scan_bytes(str, length, yyscanner);
   yy_switch_to_buffer(ybs, yyscanner);
   yypush_buffer_state(ylbs, yyscanner);
-  //yy_delete_buffer(ybs, yyscanner);
   YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
   YYLTYPE* ylc = yyget_lloc(yyscanner);
   *ylt = *ylc;

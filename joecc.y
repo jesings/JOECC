@@ -107,8 +107,6 @@ program:
   function {
     $$ = NULL;
     insert(ctx->funcs, $1->name, $1);
-    //dapush($$, gtb(1, $1));
-    //first function can't be a redefinition
   }
 | initializer {
     $$ = NULL;
@@ -437,8 +435,8 @@ param_decl:
     $$ = $2;
     };
 nameless:
-  namelesstype {$$ = dactor(16); dapushc($$, $1);/*read only*/ }
-| nameless ',' namelesstype {$$ = $1; dapush($$, $3);/*read only*/ }
+  namelesstype {$$ = dactor(16); dapushc($$, $1);}
+| nameless ',' namelesstype {$$ = $1; dapush($$, $3);}
 | params ',' namelesstype {
     $$ = dactor($1->length + 16); 
     for(int i = 0; i < $1->length; i++) {
@@ -450,7 +448,7 @@ nameless:
     dapush($$, $3);
     dadtor($1);
     }
-| nameless ',' param_decl {$$ = $1; dapush($$, $3->type); free($3->varname); free($3);/*read only*/ };
+| nameless ',' param_decl {$$ = $1; dapush($$, $3->type); free($3->varname); free($3);};
 namelesstype:
   type {$$ = $1; if($$->pointerstack) $$->pointerstack = ptrdaclone($$->pointerstack);}
 | type abstract_ptr {$$ = $1;
@@ -806,7 +804,7 @@ statement:
     }
 | "default" ':' {
     char* caselbl = malloc(128);
-    snprintf(caselbl, 128, "__joecc__%s__default_%d", ctx->func->name, (ctx->func->caseindex)++);
+    snprintf(caselbl, 128, "__joecc__%s__default__%d", ctx->func->name, (ctx->func->caseindex)++);
     $$ = mkdefaultstmt(ctx, caselbl);
     }
 | "if" '(' expression ')' statement %prec THEN {$$ = mkifstmt($3, $5, NULL);}

@@ -324,7 +324,6 @@ static IDTYPE simplbinprec(IDTYPE id1, IDTYPE id2) {
   } else {
     return id2;
   }
-  //this probably should be moved out to compintern and exported for use in 3ac
 }
 
 static IDTYPE simplbinprecnoptr(IDTYPE id1, IDTYPE id2) {
@@ -348,10 +347,8 @@ static IDTYPE simplbinprecnoptr(IDTYPE id1, IDTYPE id2) {
   } else {
     return id2;
   }
-  //this probably should be moved out to compintern and exported for use in 3ac
 }
 
-//maybe export below function 
 static void exunflatten(EXPRESSION* ex) {
   if(ex->params->length > 2) {
     EXPRESSION* ex1 = daget(ex->params, ex->params->length - 2);
@@ -479,7 +476,6 @@ char foldconst(EXPRESSION** exa) {
   EXPRESSION* subexpr;
   DYNARR* newdyn;
   EXPRESSION* rectexpr;
-//  EXPRTYPE eventualtype;
   char rove;
 
   //call on each param before the switch
@@ -1193,8 +1189,6 @@ char foldconst(EXPRESSION** exa) {
       return rove;
     case MOD: 
       INTOP(%=);
-      //we don't handle mods--that can happen in SSA and also chaining lots of modulos
-      //is not a case that is realistic or one I will handle
       return 1; //If it reaches the end of this block, it's definitely changed
     case L_AND:
       newdyn = dactor(32);

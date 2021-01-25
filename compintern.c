@@ -387,7 +387,6 @@ void freenum(ENUM* enm) {
   for(int i = 0; i < enm->fields->length; i++) {
     ENUMFIELD* enf = daget(enm->fields, i);
     free(enf->name);
-    //free(enf->value);
     free(enf);
   }
   dadtor(enm->fields);
@@ -869,7 +868,6 @@ SCOPE* mkscope(void) {
   child->enums = htctor();
   child->unions = htctor();
   child->typesdef = htctor();
-  //the below have values consisting of dynarrs of pointers where the address of the STRUCT* should be placed
   child->forwardstructs = htctor();
   child->forwardunions = htctor();
   return child;

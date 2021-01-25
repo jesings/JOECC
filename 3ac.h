@@ -31,7 +31,7 @@
   X(BEQ_U) X(BEQ_I) X(BEQ_F) \
   X(BGE_U) X(BGE_I) X(BGE_F) \
   X(BGT_U) X(BGT_I) X(BGT_F) \
-  X(JEQ_I) /*op3 (dest label), commut*/
+  X(JEQ_I) /*op3 (dest label)*/
 #define OPS_1_3ac \
   X(BNZ_3) X(BEZ_3) \
   X(ARG_3) X(RET_3)
