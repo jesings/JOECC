@@ -153,7 +153,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
 }
 
 //TODO: implement lengauer tarjan: https://www.cl.cam.ac.uk/~mr10/lengtarj.pdf
-void ctdtree(PROGRAM* prog) {
+void ssa(PROGRAM* prog) {
   DYNARR* blocks = prog->allblocks;
   for(int i = 0; i < blocks->length; i++) {
     BBLOCK* dtn = daget(blocks, i);

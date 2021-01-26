@@ -80,9 +80,10 @@ static void filecomp(char* filename) {
       puts(pairthere->key);
 #endif
       PROGRAM* prog = linefunc(f); //fix main func
+      splitcrit(prog); //for GVN
       prunebranch(prog); //esp for do while 0
       printf("Ops before SSA %d\n", countops(prog)); 
-      ctdtree(prog);
+      ssa(prog);
       printf("Ops after SSA %d\n", countops(prog)); 
 #ifndef NODEBUG
       treeprog(prog, pairthere->key, "justssa");

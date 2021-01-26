@@ -523,17 +523,23 @@ void splitcrit(PROGRAM* prog) {
   for(int i = 0; i < blen; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     if(blk->branchblock) {//two or more successors
-      if(blk->nextblock->inedges->length > 1) {//two or more predecessors
+      if(blk->nextblock->inedges->length > 1) {//successor with two or more predecessors
         BBLOCK* blka = calloc(1, sizeof(BBLOCK));
         blka->nextblock = blk->nextblock;
         blk->nextblock = blka;
         dapush(prog->allblocks, blka);
+        blka->inedges = dactor(1);
+        dapushc(blka->inedges, blk);
+        darpa(blka->nextblock->inedges, blk, blka);
       }
-      if(blk->branchblock->inedges->length > 1) {//two or more predecessors
+      if(blk->branchblock->inedges->length > 1) {//successor with two or more predecessors
         BBLOCK* blka = calloc(1, sizeof(BBLOCK));
         blka->nextblock = blk->branchblock;
         blk->branchblock = blka;
         dapush(prog->allblocks, blka);
+        blka->inedges = dactor(1);
+        dapushc(blka->inedges, blk);
+        darpa(blka->nextblock->inedges, blk, blka);
       }
     }
   } 

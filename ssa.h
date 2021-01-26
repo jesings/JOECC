@@ -35,7 +35,7 @@ typedef struct {
   DYNARR* opnodes;//one entry for every operation
 } EQONTAINER;
 
-void ctdtree(PROGRAM* prog);
+void ssa(PROGRAM* prog);
 void gvn(PROGRAM* prog);
 #define bfalloc(length) calloc(1, ((length) + 7) >> 3)
 #define bfclone(bitfield, length) memcpy(malloc(((length) + 7) >> 3), (bitfield), ((length) + 7) >> 3)
