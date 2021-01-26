@@ -406,8 +406,9 @@ static EQNODE* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, 
   return cn;
 }
 
-static void replacenode(BBLOCK* blk, EQONTAINER* eq, BITFIELD bf, PROGRAM* prog) {
+static void replacenode(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog) {
   EQNODE* sen;
+  BITFIELD bf = blk->availability;
   if(blk->lastop) {
     OPERATION* op = blk->firstop;
     while(1) {
@@ -552,9 +553,8 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, BITFIELD bf, PROGRAM* prog)
   }
   if(blk->idominates) {
     for(int i = 0; i < blk->idominates->length; i++) {
-      BITFIELD cbf = bfclone(bf, eq->nodes->length);
-      replacenode(daget(blk->idominates, i), eq, cbf, prog);
-      ((BBLOCK*) daget(blk->idominates, i))->tmpstore = cbf;
+      ((BBLOCK*) daget(blk->idominates, i))->availability = bfclone(bf, eq->nodes->length);
+      replacenode(daget(blk->idominates, i), eq, prog);
     }
   }
 }
@@ -760,48 +760,20 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
   }
 #endif
 
-  BITFIELD bf = bfalloc(eqcontainer->nodes->length);
   prog->tmpstore = calloc(prog->iregcnt, sizeof(int));
-  replacenode(daget(prog->allblocks, 0), eqcontainer, bf, prog);
-  ((BBLOCK*) daget(prog->allblocks, 0))->tmpstore = bf;
-
-  for(int i = 0; i < prog->allblocks->length; i++) {
-    BBLOCK* blk = daget(prog->allblocks, i);
-    blk->anticipable = htctor();
-    blk->earliestness = htctor();
-    if(blk->lastop) {
-      OPERATION* op = blk->firstop;
-      EQNODE* eqn;
-      while(1) {
-        int ind;
-        switch(op->opcode) {
-          OPS_NOVAR_3ac case ADDR_3: OPS_3_PTRDEST_3ac OPS_NODEST_3ac OPS_1_3ac
-          case CALL_3: case ALOC_3: OPS_1_ASSIGN_3ac case ASM: //should never be redundant... assert?
-            break;
-          OPS_3_3ac_NOCOM OPS_3_3ac_COM OPS_2_3ac_MUT
-          case PHI: case MOV_3: case TPHI:
-            if(!(op->dest_type & ISLABEL)) {
-              eqn = eqcontainer->varnodes[op->dest.iregnum];
-              if(eqn && bfget((BITFIELD) blk->tmpstore, eqn->index)) {
-                ind = eqn->index;
-
-              }
-            }
-            break;
-        }
-        if(op == blk->lastop) break;
-        op = op->nextop;
-      }
-    }
-  }
+  ((BBLOCK*) daget(prog->allblocks, 0))->availability = bfalloc(eqcontainer->nodes->length);
+  ((BBLOCK*) daget(prog->allblocks, 0))->anticipability = bfalloc(eqcontainer->nodes->length);
+  replacenode(daget(prog->allblocks, 0), eqcontainer, prog);
 
   free(prog->tmpstore);
 
   for(int i = 0; i < prog->allblocks->length; i++) {
-    free(((BBLOCK*) daget(prog->allblocks, i))->tmpstore);
+    free(((BBLOCK*) daget(prog->allblocks, i))->availability);
+    free(((BBLOCK*) daget(prog->allblocks, i))->anticipability);
   }
 
   freeq(eqcontainer);
 }
 //https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/gvn_sas04.pdf
+//https://www.cs.purdue.edu/homes/hosking/papers/cc04.pdf
 #undef X

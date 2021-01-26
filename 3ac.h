@@ -51,8 +51,7 @@ extern const char* opcode_3ac_names[];
 
 enum passes {
   SSA = 1,
-  REGALLOC = 2,
-  ENDSSA = 4,
+  GVN = 2,
 };
 
 struct op;
@@ -120,9 +119,8 @@ typedef struct bblock {
   int work;
   int unreachable;
 
-  HASHTABLE* anticipable;
-  HASHTABLE* earliestness;
-  void* tmpstore;
+  char* anticipability; //bitfield
+  char* availability; //bitfield
 } BBLOCK;
 
 typedef struct {
