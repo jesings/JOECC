@@ -23,10 +23,10 @@ const char* name_MEMBERTYPE[] = {
 #undef X
 
 static int pdecl(DECLARATION* decl);
-static int structree(STRUCT* container);
-static int uniontree(UNION* container);
+static int structree(USTRUCT* container);
+static int uniontree(USTRUCT* container);
 
-static int structree(STRUCT* container) {
+static int structree(USTRUCT* container) {
   int structnode = nodenumber++;
   dprintf(funcfile, "n%d [label=\"STRUCT %s\"];\n", structnode, container->name ? container->name : "ANONYMOUS");
   for(int i = 0; i < container->fields->length; i++) {
@@ -50,7 +50,7 @@ static int structree(STRUCT* container) {
   return structnode;
 }
 
-static int uniontree(UNION* container) {
+static int uniontree(USTRUCT* container) {
   int unionnode = nodenumber++;
   dprintf(funcfile, "n%d [label=\"UNION %s\"];\n", unionnode, container->name ? container->name : "ANONYMOUS");
   for(int i = 0; i < container->fields->length; i++) {

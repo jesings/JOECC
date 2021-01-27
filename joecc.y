@@ -65,8 +65,7 @@
   EOI* firforvariant;
   STATEMENT* stmtvariant;
   DYNARR* arrvariant;
-  UNION* unionvariant;
-  STRUCT* structvariant;
+  USTRUCT* structvariant;
   ENUM* enumvariant;
   DECLARATION* declvariant;
   FUNC* funcvariant;
@@ -94,8 +93,7 @@
 %type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee escoa
 %type<stmtvariant> statement compound_statement
 %type<arrvariant> statements_and_initializers soiorno struct_decls struct_decl cs_decls enums escl escoal abstract_ptr cs_inits cs_minutes initializer array_literal structbody enumbody nameless params clobberlist clobbers operands operandlist
-%type<unionvariant> union fullunion
-%type<structvariant> struct fullstruct
+%type<structvariant> struct fullstruct union fullunion
 %type<enumvariant> enum fullenum
 %type<declvariant> declarator declname param_decl sdecl fptr spefptr
 %type<funcvariant> function
@@ -190,7 +188,7 @@ initializer:
       }
       if($2->tb & (STRUCTVAL | UNIONVAL)) {
         if(da) {
-          dc->type->structtype = structor(strdup($2->structtype->name), NULL, ctx);
+          dc->type->structtype = ustructor(strdup($2->structtype->name), NULL, ctx);
           dapush(da, &(dc->type->structtype));
         } else {
            dc->type->structtype = $2->structtype;
@@ -873,22 +871,22 @@ fullunion:
     } else {
       fprintf(stderr, "Error: redefinition of union %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
     }} structbody {
-    $$ = unionctor($2, $4, ctx); 
+    $$ = ustructor($2, $4, ctx);
     rmpaircfr(scopepeek(ctx)->unions, $2, free); //no-op if not predefined
     add2scope(ctx, $2, M_UNION, $$); 
-    defbackward(ctx, M_UNION, $2, (STRUCT*) $$);
+    defbackward(ctx, M_UNION, $2, (USTRUCT*) $$);
     };
 union:
   fullunion {$$ = $1;}
-| "union" structbody  {$$ = unionctor(NULL, $2, ctx);}
+| "union" structbody  {$$ = ustructor(NULL, $2, ctx);}
 | "union" generic_symbol {
-    $$ = (UNION*) scopesearch(ctx, M_UNION, $2);
+    $$ = (USTRUCT*) scopesearch(ctx, M_UNION, $2);
     if(!$$) {
       if(!queryval(scopepeek(ctx)->forwardunions, $2)) {
         add2scope(ctx, $2, M_UNION, NULL);
         insert(scopepeek(ctx)->forwardunions, $2, dactor(16));
       }
-      $$ = unionctor($2, NULL, ctx);
+      $$ = ustructor($2, NULL, ctx);
     } else {
       free($2);
     }
@@ -903,22 +901,22 @@ fullstruct:
     } else {
       fprintf(stderr, "Error: redefinition of struct %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
     }} structbody {
-    $$ = structor($2, $4, ctx); 
+    $$ = ustructor($2, $4, ctx); 
     rmpaircfr(scopepeek(ctx)->structs, $2, free); //no-op if not predefined
     add2scope(ctx, $2, M_STRUCT, $$);
     defbackward(ctx, M_STRUCT, $2, $$);
     };
 struct:
   fullstruct {$$ = $1;}
-| "struct" structbody {$$ = structor(NULL, $2, ctx);}
+| "struct" structbody {$$ = ustructor(NULL, $2, ctx);}
 | "struct" generic_symbol {
-    $$ = (STRUCT*) scopesearch(ctx, M_STRUCT, $2);
+    $$ = (USTRUCT*) scopesearch(ctx, M_STRUCT, $2);
     if(!$$) {
       if(!queryval(scopepeek(ctx)->forwardstructs, $2)) {
         add2scope(ctx, $2, M_STRUCT, NULL);
         insert(scopepeek(ctx)->forwardstructs, $2, dactor(16));
       }
-      $$ = structor($2, NULL, ctx);
+      $$ = ustructor($2, NULL, ctx);
     } else {
       free($2);
     }
@@ -990,7 +988,7 @@ struct_decl:
     }
     $$ = dactor(1);
     IDTYPE* tt = malloc(sizeof(IDTYPE));
-    tt->structtype = calloc(1, sizeof(STRUCT));
+    tt->structtype = calloc(1, sizeof(USTRUCT));
     tt->structtype->fields = $2;
     tt->pointerstack = NULL;
     tt->tb = STRUCTVAL | ANONMEMB;
@@ -1012,7 +1010,7 @@ struct_decl:
     }
     $$ = dactor(1);
     IDTYPE* tt = malloc(sizeof(IDTYPE));
-    tt->uniontype = calloc(1, sizeof(UNION));
+    tt->uniontype = calloc(1, sizeof(USTRUCT));
     tt->uniontype->fields = $2;
     tt->pointerstack = NULL;
     tt->tb = UNIONVAL | ANONMEMB;

@@ -77,13 +77,7 @@ typedef struct {
   char* name;
   HASHTABLE* offsets; //each entry is a struct that contains a full identifier and offset
   int size;
-} STRUCT;
-typedef struct {
-  DYNARR* fields;//Each entry is a struct that contains a full identifier
-  char* name;
-  HASHTABLE* hfields;//Each entry is a STRUCTFIELD
-  int size;
-} UNION;
+} USTRUCT;
 typedef struct {
   DYNARR* fields;
   char* name;
@@ -93,8 +87,8 @@ typedef struct {
   DYNARR* pointerstack;
   TYPEBITS tb;
   union {
-    STRUCT* structtype;
-    UNION* uniontype;
+    USTRUCT* structtype;
+    USTRUCT* uniontype;
     ENUM* enumtype;
   };
 } IDTYPE;
@@ -281,9 +275,9 @@ enum membertype {
 typedef struct {
   enum membertype mtype;
   union {
-    STRUCT* structmemb;
+    USTRUCT* structmemb;
     ENUM* enummemb;
-    UNION* unionmemb;
+    USTRUCT* unionmemb;
     IDTYPE* typememb;
     IDENTIFIERINFO* idi;
     EXPRESSION* enumnum;
@@ -316,8 +310,7 @@ struct macrodef {
   DYNARR* args;//NULL if not function like
 };
 
-STRUCT* structor(char* name, DYNARR* fields, struct lexctx* lct);
-UNION* unionctor(char* name, DYNARR* fields, struct lexctx* lct);
+USTRUCT* ustructor(char* name, DYNARR* fields, struct lexctx* lct);
 ENUM* enumctor(char* name, DYNARR* fields, struct lexctx* lct);
 OPERAND* genoperand(char* constraint, EXPRESSION* varin);
 EXPRESSION* cloneexpr(EXPRESSION* orig);
@@ -341,7 +334,7 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim);
 int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr);
 char type_compat(IDTYPE* id1, IDTYPE* id2);
 char isglobal(struct lexctx* lct, char* ident);
-void wipestruct(STRUCT* strct);
+void wipestruct(USTRUCT* strct);
 void freenum(ENUM* enm);
 void freetype(IDTYPE* id);
 void freeinit(INITIALIZER* i);
@@ -382,12 +375,12 @@ SCOPE* fakescopepeek(struct lexctx* lct);
 SCOPE* scopepeek(struct lexctx* lct);
 void* scopesearch(struct lexctx* lct, enum membertype mt, char* key);
 char scopequeryval(struct lexctx* lct, enum membertype mt, char* key);
-void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, STRUCT* assignval);
+void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, USTRUCT* assignval);
 INITIALIZER* decl2scope(DECLARATION* dec, EXPRESSION* ex, struct lexctx* lct);
 void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* memberval);
 TOPBLOCK* gtb(char isfunc, void* assign);
-void feedstruct(STRUCT* s);
-int unionlen(UNION* u);
+void feedstruct(USTRUCT* s);
+int unionlen(USTRUCT* u);
 
 #define locprint(lv) yyget_lloc(scanner)->filename, lv.first_line, lv.first_column, lv.last_line, lv.last_column
 #define dlocprint(lv) yyget_lloc(scanner)->filename, lv->first_line, lv->first_column, lv->last_line, lv->last_column

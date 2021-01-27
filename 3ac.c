@@ -588,7 +588,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       } else if(cexpr->vartype->tb & VOIDNUM) {
         return curaddr; //not sure how this should be handled
       } else if(cexpr->vartype->tb & UNIONVAL) { 
-        UNION* castdest = cexpr->vartype->uniontype;
+        USTRUCT* castdest = cexpr->vartype->uniontype;
         FILLREG(destaddr, ISPOINTER | 0x8);
         unionlen(castdest);
         otheraddr.addr.uintconst_64 = castdest->size;
@@ -1363,7 +1363,7 @@ void treeprog(PROGRAM* prog, char* fname, const char* pass) {
       printop(op, 0, blk, f, prog);
       fprintf(f, "<BR ALIGN=\"LEFT\"/>");
     }
-    fprintf(f, "</FONT></TD></TR></TABLE>> xlabel=\"%d\"]\n", blk->inedges ? blk->inedges->length : 0);
+    fprintf(f, "</FONT></TD></TR></TABLE>> fontcolor=white xlabel=\"%d\"]\n", blk->inedges ? blk->inedges->length : 0);
   }
   fprintf(f, "\n}");
   fclose(f);

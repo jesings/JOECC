@@ -447,16 +447,16 @@ IDTYPE typex(EXPRESSION* ex) {
     case DOTOP: case ARROW:
       idt = typex(daget(ex->params, 0));
       if(idt.tb & STRUCTVAL) {
-        STRUCT* ids = idt.structtype;
+        USTRUCT* ids = idt.structtype;
         if(!ids->offsets) feedstruct(ids);
         HASHTABLE* htb = ids->offsets;
         EXPRESSION* memex = daget(ex->params, 1);
         STRUCTFIELD* typified = search(htb, memex->member);
         idt = *typified->type;
       } else if(idt.tb & UNIONVAL) {
-        UNION* idu = idt.uniontype;
+        USTRUCT* idu = idt.uniontype;
         unionlen(idu);
-        HASHTABLE* htb = idu->hfields;
+        HASHTABLE* htb = idu->offsets;
         EXPRESSION* memex = daget(ex->params, 1);
         idt = *(IDTYPE*) ((STRUCTFIELD*) search(htb, memex->member))->type;
       } else {

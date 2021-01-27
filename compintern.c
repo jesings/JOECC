@@ -4,8 +4,8 @@
 #include "treeduce.h"
 #include "joecc.tab.h"
 
-STRUCT* structor(char* name, DYNARR* fields, struct lexctx* lct) {
-    STRUCT* retval = malloc(sizeof(STRUCT));
+USTRUCT* ustructor(char* name, DYNARR* fields, struct lexctx* lct) {
+    USTRUCT* retval = malloc(sizeof(USTRUCT));
     retval->name = name;
     retval->fields = fields;
     retval->offsets = NULL;
@@ -13,17 +13,6 @@ STRUCT* structor(char* name, DYNARR* fields, struct lexctx* lct) {
     dapush(lct->enstruct2free, retval);
     return retval;
 }
-
-UNION* unionctor(char* name, DYNARR* fields, struct lexctx* lct) {
-    UNION* retval = malloc(sizeof(UNION));
-    retval->name = name;
-    retval->fields = fields;
-    retval->hfields = NULL;
-    retval->size = 0;
-    dapush(lct->enstruct2free, retval);
-    return retval;
-}
-
 ENUM* enumctor(char* name, DYNARR* fields, struct lexctx* lct) {
     ENUM* retval = malloc(sizeof(ENUM));
     retval->name = name;
@@ -273,8 +262,8 @@ char typecompat(IDTYPE* t1, IDTYPE* t2) {
   if(t1->tb & (STRUCTVAL | UNIONVAL)) {
     if(!(t2->tb & (STRUCTVAL | UNIONVAL)))
       return 0;
-    STRUCT* st1 = t1->structtype;
-    STRUCT* st2 = t2->structtype;
+    USTRUCT* st1 = t1->structtype;
+    USTRUCT* st2 = t2->structtype;
     if(st1->fields->length != st2->fields->length)
       return 0;
     for(int i = 0; i < st1->fields->length; i++) {
@@ -330,7 +319,7 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim) {
 
 int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
   struct_expr->type = STRUCT_LIT;
-  STRUCT* imptype = struct_memtype->structtype;
+  USTRUCT* imptype = struct_memtype->structtype;
   feedstruct(imptype);
   if(struct_memtype->tb & UNIONVAL) {
     //union initializers only do the first item in the union (without designators)
@@ -362,7 +351,7 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
   return imptype->size;
 }
 
-void wipestruct(STRUCT* strct) {
+void wipestruct(USTRUCT* strct) {
   if(strct->fields) {
     for(int i = 0; i < strct->fields->length; ++i) {
       DECLARATION* dcl = strct->fields->arr[i];
@@ -880,7 +869,7 @@ SCOPE* mkfakescope(void) {
   return child;
 }
 
-void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, STRUCT* assignval) {
+void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, USTRUCT* assignval) {
   DYNARR* da;
   switch(mt) {
     case M_STRUCT:
@@ -896,7 +885,7 @@ void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, STRUCT* as
       return;
   }
   for(int i = 0; i < da->length; i++) {
-    STRUCT** vloc = daget(da, i);
+    USTRUCT** vloc = daget(da, i);
     *vloc = assignval;
   }
   dadtor(da);
@@ -1176,7 +1165,7 @@ TOPBLOCK* gtb(char isfunc, void* assign) {
   return retval;
 }
 
-void feedstruct(STRUCT* s) {
+void feedstruct(USTRUCT* s) {
   switch(s->size) {
     case 0:
       if(s->offsets)
@@ -1251,10 +1240,10 @@ void feedstruct(STRUCT* s) {
   }
 }
 
-int unionlen(UNION* u) {
+int unionlen(USTRUCT* u) {
   switch(u->size) {
     case 0:
-      u->hfields = htctor();
+      u->offsets = htctor();
       u->size = -1;
       DYNARR* mm = u->fields;
       DYNARR* newmm = dactor(mm->maxlength);
@@ -1276,7 +1265,7 @@ int unionlen(UNION* u) {
                 STRUCTFIELD* sf = search(mmi->type->structtype->offsets, mmi2->varname);
                 STRUCTFIELD* sf2 = malloc(sizeof(STRUCTFIELD));
                 *sf2 = *sf;
-                insert(u->hfields, mmi2->varname, sf2);
+                insert(u->offsets, mmi2->varname, sf2);
                 dapush(newmm, mmi2);
                 free(sf);
               }
@@ -1304,7 +1293,7 @@ int unionlen(UNION* u) {
           STRUCTFIELD* sf = malloc(sizeof(STRUCTFIELD));
           sf->type = mmi->type;
           sf->offset = 0;
-          insert(u->hfields, mmi->varname, sf);
+          insert(u->offsets, mmi->varname, sf);
         }
       }
       dadtor(mm);
