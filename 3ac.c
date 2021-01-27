@@ -1103,6 +1103,7 @@ PROGRAM* linefunc(FUNC* f) {
 static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char color, FILE* f, PROGRAM* prog) {
   if(addr_type & ISLABEL) {
     if(color) fprintf(f, RGBCOLOR(255,200,10));
+    else fprintf(f, "<FONT COLOR=\"#%.2hhx%.2hhx%.2hhx\">", 255, 200, 10);
     if(addr_type & ISDEREF) fprintf(f, "({%s})", addr.labelname);
     else                    fprintf(f, "{%s}", addr.labelname);
     if(!(addr_type & ISCONST)) {
@@ -1110,11 +1111,13 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char color, FILE* f, PRO
       else                    fprintf(f, ".%d%c", (addr_type & 0xf) * 8, addr_type & ISSIGNED ? 's' : 'u');
     }
     if(color) fprintf(f, CLEARCOLOR);
+    else fprintf(f, "</FONT>");
   } else if(addr_type & ISCONST) {
     assert(!(addr_type & ISDEREF));
     if(addr_type & ISSTRCONST) {
       int l = strlen(addr.strconst);
       if(color) fprintf(f, RGBCOLOR(90,180,180));
+      else fprintf(f, "<FONT COLOR=\"#%.2hhx%.2hhx%.2hhx\">", 90, 180, 180);
       if(!l)
         fprintf(f, "\"\"");
       else if(addr.strconst[l - 1] != '\n')
@@ -1122,8 +1125,10 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char color, FILE* f, PRO
       else
         fprintf(f, "\"%.*s\\n\"", l - 1, addr.strconst);
       if(color) fprintf(f, CLEARCOLOR);
+      else fprintf(f, "</FONT>");
     } else {
       if(color) fprintf(f, RGBCOLOR(250,60,60));
+      else fprintf(f, "<FONT COLOR=\"#%.2hhx%.2hhx%.2hhx\">", 250, 60, 60);
       if(addr_type & ISFLOAT) 
         fprintf(f, "%lf", addr.floatconst_64);
       else if(addr_type & ISSIGNED) 
@@ -1131,10 +1136,12 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char color, FILE* f, PRO
       else
         fprintf(f, "%lu", addr.intconst_64);
       if(color) fprintf(f, CLEARCOLOR);
+      else fprintf(f, "</FONT>");
     }
   } else {
     int sz = (addr_type & 0xf) * 8;
     if(color) fprintf(f, RGBCOLOR(60,220,60));
+    else fprintf(f, "<FONT COLOR=\"#%.2hhx%.2hhx%.2hhx\">", 60, 220, 60);
     if(addr_type & ISVAR) {
       char* adname = daget(prog->dynchars, addr.varnum);
       if(prog->pdone & SSA && !(addr_type & ADDRSVAR)) {
@@ -1150,6 +1157,7 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char color, FILE* f, PRO
     }
     fprintf(f, ".%d%c", sz, addr_type & ISFLOAT ? 'f' : addr_type & ISSIGNED ? 's' : 'u');
     if(color) fprintf(f, CLEARCOLOR);
+    else fprintf(f, "</FONT>");
   }
 }
 
@@ -1187,8 +1195,10 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
       break;
     case LBL_3: 
       if(color) fprintf(f, RGBCOLOR(200,200,120));
+      else fprintf(f, "<FONT COLOR=\"#%.2hhx%.2hhx%.2hhx\">", 200, 200, 120);
       fprintf(f, "%s:", op->addr0.labelname);
       if(color) fprintf(f, CLEARCOLOR);
+      else fprintf(f, "</FONT>");
       break;
     case COPY_3: //TODO: make sure deref is safe
       PRINTOP3( );
@@ -1337,6 +1347,7 @@ void treeprog(PROGRAM* prog, char* fname, const char* pass) {
   FILE* f = fopen(filen, "w");
   fprintf(f, "strict digraph %s {\n", fname);
   fprintf(f, "rankdir=TB\nnode [shape=none]\n");
+  fprintf(f, "graph [bgcolor=gray12]\n");
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     if(blk->nextblock)
@@ -1344,15 +1355,15 @@ void treeprog(PROGRAM* prog, char* fname, const char* pass) {
     if(blk->branchblock)
       fprintf(f, "\"%p\" -> \"%p\" [color=red]\n", blk, blk->branchblock);
     if(!blk->lastop) {
-      fprintf(f, "\"%p\" [xlabel=\"%d\"]", blk, blk->inedges ? blk->inedges->length : 0);
+      fprintf(f, "\"%p\" [xlabel=\"%d\" fontcolor=white]", blk, blk->inedges ? blk->inedges->length : 0);
       continue;
     }
-    fprintf(f, "\"%p\" [label=<<TABLE BORDER=\"0\" CELLBORDER=\"1\"><TR><TD>", blk);
+    fprintf(f, "\"%p\" [label=<<TABLE BORDER=\"0\" CELLBORDER=\"1\" BGCOLOR=\"#353632\"><TR><TD><FONT COLOR=\"#e3f2e6\">", blk);
     for(OPERATION* op = blk->firstop; op != blk->lastop->nextop; op = op->nextop) {
       printop(op, 0, blk, f, prog);
       fprintf(f, "<BR ALIGN=\"LEFT\"/>");
     }
-    fprintf(f, "</TD></TR></TABLE>> xlabel=\"%d\"]\n", blk->inedges ? blk->inedges->length : 0);
+    fprintf(f, "</FONT></TD></TR></TABLE>> xlabel=\"%d\"]\n", blk->inedges ? blk->inedges->length : 0);
   }
   fprintf(f, "\n}");
   fclose(f);
