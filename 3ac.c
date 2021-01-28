@@ -218,7 +218,6 @@ OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog
   FULLADDR desta;
   if(ispointer2(retid)) {
     FILLREG(desta, ISPOINTER | 8);
-    //perhaps save regnum here?
   } else if(retid.tb & FLOATNUM) {
     op += 2;
     if(!(arg1id.tb & FLOATNUM)) {
@@ -305,7 +304,8 @@ OPERATION* cmpret_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog)
 OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
   FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog);
-  //check for no floats?
+  assert(!(a1.addr_type & ISFLOAT));
+  assert(!(a2.addr_type & ISFLOAT));
   enum opcode_3ac shlop = opcode_unsigned + (a1.addr_type & ISSIGNED ? 1 : 0);
   FULLADDR adr;
   FILLREG(adr, a1.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
@@ -609,7 +609,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
           opn(prog, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         }
       } else {
-        //don't support casting structs and unions yet
+        //don't support casting structs yet
         assert(0);
       }
       return destaddr;
@@ -645,12 +645,12 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         opn(prog, ct_3ac_op2(I2F, otheraddr.addr_type, otheraddr.addr, ad2.addr_type, ad2.addr));
         otheraddr = ad2;
       }
+      assert((curaddr.addr_type & ISFLOAT) == (otheraddr.addr_type & ISFLOAT)); //confirm 2 addrs have same type or are coercible
       destaddr.addr_type = addrconv(&t3t);
       destaddr.addr.iregnum = prog->iregcnt++;
       giveblock(prog, joinblock);
       opn(prog, ct_3ac_op3(TPHI, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
       return destaddr;
-      //confirm 2 addrs have same type or are coercible
 
     case ASSIGN:
       varty = typex(cexpr);
@@ -699,10 +699,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return cmpnd_assign(MOD_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
        //type coercion stupid and unclear
     case NOP: case MEMBER:
-      //unfilled, dummy register, never to be used unless the program is seriously malformed
-      destaddr.addr_type = 0;
-      destaddr.addr.intconst_64 = -1;
-      return destaddr;
+      assert(0);
     case SZOF:
       varty = *cexpr->vartype;
       destaddr.addr_type = ISCONST | 8;
@@ -919,7 +916,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       dapop(prog->breaklabels);
       giveblock(prog, breakblock);
       return;
-    case FORL: //TODO: empty for
+    case FORL:
       breakblock = mpblk();
       contblock = mpblk();
       topblock = mpblk();
@@ -940,7 +937,8 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       giveblock(prog, otherblock);
       solidstate(cst->forbody, prog);
       giveblock(prog, contblock);
-      linearitree(cst->increment, prog);
+      if(cst->increment->type != NOP)
+        linearitree(cst->increment, prog);
       prog->curblock->nextblock = topblock;
       dapush(topblock->inedges, prog->curblock);
       dapop(prog->continuelabels);
@@ -972,7 +970,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       prog->curblock = NULL;
       giveblock(prog, breakblock);
       return;
-    case IFELSES: //TODO: what if nop in if condition
+    case IFELSES:
       breakblock = mpblk();
       contblock = mpblk();
       otherblock = mpblk();
@@ -1034,10 +1032,10 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
         }
         damerge(prog->curblock->inedges, daget(toempty, 0));
         dadtor(toempty);
+        rmpair(prog->unfilledlabels, cst->glabel);
       }
       return;
     case CMPND: 
-      //probably more stack stuff will need to be done here?
       if(cst->stmtsandinits) {
         for(int i = 0; i < cst->stmtsandinits->length; i++) {
           SOI* s = (SOI*) daget(cst->stmtsandinits, i);
@@ -1406,6 +1404,7 @@ void freeprog(PROGRAM* prog) {
   dadtorfr(prog->dynvars);
   dadtor(prog->dynchars);
   htdtor(prog->labels);
-  htdtor(prog->unfilledlabels);//if there are remaining entries, jumps without targets exist, very bad
+  assert(prog->unfilledlabels->keys == 0);
+  htdtor(prog->unfilledlabels);
   free(prog);
 }
