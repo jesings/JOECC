@@ -71,19 +71,22 @@ struct arginfo {
 %x CALLMACRO FINDREPLACE
 %x WITHINIF CHECKDEFINED CHECKDEFINED2
 
-/*TODO: traverse stack to find non-dummy for __FILE__ and __LINE__*/
 %%
 <CALLMACRO,WITHINIF,INITIAL>{
   "__FILE__" {
     char linebuf[300];
-    int bsize = sprintf(linebuf, "\"%s\"", yylloc->filename);
+    int i = lctx->withindefines->keys;
+    YYLTYPE* ylt = i ? daget(lctx->ls->locs, lctx->ls->locs->length - i) : yylloc;
+    int bsize = sprintf(linebuf, "\"%s\"", ylt->filename);
     yypush_stringbuffer(linebuf, bsize, "__FILE__", YY_CURRENT_BUFFER, yyscanner);
     yy_push_state(yy_top_state(yyscanner), yyscanner);
   }
   "__LINE__" {
     char linebuf[16]; 
-    int bsize = sprintf(linebuf, "%d", yylloc->last_line); 
-    yypush_stringbuffer(linebuf, bsize, "__LINE__", YY_CURRENT_BUFFER, yyscanner); //push dummy value
+    int i = lctx->withindefines->keys;
+    YYLTYPE* ylt = i ? daget(lctx->ls->locs, lctx->ls->locs->length - i) : yylloc;
+    int bsize = sprintf(linebuf, "%d", ylt->last_line);
+    yypush_stringbuffer(linebuf, bsize, "__LINE__", YY_CURRENT_BUFFER, yyscanner);
     yy_push_state(yy_top_state(yyscanner), yyscanner);
   }
   "__DATE__" {
@@ -92,7 +95,7 @@ struct arginfo {
     localtime_r(&tim, &tms);
     char datebuf[20]; 
     size_t datesize = strftime(datebuf, 16, "\"%b %e %Y\"", &tms);
-    yypush_stringbuffer(datebuf, datesize, "__DATE__", YY_CURRENT_BUFFER, yyscanner); //push dummy value
+    yypush_stringbuffer(datebuf, datesize, "__DATE__", YY_CURRENT_BUFFER, yyscanner);
     yy_push_state(yy_top_state(yyscanner), yyscanner);
   }
   "__TIME__" {
@@ -101,7 +104,7 @@ struct arginfo {
     localtime_r(&tim, &tms); 
     char timebuf[16]; 
     size_t timesize = strftime(timebuf, 13, "\"%T\"", &tms);
-    yypush_stringbuffer(timebuf, timesize, "__TIME__", YY_CURRENT_BUFFER, yyscanner); //push dummy value
+    yypush_stringbuffer(timebuf, timesize, "__TIME__", YY_CURRENT_BUFFER, yyscanner);
     yy_push_state(yy_top_state(yyscanner), yyscanner);
   }
   "__func__" {
@@ -1111,7 +1114,7 @@ inline void yypush_stringbuffer(char* str, int length, const char* macname, YY_B
   dapush(lctx->ls->locs, ylt);
   ylc->first_line = ylc->last_line = 1;
   ylc->first_column = ylc->last_column = 0;
-  if(macname) ylc->filename = strdup(macname); 
+  if(macname) ylc->filename = strdup(macname);
   else ylc->filename = NULL;
 }
 

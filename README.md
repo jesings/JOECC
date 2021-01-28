@@ -15,8 +15,10 @@ NOTE: JOECC is a work-in progress, and currently cannot fully compile code
 - [x] Static Single Assignment conversion
 - [x] Constant Folding
 - [x] Global Value Numbering
-- [ ] Avail based removal and Partial redundancy elimination (in progress)
-- [ ] Conditional Constant Propagation
+- [ ] Better Arithmetic Reassociation
+- [ ] GVN Based Partial redundancy elimination (in progress)
+- [ ] Sparse Conditional Constant Propagation
+- [ ] Pointer Analysis
 - [ ] Scalar Replacement of Aggregates
 - [ ] Other Optimizations (to be enumerated further later)
 - [ ] Register Allocation
