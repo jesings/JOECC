@@ -82,7 +82,7 @@
 %}
 
 %initial-action {
-  @$.filename = strdup(filename);
+  @$.filename = filename;
 }
 
 %type<str> generic_symbol

@@ -1091,6 +1091,11 @@ PROGRAM* linefunc(FUNC* f) {
     dapush(prog->dynchars, pdec->varname);
   }
   solidstate(f->body, prog);
+  BBLOCK* beforeexit = dapeek(prog->allblocks);
+  if(!beforeexit->nextblock) {
+    beforeexit->nextblock = prog->finalblock;
+    dapush(prog->finalblock->inedges, beforeexit);
+  }
   dapush(prog->allblocks, prog->finalblock);
   return prog;
 }

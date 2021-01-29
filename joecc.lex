@@ -253,14 +253,14 @@ struct arginfo {
 
   {MSTRING} {
     free(yylloc->filename);
-    yylloc->filename = strdup(yytext);
+    yytext[yyleng - 1] = '\0';
+    yylloc->filename = strdup(yytext + 1);
   }
 
-  {BLANKC} {}
+  ({BLANKC}|{SKIPNEWL})* {}
 
   \n {
     yy_pop_state(yyscanner);
-    yy_push_state(KILLUNTIL, yyscanner); 
   }
 }
 

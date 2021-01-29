@@ -57,7 +57,8 @@ static void filecomp(char* filename) {
 #ifdef NODEBUG
   yyset_debug(0, scanner);//not debugging lexer for now
 #endif
-  yyparse(scanner, filename);
+  yyparse(scanner, strdup(filename));
+  free(yyget_lloc(scanner)->filename);
   yylex_destroy(scanner);
   dadtorcfr(lctx->enumerat2free, (void(*)(void*)) freenum);
   bightdtorcfr(lctx->defines, (void (*)(void*)) freemd);
