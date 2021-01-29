@@ -10,6 +10,7 @@ SCOMMENT \/\/([^\\\n]|{SKIPNEWALL})*
 MCOMMENT "/*"("*"+[^*/]|[^*])*"*"+"/"
 BLANKC ([[:blank:]]|{MCOMMENT})*
 PPSTART [[:blank:]]*#{BLANKC}
+MSTRING \"(\\.|[^\\"]|{SKIPNEWL})*\"
 %{
 //TODO: computed include? variadic macros?
 
@@ -66,7 +67,7 @@ struct arginfo {
 %x PPSKIP KILLBLANK KILLUNTIL
 %x INCLUDE INCLUDENEXT
 %x IFDEF DEFINE UNDEF DEFARG DEFINE2
-%x ERROR WARNING
+%x ERROR WARNING LINE
 %x STRINGLIT CHARLIT
 %x CALLMACRO FINDREPLACE
 %x WITHINIF CHECKDEFINED CHECKDEFINED2
@@ -132,7 +133,7 @@ struct arginfo {
 ^{PPSTART}define{BLANKC} {yy_push_state(DEFINE, yyscanner); lctx->ls->md = calloc(1, sizeof(struct macrodef));}
 ^{PPSTART}undef{BLANKC} {yy_push_state(UNDEF, yyscanner);}
 
-^{PPSTART}line{BLANKC} {yy_push_state(KILLUNTIL, yyscanner);/*TODO: line directive currently doesn't apply requisite information*/}
+^{PPSTART}line{BLANKC} {yy_push_state(LINE, yyscanner); lctx->ls->stmtover = 0;}
 ^{PPSTART}warning{BLANKC} {yy_push_state(WARNING, yyscanner);}
 ^{PPSTART}error{BLANKC} {yy_push_state(ERROR, yyscanner);}
 
@@ -225,7 +226,7 @@ struct arginfo {
 ^{PPSTART} {yy_push_state(KILLUNTIL, yyscanner); fprintf(stderr, "Error: unkown preprocessor keyword encountered on line %d! %s %d.%d-%d.%d\n", yylloc->last_line, locprint2(yylloc));}
 
 <WARNING>{
-  \"(\\.|[^\\"]|{SKIPNEWL})*\" {
+  {MSTRING} {
     /*WARNING, ERROR, only support single string const*/
     yy_pop_state(yyscanner); 
     yy_push_state(KILLUNTIL, yyscanner); 
@@ -234,12 +235,32 @@ struct arginfo {
   }
 }
 <ERROR>{
-  \"(\\.|[^\\"]|{SKIPNEWL})*\" {/*"*/
+    {MSTRING} {/*"*/
     yy_pop_state(yyscanner); 
     yy_push_state(KILLUNTIL, yyscanner); 
     yytext[yyleng - 1] = '\0'; 
     fprintf(stderr, "ERROR: %s\n", yytext + 1);
     exit(0);
+  }
+}
+
+<LINE>{
+  [0-9]+ {
+    int i;
+    sscanf(yytext, "%d", &i);
+    yylloc->first_line = yylloc->last_line = i;
+  }
+
+  {MSTRING} {
+    free(yylloc->filename);
+    yylloc->filename = strdup(yytext);
+  }
+
+  {BLANKC} {}
+
+  \n {
+    yy_pop_state(yyscanner);
+    yy_push_state(KILLUNTIL, yyscanner); 
   }
 }
 

@@ -61,7 +61,6 @@ OPERATION* implicit_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* pro
       a1 = ptarith(retid, a1, prog);
     }
     FILLREG(desta, ISPOINTER | 8);
-    //perhaps save regnum here?
   } else if(retid.tb & FLOATNUM) {
     op += 2;
     if(!(arg1id.tb & FLOATNUM)) {
@@ -447,7 +446,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case L_NOT:
       //TODO: validate lots of types
       curaddr = linearitree(daget(cexpr->params, 0), prog);
-      FILLREG(destaddr, (curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | 0xf | ISVAR)) | 1);
+      FILLREG(destaddr, (curaddr.addr_type & ISSIGNED) | 1);
       //logical not only makes sense for ints
       otheraddr.addr.uintconst_64 = 0;
       opn(prog, ct_3ac_op3(EQ_U, curaddr.addr_type, curaddr.addr, (curaddr.addr_type & 0xf) | ISCONST, otheraddr.addr,
@@ -830,7 +829,6 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
         } else if(!(lastemp.addr_type & ISFLOAT) && (newa->addr_type & ISFLOAT)) {
           opn(prog, ct_3ac_op2(I2F, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
         } else {
-          //force float conversion in mov if necessary?
           opn(prog, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
         }
       }
@@ -988,7 +986,6 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       giveblock(prog, breakblock);
       return;
     case SWITCH:
-      //TODO: check cases, if they're all within 1024 of each other, construct jump table, else make if else with jumps, current solution, but make it more bst like
       breakblock = mpblk();
       FULLADDR fad = linearitree(cst->cond, prog);
       dapush(prog->breaklabels, breakblock);
