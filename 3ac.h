@@ -115,10 +115,9 @@ typedef struct bblock {
   struct bblock* branchblock;
   struct bblock* dom;
   struct bblock* postdom;
-  int domind;
+  int domind, postdomind;
   int visited;
   int work;
-  int unreachable;
 
   char* anticipability; //bitfield
   char* availability; //bitfield

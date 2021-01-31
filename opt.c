@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include "opt.h"
 void domark(BBLOCK* blk) {
-  blk->unreachable = 1;
+  blk->domind = -1;
   if(blk->nextblock) {
     dharma(blk->nextblock->inedges, blk);
     if(blk->nextblock->inedges == 0) domark(blk->nextblock);
@@ -19,7 +19,7 @@ char markunreach(DYNARR* pb) {
     //ignore first block
     for(int i = 1; i < pb->length; i++) {
       BBLOCK* poss = daget(pb, i);
-      if(poss->unreachable) continue;
+      if(poss->domind == -1) continue;
       if(poss->inedges->length == 0) {
         changed = 1;
         domark(poss);
@@ -34,7 +34,7 @@ void rmunreach(PROGRAM* prog) {
   dapush(newall, daget(oldall, 0));
   for(int i = 1; i < oldall->length; i++) {
     BBLOCK* oldb = daget(oldall, i);
-    if(oldb->unreachable) {
+    if(oldb->domind == -1) {
       freeblock(oldb);
     } else {
       dapush(newall, oldb);

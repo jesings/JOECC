@@ -13,8 +13,8 @@ static BBLOCK* intersect(BBLOCK* n1, BBLOCK* n2) {
 
 static BBLOCK* postintersect(BBLOCK* n1, BBLOCK* n2) {
   while(n1 != n2) {
-    while(n1->domind < n2->domind) n1 = n1->postdom;
-    while(n2->domind < n1->domind) n2 = n2->postdom;
+    while(n1->postdomind > n2->postdomind) n1 = n1->postdom;
+    while(n2->postdomind > n1->postdomind) n2 = n2->postdom;
   }
   return n1;
 }
@@ -31,6 +31,16 @@ static void rpdt(BBLOCK* root, BBLOCK** aclist, int* ind) {
   rpdt(root->nextblock, aclist, ind);
   rpdt(root->branchblock, aclist, ind);
   root->domind = *ind;
+  aclist[--(*ind)] = root;
+}
+
+static void rupdt(BBLOCK* root, BBLOCK** aclist, int* ind) {
+  if(!root) return;
+  if(root->visited) return;
+  root->visited = 1;
+  for(int i = 0; i < root->inedges->length; i++)
+    rupdt(daget(root->inedges, i), aclist, ind);
+  root->postdomind = *ind;
   aclist[--(*ind)] = root;
 }
 
@@ -168,10 +178,9 @@ void ssa(PROGRAM* prog) {
     dtn->visited = 0;
     dtn->domind = -1;
   }
-  BBLOCK** blocklist = calloc(sizeof(BBLOCK*), (blocks->length));
+  BBLOCK** blocklist = calloc(sizeof(BBLOCK*), blocks->length);
   BBLOCK* first = daget(blocks, 0);
   first->dom = first;
-  prog->finalblock->postdom = prog->finalblock;
   first->domind = 1;
   int ind = blocks->length;
   rpdt(first->nextblock, blocklist, &ind);
@@ -209,13 +218,23 @@ void ssa(PROGRAM* prog) {
     }
   }
 
+  for(int i = 0; i < blocks->length; i++) {
+    BBLOCK* dtn = daget(blocks, i);
+    dtn->visited = 0;
+    blocklist[i] = NULL;
+  }
+
+  ind = blocks->length;
+  prog->finalblock->postdom = prog->finalblock;
+  prog->finalblock->postdomind = 0;
+  for(int i = 0; i < prog->finalblock->inedges->length; i++)
+    rupdt(daget(prog->finalblock->inedges, i), blocklist, &ind);
+
   changed = 1;
-  while(changed) {
+  while(!changed) {
     changed = 0;
-    for(int i = oldlen - 1; i >= ind; i--) {
+    for(int i = ind; i < blocks->length; i++) {
       BBLOCK* cb = blocklist[i];
-      if(!cb) continue;
-      if(cb == prog->finalblock) continue;
       BBLOCK* new_pidom = NULL;
       if(cb->nextblock->postdom) {
         if(cb->branchblock && cb->branchblock->postdom)
@@ -235,6 +254,7 @@ void ssa(PROGRAM* prog) {
 
   free(blocklist);
   //populate in parents
+  first->visited = 0;
   for(int i = 1; i < blocks->length; i++) {//start at one so as not to let start block idominate itself
     BBLOCK* cb = daget(blocks, i);
     if(cb->dom) {

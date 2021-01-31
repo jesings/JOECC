@@ -953,7 +953,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       solidstate(cst->body, prog);
       linearitree(cst->cond, prog);
       giveblock(prog, contblock);
-      cmptype(cst->cond, topblock, breakblock, prog);
+      cmptype(cst->cond, breakblock, topblock, prog);
       dapop(prog->continuelabels);
       dapop(prog->breaklabels);
       giveblock(prog, breakblock);
@@ -1355,7 +1355,7 @@ void treeprog(PROGRAM* prog, char* fname, const char* pass) {
     if(blk->branchblock)
       fprintf(f, "\"%p\" -> \"%p\" [color=red]\n", blk, blk->branchblock);
     if(!blk->lastop) {
-      fprintf(f, "\"%p\" [xlabel=\"%d\" fontcolor=white]", blk, blk->inedges ? blk->inedges->length : 0);
+      fprintf(f, "\"%p\" [xlabel=\"%d, %d\" fontcolor=white]", blk, blk->domind, blk->df ? blk->df->length : 0);
       continue;
     }
     fprintf(f, "\"%p\" [label=<<TABLE BORDER=\"0\" CELLBORDER=\"1\" BGCOLOR=\"#353632\"><TR><TD><FONT COLOR=\"#e3f2e6\">", blk);
@@ -1363,7 +1363,7 @@ void treeprog(PROGRAM* prog, char* fname, const char* pass) {
       printop(op, 0, blk, f, prog);
       fprintf(f, "<BR ALIGN=\"LEFT\"/>");
     }
-    fprintf(f, "</FONT></TD></TR></TABLE>> fontcolor=white xlabel=\"%d\"]\n", blk->inedges ? blk->inedges->length : 0);
+    fprintf(f, "</FONT></TD></TR></TABLE>> fontcolor=white xlabel=\"%d, %d\"]\n", blk->domind, blk->df ? blk->df->length : 0);
   }
   fprintf(f, "\n}");
   fclose(f);
