@@ -114,6 +114,7 @@ typedef struct bblock {
   struct bblock* nextblock;
   struct bblock* branchblock;
   struct bblock* dom;
+  struct bblock* postdom;
   int domind;
   int visited;
   int work;

@@ -11,6 +11,14 @@ static BBLOCK* intersect(BBLOCK* n1, BBLOCK* n2) {
   return n1;
 }
 
+static BBLOCK* postintersect(BBLOCK* n1, BBLOCK* n2) {
+  while(n1 != n2) {
+    while(n1->domind < n2->domind) n1 = n1->postdom;
+    while(n2->domind < n1->domind) n2 = n2->postdom;
+  }
+  return n1;
+}
+
 static char fixedintersect(const BBLOCK* fb, BBLOCK* gb) {
   while(fb->domind < gb->domind) gb = gb->dom;
   return fb->domind == gb->domind;
@@ -157,13 +165,13 @@ void ssa(PROGRAM* prog) {
   DYNARR* blocks = prog->allblocks;
   for(int i = 0; i < blocks->length; i++) {
     BBLOCK* dtn = daget(blocks, i);
-    dtn->dom = NULL;
     dtn->visited = 0;
     dtn->domind = -1;
   }
   BBLOCK** blocklist = calloc(sizeof(BBLOCK*), (blocks->length));
   BBLOCK* first = daget(blocks, 0);
   first->dom = first;
+  prog->finalblock->postdom = prog->finalblock;
   first->domind = 1;
   int ind = blocks->length;
   rpdt(first->nextblock, blocklist, &ind);
@@ -194,10 +202,37 @@ void ssa(PROGRAM* prog) {
           }
         }
       }
-      if(cb->dom != new_idom) 
-        cb->dom = new_idom, changed = 1;
+      if(cb->dom != new_idom) {
+        cb->dom = new_idom;
+        changed = 1;
+      }
     }
   }
+
+  changed = 1;
+  while(changed) {
+    changed = 0;
+    for(int i = oldlen - 1; i >= ind; i--) {
+      BBLOCK* cb = blocklist[i];
+      if(!cb) continue;
+      if(cb == prog->finalblock) continue;
+      BBLOCK* new_pidom = NULL;
+      if(cb->nextblock->postdom) {
+        if(cb->branchblock && cb->branchblock->postdom)
+          new_pidom = postintersect(cb->branchblock, cb->nextblock);
+        else
+          new_pidom = cb->nextblock;
+      } else {
+        if(cb->branchblock && cb->branchblock->postdom)
+          new_pidom = cb->branchblock;
+      }
+      if(cb->postdom != new_pidom) {
+        cb->postdom = new_pidom;
+        changed = 1;
+      }
+    }
+  }
+
   free(blocklist);
   //populate in parents
   for(int i = 1; i < blocks->length; i++) {//start at one so as not to let start block idominate itself
@@ -766,7 +801,6 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
   replacenode(daget(prog->allblocks, 0), eqcontainer, prog);
 
   free(prog->tmpstore);
-
   for(int i = 0; i < prog->allblocks->length; i++) {
     free(((BBLOCK*) daget(prog->allblocks, i))->availability);
     free(((BBLOCK*) daget(prog->allblocks, i))->anticipability);
