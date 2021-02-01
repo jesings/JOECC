@@ -10,7 +10,8 @@
 
 const char magic[16] = {0x7f, 0x45, 0x4c, 0x46, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 pthread_mutex_t printlock, listlock;
-int listptr, glargc;
+int listptr;
+DYNARR* files;
 
 struct yyltype {int first_line, last_line, first_column, last_column; char* filename;};
 
@@ -118,16 +119,15 @@ static void filecomp(char* filename) {
 }
 
 static void* ldeleg(void* arg) {
-  char** largv = (char**) arg;
   while(1) {
     pthread_mutex_lock(&listlock);
     int ws = listptr++;
-    if(ws >= glargc) {
+    if(ws >= files->length) {
       pthread_mutex_unlock(&listlock);
       return NULL;
     }
     pthread_mutex_unlock(&listlock);
-    filecomp(largv[ws]);
+    filecomp(daget(files, ws));
   }
 }
 
@@ -136,37 +136,50 @@ int main(int argc, char** argv) {
     exit(0);
   }
   pthread_t pt2, pt3, pt4;
-  listptr = 1;
-  glargc = argc;
+  listptr = 0;
+  int opt;
+  files = dactor(argc);
+  while(optind < argc) {
+    opt = getopt(argc, argv, "cl:");
+    switch(opt) {
+      case 'l': case 'c': default:
+        break;
+      case -1:
+        dapush(files, argv[optind]);
+        optind += 1;
+        break;
+    }
+  }
   pthread_mutex_init(&printlock, NULL);
   pthread_mutex_init(&listlock, NULL);
-  switch(argc) {
+  switch(files->length) {
     default:
-      pthread_create(&pt4, NULL, ldeleg, argv);
-      //fall through
-    case 4:
-      pthread_create(&pt3, NULL, ldeleg, argv);
+      pthread_create(&pt4, NULL, ldeleg, NULL);
       //fall through
     case 3:
-      pthread_create(&pt2, NULL, ldeleg, argv);
+      pthread_create(&pt3, NULL, ldeleg, NULL);
       //fall through
     case 2:
-      ldeleg(argv);
+      pthread_create(&pt2, NULL, ldeleg, NULL);
+      //fall through
     case 1:
+      ldeleg(NULL);
+    case 0:
       break;
   }
   switch(argc) {
     default:
       pthread_join(pt4, NULL);
       //fall through
-    case 4:
+    case 3:
       pthread_join(pt3, NULL);
       //fall through
-    case 3:
-      pthread_join(pt2, NULL);
     case 2:
+      pthread_join(pt2, NULL);
     case 1:
+    case 0:
       break;
   }
+  dadtor(files);
   return 0;
 }

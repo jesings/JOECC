@@ -36,6 +36,7 @@ void rmunreach(PROGRAM* prog) {
     BBLOCK* oldb = daget(oldall, i);
     if(oldb->domind == -1) {
       freeblock(oldb);
+      if(oldb == prog->finalblock) prog->finalblock = NULL;
     } else {
       dapush(newall, oldb);
     }
