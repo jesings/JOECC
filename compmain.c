@@ -11,7 +11,6 @@
 const char magic[16] = {0x7f, 0x45, 0x4c, 0x46, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 pthread_mutex_t printlock, listlock;
 int listptr;
-DYNARR* files;
 
 struct yyltype {int first_line, last_line, first_column, last_column; char* filename;};
 
@@ -119,15 +118,18 @@ static void filecomp(char* filename) {
 }
 
 static void* ldeleg(void* arg) {
+  char** argv = arg;
   while(1) {
+    char* fn;
     pthread_mutex_lock(&listlock);
-    int ws = listptr++;
-    if(ws >= files->length) {
+    fn = argv[listptr];
+    if(!fn) {
       pthread_mutex_unlock(&listlock);
       return NULL;
     }
+    ++listptr;
     pthread_mutex_unlock(&listlock);
-    filecomp(daget(files, ws));
+    filecomp(fn);
   }
 }
 
@@ -136,38 +138,32 @@ int main(int argc, char** argv) {
     exit(0);
   }
   pthread_t pt2, pt3, pt4;
-  listptr = 0;
   int opt;
-  files = dactor(argc);
-  while(optind < argc) {
-    opt = getopt(argc, argv, "cl:");
+  while((opt = getopt(argc, argv, "cl:")) != -1) {
     switch(opt) {
       case 'l': case 'c': default:
         break;
-      case -1:
-        dapush(files, argv[optind]);
-        optind += 1;
-        break;
     }
   }
+  listptr = optind;
   pthread_mutex_init(&printlock, NULL);
   pthread_mutex_init(&listlock, NULL);
-  switch(files->length) {
+  switch(argc - optind) {
     default:
-      pthread_create(&pt4, NULL, ldeleg, NULL);
+      pthread_create(&pt4, NULL, ldeleg, argv);
       //fall through
     case 3:
-      pthread_create(&pt3, NULL, ldeleg, NULL);
+      pthread_create(&pt3, NULL, ldeleg, argv);
       //fall through
     case 2:
-      pthread_create(&pt2, NULL, ldeleg, NULL);
+      pthread_create(&pt2, NULL, ldeleg, argv);
       //fall through
     case 1:
-      ldeleg(NULL);
+      ldeleg(argv);
     case 0:
       break;
   }
-  switch(argc) {
+  switch(argc - optind) {
     default:
       pthread_join(pt4, NULL);
       //fall through
@@ -180,6 +176,5 @@ int main(int argc, char** argv) {
     case 0:
       break;
   }
-  dadtor(files);
   return 0;
 }
