@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <getopt.h>
 #include "compintern.h"
 #include "printree.h"
 #include "3ac.h"
@@ -133,15 +134,40 @@ static void* ldeleg(void* arg) {
   }
 }
 
+
 int main(int argc, char** argv) {
   if(argc <= 1) {
     exit(0);
   }
   pthread_t pt2, pt3, pt4;
-  int opt;
-  while((opt = getopt(argc, argv, "cl:")) != -1) {
+  int opt, opt_ind;
+  char const* filedest = "a.out";
+  static struct option long_options[] = {
+    {"help", no_argument, NULL, 'h'},
+    {"version", no_argument, NULL, 'v'},
+    {"march", no_argument, NULL, 0},
+    {NULL, 0, NULL, 0},
+  };
+  while((opt = getopt_long(argc, argv, "cl:o:hv", long_options, &opt_ind)) != -1) {
     switch(opt) {
-      case 'l': case 'c': default:
+      case 'l':
+        break;
+      case 'c': 
+        break;
+      case 'o':
+        filedest = optarg;
+        break;
+      case 'h':
+        printf("JOECC Compiler version 0.0.1-alpha\n");
+        printf("JOECC Copyright (C) 2020-2021 Jonathan Singer\n");
+        printf("This program comes with ABSOLUTELY NO WARRANTY.\nThis is free software, see the license for further details.\n");
+        return 0;
+      case 'v':
+        printf("JOECC Compiler version 0.0.1-alpha\n");
+        break;
+      case 0:
+        break;
+      default:
         break;
     }
   }
