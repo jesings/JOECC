@@ -243,10 +243,7 @@ initializer:
     }
     if(ac->expr && ac->expr->type == ARRAY_LIT) {
       DYNARR* pointy = ac->decl->type->pointerstack;
-      if(ac->decl->type->tb & (STRUCTVAL | UNIONVAL)) {
-        assert(!(pointy && pointy->length));
-        process_struct_lit(ac->decl->type, ac->expr);
-      } else {
+      if(pointy && pointy->length && ((struct declarator_part*) dapeek(pointy))->type == ARRAYSPEC) {
         assert(pointy && pointy->length);
         int arrdim = 0;
         for(int i = pointy->length - 1; i >= 0; i--, arrdim++) {
@@ -255,6 +252,11 @@ initializer:
         }
         assert(arrdim);
         process_array_lit(ac->decl->type, ac->expr, arrdim);
+      } else if(ac->decl->type->tb & (STRUCTVAL | UNIONVAL)) {
+        assert(!(pointy && pointy->length));
+        process_struct_lit(ac->decl->type, ac->expr);
+      } else {
+        assert(0);
       }
     }
   }

@@ -287,7 +287,7 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim) {
   arr_memtype->pointerstack->length -= 1;
   int szstep = lentype(arr_memtype);
   if(arr_dim == 1) {
-    if(arr_dim == arr_memtype->pointerstack->length) {
+    if(0 == arr_memtype->pointerstack->length) {
       if(arr_memtype->tb & (STRUCTVAL | UNIONVAL)) {
         for(int i = 0; i < arr_expr->params->length; i++) {
           EXPRESSION* arrv = daget(arr_expr->params, i);
@@ -331,9 +331,8 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
     EXPRESSION* member = daget(struct_expr->params, i);
     DECLARATION* decl = daget(imptype->fields, i);
     if(member->type == ARRAY_LIT) {
-      if(decl->type->tb & (STRUCTVAL | UNIONVAL)) {
-        process_struct_lit(decl->type, member);
-      } else {
+      if(decl->type->pointerstack && decl->type->pointerstack->length && 
+         ((struct declarator_part*) dapeek(decl->type->pointerstack))->type == ARRAYSPEC) {
         int arrdim = 0;
         for(int i = decl->type->pointerstack->length - 1; i >= 0; i--, arrdim++) {
           struct declarator_part* pointtop = daget(decl->type->pointerstack, i);
@@ -341,6 +340,10 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
         }
         assert(arrdim);
         process_array_lit(decl->type, member, arrdim);
+      } else if(decl->type->tb & (STRUCTVAL | UNIONVAL)) {
+        process_struct_lit(decl->type, member);
+      } else {
+        assert(0);
       }
     } else {
       IDTYPE memty = typex(member);
