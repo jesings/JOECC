@@ -9,6 +9,12 @@
 #include "ssa.h"
 #include "opt.h"
 
+#ifdef NODEBUG
+#define debug(a)
+#else
+#define debug(a) a
+#endif
+
 const char magic[16] = {0x7f, 0x45, 0x4c, 0x46, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 pthread_mutex_t printlock, listlock;
 int listptr;
@@ -55,9 +61,7 @@ static void filecomp(char* filename) {
   struct lexctx* lctx = ctxinit();
   yylex_init_extra(lctx, &scanner);
   yyset_in(yyin, scanner);
-#ifdef NODEBUG
-  yyset_debug(0, scanner);//not debugging lexer for now
-#endif
+  debug(yyset_debug(0, scanner));//not debugging lexer for now
   yyparse(scanner, strdup(filename));
   free(yyget_lloc(scanner)->filename);
   yylex_destroy(scanner);
@@ -68,41 +72,31 @@ static void filecomp(char* filename) {
   dadtor(lctx->ls->locs);
   dadtor(lctx->ls->argpp);
   DYNARR* funcky = htpairs(lctx->funcs);
-#ifndef NODEBUG
-  pthread_mutex_lock(&printlock);
-#endif
+  debug(pthread_mutex_lock(&printlock));
   puts("Functions defined:");
   for(int i = 0; i < funcky->length; i++) {
     HASHPAIR* pairthere = daget(funcky, i);
     if(pairthere->value) {
       FUNC* f = pairthere->value;
       //treefunc(pairthere->value);
-#ifndef NODEBUG
-      putchar('\n');
-      puts(pairthere->key);
-#endif
+      debug(putchar('\n'));
+      debug(puts(pairthere->key));
       PROGRAM* prog = linefunc(f); //fix main func
       splitcrit(prog); //for GVN
       prunebranch(prog); //esp for do while 0
-      printf("Ops before SSA %d\n", countops(prog)); 
+      debug(printf("Ops before SSA %d\n", countops(prog)));
       ssa(prog);
-      printf("Ops after SSA %d\n", countops(prog)); 
-#ifndef NODEBUG
-      treeprog(prog, pairthere->key, "justssa");
-#endif
+      debug(printf("Ops after SSA %d\n", countops(prog)));
+      debug(treeprog(prog, pairthere->key, "justssa"));
       constfold(prog);
       gvn(prog);
       remove_nops(prog);
-      printf("Ops after GVN %d\n", countops(prog));
-#ifndef NODEBUG
-      treeprog(prog, pairthere->key, "withgvn");
-#endif
+      debug(printf("Ops after GVN %d\n", countops(prog)));
+      debug(treeprog(prog, pairthere->key, "withgvn"));
       freeprog(prog);
     }
   }
-#ifndef NODEBUG
-  pthread_mutex_unlock(&printlock);
-#endif
+  debug(pthread_mutex_unlock(&printlock));
   scopepop(lctx);
   dadtorcfr(funcky, freev);
   dadtor(lctx->scopes);

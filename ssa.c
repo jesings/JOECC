@@ -819,15 +819,17 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
   prog->tmpstore = calloc(prog->iregcnt, sizeof(int));
   first->availability = bfalloc(eqcontainer->nodes->length);
   first->anticipability = bfalloc(eqcontainer->nodes->length);
-  int rplistind = 0, changed = 0;
+  int rplistind = prog->allblocks->length;
   BBLOCK** rplist = malloc(prog->allblocks->length * sizeof(BBLOCK*));
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     blk->visited = 0;
   } //recalculate to tighten length
-  rpdt(first, rplist, &rplistind);
+  rplist[0] = first;
+  rpdt(first->nextblock, rplist, &rplistind);
+  rpdt(first->branchblock, rplist, &rplistind);
   for(int i = 0; i < rplistind; i++) {
-    BBLOCK* blk = rplist[i];
+    //BBLOCK* blk = rplist[i];
   }
   replacenode(first, eqcontainer, prog);
 
