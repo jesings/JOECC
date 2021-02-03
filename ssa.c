@@ -616,6 +616,7 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog) {
 
 void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
   EQONTAINER* eqcontainer = cteq(prog);
+  BBLOCK* first = daget(prog->allblocks, 0);
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     if(blk->lastop) {
@@ -816,10 +817,21 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
 #endif
 
   prog->tmpstore = calloc(prog->iregcnt, sizeof(int));
-  ((BBLOCK*) daget(prog->allblocks, 0))->availability = bfalloc(eqcontainer->nodes->length);
-  ((BBLOCK*) daget(prog->allblocks, 0))->anticipability = bfalloc(eqcontainer->nodes->length);
-  replacenode(daget(prog->allblocks, 0), eqcontainer, prog);
+  first->availability = bfalloc(eqcontainer->nodes->length);
+  first->anticipability = bfalloc(eqcontainer->nodes->length);
+  int rplistind = 0, changed = 0;
+  BBLOCK** rplist = malloc(prog->allblocks->length * sizeof(BBLOCK*));
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    blk->visited = 0;
+  } //recalculate to tighten length
+  rpdt(first, rplist, &rplistind);
+  for(int i = 0; i < rplistind; i++) {
+    BBLOCK* blk = rplist[i];
+  }
+  replacenode(first, eqcontainer, prog);
 
+  free(rplist);
   free(prog->tmpstore);
   for(int i = 0; i < prog->allblocks->length; i++) {
     free(((BBLOCK*) daget(prog->allblocks, i))->availability);

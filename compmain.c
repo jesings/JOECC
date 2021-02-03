@@ -95,9 +95,6 @@ static void filecomp(char* filename) {
       remove_nops(prog);
       printf("Ops after GVN %d\n", countops(prog));
 #ifndef NODEBUG
-      //puts("---------------------------------------");
-      //printprog(prog);
-      //puts("---------------------------------------");
       treeprog(prog, pairthere->key, "withgvn");
 #endif
       freeprog(prog);
