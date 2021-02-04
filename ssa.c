@@ -461,147 +461,148 @@ static EQNODE* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, 
   return cn;
 }
 
-static void replacenode(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog) {
+static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op) {
+  BITFIELD bf = blk->availability;
   EQNODE* sen;
+  switch(op->opcode) {
+    OPS_3_3ac_NOCOM OPS_3_3ac_COM case TPHI:
+      sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
+      if(sen) {
+        if(sen->hasconst != NOCONST || bfget(bf, sen->index)) {
+          op->opcode = NOP_3;
+          break;
+        } else {
+          bfset(bf, sen->index);
+          sen->regno = op->dest.iregnum;
+        }
+      }
+      __attribute__((fallthrough));
+    OPS_NODEST_3ac OPS_3_PTRDEST_3ac
+      sen = nodefromaddr(eq, op->addr1_type, op->addr1, prog);
+      if(sen) {
+        if(sen->hasconst != NOCONST) {
+          op->addr1_type &= 0xf | ISSIGNED;
+          op->addr1_type |= ISCONST;
+          if(sen->hasconst == STRCONST) op->addr1_type |= ISSTRCONST;
+          else if(sen->hasconst == FLOATCONST) op->addr1_type |= ISFLOAT;
+          op->addr1.intconst_64 = sen->intconst; //could be anything
+        } else {
+          assert(bfget(bf, sen->index) || op->opcode == TPHI);
+          op->addr1.iregnum = sen->regno;
+        }
+      }
+      __attribute__((fallthrough));
+    OPS_1_3ac
+      sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
+      if(sen) {
+        if(sen->hasconst != NOCONST) {
+          op->addr0_type &= 0xf | ISSIGNED;
+          op->addr0_type |= ISCONST;
+          if(sen->hasconst == STRCONST) op->addr0_type |= ISSTRCONST;
+          else if(sen->hasconst == FLOATCONST) op->addr0_type |= ISFLOAT;
+          op->addr0.intconst_64 = sen->intconst; //could be anything
+        } else {
+          assert(bfget(bf, sen->index) || op->opcode == TPHI);
+          op->addr0.iregnum = sen->regno;
+        }
+      }
+      break;
+    OPS_2_3ac_MUT case MOV_3: case ADDR_3:
+      sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
+      if(sen) {
+        if(sen->hasconst != NOCONST || bfget(bf, sen->index)) {
+          op->opcode = NOP_3;
+          break;
+        } else {
+          bfset(bf, sen->index);
+          sen->regno = op->dest.iregnum;
+        }
+      }
+      sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
+      if(sen) {
+        if(sen->hasconst != NOCONST) {
+          op->addr0_type &= 0xf | ISSIGNED;
+          op->addr0_type |= ISCONST;
+          if(sen->hasconst == STRCONST) op->addr0_type |= ISSTRCONST;
+          else if(sen->hasconst == FLOATCONST) op->addr0_type |= ISFLOAT;
+          op->addr0.intconst_64 = sen->intconst; //could be anything
+        } else {
+          assert(bfget(bf, sen->index));
+          op->addr0.iregnum = sen->regno;
+        }
+      }
+      break;
+    case CALL_3: case ALOC_3:
+      sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
+      if(sen) {
+        if(sen->hasconst != NOCONST || bfget(bf, sen->index)) {
+          op->opcode = NOP_3;
+          fprintf(stderr, "Somehow function output is part of an equivalence class\n");
+          assert(0);
+        } else {
+          bfset(bf, sen->index);
+          sen->regno = op->dest.iregnum;
+        }
+      }
+      break;
+    case PHI:  ;
+      FULLADDR* addrs = op->addr0.joins;
+      void* sen_tinel = NULL;
+      for(int k = 0; k < blk->inedges->length; k++) {
+        sen = eq->varnodes[addrs[k].addr.ssaind];
+        if(sen) {
+          if(!sen_tinel) sen_tinel = sen;
+          else if(sen_tinel != sen) sen_tinel = (void*) -1;
+          if(sen->hasconst != NOCONST) {
+            addrs[k].addr_type &= 0xf | ISSIGNED;
+            addrs[k].addr_type |= ISCONST;
+            if(sen->hasconst == STRCONST) addrs[k].addr_type |= ISSTRCONST;
+            else if(sen->hasconst == FLOATCONST) addrs[k].addr_type |= ISFLOAT;
+            addrs[k].addr.intconst_64 = sen->intconst; //could be anything
+          } else {
+            if(bfget(bf, sen->index)) { //cannot assert here
+              addrs[k].addr.iregnum = sen->regno;
+            }
+          }
+        } else {
+          sen_tinel = (void*) -1;
+        }
+      }
+      if(sen_tinel != (void*) -1) {
+        op->opcode = NOP_3;
+        free(op->addr0.joins);
+      }
+      sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
+      assert(sen->hasconst == NOCONST);
+      assert(!bfget(bf, sen->index));
+      bfset(bf, sen->index);
+      sen->regno = op->dest.iregnum;
+      break;
+    OPS_1_ASSIGN_3ac
+      sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
+      if(sen) {
+        if(sen->hasconst != NOCONST || bfget(bf, sen->index)) {
+          op->opcode = NOP_3;
+        } else {
+          bfset(bf, sen->index);
+          sen->regno = op->addr0.iregnum;
+        }
+      }
+      break;
+    OPS_NOVAR_3ac
+      break;
+    case ASM:
+      assert(0); //unimplemented
+  }
+  
+}
+
+static void replacenode(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog) {
   BITFIELD bf = blk->availability;
   if(blk->lastop) {
     OPERATION* op = blk->firstop;
     while(1) {
-      switch(op->opcode) {
-        OPS_3_3ac_NOCOM OPS_3_3ac_COM case TPHI:
-          sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
-          if(sen) {
-            if(sen->hasconst != NOCONST || bfget(bf, sen->index)) {
-              op->opcode = NOP_3;
-              break;
-            } else {
-              bfset(bf, sen->index);
-              sen->regno = op->dest.iregnum;
-              prog->tmpstore[op->dest.iregnum] = blk->domind;
-            }
-          }
-          __attribute__((fallthrough));
-        OPS_NODEST_3ac OPS_3_PTRDEST_3ac
-          sen = nodefromaddr(eq, op->addr1_type, op->addr1, prog);
-          if(sen) {
-            if(sen->hasconst != NOCONST) {
-              op->addr1_type &= 0xf | ISSIGNED;
-              op->addr1_type |= ISCONST;
-              if(sen->hasconst == STRCONST) op->addr1_type |= ISSTRCONST;
-              else if(sen->hasconst == FLOATCONST) op->addr1_type |= ISFLOAT;
-              op->addr1.intconst_64 = sen->intconst; //could be anything
-            } else {
-              assert(bfget(bf, sen->index) || op->opcode == TPHI);
-              op->addr1.iregnum = sen->regno;
-            }
-          }
-          __attribute__((fallthrough));
-        OPS_1_3ac
-          sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
-          if(sen) {
-            if(sen->hasconst != NOCONST) {
-              op->addr0_type &= 0xf | ISSIGNED;
-              op->addr0_type |= ISCONST;
-              if(sen->hasconst == STRCONST) op->addr0_type |= ISSTRCONST;
-              else if(sen->hasconst == FLOATCONST) op->addr0_type |= ISFLOAT;
-              op->addr0.intconst_64 = sen->intconst; //could be anything
-            } else {
-              assert(bfget(bf, sen->index) || op->opcode == TPHI);
-              op->addr0.iregnum = sen->regno;
-            }
-          }
-          break;
-        OPS_2_3ac_MUT case MOV_3: case ADDR_3:
-          sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
-          if(sen) {
-            if(sen->hasconst != NOCONST || bfget(bf, sen->index)) {
-              op->opcode = NOP_3;
-              break;
-            } else {
-              bfset(bf, sen->index);
-              sen->regno = op->dest.iregnum;
-              prog->tmpstore[op->dest.iregnum] = blk->domind;
-            }
-          }
-          sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
-          if(sen) {
-            if(sen->hasconst != NOCONST) {
-              op->addr0_type &= 0xf | ISSIGNED;
-              op->addr0_type |= ISCONST;
-              if(sen->hasconst == STRCONST) op->addr0_type |= ISSTRCONST;
-              else if(sen->hasconst == FLOATCONST) op->addr0_type |= ISFLOAT;
-              op->addr0.intconst_64 = sen->intconst; //could be anything
-            } else {
-              assert(bfget(bf, sen->index));
-              op->addr0.iregnum = sen->regno;
-            }
-          }
-          break;
-        case CALL_3: case ALOC_3:
-          sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
-          if(sen) {
-            if(sen->hasconst != NOCONST || bfget(bf, sen->index)) {
-              op->opcode = NOP_3;
-              fprintf(stderr, "Somehow function output is part of an equivalence class\n");
-              assert(0);
-            } else {
-              bfset(bf, sen->index);
-              sen->regno = op->dest.iregnum;
-              prog->tmpstore[op->dest.iregnum] = blk->domind;
-            }
-          }
-          break;
-        case PHI:  ;
-          FULLADDR* addrs = op->addr0.joins;
-          void* sen_tinel = NULL;
-          for(int k = 0; k < blk->inedges->length; k++) {
-            sen = eq->varnodes[addrs[k].addr.ssaind];
-            if(sen) {
-              if(!sen_tinel) sen_tinel = sen;
-              else if(sen_tinel != sen) sen_tinel = (void*) -1;
-              if(sen->hasconst != NOCONST) {
-                addrs[k].addr_type &= 0xf | ISSIGNED;
-                addrs[k].addr_type |= ISCONST;
-                if(sen->hasconst == STRCONST) addrs[k].addr_type |= ISSTRCONST;
-                else if(sen->hasconst == FLOATCONST) addrs[k].addr_type |= ISFLOAT;
-                addrs[k].addr.intconst_64 = sen->intconst; //could be anything
-              } else {
-                if(bfget(bf, sen->index)) { //cannot assert here
-                  addrs[k].addr.iregnum = sen->regno;
-                }
-              }
-            } else {
-              sen_tinel = (void*) -1;
-            }
-          }
-          if(sen_tinel != (void*) -1) {
-            op->opcode = NOP_3;
-            free(op->addr0.joins);
-          }
-          sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
-          assert(sen->hasconst == NOCONST);
-          assert(!bfget(bf, sen->index));
-          bfset(bf, sen->index);
-          sen->regno = op->dest.iregnum;
-          prog->tmpstore[op->dest.iregnum] = blk->domind;
-          break;
-        OPS_1_ASSIGN_3ac
-          sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
-          if(sen) {
-            if(sen->hasconst != NOCONST || bfget(bf, sen->index)) {
-              op->opcode = NOP_3;
-            } else {
-              bfset(bf, sen->index);
-              sen->regno = op->addr0.iregnum;
-              prog->tmpstore[op->addr0.iregnum] = blk->domind;
-            }
-          }
-          break;
-        OPS_NOVAR_3ac
-          break;
-        case ASM:
-          assert(0); //unimplemented
-      }
+      replaceop(blk, eq, prog, op);
       if(op == blk->lastop) break;
       op = op->nextop;
     }
@@ -774,49 +775,6 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
     }
   }
 
-#if 0
-  for(int i = 0; i < eqcontainer->nodes->length; i++) {
-    EQNODE* sen = daget(eqcontainer->nodes, i);
-    printf("%d: ", sen->index);
-    for(int j = 0; j < sen->equivs->length; j++) {
-      EQITEM* eq = daget(sen->equivs, j);
-      printf("%s", opcode_3ac_names[eq->op]);
-      switch(eq->op) {
-          OPS_NOVAR_3ac OPS_NODEST_3ac OPS_1_3ac OPS_3_PTRDEST_3ac
-            assert(0);
-          OPS_3_3ac_NOCOM OPS_3_3ac_COM case TPHI:
-            printf("(%d, %d) ", eq->arg0->index, eq->arg1->index);
-            break;
-          OPS_2_3ac_MUT
-            printf("(%d) ", eq->arg0->index);
-            break;
-          case MOV_3: case ADDR_3: case PHI: case CALL_3: case ALOC_3: case ASM:
-            assert(0);
-          OPS_1_ASSIGN_3ac
-            printf("[%u] ", eq->regno);
-            break;
-      }
-      printf(", ");
-    }
-    switch(sen->hasconst) {
-      case INTCONST:
-        printf("intconst %ld ", sen->intconst);
-        break;
-      case FLOATCONST:
-        printf("floatconst %lf ", sen->floatconst);
-        break;
-      case STRCONST:
-        printf("strconst \"%s\"", sen->strconst);
-        break;
-      case NOCONST:
-        printf("no const");
-        break;
-    }
-    putchar('\n');
-  }
-#endif
-
-  prog->tmpstore = calloc(prog->iregcnt, sizeof(int));
   first->availability = bfalloc(eqcontainer->nodes->length);
   first->anticipability = bfalloc(eqcontainer->nodes->length);
   int rplistind = prog->allblocks->length;
@@ -834,7 +792,6 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
   replacenode(first, eqcontainer, prog);
 
   free(rplist);
-  free(prog->tmpstore);
   for(int i = 0; i < prog->allblocks->length; i++) {
     free(((BBLOCK*) daget(prog->allblocks, i))->availability);
     free(((BBLOCK*) daget(prog->allblocks, i))->anticipability);
