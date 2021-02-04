@@ -136,7 +136,6 @@ int main(int argc, char** argv) {
   static struct option long_options[] = {
     {"help", no_argument, NULL, 'h'},
     {"version", no_argument, NULL, 'v'},
-    {"march", no_argument, NULL, 0},
     {NULL, 0, NULL, 0},
   };
   while((opt = getopt_long(argc, argv, "cl:o:hv", long_options, &opt_ind)) != -1) {

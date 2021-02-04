@@ -89,7 +89,7 @@
 %type<dstr> multistring
 %type<integert> typemsign
 %type<typevariant> types1 types2 types1o
-%type<idvariant> typem typews1 type typemintkw inttypem namelesstype
+%type<idvariant> typem typews1 type typemintkw inttypem namelesstype arbitrary_cast
 %type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee escoa
 %type<stmtvariant> statement compound_statement
 %type<arrvariant> statements_and_initializers soiorno struct_decls struct_decl cs_decls enums escl escoal abstract_ptr cs_inits cs_minutes initializer array_literal structbody enumbody nameless params clobberlist clobbers operands operandlist
@@ -545,6 +545,35 @@ abstract_ptr:
 | '*' abstract_ptr {$$ = $2; dapush($$, mkdeclptr(sizeof(intptr_t)));}
 | '*' types1o {$$ = dactor(2); dapushc($$,mkdeclptr(sizeof(intptr_t) | $2));}
 | '*' types1o abstract_ptr {$$ = $3; dapush($$, mkdeclptr(sizeof(intptr_t) | $2));};
+arbitrary_cast:
+  '(' type ')' {if($2->pointerstack) $2->pointerstack = ptrdaclone($2->pointerstack); $$ = $2;}
+| '(' type abstract_ptr ')' {
+  if($2->pointerstack) {
+    $2->pointerstack = damerge(ptrdaclone($2->pointerstack), $3);
+  } else {
+    $2->pointerstack = $3;
+  }
+  $$ = $2;}
+| '(' type spefptr ')' {
+  if($2->pointerstack) {
+    $2->pointerstack = damerge(ptrdaclone($2->pointerstack), $3->type->pointerstack);
+  } else {
+    $2->pointerstack = $3->type->pointerstack;
+  }
+  free($3->type);
+  free($3);
+  $$ = $2;}
+| '(' type abstract_ptr spefptr ')' {
+  if($2->pointerstack) {
+    $2->pointerstack = damerge(ptrdaclone($2->pointerstack), $3);
+  } else {
+    $2->pointerstack = $3;
+  }
+  $2->pointerstack = damerge(ptrdaclone($2->pointerstack), $4->type->pointerstack);
+  free($4->type);
+  free($4);
+  $$ = $2;};
+
 expression:
   expression ',' esc {$$ = ct_binary_expr(COMMA, $1, $3);}
 | esc {$$ = $1;};
@@ -603,33 +632,7 @@ esas:
 | esas '%' esm {$$ = ct_binary_expr(MOD, $1, $3);}
 | esm {$$ = $1;};
 esm:
-  '(' type ')' esm {if($2->pointerstack) $2->pointerstack = ptrdaclone($2->pointerstack); $$ = ct_cast_expr($2, $4);}
-| '(' type abstract_ptr ')' esm {
-  if($2->pointerstack) {
-    $2->pointerstack = damerge(ptrdaclone($2->pointerstack), $3);
-  } else {
-    $2->pointerstack = $3;
-  }
-  $$ = ct_cast_expr($2, $5);}
-| '(' type spefptr ')' esm {
-  if($2->pointerstack) {
-    $2->pointerstack = damerge(ptrdaclone($2->pointerstack), $3->type->pointerstack);
-  } else {
-    $2->pointerstack = $3->type->pointerstack;
-  }
-  free($3->type);
-  free($3);
-  $$ = ct_cast_expr($2, $5);}
-| '(' type abstract_ptr spefptr ')' esm {
-  if($2->pointerstack) {
-    $2->pointerstack = damerge(ptrdaclone($2->pointerstack), $3);
-  } else {
-    $2->pointerstack = $3;
-  }
-  $2->pointerstack = damerge(ptrdaclone($2->pointerstack), $4->type->pointerstack);
-  free($4->type);
-  free($4);
-  $$ = ct_cast_expr($2, $6);}
+  arbitrary_cast esm {$$ = ct_cast_expr($1, $2);}
 | esca {$$ = $1;};
 esca:
   "++" esca {$$ = ct_unary_expr(PREINC, $2);}
