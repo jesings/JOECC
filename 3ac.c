@@ -400,7 +400,6 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       assert(ptrtop->type == ARRAYSPEC);
       curaddr.addr.uintconst_64 = ptrtop->arrlen;
       opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 0x8, curaddr.addr, destaddr.addr_type, destaddr.addr));
-      if(!ptrtop->arrmaxind) ptrtop->arrmaxind = cexpr->params->length;
       curaddr.addr.uintconst_64 = ptrtop->arrlen / ptrtop->arrmaxind;
       if(curaddr.addr.uintconst_64 < 0xf) {
         for(int i = 0; i < cexpr->params->length; i++) {

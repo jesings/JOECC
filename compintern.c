@@ -289,29 +289,59 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim) {
   if(arr_dim == 1) {
     if(0 == arr_memtype->pointerstack->length) {
       if(arr_memtype->tb & (STRUCTVAL | UNIONVAL)) {
-        for(int i = 0; i < arr_expr->params->length; i++) {
+        int i;
+        for(i = 0; i < arr_expr->params->length; i++) {
           EXPRESSION* arrv = daget(arr_expr->params, i);
           process_struct_lit(arr_memtype, arrv);
           tdclp->arrlen += szstep;
         }
+        for(; i < tdclp->arrmaxind; i++) {
+          //TODO: initialize struct with all zeros
+        }
         //params are fine, no further processing necessary
       } else {
-        for(int i = 0; i < arr_expr->params->length; i++) {
+        int i;
+        for(i = 0; i < arr_expr->params->length; i++) {
           EXPRESSION* arrv = daget(arr_expr->params, i);
           IDTYPE arrt = typex(arrv);
           assert(typecompat(&arrt, arr_memtype));
           tdclp->arrlen += szstep;
         }
+        for(; i < tdclp->arrmaxind; i++) {
+          if(arr_memtype->tb & FLOATNUM) {
+            dapush(arr_expr->params, ct_floatconst_expr(0.0));
+          } else if(arr_memtype->tb & UNSIGNEDNUM) {
+            dapush(arr_expr->params, ct_uintconst_expr(0));
+          } else {
+            dapush(arr_expr->params, ct_intconst_expr(0));
+          }
+        }
         //params are fine, no further processing necessary
       }
+    } else {
+      int i;
+      for(i = 0; i < arr_expr->params->length; i++) {
+        EXPRESSION* arrv = daget(arr_expr->params, i);
+        IDTYPE arrt = typex(arrv);
+        assert(typecompat(&arrt, arr_memtype));
+        tdclp->arrlen += szstep;
+      }
+      for(; i < tdclp->arrmaxind; i++) {
+        dapush(arr_expr->params, ct_uintconst_expr(0));
+      }
+      //params are fine, no further processing necessary
     }
   } else {
-    for(int i = 0; i < arr_expr->params->length; i++) {
+    int i;
+    for(i = 0; i < arr_expr->params->length; i++) {
       EXPRESSION* arrv = daget(arr_expr->params, i);
       tdclp->arrlen += process_array_lit(arr_memtype, arrv, arr_dim - 1);
       assert(typecompat(arrv->rettype, arr_memtype));
     }
+    for(; i < tdclp->arrmaxind; i++) {
+    }
   }
+  if(!tdclp->arrmaxind) tdclp->arrmaxind = arr_expr->params->length;
   arr_memtype->pointerstack->length += 1;
   arr_expr->rettype = fcid2(arr_memtype);
   return tdclp->arrlen;

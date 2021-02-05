@@ -560,6 +560,7 @@ void tailcall(PROGRAM* prog) {
       if(op->nextop->opcode == RET_3 && (op->nextop->addr0_type & ~0xf) == (op->dest_type & ~0xf) && op->nextop->addr0.intconst_64 == op->dest.intconst_64) {
         if(op->addr0_type & ISLABEL && !strcmp(op->addr0.labelname, ((BBLOCK*) daget(prog->allblocks, 0))->firstop->addr0.labelname)) {
           //tail recursion!! more optimization potential?
+          //insert block immediately after arguments with phi nodes for all the params
         }
         free(op->nextop);
         op->nextop = NULL;
