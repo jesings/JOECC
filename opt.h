@@ -10,4 +10,5 @@ void prunebranch(PROGRAM* prog);
 int countops(PROGRAM* prog);
 OPERATION* exciseop(BBLOCK* blk, OPERATION* prevop, OPERATION* curop);
 void splitcrit(PROGRAM* prog);
+void tailcall(PROGRAM* prog);
 #endif

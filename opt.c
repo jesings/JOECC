@@ -545,3 +545,27 @@ void splitcrit(PROGRAM* prog) {
     }
   } 
 }
+
+void tailcall(PROGRAM* prog) {
+  //assume prog actually returns a value if this is being called
+  for(int i = 0; i < prog->finalblock->inedges->length; i++) {
+    BBLOCK* retb = daget(prog->finalblock->inedges, i);
+    OPERATION* op = retb->firstop;
+    if(op == retb->lastop) continue;
+    while(1) {
+      if(op->nextop == retb->lastop) break;
+      op = op->nextop;
+    }
+    if(op->opcode == CALL_3) {
+      if(op->nextop->opcode == RET_3 && (op->nextop->addr0_type & ~0xf) == (op->dest_type & ~0xf) && op->nextop->addr0.intconst_64 == op->dest.intconst_64) {
+        if(op->addr0_type & ISLABEL && !strcmp(op->addr0.labelname, ((BBLOCK*) daget(prog->allblocks, 0))->firstop->addr0.labelname)) {
+          //tail recursion!! more optimization potential?
+        }
+        free(op->nextop);
+        op->nextop = NULL;
+        op->opcode = JMP_3;
+        retb->lastop = op;
+      }
+    }
+  }
+}
