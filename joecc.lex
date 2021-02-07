@@ -439,6 +439,12 @@ struct arginfo {
     dapush(lctx->ls->md->args, strdup(yytext));
     /*probably should confirm no 2 args have the same name*/
     }
+  "..."[[:blank:]]*\) {
+    dapush(lctx->ls->md->args, strdup("__VA_ARGS__"));
+    yy_pop_state(yyscanner);
+    yy_push_state(DEFINE2, yyscanner); 
+    lctx->ls->mdstrdly = strctor(malloc(256), 0, 256);
+    }
   \,[[:blank:]]* {
     if(lctx->ls->argeaten) 
       lctx->ls->argeaten = 0; 
@@ -603,7 +609,8 @@ struct arginfo {
     dsccat(lctx->ls->dstrdly, ' ');
     }
   [[:space:]]*,[[:space:]]* {
-    if(lctx->ls->paren_depth) {
+    struct macrodef* mdl = bigsearch(lctx->defines, lctx->ls->defname);
+    if(lctx->ls->paren_depth || !strcmp(daget(mdl->args, lctx->ls->parg->length), "__VA_ARGS__")) {
       char tmpstr[3];
       int tmpstrl = 0;
       if(yytext[0] == ' ')

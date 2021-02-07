@@ -444,7 +444,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
     case L_NOT:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
-      assert(!(curaddr & ISFLOAT));
+      assert(!(curaddr.addr_type & ISFLOAT));
       FILLREG(destaddr, (curaddr.addr_type & ISSIGNED) | 1);
       otheraddr.addr.uintconst_64 = 0;
       opn(prog, ct_3ac_op3(EQ_U, curaddr.addr_type, curaddr.addr, (curaddr.addr_type & 0xf) | ISCONST, otheraddr.addr,
