@@ -443,10 +443,9 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       }
       return destaddr;
     case L_NOT:
-      //TODO: validate lots of types
       curaddr = linearitree(daget(cexpr->params, 0), prog);
+      assert(!(curaddr & ISFLOAT));
       FILLREG(destaddr, (curaddr.addr_type & ISSIGNED) | 1);
-      //logical not only makes sense for ints
       otheraddr.addr.uintconst_64 = 0;
       opn(prog, ct_3ac_op3(EQ_U, curaddr.addr_type, curaddr.addr, (curaddr.addr_type & 0xf) | ISCONST, otheraddr.addr,
                                    destaddr.addr_type, destaddr.addr));
@@ -1199,7 +1198,7 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
       if(color) fprintf(f, CLEARCOLOR);
       else fprintf(f, "</FONT>");
       break;
-    case COPY_3: //TODO: make sure deref is safe
+    case COPY_3:
       PRINTOP3( );
       break;
     case ADD_U: case ADD_I: case ADD_F: 

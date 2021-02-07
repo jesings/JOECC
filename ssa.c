@@ -170,7 +170,6 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
   }
 }
 
-//TODO: implement lengauer tarjan: https://www.cl.cam.ac.uk/~mr10/lengtarj.pdf
 void ssa(PROGRAM* prog) {
   DYNARR* blocks = prog->allblocks;
   for(int i = 0; i < blocks->length; i++) {
@@ -366,6 +365,7 @@ void ssa(PROGRAM* prog) {
   free(C);
   prog->pdone |= SSA;
 }
+//lengauer tarjan: https://www.cl.cam.ac.uk/~mr10/lengtarj.pdf
 
 static EQNODE* cteqnode(EQONTAINER* eqcontainer, int hc) {
   EQNODE* retval = malloc(sizeof(EQNODE));
@@ -715,8 +715,24 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
             }
             break;
           case ADDR_3:
-            //TODO: we don't care about label or nodest or even deref, but how to represent?
-            nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
+            //address should stay constant, so the value can be stored, as can the value of labels!
+            sen1 = nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
+            if(!(op->dest_type & (ISDEREF | ISLABEL))) {
+              //addrsvar is permissible
+              if(sen1) {
+                ophash = daget(eqcontainer->opnodes, op->opcode);
+                destsen = fixedsearch(ophash, (long) sen1->index);
+                if(!destsen) {
+                  destsen = cteqnode(eqcontainer, NOCONST);
+                  dapush(destsen->equivs, cteqib(op->opcode, sen1, NULL));
+                  fixedinsert(ophash, (long) sen1->index, destsen);
+                }
+              } else {
+                destsen = cteqnode(eqcontainer, NOCONST);
+              }
+              dapush(destsen->equivs, cteqi(op->dest.iregnum));
+              eqcontainer->varnodes[op->dest.iregnum] = destsen;
+            }
             break;
           case TPHI:
             sen1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);

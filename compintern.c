@@ -339,6 +339,10 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim) {
       assert(typecompat(arrv->rettype, arr_memtype));
     }
     for(; i < tdclp->arrmaxind; i++) {
+      struct declarator_part* ldclp = dapeek(arr_memtype->pointerstack);
+      EXPRESSION* arrv = ct_array_lit(dactor(ldclp->arrmaxind));
+      tdclp->arrlen += process_array_lit(arr_memtype, arrv, arr_dim - 1);
+      assert(typecompat(arrv->rettype, arr_memtype));
     }
   }
   if(!tdclp->arrmaxind) tdclp->arrmaxind = arr_expr->params->length;
