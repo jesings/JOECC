@@ -338,7 +338,7 @@ struct arginfo {
     }
 }
 <INCLUDE,INCLUDENEXT>{
-    {BLANKC}\n {yy_pop_state(yyscanner);if(!lctx->ls->stmtover) fprintf(stderr, "Error: incomplete include %s %d.%d-%d.%d\n", locprint2(yylloc));}
+    {BLANKC}\r?\n {yy_pop_state(yyscanner);if(!lctx->ls->stmtover) fprintf(stderr, "Error: incomplete include %s %d.%d-%d.%d\n", locprint2(yylloc));}
   . {fprintf(stderr, "INCLUDE: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint2(yylloc));}
 }
 
@@ -419,7 +419,7 @@ struct arginfo {
     lctx->ls->argeaten = 0;
     insert(lctx->withindefines, yytext, NULL);
     }
-  \n {yy_pop_state(yyscanner);/*error state*/}
+  \r?\n {yy_pop_state(yyscanner);/*error state*/}
   . {fprintf(stderr, "DEFINE: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint2(yylloc));}
 }
 
@@ -459,13 +459,13 @@ struct arginfo {
     yy_push_state(DEFINE2, yyscanner); 
     lctx->ls->mdstrdly = strctor(malloc(256), 0, 256);
     }
-  \n {yy_pop_state(yyscanner); /*error state*/}
+  \r?\n {yy_pop_state(yyscanner); /*error state*/}
   . {fprintf(stderr, "DEFINE: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint2(yylloc));}
 }
 
 <DEFINE2>{
   ([^/\n]|"/"[^*/]|{SKIPNEWL})+ {dscat(lctx->ls->mdstrdly, yytext, yyleng);}
-  \n {
+  \r?\n {
     yy_pop_state(yyscanner);
     dsccat(lctx->ls->mdstrdly, 0);
     struct macrodef* isinplace;
@@ -490,7 +490,7 @@ struct arginfo {
     bigrmpaircfr(lctx->defines, yytext, (void(*)(void*)) freemd);}
   {IDENT}|["][^"\n]*["]/[[:blank:]] {
     bigrmpaircfr(lctx->defines, yytext, (void(*)(void*)) freemd); yy_push_state(KILLBLANK, yyscanner);}
-  \n {yy_pop_state(yyscanner);/*error state if expr not over?*/}
+  \r?\n {yy_pop_state(yyscanner);/*error state if expr not over?*/}
   . {fprintf(stderr, "UNDEF: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint2(yylloc));}
 }
 
@@ -503,7 +503,7 @@ struct arginfo {
     lctx->ls->defname = strdup(yytext);
     yy_push_state(KILLBLANK, yyscanner);
     }
-  \n {
+  \r?\n {
     yy_pop_state(yyscanner);
     if(!lctx->ls->stmtover) {
       /*error state*/
@@ -983,7 +983,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); lctx->ls->strcur = strctor(mallo
     }
     dsccat(lctx->ls->strcur, result);
     }
-  \\0x[[:xdigit:]]{1,2} {
+  \\x[[:xdigit:]]{1,2} {
     unsigned int result;
     sscanf(yytext + 3, "%x", &result);
     dsccat(lctx->ls->strcur, result);
