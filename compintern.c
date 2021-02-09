@@ -860,6 +860,7 @@ struct declarator_part* mkdeclpartarr(enum declpart_info typ, EXPRESSION* d) {
       retval->arrmaxind = d->intconst;
       break;
     default:
+      //variable length array
       assert(0);
   }
   rfreexpr(d);

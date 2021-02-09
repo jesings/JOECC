@@ -171,7 +171,7 @@ initializer:
         fprintf(stderr, "Error: forward declaration of unknown type %s at %s %d.%d-%d.%d\n", $2->structtype->name, locprint(@$));
       }
       da = search(ht, $2->structtype->name);
-      dapop(da);
+      if(da) dapop(da); //else opaque struct
     }
   }
   SCOPE* topscope = dapeek(ctx->scopes);
@@ -219,7 +219,7 @@ initializer:
         ht = scopepeek(ctx)->forwardunions;
       }
       da = search(ht, $1->structtype->name);
-      dapop(da);
+      if(da) dapop(da); //else opaque struct
     }
   }
   for(int i = 0; i < $$->length; i++) {
@@ -427,8 +427,10 @@ param_decl:
           ht = scopepeek(ctx)->forwardunions;
         }
         DYNARR* da = search(ht, $1->structtype->name);
-        dapop(da);
-        dapush(da, &($2->type->structtype));
+        if(da) {
+          dapop(da);
+          dapush(da, &($2->type->structtype));
+        } //else opaque struct
       }
     }
     free($1);
@@ -733,8 +735,10 @@ function:
           ht = scopepeek(ctx)->forwardunions;
         }
         DYNARR* da = search(ht, $1->structtype->name);
-        dapop(da);
-        dapush(da, &($2->type->structtype));
+        if(da) {
+          dapop(da);
+          dapush(da, &($2->type->structtype));
+        } //else opaque struct
       }
     }
     if(!dp->params) {
@@ -955,7 +959,7 @@ struct_decl:
           fprintf(stderr, "Error: forward declaration of unknown type %s at %s %d.%d-%d.%d\n", $1->structtype->name, locprint(@$));
         }
         da = search(ht, $1->structtype->name);
-        dapop(da);
+        if(da) dapop(da); //else opaque struct
       }
     }
     
