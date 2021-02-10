@@ -63,7 +63,7 @@ enum stmttype {
 };
 #undef X
 
-#define DECLPART_TYPE X(POINTERSPEC), X(ARRAYSPEC), X(PARAMSSPEC), X(BITFIELDSPEC), X(NAMELESS_PARAMSSPEC)
+#define DECLPART_TYPE X(POINTERSPEC), X(ARRAYSPEC), X(VLASPEC), X(PARAMSSPEC), X(BITFIELDSPEC), X(NAMELESS_PARAMSSPEC)
 #define X(name) name
 enum declpart_info {
   DECLPART_TYPE
@@ -229,6 +229,7 @@ struct declarator_part {
       int arrlen;
       int arrmaxind;
     };
+    EXPRESSION* vlaent;
     EXPRESSION* bfspec;
     TYPEBITS ptrspec;
     void* garbage;

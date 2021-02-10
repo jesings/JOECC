@@ -82,6 +82,9 @@ DYNARR* ptrdaclone(DYNARR* opointerstack) {
         break;
       case POINTERSPEC: case ARRAYSPEC:
         break;
+      case VLASPEC:
+        dclp->vlaent = rclonexpr(dclp->vlaent);
+        break;
       case BITFIELDSPEC:
         assert(0); //TODO: handle bitfields
     }
@@ -443,10 +446,12 @@ void freetype(IDTYPE* id) {
         case NAMELESS_PARAMSSPEC:
           if(dclp->nameless_params) dadtorcfr(dclp->nameless_params, (void (*)(void*)) freetype);
           break;
+        case VLASPEC:
+          rfreexpr(dclp->vlaent);
+          break;
         case POINTERSPEC: case ARRAYSPEC:
           break;
         case BITFIELDSPEC:
-          rfreexpr(dclp->bfspec);
           assert(0); //TODO: handle bitfields
       }
       free(dclp);
@@ -860,8 +865,8 @@ struct declarator_part* mkdeclpartarr(enum declpart_info typ, EXPRESSION* d) {
       retval->arrmaxind = d->intconst;
       break;
     default:
-      //variable length array
-      assert(0);
+      retval->type = VLASPEC;
+
   }
   rfreexpr(d);
   return retval;
