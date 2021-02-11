@@ -25,7 +25,7 @@
   X(MTP_OFF)
 #define OPS_2_3ac_MUT \
   X(NOT_U) X(NEG_I) X(NEG_F) \
-  X(F2I) X(I2F)
+  X(F2I) X(I2F) X(ALOC_3)
 #define OPS_2_3ac OPS_2_3ac_MUT X(MOV_3)
 #define OPS_NODEST_3ac \
   X(BEQ_U) X(BEQ_I) X(BEQ_F) \
@@ -40,7 +40,7 @@
 
 #define OPS_3AC OPS_NOVAR_3ac OPS_3_3ac OPS_3_PTRDEST_3ac OPS_2_3ac \
         OPS_NODEST_3ac OPS_1_ASSIGN_3ac OPS_1_3ac X(CALL_3) X(PHI) X(TPHI) \
-        X(ALOC_3) X(ADDR_3) X(ASM) /*call, phi, alloc, asm, and addr are special cases*/ \
+        X(ADDR_3) X(ASM) /*call, phi, alloc, asm, and addr are special cases*/ \
 
 #define X(s) s,
 enum opcode_3ac {

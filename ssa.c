@@ -96,7 +96,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
           if((op->addr0_type & (ADDRSVAR | ISVAR)) == ISVAR)
             op->addr0.ssaind =  (long) dapeek((DYNARR*) daget(S, op->addr0.varnum));
           __attribute__((fallthrough));
-        case CALL_3: case PHI: case ALOC_3: /*must have constant input in alloc_3*/
+        case CALL_3: case PHI: /*must have constant input in alloc_3*/
           if((op->dest_type & (ADDRSVAR | ISVAR)) == ISVAR) {
             if(op->dest_type & ISDEREF) {
               op->dest.ssaind =  (long) dapeek((DYNARR*) daget(S, op->dest.varnum));
@@ -287,7 +287,7 @@ void ssa(PROGRAM* prog) {
               fad->addr_type |= ADDRSVAR;
             }
             __attribute__((fallthrough));
-          OPS_3_3ac OPS_2_3ac case CALL_3: case ALOC_3:
+          OPS_3_3ac OPS_2_3ac case CALL_3:
           //arrmov, mtp_off, copy_3 must have pointer dest
             if((op->dest_type & (ISVAR | ISDEREF | ADDRSVAR)) == ISVAR) {
               DYNARR* dda = daget(varas, op->dest.varnum);
@@ -532,7 +532,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
         }
       }
       break;
-    case CALL_3: case ALOC_3:
+    case CALL_3:
       sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
       if(sen) {
         if(sen->hasconst != NOCONST || bfget(bf, sen->index)) {
@@ -776,7 +776,6 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
             nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
             break;
           case CALL_3: //no pure functions for now
-          case ALOC_3:
             nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
             break;
           OPS_1_ASSIGN_3ac

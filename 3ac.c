@@ -824,11 +824,23 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
         ADDRESS scratchaddr;
         FULLADDR curaddr, otheraddr;
         curaddr = linearitree(dclp->vlaent, prog);
-        FILLREG(otheraddr, curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
-        i->decl->type->pointerstack--;
-        scratchaddr.uintconst_64 = lentype(i->decl->type);
-        i->decl->type->pointerstack++;
-        opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, ISCONST | 0x8, scratchaddr, otheraddr.addr_type, otheraddr.addr));
+        if(i->decl->type->pointerstack->length && ((struct declarator_part*) dapeek(i->decl->type->pointerstack))->type != VLASPEC) {
+          FILLREG(otheraddr, curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
+          i->decl->type->pointerstack->length--;
+          scratchaddr.uintconst_64 = lentype(i->decl->type);
+          i->decl->type->pointerstack->length++;
+          opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, ISCONST | 0x8, scratchaddr, otheraddr.addr_type, otheraddr.addr));
+        } else {
+          int pslenorig = i->decl->type->pointerstack->length;
+          struct declarator_part* subdclp;
+          for(int psentry = pslenorig; psentry >= 0 && (subdclp = daget(i->decl->type->pointerstack, psentry))->type == VLASPEC; psentry--) {
+            FILLREG(otheraddr, curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
+            FULLADDR depthaddr = linearitree(subdclp->vlaent, prog);
+            opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, depthaddr.addr_type, depthaddr.addr, otheraddr.addr_type, otheraddr.addr));
+            curaddr = otheraddr;
+          }
+          i->decl->type->pointerstack->length = pslenorig;
+        }
         opn(prog, ct_3ac_op2(ALOC_3, otheraddr.addr_type, otheraddr.addr, newa->addr_type, newa->addr));
       }
     } else {
