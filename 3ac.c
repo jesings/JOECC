@@ -398,6 +398,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       struct declarator_part* ptrtop = dapeek(cexpr->rettype->pointerstack);
       FILLREG(destaddr, ISPOINTER | 0x8);
       assert(ptrtop->type == ARRAYSPEC);
+      //vlas may not be initialized
       curaddr.addr.uintconst_64 = ptrtop->arrlen;
       opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 0x8, curaddr.addr, destaddr.addr_type, destaddr.addr));
       curaddr.addr.uintconst_64 = ptrtop->arrlen / ptrtop->arrmaxind;
@@ -466,7 +467,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       }
       if(hpoints) {
         struct declarator_part* dclp = dapeek(varty.pointerstack);
-        if(dclp->type == ARRAYSPEC)
+        if(dclp->type == ARRAYSPEC || dclp->type == VLASPEC)
           return linearitree(daget(cexpr->params, 0), prog);//addr should be a no-op for single pointers to arrays
       }
       return op2ret(prog, implicit_unary_2(ADDR_3, cexpr, prog));
@@ -479,11 +480,11 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         return destaddr; //dereferencing single pointer to struct should be a no-op
       }
       struct declarator_part* dclp = dapeek(varty.pointerstack);
-      if(dclp->type == ARRAYSPEC) {
+      if(dclp->type == ARRAYSPEC || dclp->type == VLASPEC) {
         varty = typex(cexpr);
         if(ispointer2(varty)) {
           struct declarator_part* dclp2 = dapeek(varty.pointerstack);
-          if(dclp2->type != ARRAYSPEC) {
+          if(dclp2->type != ARRAYSPEC || dclp2->type == VLASPEC) {
             goto REALDEREF;
           }
         } else {
@@ -818,6 +819,17 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
           tmpaddr.intconst_64 = dclp->arrlen;
           opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 8, tmpaddr, newa->addr_type, newa->addr));
         }
+      } else if(dclp->type == VLASPEC) {
+        assert(!i->expr); //vlas are not allowed to have expressions
+        ADDRESS scratchaddr;
+        FULLADDR curaddr, otheraddr;
+        curaddr = linearitree(dclp->vlaent, prog);
+        FILLREG(otheraddr, curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
+        i->decl->type->pointerstack--;
+        scratchaddr.uintconst_64 = lentype(i->decl->type);
+        i->decl->type->pointerstack++;
+        opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, ISCONST | 0x8, scratchaddr, otheraddr.addr_type, otheraddr.addr));
+        opn(prog, ct_3ac_op2(ALOC_3, otheraddr.addr_type, otheraddr.addr, newa->addr_type, newa->addr));
       }
     } else {
       if(i->expr) {
