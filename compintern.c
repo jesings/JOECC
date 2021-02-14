@@ -288,8 +288,13 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim) {
   struct declarator_part* tdclp = dapeek(arr_memtype->pointerstack);
   tdclp->arrlen = 0;
   arr_memtype->pointerstack->length -= 1;
-  int szstep = lentype(arr_memtype);
   if(arr_dim == 1) {
+    int szstep;
+    if(ispointer(arr_memtype))
+      szstep = 0x8;//arr dim is one so must be real pointer
+    else if(arr_memtype->tb & (STRUCTVAL | UNIONVAL))
+      szstep = arr_memtype->structtype->size;
+    else szstep =  arr_memtype->tb & 0xf;
     if(0 == arr_memtype->pointerstack->length) {
       if(arr_memtype->tb & (STRUCTVAL | UNIONVAL)) {
         int i;

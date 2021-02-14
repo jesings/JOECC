@@ -259,6 +259,23 @@ static inline FULLADDR op2ret(PROGRAM* prog, OPERATION* op) {
   return fa;
 }
 
+static inline int lentype(IDTYPE* idt) {
+  FULLADDR fadr;
+  if(ispointer(idt)) {
+    struct declarator_part* pointtop = dapeek(idt->pointerstack);
+    if(pointtop->type == VLASPEC) {
+      return -1;
+    } else if(pointtop->type != ARRAYSPEC) {
+      return 0x8;
+    } else {
+      return pointtop->arrlen;
+    }
+  } else if(idt->tb & (STRUCTVAL | UNIONVAL)) {
+    return idt->structtype->size;
+  }
+  return idt->tb & 0xf;
+}
+
 static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
   FULLADDR destad;
   ADDRESS sz;

@@ -389,17 +389,4 @@ int unionlen(USTRUCT* u);
 #define ctx ((struct lexctx*) yyget_extra(scanner))
 #define ispointer(x) ((x)->pointerstack && (x)->pointerstack->length)
 #define ispointer2(x) ((x).pointerstack && (x).pointerstack->length)
-
-static inline int lentype(IDTYPE* idt) {
-  if(ispointer(idt)) {
-    struct declarator_part* pointtop = dapeek(idt->pointerstack);
-    if(pointtop->type == VLASPEC) return -1;
-    if(pointtop->type != ARRAYSPEC) return 0x8;
-    else return pointtop->arrlen;
-  }
-  if(idt->tb & (STRUCTVAL | UNIONVAL)) {
-    return idt->structtype->size;
-  }
-  return idt->tb & 0xf;
-}
 #endif

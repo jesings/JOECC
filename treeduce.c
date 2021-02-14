@@ -575,8 +575,16 @@ char foldconst(EXPRESSION** exa) {
       //get addr for deref, as struct should be fully populated at this point
       return 0;
     case SZOF:
-      //speed up maybe?
-      *exa = ct_intconst_expr(lentype(ex->vartype));
+      if(ispointer(ex->vartype)) {
+        struct declarator_part* pointtop = dapeek(ex->vartype->pointerstack);
+        if(pointtop->type == VLASPEC) return 0;
+        if(pointtop->type != ARRAYSPEC) *exa = ct_intconst_expr(0x8);
+        *exa = ct_intconst_expr(pointtop->arrlen);
+      } else if(ex->vartype->tb & (STRUCTVAL | UNIONVAL)) {
+        *exa = ct_intconst_expr(ex->vartype->structtype->size);
+      } else {
+        *exa = ct_intconst_expr(ex->vartype->tb & 0xf);
+      }
       rfreexpr(ex);
       return 1;
     case NEG:

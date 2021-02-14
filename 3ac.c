@@ -155,12 +155,13 @@ static FULLADDR prestep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
   char baseness = destaddr.addr_type & ISFLOAT ? 2 : 0;
   if(ispointer2(rid)) {
     rid.pointerstack->length -= 1;
-    curaddr.addr.uintconst_64 = lentype(&rid);
+    curaddr = lentype(&rid, ISCONST | 8, prog);
     rid.pointerstack->length += 1;
   } else {
     curaddr.addr.uintconst_64 = 1;
+    curaddr.addr_type = ISCONST | 8;
   }
-  opn(prog, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, destaddr.addr_type, destaddr.addr, ISCONST | 8, curaddr.addr, destaddr.addr_type, destaddr.addr));
+  opn(prog, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, destaddr.addr_type, destaddr.addr, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
   return destaddr;
 }
 static FULLADDR poststep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
@@ -172,12 +173,14 @@ static FULLADDR poststep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
   opn(prog, ct_3ac_op2(MOV_3, destaddr.addr_type, destaddr.addr, actualaddr.addr_type, actualaddr.addr));
   if(ispointer2(rid)) {
     rid.pointerstack->length -= 1;
-    curaddr.addr.uintconst_64 = lentype(&rid);
+    curaddr.addr = lentype(&rid, ISCONST | 8, prog);
+    //TODO: disallow arrays/VLAs
     rid.pointerstack->length += 1;
   } else {
     curaddr.addr.uintconst_64 = 1;
+    curaddr.addr_type = ISCONST | 8;
   }
-  opn(prog, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, destaddr.addr_type, destaddr.addr, ISCONST | 8, curaddr.addr, destaddr.addr_type, destaddr.addr));
+  opn(prog, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, destaddr.addr_type, destaddr.addr, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
   return actualaddr;
 }
 
@@ -559,21 +562,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return smemrec(cexpr, prog);
     case SZOFEXPR:
       varty = typex(cexpr);
-      destaddr.addr.uintconst_64 = lentype(&varty);
-      if(-1 == (signed int) destaddr.addr.uintconst_64) {
-        struct declarator_part* pointtop;
-        curaddr = linearitree(daget(cexpr->params, 0), prog); //c spec says sizeof expression is not evaluated except in the case of VLAs
-        for(int i = varty.pointerstack->length; i >= 0 && (pointtop = daget(varty.pointerstack, i))->type == VLASPEC; i--) {
-          FILLREG(otheraddr, curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
-          FULLADDR depthaddr = linearitree(pointtop->vlaent, prog);
-          opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, depthaddr.addr_type, depthaddr.addr, otheraddr.addr_type, otheraddr.addr));
-          curaddr = otheraddr;
-        } //maybe could be calculated from original instance, but we'll assume that GVN will take care of this
-        return otheraddr;
-      } else {
-        destaddr.addr_type = ISCONST;
-      }
-      return destaddr;
+      return lentype(&varty, ISCONST | 0x8, prog);
     case CAST: //handle identity casts differently
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       if(ispointer(cexpr->vartype)) {
@@ -836,21 +825,20 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
         ADDRESS scratchaddr;
         FULLADDR curaddr, otheraddr;
         curaddr = linearitree(dclp->vlaent, prog);
-        if(i->decl->type->pointerstack->length && ((struct declarator_part*) dapeek(i->decl->type->pointerstack))->type != VLASPEC) {
+        struct declarator_part* subdclp;
+        int psentry;
+        for(psentry = i->decl->type->pointerstack->length; psentry >= 0 && (subdclp = daget(i->decl->type->pointerstack, psentry))->type == VLASPEC; psentry--) {
           FILLREG(otheraddr, curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
-          i->decl->type->pointerstack->length--;
-          scratchaddr.uintconst_64 = lentype(i->decl->type);
-          i->decl->type->pointerstack->length++;
-          opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, ISCONST | 0x8, scratchaddr, otheraddr.addr_type, otheraddr.addr));
-        } else {
-          struct declarator_part* subdclp;
-          for(int psentry = i->decl->type->pointerstack->length; psentry >= 0 && (subdclp = daget(i->decl->type->pointerstack, psentry))->type == VLASPEC; psentry--) {
-            FILLREG(otheraddr, curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
-            FULLADDR depthaddr = linearitree(subdclp->vlaent, prog);
-            opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, depthaddr.addr_type, depthaddr.addr, otheraddr.addr_type, otheraddr.addr));
-            curaddr = otheraddr;
-          }
+          scratchaddr = linearitree(subdclp->vlaent, prog);
+          opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, scratchaddr.addr_type, scratchaddr.addr, otheraddr.addr_type, otheraddr.addr));
+          curaddr = otheraddr;
         }
+        int lenstore = i->decl->type->pointerstack->length;
+        i->decl->type->pointerstack->length = psentry;
+        scratchaddr.addr.uintconst_64 = lentype(i->decl->type);
+        i->decl->type->pointerstack->length = lenstore;
+        FILLREG(otheraddr, curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
+        opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, ISCONST | 0x8, scratchaddr.addr, otheraddr.addr_type, otheraddr.addr))
         opn(prog, ct_3ac_op2(ALOC_3, otheraddr.addr_type, otheraddr.addr, newa->addr_type, newa->addr));
       }
     } else {
