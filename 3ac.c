@@ -155,13 +155,12 @@ static FULLADDR prestep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
   char baseness = destaddr.addr_type & ISFLOAT ? 2 : 0;
   if(ispointer2(rid)) {
     rid.pointerstack->length -= 1;
-    curaddr = lentype(&rid, ISCONST | 8, prog);
+    curaddr.addr.uintconst_64 = lentype(&rid);
     rid.pointerstack->length += 1;
   } else {
     curaddr.addr.uintconst_64 = 1;
-    curaddr.addr_type = ISCONST | 8;
   }
-  opn(prog, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, destaddr.addr_type, destaddr.addr, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+  opn(prog, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, destaddr.addr_type, destaddr.addr, ISCONST | 0x8, curaddr.addr, destaddr.addr_type, destaddr.addr));
   return destaddr;
 }
 static FULLADDR poststep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
@@ -173,14 +172,13 @@ static FULLADDR poststep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
   opn(prog, ct_3ac_op2(MOV_3, destaddr.addr_type, destaddr.addr, actualaddr.addr_type, actualaddr.addr));
   if(ispointer2(rid)) {
     rid.pointerstack->length -= 1;
-    curaddr.addr = lentype(&rid, ISCONST | 8, prog);
+    curaddr.addr.uintconst_64 = lentype(&rid);
     //TODO: disallow arrays/VLAs
     rid.pointerstack->length += 1;
   } else {
     curaddr.addr.uintconst_64 = 1;
-    curaddr.addr_type = ISCONST | 8;
   }
-  opn(prog, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, destaddr.addr_type, destaddr.addr, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+  opn(prog, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, destaddr.addr_type, destaddr.addr, ISCONST | 0x8, curaddr.addr, destaddr.addr_type, destaddr.addr));
   return actualaddr;
 }
 
@@ -562,7 +560,15 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return smemrec(cexpr, prog);
     case SZOFEXPR:
       varty = typex(cexpr);
-      return lentype(&varty, ISCONST | 0x8, prog);
+      destaddr.addr.uintconst_64 = lentype(&varty);
+      if(destaddr.addr.uintconst_64 == (unsigned long) -1) {
+        struct declarator_part* dclp = dapeek(varty.pointerstack);
+        destaddr.addr.garbage = dclp->addrun;
+        destaddr.addr_type = dclp->addrty;
+      } else {
+        destaddr.addr_type = ISCONST | 0x8;
+      }
+      return destaddr;
     case CAST: //handle identity casts differently
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       if(ispointer(cexpr->vartype)) {
@@ -822,8 +828,7 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
         }
       } else if(dclp->type == VLASPEC) {
         assert(!i->expr); //vlas are not allowed to have expressions
-        ADDRESS scratchaddr;
-        FULLADDR curaddr, otheraddr;
+        FULLADDR scratchaddr, curaddr, otheraddr;
         curaddr = linearitree(dclp->vlaent, prog);
         struct declarator_part* subdclp;
         int psentry;
@@ -838,7 +843,9 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
         scratchaddr.addr.uintconst_64 = lentype(i->decl->type);
         i->decl->type->pointerstack->length = lenstore;
         FILLREG(otheraddr, curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
-        opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, ISCONST | 0x8, scratchaddr.addr, otheraddr.addr_type, otheraddr.addr))
+        opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, ISCONST | 0x8, scratchaddr.addr, otheraddr.addr_type, otheraddr.addr));
+        dclp->addrun = otheraddr.addr.garbage; //may we need the non-top level pointerstack entries to be correct?
+        dclp->addrty = otheraddr.addr_type;
         opn(prog, ct_3ac_op2(ALOC_3, otheraddr.addr_type, otheraddr.addr, newa->addr_type, newa->addr));
       }
     } else {

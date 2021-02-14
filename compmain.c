@@ -61,7 +61,7 @@ static void filecomp(char* filename) {
   struct lexctx* lctx = ctxinit();
   yylex_init_extra(lctx, &scanner);
   yyset_in(yyin, scanner);
-  debug(yyset_debug(1, scanner));//not debugging lexer for now
+  debug(yyset_debug(0, scanner));//not debugging lexer for now
   yyparse(scanner, strdup(filename));
   free(yyget_lloc(scanner)->filename);
   yylex_destroy(scanner);

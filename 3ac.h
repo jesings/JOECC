@@ -73,6 +73,7 @@ typedef union {
   unsigned long* arrayconst;
   char* labelname;
   struct fulladdr* joins;
+  void* garbage;
 } ADDRESS;
 
 typedef enum {
@@ -100,7 +101,7 @@ typedef struct op {
   struct op* nextop;
 } OPERATION;
 
-typedef struct fulladdr{
+typedef struct fulladdr {
   ADDRTYPE addr_type;
   ADDRESS addr;
 } FULLADDR;
@@ -260,7 +261,6 @@ static inline FULLADDR op2ret(PROGRAM* prog, OPERATION* op) {
 }
 
 static inline int lentype(IDTYPE* idt) {
-  FULLADDR fadr;
   if(ispointer(idt)) {
     struct declarator_part* pointtop = dapeek(idt->pointerstack);
     if(pointtop->type == VLASPEC) {

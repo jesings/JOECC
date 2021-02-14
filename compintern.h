@@ -229,7 +229,11 @@ struct declarator_part {
       int arrlen;
       int arrmaxind;
     };
-    EXPRESSION* vlaent;
+    struct {
+      EXPRESSION* vlaent;
+      void* addrun;
+      int addrty;
+    };
     EXPRESSION* bfspec;
     TYPEBITS ptrspec;
     void* garbage;
