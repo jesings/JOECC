@@ -252,11 +252,11 @@ initializer:
         }
         assert(arrdim);
         process_array_lit(ac->decl->type, ac->expr, arrdim);
-      } else if(ac->decl->type->tb & (STRUCTVAL | UNIONVAL)) {
+      } else if(!(pointy && pointy->length) && ac->decl->type->tb & (STRUCTVAL | UNIONVAL)) {
         assert(!(pointy && pointy->length));
         process_struct_lit(ac->decl->type, ac->expr);
       } else {
-        //disgusting unnecessary brace syntax used
+        //disgusting unnecessary brace syntax allowed
         EXPRESSION* unnex = ac->expr;
         assert(unnex->params->length == 1);
         ac->expr = daget(unnex->params, 0);

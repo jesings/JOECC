@@ -847,6 +847,11 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
         dclp->addrun = otheraddr.addr.garbage; //may we need the non-top level pointerstack entries to be correct?
         dclp->addrty = otheraddr.addr_type;
         opn(prog, ct_3ac_op2(ALOC_3, otheraddr.addr_type, otheraddr.addr, newa->addr_type, newa->addr));
+      } else {
+        if(i->expr) {
+          FULLADDR curaddr = linearitree(i->expr, prog);
+          opn(prog, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, newa->addr_type, newa->addr));
+        }
       }
     } else {
       if(i->expr) {
