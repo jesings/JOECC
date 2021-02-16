@@ -871,6 +871,8 @@ struct declarator_part* mkdeclpartarr(enum declpart_info typ, EXPRESSION* d) {
       break;
     default:
       retval->type = VLASPEC;
+      retval->vlaent = d;
+      return retval;
 
   }
   rfreexpr(d);

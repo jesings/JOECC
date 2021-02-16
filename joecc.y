@@ -256,7 +256,12 @@ initializer:
         assert(!(pointy && pointy->length));
         process_struct_lit(ac->decl->type, ac->expr);
       } else {
-        assert(0);
+        //disgusting unnecessary brace syntax used
+        EXPRESSION* unnex = ac->expr;
+        assert(unnex->params->length == 1);
+        ac->expr = daget(unnex->params, 0);
+        dadtor(unnex->params);
+        free(unnex);
       }
     }
   }
@@ -282,7 +287,6 @@ initializer:
   for(int i = 0; i < $2->length; i++) {
     ENUMFIELD* enf = daget($2, i);
     free(enf->name);
-    //free(enf->value);
     free(enf);
   }
   dadtor($2);
@@ -318,7 +322,7 @@ declname:
   SYMBOL {$$ = mkdeclaration($1);}
 | '(' declname ')' {$$ = $2;}
 | declname '[' ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, NULL));}
-| declname '[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpartarr(ARRAYSPEC, $3));/*foldconst*/}
+| declname '[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpartarr(ARRAYSPEC, $3));}
 | declname'(' ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(NAMELESS_PARAMSSPEC, NULL));}
 | declname '(' nameless ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(NAMELESS_PARAMSSPEC, $3));}
 | declname '(' params ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));}

@@ -832,7 +832,7 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
         curaddr = linearitree(dclp->vlaent, prog);
         struct declarator_part* subdclp;
         int psentry;
-        for(psentry = i->decl->type->pointerstack->length; psentry >= 0 && (subdclp = daget(i->decl->type->pointerstack, psentry))->type == VLASPEC; psentry--) {
+        for(psentry = i->decl->type->pointerstack->length - 1; psentry >= 0 && (subdclp = daget(i->decl->type->pointerstack, psentry))->type == VLASPEC; psentry--) {
           FILLREG(otheraddr, curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
           scratchaddr = linearitree(subdclp->vlaent, prog);
           opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, scratchaddr.addr_type, scratchaddr.addr, otheraddr.addr_type, otheraddr.addr));
