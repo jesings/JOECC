@@ -154,6 +154,8 @@ static FULLADDR prestep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
   destaddr = linearitree(daget(cexpr->params, 0), prog);
   char baseness = destaddr.addr_type & ISFLOAT ? 2 : 0;
   if(ispointer2(rid)) {
+    struct declarator_part* dclp = dapeek(rid.pointerstack);
+    assert(dclp->type != ARRAYSPEC && dclp->type != VLASPEC);
     rid.pointerstack->length -= 1;
     curaddr.addr.uintconst_64 = lentype(&rid);
     rid.pointerstack->length += 1;
@@ -171,9 +173,10 @@ static FULLADDR poststep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
   FILLREG(actualaddr, destaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
   opn(prog, ct_3ac_op2(MOV_3, destaddr.addr_type, destaddr.addr, actualaddr.addr_type, actualaddr.addr));
   if(ispointer2(rid)) {
+    struct declarator_part* dclp = dapeek(rid.pointerstack);
+    assert(dclp->type != ARRAYSPEC && dclp->type != VLASPEC);
     rid.pointerstack->length -= 1;
     curaddr.addr.uintconst_64 = lentype(&rid);
-    //TODO: disallow arrays/VLAs
     rid.pointerstack->length += 1;
   } else {
     curaddr.addr.uintconst_64 = 1;
@@ -565,6 +568,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         struct declarator_part* dclp = dapeek(varty.pointerstack);
         destaddr.addr.garbage = dclp->addrun;
         destaddr.addr_type = dclp->addrty;
+        linearitree(daget(cexpr->params, 0), prog);
       } else {
         destaddr.addr_type = ISCONST | 0x8;
       }
@@ -705,22 +709,29 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case NOP: case MEMBER:
       assert(0);
     case SZOF:
-      varty = *cexpr->vartype;
       destaddr.addr_type = ISCONST | 8;
-      if(ispointer2(varty)) {
-        //check for VLA
-        destaddr.addr.intconst_64 = 8;
-      } else {
-        if(varty.tb & STRUCTVAL) {
-          feedstruct(varty.structtype);
-          destaddr.addr.intconst_64 = varty.structtype->size;
-        } else if(varty.tb & UNIONVAL) {
-          unionlen(varty.uniontype);
-          destaddr.addr.intconst_64 = varty.uniontype->size;
-        } else {
-          destaddr.addr.intconst_64 = varty.tb & 0xf;
+      destaddr.addr.intconst_64 = lentype(cexpr->vartype);
+      if(-1 == destaddr.addr.intconst_64) {
+        struct declarator_part* dclp = dapeek(cexpr->vartype->pointerstack);
+        curaddr = linearitree(dclp->vlaent, prog);
+        struct declarator_part* subdclp;
+        int psentry;
+        for(psentry = cexpr->vartype->pointerstack->length - 1; psentry >= 0 && (subdclp = daget(cexpr->vartype->pointerstack, psentry))->type == VLASPEC; psentry--) {
+          FILLREG(otheraddr, curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
+          destaddr = linearitree(subdclp->vlaent, prog);
+          opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr, otheraddr.addr_type, otheraddr.addr));
+          curaddr = otheraddr;
         }
-      }
+        int lenstore = cexpr->vartype->pointerstack->length;
+        cexpr->vartype->pointerstack->length = psentry;
+        destaddr.addr.uintconst_64 = lentype(cexpr->vartype);
+        cexpr->vartype->pointerstack->length = lenstore;
+        FILLREG(otheraddr, curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
+        opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, ISCONST | 0x8, destaddr.addr, otheraddr.addr_type, otheraddr.addr));
+        dclp->addrun = otheraddr.addr.garbage; //may we need the non-top level pointerstack entries to be correct?
+        dclp->addrty = otheraddr.addr_type;
+        return otheraddr;
+      } //handle vlas
       return destaddr;
     case FCALL: ;
       OPERATION* fparam,* lparam;
