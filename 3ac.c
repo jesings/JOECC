@@ -365,6 +365,29 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
   return retaddr;
 }
 
+static FULLADDR execvla(IDTYPE* idt, PROGRAM* prog) {
+   FULLADDR curaddr, otheraddr, scratchaddr;
+   struct declarator_part* dclp = dapeek(idt->pointerstack);
+   curaddr = linearitree(dclp->vlaent, prog);
+   struct declarator_part* subdclp;
+   int psentry;
+   for(psentry = idt->pointerstack->length - 1; psentry >= 0 && (subdclp = daget(idt->pointerstack, psentry))->type == VLASPEC; psentry--) {
+     FILLREG(otheraddr, curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
+     scratchaddr = linearitree(subdclp->vlaent, prog);
+     opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, scratchaddr.addr_type, scratchaddr.addr, otheraddr.addr_type, otheraddr.addr));
+     curaddr = otheraddr;
+   }
+   int lenstore = idt->pointerstack->length;
+   idt->pointerstack->length = psentry;
+   scratchaddr.addr.uintconst_64 = lentype(idt);
+   idt->pointerstack->length = lenstore;
+   FILLREG(otheraddr, curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
+   opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, ISCONST | 0x8, scratchaddr.addr, otheraddr.addr_type, otheraddr.addr));
+   dclp->addrun = otheraddr.addr.garbage; //may we need the non-top level pointerstack entries to be correct?
+   dclp->addrty = otheraddr.addr_type;
+   return otheraddr;
+}
+
 FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR curaddr, otheraddr, destaddr;
   IDTYPE varty;
@@ -711,27 +734,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case SZOF:
       destaddr.addr_type = ISCONST | 8;
       destaddr.addr.intconst_64 = lentype(cexpr->vartype);
-      if(-1 == destaddr.addr.intconst_64) {
-        struct declarator_part* dclp = dapeek(cexpr->vartype->pointerstack);
-        curaddr = linearitree(dclp->vlaent, prog);
-        struct declarator_part* subdclp;
-        int psentry;
-        for(psentry = cexpr->vartype->pointerstack->length - 1; psentry >= 0 && (subdclp = daget(cexpr->vartype->pointerstack, psentry))->type == VLASPEC; psentry--) {
-          FILLREG(otheraddr, curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
-          destaddr = linearitree(subdclp->vlaent, prog);
-          opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr, otheraddr.addr_type, otheraddr.addr));
-          curaddr = otheraddr;
-        }
-        int lenstore = cexpr->vartype->pointerstack->length;
-        cexpr->vartype->pointerstack->length = psentry;
-        destaddr.addr.uintconst_64 = lentype(cexpr->vartype);
-        cexpr->vartype->pointerstack->length = lenstore;
-        FILLREG(otheraddr, curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
-        opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, ISCONST | 0x8, destaddr.addr, otheraddr.addr_type, otheraddr.addr));
-        dclp->addrun = otheraddr.addr.garbage; //may we need the non-top level pointerstack entries to be correct?
-        dclp->addrty = otheraddr.addr_type;
-        return otheraddr;
-      } //handle vlas
+      if(-1 == destaddr.addr.intconst_64)
+        return execvla(cexpr->vartype, prog);
       return destaddr;
     case FCALL: ;
       OPERATION* fparam,* lparam;
@@ -839,25 +843,10 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
         }
       } else if(dclp->type == VLASPEC) {
         assert(!i->expr); //vlas are not allowed to have expressions
-        FULLADDR scratchaddr, curaddr, otheraddr;
-        curaddr = linearitree(dclp->vlaent, prog);
-        struct declarator_part* subdclp;
-        int psentry;
-        for(psentry = i->decl->type->pointerstack->length - 1; psentry >= 0 && (subdclp = daget(i->decl->type->pointerstack, psentry))->type == VLASPEC; psentry--) {
-          FILLREG(otheraddr, curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
-          scratchaddr = linearitree(subdclp->vlaent, prog);
-          opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, scratchaddr.addr_type, scratchaddr.addr, otheraddr.addr_type, otheraddr.addr));
-          curaddr = otheraddr;
-        }
-        int lenstore = i->decl->type->pointerstack->length;
-        i->decl->type->pointerstack->length = psentry;
-        scratchaddr.addr.uintconst_64 = lentype(i->decl->type);
-        i->decl->type->pointerstack->length = lenstore;
-        FILLREG(otheraddr, curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
-        opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, ISCONST | 0x8, scratchaddr.addr, otheraddr.addr_type, otheraddr.addr));
-        dclp->addrun = otheraddr.addr.garbage; //may we need the non-top level pointerstack entries to be correct?
-        dclp->addrty = otheraddr.addr_type;
-        opn(prog, ct_3ac_op2(ALOC_3, otheraddr.addr_type, otheraddr.addr, newa->addr_type, newa->addr));
+        FULLADDR scratchaddr = execvla(i->decl->type, prog);
+        dclp->addrun = scratchaddr.addr.garbage; //may we need the non-top level pointerstack entries to be correct?
+        dclp->addrty = scratchaddr.addr_type;
+        opn(prog, ct_3ac_op2(ALOC_3, scratchaddr.addr_type, scratchaddr.addr, newa->addr_type, newa->addr));
       } else {
         if(i->expr) {
           FULLADDR curaddr = linearitree(i->expr, prog);
@@ -1121,13 +1110,24 @@ PROGRAM* linefunc(FUNC* f) {
     newa->addr_type = addrconv(pdec->type) | ISVAR;
     newa->addr.varnum = pdec->varid;
     opn(prog, ct_3ac_op1(PARAM_3, newa->addr_type, newa->addr));
-    if(!ispointer(pdec->type) && (pdec->type->tb & (STRUCTVAL | UNIONVAL) )) {
-      ADDRESS tmpaddr, tmpaddr2;
-      tmpaddr.intconst_64 = pdec->type->structtype->size;
-      tmpaddr2.iregnum = prog->iregcnt++;
-      opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 8, tmpaddr, newa->addr_type & ~ISVAR, tmpaddr2));
-      opn(prog, ct_3ac_op3(COPY_3, newa->addr_type | ISDEREF, newa->addr, ISCONST, tmpaddr, (newa->addr_type & ~ISVAR) | ISDEREF, tmpaddr2));
-      opn(prog, ct_3ac_op2(MOV_3, newa->addr_type & ~ISVAR, tmpaddr2, newa->addr_type, newa->addr));
+    if(!ispointer(pdec->type)) {
+      if((pdec->type->tb & (STRUCTVAL | UNIONVAL) )) {
+        ADDRESS tmpaddr, tmpaddr2;
+        tmpaddr.intconst_64 = pdec->type->structtype->size;
+        tmpaddr2.iregnum = prog->iregcnt++;
+        opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 8, tmpaddr, newa->addr_type & ~ISVAR, tmpaddr2));
+        opn(prog, ct_3ac_op3(COPY_3, newa->addr_type | ISDEREF, newa->addr, ISCONST, tmpaddr, (newa->addr_type & ~ISVAR) | ISDEREF, tmpaddr2));
+        opn(prog, ct_3ac_op2(MOV_3, newa->addr_type & ~ISVAR, tmpaddr2, newa->addr_type, newa->addr));
+      }
+    } else {
+      struct declarator_part* dclp;
+      if((dclp = dapeek(pdec->type->pointerstack))->type == VLASPEC) {
+
+        FULLADDR scratchaddr = execvla(pdec->type, prog);
+        dclp->addrun = scratchaddr.addr.garbage; //may we need the non-top level pointerstack entries to be correct?
+        dclp->addrty = scratchaddr.addr_type;
+        opn(prog, ct_3ac_op2(ALOC_3, scratchaddr.addr_type, scratchaddr.addr, newa->addr_type, newa->addr));
+      }
     } 
     assert(prog->dynvars->length == pdec->varid);
     dapush(prog->dynvars, newa);
