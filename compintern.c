@@ -239,6 +239,12 @@ EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = IDENT;
   IDENTIFIERINFO* ids = scopesearch(lct, M_VARIABLE, ident);
+  if(!ids) {
+    if(!lct->func) {
+      //error out, this may be not to spec
+      assert(0);
+    }
+  }
   retval->id = malloc(sizeof(IDENTIFIERINFO));
   retval->id->type = ids->type;
   retval->id->name = ident;
