@@ -562,10 +562,11 @@ void tailcall(PROGRAM* prog) {
           //tail recursion!! more optimization potential?
           //insert block immediately after arguments with phi nodes for all the params
         }
-        free(op->nextop);
-        op->nextop = NULL;
-        op->opcode = JMP_3;
-        retb->lastop = op;
+        //free(op->nextop);
+        //op->nextop = NULL;
+        //op->opcode = JMP_3;
+        //retb->lastop = op;
+        //TODO: wait until interprocedural or codegen
       }
     }
   }

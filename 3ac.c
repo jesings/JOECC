@@ -1195,8 +1195,8 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char color, FILE* f, PRO
         else                    fprintf(f, "%s", adname);
       }
     } else {
-      if(addr_type & ISDEREF) fprintf(f, "(ireg%u)", addr.iregnum);
-      else                    fprintf(f, "%creg%u", addr_type & ISFLOAT ? 'f' : 'i', addr.iregnum);
+      if(addr_type & ISDEREF) fprintf(f, "(reg%u)", addr.iregnum);
+      else                    fprintf(f, "reg%u", addr.iregnum);
     }
     fprintf(f, ".%d%c", sz, addr_type & ISFLOAT ? 'f' : addr_type & ISSIGNED ? 's' : 'u');
     if(color) fprintf(f, CLEARCOLOR);
@@ -1320,7 +1320,7 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
       if(color) PRINTBROP2(>);
       else PRINTBROP2(&gt;);
       break;
-    case BNZ_3: case BEZ_3: case JMP_3:
+    case BNZ_3: case BEZ_3:
     case ARG_3: case PARAM_3: case RET_3: case INIT_3:
       PRINTOP1( );
       break;

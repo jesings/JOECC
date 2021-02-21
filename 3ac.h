@@ -5,8 +5,7 @@
 #include "treeduce.h"
 
 #define OPS_NOVAR_3ac \
-  X(NOP_3) /*op0*/ X(LBL_3) /*op1 (special)*/ \
-  X(JMP_3) /*op1 special (dest label)*/ X(RET_0) /*op0*/
+  X(NOP_3) /*op0*/ X(LBL_3) /*op1 (special)*/ X(RET_0) /*op0*/
 #define OPS_3_3ac_COM \
   X(ADD_U) X(ADD_I) X(ADD_F) X(MULT_U) X(MULT_I) X(MULT_F) \
   X(AND_U) X(OR_U) X(XOR_U) \
