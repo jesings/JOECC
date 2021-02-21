@@ -22,15 +22,14 @@ NOTE: JOECC is a work-in progress, and currently cannot fully compile code
 - [ ] Scalar Replacement of Aggregates
 - [ ] Other Optimizations (to be enumerated further later)
 - [ ] Register Allocation
-- [ ] Conversion back from Single Static Assignment
 - [ ] Assembly generation
 - [ ] Machine code generation
 - [ ] Machine code optimization
-- [ ] Linker and loader backend
+- [ ] Linker backend
 
 # JOECCIR
 
-JOECCIR is JOECC's 3 address code intermediate representation.
+JOECCIR (pronounced joker) is JOECC's 3 address code intermediate representation.
 
 ### Control flow
 
@@ -38,7 +37,7 @@ JOECCIR comes in the form of a control flow graph (CFG). This CFG is made up of 
 
 ### Visualization
 
-When running JOECC in debug mode, it will create in the working directory a folder called functions, and put in it the JOECCIR CFG output by each compilation pass. Currently the passes which give debug information are \_justssa \_withgvn. For each function in the code compiled, provided that it compiled successfully, there will be dot files which can render the CFG after each pass. For example, if I compiled a file containing the function "main" there will be 2 files: functions/main_justssa.dot and functions/main_withgvn.dot. In order to view the graph for such a file install the graphviz package, simply run `dot -Tx11 functions/main_justssa.dot`. It can also be converted to an svg with `-Tsvg` or into a gif (pronounced gif) with `-Tgif`.
+When running JOECC in debug mode, it will create in the working directory a folder called functions, and put in it the JOECCIR CFG output by each compilation pass. Currently the passes which give debug information are \_justssa and \_withgvn. For each function in the code compiled, provided that it compiled successfully, there will be dot files which can render the CFG after each pass. For example, if I compiled a file containing the function "main" there will be 2 files: functions/main_justssa.dot and functions/main_withgvn.dot. In order to view the graph for such a file install the graphviz package, and simply run `dot -Tx11 functions/main_justssa.dot`. It can also be converted to an svg with `-Tsvg` or into a gif (pronounced gif) with `-Tgif`.
 
 In this representation, it should be pretty evident as to what basic blocks are, if they have operations. If not, they will just appear as a long hex number with no box around it. Different kinds of operands are colored, as are the edges between basic blocks. The blocks that are visited next if the branching condition is not met (which I call next blocks) have a blue edge to them, and the blocks that are visited if the branching condition is met (which I call branchblocks) have a red edge to them. JOECCIR is specifically designed so that basic blocks may have a maximum of 2 out edges.
 

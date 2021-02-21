@@ -738,9 +738,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         return execvla(cexpr->vartype, prog);
       return destaddr;
     case FCALL: ;
-      OPERATION* fparam,* lparam;
-      EXPRESSION* fname = daget(cexpr->params, 0);
       if(cexpr->params->length > 1) {
+        OPERATION* fparam,* lparam;
         curaddr = linearitree(daget(cexpr->params, 1), prog);
         lparam = fparam = ct_3ac_op1(ARG_3, curaddr.addr_type, curaddr.addr);
         for(int i = 2; i < cexpr->params->length; ++i) {
@@ -752,8 +751,13 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         prog->curblock->lastop = lparam;
       }
       IDTYPE* frettype = cexpr->rettype;
-      if(ispointer(frettype) || frettype->tb & (STRUCTVAL | UNIONVAL)) {
+      if(ispointer(frettype)) {
         FILLREG(destaddr, ISPOINTER | 8);
+      } else if(frettype->tb & (STRUCTVAL | UNIONVAL)) {
+        FILLREG(destaddr, ISPOINTER | 8);
+        FILLREG(otheraddr, ISPOINTER | 8);
+        curaddr.addr.uintconst_64 = lentype(frettype);
+        opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 8, curaddr.addr, otheraddr.addr_type, otheraddr.addr));
       } else if(frettype->tb & FLOATNUM) {
         FILLREG(destaddr, ISFLOAT | (frettype->tb & 0xf));
       } else if(frettype->tb & UNSIGNEDNUM) {
@@ -761,8 +765,10 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       } else {
         FILLREG(destaddr, ISSIGNED | (frettype->tb & 0xf));
       }
+      EXPRESSION* fname = daget(cexpr->params, 0);
       opn(prog, ct_3ac_op2(CALL_3, ISCONST | ISLABEL, (ADDRESS) fname->id->name, destaddr.addr_type, destaddr.addr));
-      //TODO: copy out struct type
+      if(!ispointer(frettype) && frettype->tb & (STRUCTVAL | UNIONVAL))
+        opn(prog, ct_3ac_op3(COPY_3, destaddr.addr_type, destaddr.addr, ISCONST | 8, curaddr.addr, otheraddr.addr_type, otheraddr.addr));
       return destaddr;
   }
   fprintf(stderr, "Error: reduction of expression %s to 3 address code failed\n", name_EXPRTYPE[cexpr->type]);
