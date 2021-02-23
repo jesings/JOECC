@@ -329,7 +329,7 @@ char constfold(PROGRAM* prog) {
     BBLOCK* blk = daget(blocks, i);
     if(blk->lastop) {
       OPERATION* op = blk->firstop;
-      while(1){
+      do{
         switch(op->opcode) {
           default:
             break;
@@ -495,9 +495,7 @@ char constfold(PROGRAM* prog) {
           case BGT_F:
             brcf(floatconst_64, >);
         }
-        if(blk->lastop == op) break;
-        op = op->nextop;
-      }
+      } while(op != blk->lastop && (op = op->nextop));
     }
   }
   return 0;
@@ -552,8 +550,7 @@ void tailcall(PROGRAM* prog) {
     BBLOCK* retb = daget(prog->finalblock->inedges, i);
     OPERATION* op = retb->firstop;
     if(op == retb->lastop) continue;
-    while(1) {
-      if(op->nextop == retb->lastop) break;
+    while(op->nextop != retb->lastop) {
       op = op->nextop;
     }
     if(op->opcode == CALL_3) {
@@ -570,4 +567,23 @@ void tailcall(PROGRAM* prog) {
       }
     }
   }
+}
+
+void collatealloc(PROGRAM* prog) {
+  unsigned long totalalloc = 0;
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    if(!blk->lastop) continue;
+    OPERATION* op = blk->firstop;
+    do {
+      if(op->opcode == ALOC_3) {
+        if(op->addr0_type & ISCONST) {
+          totalalloc += op->addr0.intconst_64;
+          //op->opcode = NOP_3;
+        } else {
+          //dynamically stack allocated, dealloc in block preceding postdominator--iterate to find?
+        }
+      }
+    } while(op != blk->lastop && (op = op->nextop));
+  } 
 }

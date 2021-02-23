@@ -610,7 +610,7 @@ esm:
 esca:
   "++" esca {$$ = ct_unary_expr(PREINC, $2);}
 | "--" esca {$$ = ct_unary_expr(PREDEC, $2);}
-| '+' esm {/*TODO: actual identity operation*/ $$ = $2;}
+| '+' esm {$$ = $2;}
 | '-' esm {
     switch($2->type) {
       case INT: case UINT:

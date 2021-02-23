@@ -12,7 +12,7 @@ BLANKC ([[:blank:]]|{MCOMMENT})*
 PPSTART [[:blank:]]*#{BLANKC}
 MSTRING \"(\\.|[^\\"]|{SKIPNEWL})*\"
 %{
-//TODO: computed include? variadic macros?
+//TODO: computed include?
 
 #include <math.h>
 #include <time.h>

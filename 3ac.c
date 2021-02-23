@@ -769,6 +769,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       opn(prog, ct_3ac_op2(CALL_3, ISCONST | ISLABEL, (ADDRESS) fname->id->name, destaddr.addr_type, destaddr.addr));
       if(!ispointer(frettype) && frettype->tb & (STRUCTVAL | UNIONVAL))
         opn(prog, ct_3ac_op3(COPY_3, destaddr.addr_type, destaddr.addr, ISCONST | 8, curaddr.addr, otheraddr.addr_type, otheraddr.addr));
+      //Note, this is not entirely to spec as the program is only supposed to copy the struct as a transparent final argument within the scope of the called function, not within the caller. This should work for now however.
       return destaddr;
   }
   fprintf(stderr, "Error: reduction of expression %s to 3 address code failed\n", name_EXPRTYPE[cexpr->type]);
