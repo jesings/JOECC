@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <assert.h>
 #include "opt.h"
 void domark(BBLOCK* blk) {
   blk->domind = -1;
@@ -48,19 +49,40 @@ void rmunreach(PROGRAM* prog) {
 //http://ssabook.gforge.inria.fr/latest/book.pdf
 //https://iitd-plos.github.io/col729/lec/loop_transformations.html
 
-OPERATION* exciseop(BBLOCK* blk, OPERATION* prevop, OPERATION* curop) {
-  if(prevop == NULL) {
-    if(curop == blk->lastop) {
-      blk->lastop = NULL;
-    } else {
-      blk->firstop = curop->nextop;
+void blockunblock(PROGRAM* prog) {
+  for(int i = 1; i < prog->allblocks->length - 1; i++) {
+    BBLOCK* curblock = daget(prog->allblocks, i);
+    if(curblock->inedges->length == 1) {
+      if(!curblock->branchblock && curblock->nextblock) {
+        BBLOCK* prevblock = daget(curblock->inedges, 0);
+        assert(prevblock != curblock);
+        if(!prevblock->branchblock) {
+          if(prevblock->lastop) {
+            if(curblock->lastop) {
+              prevblock->lastop->nextop = curblock->firstop;
+              prevblock->lastop = curblock->lastop;
+            }
+          } else {
+            if(curblock->lastop) {
+              prevblock->firstop = curblock->firstop;
+              prevblock->lastop = curblock->lastop;
+            }
+          }
+          prevblock->nextblock = curblock->nextblock;
+          curblock->lastop = NULL;
+          prevblock->postdom = curblock->postdom;
+          prevblock->postdomind = curblock->postdomind; //shouldn't be strictly necessary
+          darpa(curblock->nextblock->inedges, curblock, prevblock);
+          DYNARR* swaptmp = prevblock->idominates;
+          prevblock->idominates = curblock->idominates;
+          curblock->idominates = swaptmp;//to be freed by freeblock from marking
+          curblock->nextblock = NULL;
+          //dominance frontiers must be the same
+          domark(curblock);
+        }
+      }
     }
-  } else if(curop == blk->lastop) {
-    blk->lastop = prevop;
-  } else {
-    prevop->nextop = curop->nextop;
   }
-  return curop;
 }
 
 char remove_nops(PROGRAM* prog) {
