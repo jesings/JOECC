@@ -7,11 +7,11 @@
 #define OPS_NOVAR_3ac \
   X(NOP_3) /*op0*/ X(LBL_3) /*op1 (special)*/ X(RET_0) /*op0*/
 #define OPS_3_3ac_COM \
-  X(ADD_U) X(ADD_I) X(ADD_F) X(MULT_U) X(MULT_I) X(MULT_F) \
+  X(ADD_U) X(ADD_F) X(MULT_U) X(MULT_I) X(MULT_F) \
   X(AND_U) X(OR_U) X(XOR_U) \
-  X(EQ_U) X(EQ_I) X(EQ_F) X(NE_U) X(NE_I) X(NE_F)
+  X(EQ_U) X(EQ_F) X(NE_U) X(NE_F)
 #define OPS_3_3ac_NOCOM \
-  X(SUB_U) X(SUB_I) X(SUB_F) X(DIV_U) X(DIV_I) X(DIV_F) \
+  X(SUB_U) X(SUB_F) X(DIV_U) X(DIV_I) X(DIV_F) \
   X(MOD_U) X(MOD_I) \
   X(SHL_U) X(SHL_I) X(SHR_U) X(SHR_I) \
   X(GE_U) X(GE_I) X(GE_F) X(LE_U) X(LE_I) X(LE_F) \
@@ -27,7 +27,7 @@
   X(F2I) X(I2F) X(ALOC_3)
 #define OPS_2_3ac OPS_2_3ac_MUT X(MOV_3)
 #define OPS_NODEST_3ac \
-  X(BEQ_U) X(BEQ_I) X(BEQ_F) \
+  X(BEQ_U) X(BEQ_F) \
   X(BGE_U) X(BGE_I) X(BGE_F) \
   X(BGT_U) X(BGT_I) X(BGT_F) \
   X(JEQ_I) /*op3 (dest label)*/
@@ -46,6 +46,9 @@ enum opcode_3ac {
   OPS_3AC
 };
 #undef X
+#define GENERIC_U ASM+1
+#define GENERIC_I ASM+2
+#define GENERIC_F ASM+3
 extern const char* opcode_3ac_names[];
 
 enum passes {
@@ -163,21 +166,6 @@ OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRA
 PROGRAM* linefunc(FUNC* f);
 void printprog(PROGRAM* prog);
 void treeprog(PROGRAM* prog, char* fname, const char* pass);
-
-static inline enum opcode_3ac cmp_osite(EXPRTYPE coptype) {
-  switch(coptype) {
-    case EQ: case NEQ:
-      return BEQ_U;
-    case GT: case LTE:
-      return BGT_U;
-    case GTE: case LT:
-      return BGE_U;
-    case L_NOT:
-      return BEZ_3;
-    default:
-      return BNZ_3;
-  }
-}
 void freeblock(void* blk);
 void freeprog(PROGRAM* prog);
 
@@ -306,4 +294,9 @@ static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
 }
 #define RGBCOLOR(R, G, B) "\033[38;2;" #R ";" #G ";" #B "m"
 #define CLEARCOLOR "\033[39;49m"
+#define GENREGMASK ~(ISCONST | ISLABEL | ISDEREF | ISVAR)
+#define DEGENERIC(operation, opt) \
+    if(operation->opcode == GENERIC_U) operation->opcode = opt ## _U; \
+    if(operation->opcode == GENERIC_I) operation->opcode = opt ## _U; /*for generic'ed, signed and unsigned are the same*/\
+    else if(operation->opcode == GENERIC_F) operation->opcode = opt ## _F;
 #endif

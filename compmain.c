@@ -84,6 +84,7 @@ static void filecomp(char* filename) {
       PROGRAM* prog = linefunc(f); //fix main func
       splitcrit(prog); //for GVN
       prunebranch(prog); //esp for do while 0
+      blockunblock(prog);//remove unnecessary edges
       rmunreach(prog);//maybe?
       debug(printf("Ops before SSA %d\n", countops(prog)));
       ssa(prog);

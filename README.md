@@ -47,7 +47,7 @@ In this representation, it should be pretty evident as to what basic blocks are,
 
 Operands come in a number of formats:
 
-- Registers: registers can come in a number of formats--if the register corresponds to a program variable, it is written as \<variable\_name\>\_\<registernumber\>, and if not it is written as reg\<registernumber\>. Registers are suffixed with the type and length of the operand (i.e. s32 for a signed 32 bit integer, u8 for an unsigned 8 bit integer, or f64 for a 64 bit floating point number)
+- Registers: registers can come in a number of formats--if the register corresponds to a program variable, it is written as \<variable\_name\>\_\<registernumber\>, and if not it is written as reg\<registernumber\>. Registers are suffixed with the type and length of the operand (i.e. s32 for a signed 32 bit integer, u8 for an unsigned 8 bit integer, or f64 for a 64 bit double precision floating point number). Registers which correspond to variables whose address is taken in the program may not be given a register number suffix
 
 - Labels: labels refer to either a label for a program, or a global variable. They are written in curly braces like {\<labelname\>}. They are similarly suffixed with the type of the type and length being referred to if they are being used as data.
 
@@ -62,8 +62,8 @@ JOECCIR consists of the following operations
 Operation | Description of functionality|Operands needed
 ----------|-----------------------------|---------------
 NOP_3|No-op operation|None
-ADD_U, ADD_I, ADD_F|Adds source operands as unsigned integers, signed integers, and floating point numbers respectively|2 source and 1 dest
-SUB_U, SUB_I, SUB_F|Subtracts source operand 2 from source operand 1 as unsigned integers, signed integers, and floating point numbers respectively|2 source and 1 dest
+ADD_U, ADD_F|Adds source operands as integers and floating point numbers respectively|2 source and 1 dest
+SUB_U, SUB_F|Subtracts source operand 2 from source operand 1 as integers and floating point numbers respectively|2 source and 1 dest
 MULT_U, MULT_I, MULT_F|Multiplies source operands as unsigned integers, signed integers, and floating point numbers respectively|2 source and 1 dest
 DIV_U, DIV_I, DIV_F|Divides source operand 1 by source operand 2 as unsigned integers, signed integers, and floating point numbers respectively|2 source and 1 dest
 MOD_U, MOD_I|Yields to dest remainder of source operand 1 divided by source operand 2 as unsigned integers, signed integers, and floating point numbers respectively|2 source and 1 dest
@@ -73,13 +73,13 @@ AND_U, OR_U, XOR_U|bitwise ANDs, ORs, and XORs respectively source integer opera
 NOT_U|bitwise NOTs source integer operand|1 source and 1 dest
 SHL_U, SHL_I|Yields to dest source operand 1 shifted to the left by the amount in source operand 2 using bitwise and arithmetic shifting respectively|2 source and 1 dest
 SHR_U, SHR_I|Yields to dest source operand 1 shifted to the right by the amount in source operand 2 using bitwise and arithmetic shifting respectively|2 source and 1 dest
-EQ_U, EQ_I, EQ_F|Assigns 1 to integer dest operand if the source operands are equal unsigned integers, signed integers, and floating point numbers respectively, otherwise assigns 0|2 source and 1 dest
-NE_U, NE_I, NE_F|Assigns 0 to integer dest operand if the source operands are equal unsigned integers, signed integers, and floating point numbers respectively, otherwise assigns 1|2 source and 1 dest
+EQ_U, EQ_F|Assigns 1 to integer dest operand if the source operands are equal integers and floating point numbers respectively, otherwise assigns 0|2 source and 1 dest
+NE_U, NE_F|Assigns 0 to integer dest operand if the source operands are equal integers and floating point numbers respectively, otherwise assigns 1|2 source and 1 dest
 GE_U, GE_I, GE_F|Assigns 1 to integer dest operand if source operand 1 is greater than or equal to source operand 2 for unsigned integers, signed integers, and floating point numbers respectively, otherwise assigns 0|2 source and 1 dest
 LE_U, LE_I, LE_F|Assigns 1 to integer dest operand if source operand 1 is less than or equal to source operand 2 for unsigned integers, signed integers, and floating point numbers respectively, otherwise assigns 0|2 source and 1 dest
 GT_U, GT_I, GT_F|Assigns 1 to integer dest operand if source operand 1 is greater than source operand 2 for unsigned integers, signed integers, and floating point numbers respectively, otherwise assigns 0|2 source and 1 dest
 LT_U, LT_I, LT_F|Assigns 1 to integer dest operand if source operand 1 is less than source operand 2 for unsigned integers, signed integers, and floating point numbers respectively, otherwise assigns 0|2 source and 1 dest
-BEQ_U, BEQ_I, BEQ_F|Directs codegen to go to the branching block if the source operands are equivalent signed integer, unsigned integer, and floating point numbers respectively|2 source and 0 dest
+BEQ_U, BEQ_F|Directs codegen to go to the branching block if the source operands are equivalent signed integer, unsigned integer, and floating point numbers respectively|2 source and 0 dest
 BGE_U, BGE_I, BGE_F|Directs codegen to go to the branching block if source operand 1 is greater than or equal to source operand 2 as signed integers, unsigned integers, and floating point numbers respectively|2 source and 0 dest
 BGT_U, BGT_I, BGT_F|Directs codegen to go to the branching block if source operand 1 is greater than source operand 2 as signed integers, unsigned integers, and floating point numbers respectively|2 source and 0 dest
 BNZ_3, BEZ_3|Directs codegen to go to the branching block if source integer operand equals zero or does not equal zero respectively|1 source and 0 dest

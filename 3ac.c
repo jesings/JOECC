@@ -170,7 +170,7 @@ static FULLADDR poststep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
   IDTYPE rid = typex(cexpr);
   destaddr = linearitree(daget(cexpr->params, 0), prog);
   char baseness = destaddr.addr_type & ISFLOAT ? 2 : 0;
-  FILLREG(actualaddr, destaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
+  FILLREG(actualaddr, destaddr.addr_type & GENREGMASK);
   opn(prog, ct_3ac_op2(MOV_3, destaddr.addr_type, destaddr.addr, actualaddr.addr_type, actualaddr.addr));
   if(ispointer2(rid)) {
     struct declarator_part* dclp = dapeek(rid.pointerstack);
@@ -311,7 +311,7 @@ OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRA
   assert(!(a2.addr_type & ISFLOAT));
   enum opcode_3ac shlop = opcode_unsigned + (a1.addr_type & ISSIGNED ? 1 : 0);
   FULLADDR adr;
-  FILLREG(adr, a1.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
+  FILLREG(adr, a1.addr_type & GENREGMASK);
   return ct_3ac_op3(shlop, a1.addr_type, a1.addr, a2.addr_type, a2.addr, adr.addr_type, adr.addr);
 }
 
@@ -372,7 +372,7 @@ static FULLADDR execvla(IDTYPE* idt, PROGRAM* prog) {
    struct declarator_part* subdclp;
    int psentry;
    for(psentry = idt->pointerstack->length - 1; psentry >= 0 && (subdclp = daget(idt->pointerstack, psentry))->type == VLASPEC; psentry--) {
-     FILLREG(otheraddr, curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
+     FILLREG(otheraddr, curaddr.addr_type & GENREGMASK);
      scratchaddr = linearitree(subdclp->vlaent, prog);
      opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, scratchaddr.addr_type, scratchaddr.addr, otheraddr.addr_type, otheraddr.addr));
      curaddr = otheraddr;
@@ -381,7 +381,7 @@ static FULLADDR execvla(IDTYPE* idt, PROGRAM* prog) {
    idt->pointerstack->length = psentry;
    scratchaddr.addr.uintconst_64 = lentype(idt);
    idt->pointerstack->length = lenstore;
-   FILLREG(otheraddr, curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
+   FILLREG(otheraddr, curaddr.addr_type & GENREGMASK);
    opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, ISCONST | 0x8, scratchaddr.addr, otheraddr.addr_type, otheraddr.addr));
    dclp->addrun = otheraddr.addr.garbage; //may we need the non-top level pointerstack entries to be correct?
    dclp->addrty = otheraddr.addr_type;
@@ -391,6 +391,7 @@ static FULLADDR execvla(IDTYPE* idt, PROGRAM* prog) {
 FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR curaddr, otheraddr, destaddr;
   IDTYPE varty;
+  OPERATION* genop;
 
   switch(cexpr->type){
     case STRING:
@@ -462,7 +463,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
     case NEG:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
-      destaddr.addr_type = curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR);
+      destaddr.addr_type = curaddr.addr_type & GENREGMASK;
       destaddr.addr.iregnum = prog->iregcnt++;
       if(destaddr.addr_type & ISFLOAT) {
         opn(prog, ct_3ac_op2(NEG_F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
@@ -480,7 +481,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
     case B_NOT:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
-      destaddr.addr_type = curaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR);
+      destaddr.addr_type = curaddr.addr_type & GENREGMASK;
       assert(!(destaddr.addr_type & ISFLOAT));
       destaddr.addr.iregnum = prog->iregcnt++;
       opn(prog, ct_3ac_op2(NOT_U, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
@@ -520,7 +521,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       } else {
         REALDEREF:
         if(destaddr.addr_type & ISDEREF) {
-          FILLREG(otheraddr, destaddr.addr_type & ~(ISCONST | ISLABEL | ISDEREF | ISVAR));
+          FILLREG(otheraddr, destaddr.addr_type & GENREGMASK);
           opn(prog, ct_3ac_op2(MOV_3, destaddr.addr_type, destaddr.addr, otheraddr.addr_type, otheraddr.addr));
           destaddr = otheraddr;
         }
@@ -528,18 +529,26 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       }
       return destaddr;
     case ADD:
-      return op2ret(prog, implicit_binary_3(ADD_U, cexpr, prog));
+      genop = implicit_binary_3(GENERIC_U, cexpr, prog);
+      DEGENERIC(genop, ADD);
+      return op2ret(prog, genop);
     case SUB: 
-      return op2ret(prog, implicit_binary_3(SUB_U, cexpr, prog));
+      genop = implicit_binary_3(GENERIC_U, cexpr, prog);
+      DEGENERIC(genop, SUB);
+      return op2ret(prog, genop);
     case MULT:
       return op2ret(prog, implicit_binary_3(MULT_U, cexpr, prog));
     case DIVI: 
       return op2ret(prog, implicit_binary_3(DIV_U, cexpr, prog));
 
     case EQ:
-      return op2ret(prog, cmpret_binary_3(EQ_U, cexpr, prog));
+      genop = cmpret_binary_3(GENERIC_U, cexpr, prog);
+      DEGENERIC(genop, EQ);
+      return op2ret(prog, genop);
     case NEQ: 
-      return op2ret(prog, cmpret_binary_3(NE_U, cexpr, prog));
+      genop = cmpret_binary_3(GENERIC_U, cexpr, prog);
+      DEGENERIC(genop, NE);
+      return op2ret(prog, genop);
     case GT:
       return op2ret(prog, cmpret_binary_3(GT_U, cexpr, prog));
     case LT:
@@ -791,7 +800,19 @@ void cmptype(EXPRESSION* cmpexpr, BBLOCK* failblock, BBLOCK* successblock, PROGR
         cmpexpr->params->arr[0] = cmpexpr->params->arr[1];
         cmpexpr->params->arr[1] = tmp;
       }
-      dest_op = cmpret_binary_3(cmp_osite(cmpexpr->type), cmpexpr, prog);//figure out signedness here or elsewhere
+      switch(cmpexpr->type) {
+        case EQ: case NEQ:
+          dest_op = cmpret_binary_3(GENERIC_U, cmpexpr, prog);
+          DEGENERIC(dest_op, BEQ);
+          break;
+        case GT: case LTE:
+          dest_op = cmpret_binary_3(BGT_U, cmpexpr, prog);
+          break;
+        case GTE: case LT:
+          dest_op = cmpret_binary_3(BGE_U, cmpexpr, prog);
+          break;
+        default: assert(0);//never should or will be reached
+      }
       --prog->iregcnt; //dealloc allocated register, ignore third operand
       opn(prog, dest_op);
       break;
@@ -1253,9 +1274,10 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
     case COPY_3:
       PRINTOP3( );
       break;
-    case ADD_U: case ADD_I: case ADD_F: 
+    case ADD_U: case ADD_F: 
       PRINTOP3(+);
-      break; case SUB_U: case SUB_I: case SUB_F: 
+      break; 
+    case SUB_U: case SUB_F:
       PRINTOP3(-);
       break;
     case MULT_U: case MULT_I: case MULT_F: 
@@ -1294,10 +1316,10 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
     case ADDR_3: /*not sure if I is needed*/
       PRINTOP2(&);
       break;
-    case EQ_U: case EQ_I: case EQ_F: 
+    case EQ_U: case EQ_F: 
       PRINTOP3(==);
       break;
-    case NE_U: case NE_I: case NE_F: 
+    case NE_U: case NE_F: 
       PRINTOP3(!=);
       break;
     case GE_U: case GE_I: case GE_F: 
@@ -1316,7 +1338,7 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
       if(color) PRINTOP3(<);
       else PRINTOP3(&lt;);
       break;
-    case BEQ_U: case BEQ_I: case BEQ_F: 
+    case BEQ_U: case BEQ_F:
       PRINTBROP2(==);
       break;
     case BGE_U: case BGE_I: case BGE_F: 

@@ -158,7 +158,7 @@ void prunebranch(PROGRAM* prog) {
             blk->branchblock = NULL;
           }
           break;
-        case BEQ_U: case BEQ_I:
+        case BEQ_U:
           if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
             blk->lastop->opcode = NOP_3;
             if(blk->lastop->addr0.intconst_64 == blk->lastop->addr1.intconst_64) {
@@ -355,13 +355,13 @@ char constfold(PROGRAM* prog) {
         switch(op->opcode) {
           default:
             break;
-          case ADD_U: case ADD_I:
+          case ADD_U:
             last1(intconst_64, 0, 0);
             first1(intconst_64, 0, 0);
             bincf(intconst_64, +=);
           case ADD_F:
             bincf(floatconst_64, +=);
-          case SUB_U: case SUB_I:
+          case SUB_U:
             if(feq(op)) {
               op->opcode = MOV_3;
               op->addr0.intconst_64 = 0;
@@ -433,11 +433,11 @@ char constfold(PROGRAM* prog) {
             last1(uintconst_64, 0, 0);
             first1(uintconst_64, 0, 0);
             bincf(uintconst_64, ^=);
-          case EQ_U: case EQ_I:
+          case EQ_U:
             binef(intconst_64, ==);
           case EQ_F:
             binef(floatconst_64, ==);
-          case NE_U: case NE_I:
+          case NE_U:
             binef(intconst_64, !=);
           case NE_F:
             binef(floatconst_64, !=);
@@ -500,7 +500,7 @@ char constfold(PROGRAM* prog) {
               op->addr0_type = op->dest_type | ISCONST;
             }
             break;
-          case BEQ_U: case BEQ_I:
+          case BEQ_U:
             brcf(intconst_64, ==);
           case BEQ_F:
             brcf(floatconst_64, ==);
