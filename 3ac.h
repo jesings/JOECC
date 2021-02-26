@@ -297,6 +297,6 @@ static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
 #define GENREGMASK ~(ISCONST | ISLABEL | ISDEREF | ISVAR)
 #define DEGENERIC(operation, opt) \
     if(operation->opcode == GENERIC_U) operation->opcode = opt ## _U; \
-    if(operation->opcode == GENERIC_I) operation->opcode = opt ## _U; /*for generic'ed, signed and unsigned are the same*/\
+    else if(operation->opcode == GENERIC_I) operation->opcode = opt ## _U; /*for generic'ed, signed and unsigned are the same*/\
     else if(operation->opcode == GENERIC_F) operation->opcode = opt ## _F;
 #endif

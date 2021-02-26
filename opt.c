@@ -608,4 +608,5 @@ void collatealloc(PROGRAM* prog) {
       }
     } while(op != blk->lastop && (op = op->nextop));
   } 
+  printf("total allocated %lu\n", totalalloc);
 }

@@ -86,6 +86,7 @@ static void filecomp(char* filename) {
       prunebranch(prog); //esp for do while 0
       blockunblock(prog);//remove unnecessary edges
       rmunreach(prog);//maybe?
+      collatealloc(prog);
       debug(printf("Ops before SSA %d\n", countops(prog)));
       ssa(prog);
       debug(printf("Ops after SSA %d\n", countops(prog)));

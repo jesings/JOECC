@@ -866,7 +866,18 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
           opn(prog, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
         } else {
           ADDRESS tmpaddr;
-          tmpaddr.intconst_64 = dclp->arrlen;
+          tmpaddr.intconst_64 = 1;
+          int origlen = i->decl->type->pointerstack->length;
+          int index = i->decl->type->pointerstack->length - 1;
+          for(; index >= 0; index--) {
+            struct declarator_part* sdclp = daget(i->decl->type->pointerstack, index);
+            if(sdclp->type != ARRAYSPEC) break;
+            tmpaddr.intconst_64 *= sdclp->arrmaxind;
+          }
+          if(index < 0) index = 0;
+          i->decl->type->pointerstack->length = index;
+          tmpaddr.intconst_64 *= lentype(i->decl->type);
+          i->decl->type->pointerstack->length = origlen;
           opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 8, tmpaddr, newa->addr_type, newa->addr));
         }
       } else if(dclp->type == VLASPEC) {
