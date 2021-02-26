@@ -93,7 +93,7 @@ typedef enum {
 
 typedef struct op {
   enum opcode_3ac opcode;
-  int oprank;
+  //int oprank;
   ADDRTYPE addr0_type;
   ADDRESS addr0;
   ADDRTYPE addr1_type;
@@ -300,3 +300,7 @@ static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
     else if(operation->opcode == GENERIC_I) operation->opcode = opt ## _U; /*for generic'ed, signed and unsigned are the same*/\
     else if(operation->opcode == GENERIC_F) operation->opcode = opt ## _F;
 #endif
+#define FILLREG(addrvar, type) do { \
+    (addrvar).addr.iregnum = prog->iregcnt++; \
+    (addrvar).addr_type = (type); \
+  } while(0)
