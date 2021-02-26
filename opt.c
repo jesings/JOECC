@@ -593,6 +593,8 @@ void tailcall(PROGRAM* prog) {
 
 void collatealloc(PROGRAM* prog) {
   unsigned long totalalloc = 0;
+  FULLADDR baseptr;
+  FILLREG(baseptr, 8 | ISPOINTER);
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     if(!blk->lastop) continue;
@@ -600,13 +602,32 @@ void collatealloc(PROGRAM* prog) {
     do {
       if(op->opcode == ALOC_3) {
         if(op->addr0_type & ISCONST) {
-          totalalloc += op->addr0.intconst_64;
-          //op->opcode = NOP_3;
+          unsigned long tmpstore = op->addr0.uintconst_64;
+          op->opcode = ADD_U;
+          op->addr0.uintconst_64 = totalalloc;
+          op->addr1_type = baseptr.addr_type;
+          op->addr1 = baseptr.addr;
+          totalalloc += tmpstore;
         } else {
           //dynamically stack allocated, dealloc in block preceding postdominator--iterate to find?
         }
       }
     } while(op != blk->lastop && (op = op->nextop));
   } 
-  printf("total allocated %lu\n", totalalloc);
+  if(totalalloc > 0) {
+    ADDRESS alloccnt;
+    alloccnt.uintconst_64 = totalalloc;
+    OPERATION* epsilop = ct_3ac_op2(ALOC_3, ISCONST | 8, alloccnt, baseptr.addr_type, baseptr.addr);
+
+    BBLOCK* firstblock = (BBLOCK*) daget(prog->allblocks, 0);
+    OPERATION* fbop;
+    for(fbop = firstblock->firstop; fbop->nextop->opcode == PARAM_3; fbop = fbop->nextop) ;
+
+    epsilop->nextop = fbop->nextop;
+    if(fbop == firstblock->lastop) firstblock->lastop = epsilop;
+    fbop->nextop = epsilop;
+//#ifdef DEBUG
+    printf("total allocated %lu\n", totalalloc);
+//#endif
+  }
 }

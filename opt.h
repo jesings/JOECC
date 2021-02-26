@@ -12,4 +12,5 @@ void splitcrit(PROGRAM* prog);
 void tailcall(PROGRAM* prog);
 void collatealloc(PROGRAM* prog);
 void blockunblock(PROGRAM* prog);
+void intoinline(PROGRAM* prog, PROGRAM* candidate);
 #endif

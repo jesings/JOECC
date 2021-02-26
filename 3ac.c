@@ -8,10 +8,6 @@ const char* opcode_3ac_names[] = {
 extern const char* name_EXPRTYPE[];
 extern const char* name_STMTTYPE[];
 #undef X
-#define FILLREG(addrvar, type) do { \
-    (addrvar).addr.iregnum = prog->iregcnt++; \
-    (addrvar).addr_type = (type); \
-  } while(0)
 
 OPERATION* ct_3ac_op0(enum opcode_3ac opcode) {
   OPERATION* retval = malloc(sizeof(OPERATION));
