@@ -89,6 +89,7 @@ typedef enum {
   ISDEREF = 0x400,
   ISVAR = 0x800,
   ADDRSVAR = 0x1000,
+  GARBAGEVAL = 0x2000,
 } ADDRTYPE;
 
 typedef struct op {
@@ -112,10 +113,11 @@ typedef struct bblock {
   OPERATION* firstop;
   OPERATION* lastop;
   DYNARR* inedges;
-  DYNARR* idominates;
-  DYNARR* df;
   struct bblock* nextblock;
   struct bblock* branchblock;
+
+  DYNARR* idominates;
+  DYNARR* df;
   struct bblock* dom;
   struct bblock* postdom;
   int domind, postdomind;
@@ -215,11 +217,10 @@ static inline void opn(PROGRAM* prog, OPERATION* op) {
   if(prog->curblock) {
     if(prog->curblock->lastop) {
       prog->curblock->lastop->nextop = op;
-      prog->curblock->lastop = op;
     } else {
-      prog->curblock->lastop = op;
       prog->curblock->firstop = op;
     }
+    prog->curblock->lastop = op;
   } else {
     BBLOCK* blk = ctblk(prog);
     blk->firstop = op;
@@ -296,9 +297,9 @@ static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
 #define CLEARCOLOR "\033[39;49m"
 #define GENREGMASK ~(ISCONST | ISLABEL | ISDEREF | ISVAR)
 #define DEGENERIC(operation, opt) \
-    if(operation->opcode == GENERIC_U) operation->opcode = opt ## _U; \
-    else if(operation->opcode == GENERIC_I) operation->opcode = opt ## _U; /*for generic'ed, signed and unsigned are the same*/\
-    else if(operation->opcode == GENERIC_F) operation->opcode = opt ## _F;
+    if((operation)->opcode == GENERIC_U) (operation)->opcode = opt ## _U; \
+    else if((operation)->opcode == GENERIC_I) (operation)->opcode = opt ## _U; /*for generic'ed, signed and unsigned are the same*/\
+    else if((operation)->opcode == GENERIC_F) (operation)->opcode = opt ## _F;
 #endif
 #define FILLREG(addrvar, type) do { \
     (addrvar).addr.iregnum = prog->iregcnt++; \

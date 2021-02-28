@@ -3,7 +3,7 @@
 #include "opt.h"
 #define X(op) case op:
 
-static BBLOCK* intersect(BBLOCK* n1, BBLOCK* n2) {
+BBLOCK* intersect(BBLOCK* n1, BBLOCK* n2) {
   while(n1 != n2) {
     while(n1->domind > n2->domind) n1 = n1->dom;
     while(n2->domind > n1->domind) n2 = n2->dom;
@@ -19,7 +19,7 @@ static BBLOCK* postintersect(BBLOCK* n1, BBLOCK* n2) {
   return n1;
 }
 
-static char fixedintersect(const BBLOCK* fb, BBLOCK* gb) {
+char fixedintersect(const BBLOCK* fb, BBLOCK* gb) {
   while(fb->domind < gb->domind) gb = gb->dom;
   return fb->domind == gb->domind;
 }

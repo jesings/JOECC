@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <assert.h>
 #include "opt.h"
+#include "ssa.h"
 void domark(BBLOCK* blk) {
   blk->domind = -1;
   if(blk->nextblock) {
@@ -609,7 +610,33 @@ void collatealloc(PROGRAM* prog) {
           op->addr1 = baseptr.addr;
           totalalloc += tmpstore;
         } else {
+          DYNARR* allocfrontier = dactor(8);
+          dapushc(allocfrontier, blk);
+          while(allocfrontier->length) {
+            BBLOCK* inquestion = dapop(allocfrontier);
+            //removal of critical edges should remove the issue that arises if one branch leaves dominance but the other doesn't
+            if(inquestion->nextblock->dom == inquestion || fixedintersect(blk, inquestion->nextblock)) {
+              dapush(allocfrontier, inquestion->nextblock);
+              if(inquestion->branchblock)
+                dapush(allocfrontier, inquestion->branchblock);
+            } else {
+              FULLADDR negval, deallocval;
+              FILLREG(negval, ISSIGNED | 8);
+              FILLREG(deallocval, GARBAGEVAL);
+              OPERATION* negop = ct_3ac_op2(NEG_I, op->dest_type, op->dest, negval.addr_type, negval.addr);
+              OPERATION* deallocop = ct_3ac_op2(ALOC_3, negval.addr_type, negval.addr, deallocval.addr_type, deallocval.addr);
+              //repetition would be handled by PRE
+              if(inquestion->lastop) {
+                inquestion->lastop->nextop = negop;
+              } else {
+                inquestion->firstop = negop;
+              }
+              inquestion->lastop = deallocop;
+            }
+          }
           //dynamically stack allocated, dealloc in block preceding postdominator--iterate to find?
+          dadtor(allocfrontier);
+          //recalculate if in same block--fix
         }
       }
     } while(op != blk->lastop && (op = op->nextop));
@@ -626,8 +653,8 @@ void collatealloc(PROGRAM* prog) {
     epsilop->nextop = fbop->nextop;
     if(fbop == firstblock->lastop) firstblock->lastop = epsilop;
     fbop->nextop = epsilop;
-//#ifdef DEBUG
+#ifndef NODEBUG
     printf("total allocated %lu\n", totalalloc);
-//#endif
+#endif
   }
 }
