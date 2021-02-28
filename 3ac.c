@@ -1356,8 +1356,8 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
       if(color) PRINTBROP2(>);
       else PRINTBROP2(&gt;);
       break;
-    case BNZ_3: case BEZ_3:
-    case ARG_3: case PARAM_3: case RET_3: case INIT_3:
+    case BNZ_3: case BEZ_3: case ARG_3: case PARAM_3: 
+    case RET_3: case INIT_3: case DEALOC:
       PRINTOP1( );
       break;
     case JEQ_I:

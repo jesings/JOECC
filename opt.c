@@ -614,29 +614,40 @@ void collatealloc(PROGRAM* prog) {
           dapushc(allocfrontier, blk);
           while(allocfrontier->length) {
             BBLOCK* inquestion = dapop(allocfrontier);
+            if(inquestion->lastop && inquestion->lastop->opcode == DEALOC 
+               && inquestion->lastop->addr0.iregnum == op->dest.iregnum) continue;
             //removal of critical edges should remove the issue that arises if one branch leaves dominance but the other doesn't
-            if(inquestion->nextblock->dom == inquestion || fixedintersect(blk, inquestion->nextblock)) {
-              dapush(allocfrontier, inquestion->nextblock);
-              if(inquestion->branchblock)
-                dapush(allocfrontier, inquestion->branchblock);
-            } else {
-              FULLADDR negval, deallocval;
-              FILLREG(negval, ISSIGNED | 8);
-              FILLREG(deallocval, GARBAGEVAL);
-              OPERATION* negop = ct_3ac_op2(NEG_I, op->dest_type, op->dest, negval.addr_type, negval.addr);
-              OPERATION* deallocop = ct_3ac_op2(ALOC_3, negval.addr_type, negval.addr, deallocval.addr_type, deallocval.addr);
-              //repetition would be handled by PRE
-              if(inquestion->lastop) {
-                inquestion->lastop->nextop = negop;
+            if(inquestion->nextblock == prog->finalblock) {
+              OPERATION* preretop = inquestion->firstop;
+              OPERATION** insertloc;
+              if(preretop == inquestion->lastop) {
+                insertloc = &inquestion->firstop;
               } else {
-                inquestion->firstop = negop;
+                while(preretop->nextop != inquestion->lastop) preretop = preretop->nextop;
+                insertloc = &preretop->nextop;
               }
-              inquestion->lastop = deallocop;
+              OPERATION* deallocop = ct_3ac_op1(DEALOC, op->dest_type, op->dest);
+              //repetition would be handled by PRE
+              deallocop->nextop = *insertloc;
+              *insertloc = deallocop;
+            } else {
+              if(inquestion->nextblock->dom == inquestion || fixedintersect(blk, inquestion->nextblock)) {
+                dapush(allocfrontier, inquestion->nextblock);
+                if(inquestion->branchblock)
+                  dapush(allocfrontier, inquestion->branchblock);
+              } else {
+                OPERATION* deallocop = ct_3ac_op1(DEALOC, op->dest_type, op->dest);
+                //repetition would be handled by PRE
+                if(inquestion->lastop) {
+                  inquestion->lastop->nextop = deallocop;
+                } else {
+                  inquestion->firstop = deallocop;
+                }
+                inquestion->lastop = deallocop;
+              }
             }
           }
-          //dynamically stack allocated, dealloc in block preceding postdominator--iterate to find?
           dadtor(allocfrontier);
-          //recalculate if in same block--fix
         }
       }
     } while(op != blk->lastop && (op = op->nextop));
