@@ -101,7 +101,7 @@ FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srce
   if(ispointer2(destidt)) {
     if(ispointer2(srcidt)) {
       switch(op) {
-        case ADD_U: case SUB_U: case AND_U: case OR_U: case XOR_U:
+        case AND_U: case OR_U: case XOR_U:
           break;
         case SHL_U: case SHR_U: case MOD_U: case MULT_U: case DIV_U:
           //pointer to integer without cast
@@ -129,11 +129,12 @@ FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srce
         srcaddr = fad;
       }
     } else if(srcidt.tb & FLOATNUM) {
-        FULLADDR fad;
+        FULLADDR fad, fad2;
         FILLREG(fad, ISFLOAT | (srcidt.tb & 0xf));
+        FILLREG(fad2, ISFLOAT | (srcidt.tb & 0xf));
         opn(prog, ct_3ac_op2(I2F, destaddr.addr_type, destaddr.addr, fad.addr_type, fad.addr));
-        opn(prog, ct_3ac_op3(op, fad.addr_type, fad.addr, srcaddr.addr_type, srcaddr.addr, fad.addr_type, fad.addr));
-        opn(prog, ct_3ac_op2(F2I, fad.addr_type, fad.addr, destaddr.addr_type, destaddr.addr));
+        opn(prog, ct_3ac_op3(op, fad.addr_type, fad.addr, srcaddr.addr_type, srcaddr.addr, fad2.addr_type, fad2.addr));
+        opn(prog, ct_3ac_op2(F2I, fad2.addr_type, fad2.addr, destaddr.addr_type, destaddr.addr));
         return destaddr;
     } else {
         if(!(destidt.tb & UNSIGNEDNUM && srcidt.tb & UNSIGNEDNUM))
@@ -144,6 +145,38 @@ FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srce
   return destaddr;
 }
 
+static FULLADDR cmpnd_assign_addsub(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srcexpr, PROGRAM* prog) {
+  IDTYPE destidt = typex(destexpr);
+  IDTYPE srcidt = typex(srcexpr);
+  FULLADDR srcaddr = linearitree(srcexpr, prog);
+  FULLADDR destaddr = linearitree(destexpr, prog);
+  if(ispointer2(destidt)) {
+    if(!ispointer2(srcidt)) {
+      srcaddr = ptarith(destidt, srcaddr, prog);
+    }
+  } else {
+    assert(!ispointer2(srcidt));
+    if(destidt.tb & FLOATNUM) {
+      op += 1;
+      if(!(srcidt.tb & FLOATNUM)) {
+        FULLADDR fad;
+        FILLREG(fad, ISFLOAT | (srcidt.tb & 0xf));
+        opn(prog, ct_3ac_op2(I2F, srcaddr.addr_type, srcaddr.addr, fad.addr_type, fad.addr));
+        srcaddr = fad;
+      }
+    } else if(srcidt.tb & FLOATNUM) {
+        FULLADDR fad, fad2;
+        FILLREG(fad, ISFLOAT | (srcidt.tb & 0xf));
+        FILLREG(fad2, ISFLOAT | (srcidt.tb & 0xf));
+        opn(prog, ct_3ac_op2(I2F, destaddr.addr_type, destaddr.addr, fad.addr_type, fad.addr));
+        opn(prog, ct_3ac_op3(op, fad.addr_type, fad.addr, srcaddr.addr_type, srcaddr.addr, fad2.addr_type, fad2.addr));
+        opn(prog, ct_3ac_op2(F2I, fad2.addr_type, fad2.addr, destaddr.addr_type, destaddr.addr));
+        return destaddr;
+    }
+  }
+  opn(prog, ct_3ac_op3(op, destaddr.addr_type, destaddr.addr, srcaddr.addr_type, srcaddr.addr, destaddr.addr_type, destaddr.addr));
+  return destaddr;
+}
 static FULLADDR prestep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR destaddr, curaddr;
   IDTYPE rid = typex(cexpr);
@@ -616,6 +649,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         }
       } else if(cexpr->vartype->tb & UNSIGNEDNUM) {
         FILLREG(destaddr, cexpr->vartype->tb & 0xf);
+        if(!(destaddr.addr_type)) destaddr.addr_type = curaddr.addr_type & 0xf;
         if(curaddr.addr_type & ISFLOAT) {
           opn(prog, ct_3ac_op2(F2I, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
         } else {
@@ -714,9 +748,9 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case POSTDEC:
       return poststep(0, cexpr, prog);
     case ADDASSIGN:
-      return cmpnd_assign(ADD_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
+      return cmpnd_assign_addsub(ADD_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
     case SUBASSIGN:
-      return cmpnd_assign(SUB_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
+      return cmpnd_assign_addsub(SUB_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
     case DIVASSIGN: 
       return cmpnd_assign(DIV_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
     case SHLASSIGN:

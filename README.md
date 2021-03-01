@@ -89,8 +89,8 @@ COPY_3|Copies from source integer (pointer) operand 1 into the dest integer (poi
 ARROFF|Moves from the integer source operand 2th element in the array pointed to by integer (pointer) source operand 1 to the dest operand, the size of each array elemnt is implicit in the size of source operand 1 |2 source and 1 dest
 ARRMOV|Moves from integer source operand 1 to the integer source operand 2th element in the array pointed to by integer (pointer) operand dest, the size of each array element is implicit in the size of the dest operand|2 source and 1 dest
 MTP_OFF|Moves from memory pointed to by integer (pointer) source operand 1 offset by the integer source operand 2th element to the dest operand|2 source and 1 dest
-ALOC_3|Allocates integer source operand 1 bits of stack memory, places address of allocated memory into dest operand|1 source and 1 dest
-DEALOC_3|Deallocates integer source operand 1 bits of stack memory|1 source and 0 dest
+ALOC_3|Allocates integer source operand 1 bytes of stack memory, places address of allocated memory into dest operand|1 source and 1 dest
+DEALOC_3|Deallocates integer source operand 1 bytes of stack memory|1 source and 0 dest
 LBL_3|Label pseudo-operation|1 source operand for label's name
 ARG_3|Specifies that source operand 1 will be passed to the function called immediately after the last arg|1 source
 CALL_3|Calls the function specified by the label or integer (pointer) in the source operand, and outputs the result to the dest operand|1 source and 1 dest
