@@ -245,13 +245,7 @@ initializer:
       DYNARR* pointy = ac->decl->type->pointerstack;
       if(pointy && pointy->length && ((struct declarator_part*) dapeek(pointy))->type == ARRAYSPEC) {
         assert(pointy && pointy->length);
-        int arrdim = 0;
-        for(int i = pointy->length - 1; i >= 0; i--, arrdim++) {
-          struct declarator_part* pointtop = daget(pointy, i);
-          if(pointtop->type != ARRAYSPEC) break;
-        }
-        assert(arrdim);
-        process_array_lit(ac->decl->type, ac->expr, arrdim);
+        process_array_lit(ac->decl->type, ac->expr);
       } else if(!(pointy && pointy->length) && ac->decl->type->tb & (STRUCTVAL | UNIONVAL)) {
         assert(!(pointy && pointy->length));
         process_struct_lit(ac->decl->type, ac->expr);
