@@ -309,9 +309,6 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, int arr_dim) {
           process_struct_lit(arr_memtype, arrv);
           tdclp->arrlen += szstep;
         }
-        for(; i < tdclp->arrmaxind; i++) {
-          //TODO: initialize struct with all zeros
-        }
         //params are fine, no further processing necessary
       } else {
         int i;
@@ -375,15 +372,16 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
   } else {
     assert(struct_expr->params->length == imptype->fields->length);
   }
-  for(int i = 0; i < struct_expr->params->length; i++) {
+  int i;
+  for(i = 0; i < struct_expr->params->length; i++) {
     EXPRESSION* member = daget(struct_expr->params, i);
     DECLARATION* decl = daget(imptype->fields, i);
     if(member->type == ARRAY_LIT) {
       if(decl->type->pointerstack && decl->type->pointerstack->length && 
          ((struct declarator_part*) dapeek(decl->type->pointerstack))->type == ARRAYSPEC) {
         int arrdim = 0;
-        for(int i = decl->type->pointerstack->length - 1; i >= 0; i--, arrdim++) {
-          struct declarator_part* pointtop = daget(decl->type->pointerstack, i);
+        for(int j = decl->type->pointerstack->length - 1; j >= 0; j--, arrdim++) {
+          struct declarator_part* pointtop = daget(decl->type->pointerstack, j);
           if(pointtop->type != ARRAYSPEC) break;
         }
         assert(arrdim);
@@ -396,6 +394,24 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
     } else {
       IDTYPE memty = typex(member);
       assert(typecompat(&memty, decl->type));
+    }
+  }
+  for(;i < struct_memtype->structtype->fields->length; i++) {
+    DECLARATION* decl = daget(imptype->fields, i);
+    if(ispointer(decl->type)) {
+      if(((struct declarator_part*) dapeek(decl->type->pointerstack))->type == ARRAYSPEC) {
+        //TODO: handle this case
+      } else {
+        dapush(struct_expr->params, ct_uintconst_expr(0));
+      }
+    } else if(decl->type->tb & (STRUCTVAL | UNIONVAL)) {
+      //TODO: handle this
+    } else if(decl->type->tb & FLOATNUM) {
+      dapush(struct_expr->params, ct_floatconst_expr(0.0));
+    } else if(decl->type->tb & UNSIGNEDNUM) {
+      dapush(struct_expr->params, ct_uintconst_expr(0));
+    } else {
+      dapush(struct_expr->params, ct_intconst_expr(0));
     }
   }
   struct_expr->rettype = fcid2(struct_memtype);

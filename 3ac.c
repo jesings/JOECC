@@ -767,7 +767,6 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return cmpnd_assign(MULT_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
     case MODASSIGN:
       return cmpnd_assign(MOD_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
-       //type coercion stupid and unclear
     case NOP: case MEMBER:
       assert(0);
     case SZOF:
