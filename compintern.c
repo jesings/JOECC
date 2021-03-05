@@ -313,8 +313,8 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
           EXPRESSION* tofill = ct_array_lit(dactor(8));
           process_struct_lit(arr_memtype, tofill);
           dapush(arr_expr->params, tofill);
+          tdclp->arrlen += szstep;
         }
-        //params are fine, no further processing necessary
       } else {
         int i;
         for(i = 0; i < arr_expr->params->length; i++) {
@@ -353,7 +353,7 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
       }
       for(; i < tdclp->arrmaxind; i++) {
         dapush(arr_expr->params, ct_uintconst_expr(0));
-          tdclp->arrlen += szstep;
+        tdclp->arrlen += szstep;
       }
       //params are fine, no further processing necessary
     }

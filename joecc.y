@@ -364,7 +364,7 @@ spefptr:
     };
 params:
   param_decl {
-   $$ = dactor(8);//TODO: instead just a simple dynarr with different checks soon
+   $$ = dactor(8);
    dapushc($$, $1);
    }
 | params ',' param_decl {
