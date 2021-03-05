@@ -309,6 +309,11 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
           process_struct_lit(arr_memtype, arrv);
           tdclp->arrlen += szstep;
         }
+        for(; i < tdclp->arrmaxind; i++) {
+          EXPRESSION* tofill = ct_array_lit(dactor(8));
+          process_struct_lit(arr_memtype, tofill);
+          dapush(arr_expr->params, tofill);
+        }
         //params are fine, no further processing necessary
       } else {
         int i;
@@ -327,10 +332,6 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
             } else {
               dapush(arr_expr->params, ct_uintconst_expr(0));
             }
-          } else if(arr_memtype->tb & (STRUCTVAL | UNIONVAL)) {
-            EXPRESSION* tofill = ct_array_lit(dactor(8));
-            process_struct_lit(arr_memtype, tofill);
-            dapush(arr_expr->params, tofill);
           } else if(arr_memtype->tb & FLOATNUM) {
             dapush(arr_expr->params, ct_floatconst_expr(0.0));
           } else if(arr_memtype->tb & UNSIGNEDNUM) {
@@ -338,6 +339,7 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
           } else {
             dapush(arr_expr->params, ct_intconst_expr(0));
           }
+          tdclp->arrlen += szstep;
         }
         //params are fine, no further processing necessary
       }
@@ -351,6 +353,7 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
       }
       for(; i < tdclp->arrmaxind; i++) {
         dapush(arr_expr->params, ct_uintconst_expr(0));
+          tdclp->arrlen += szstep;
       }
       //params are fine, no further processing necessary
     }
