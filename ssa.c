@@ -614,8 +614,26 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog) {
     }
   }
 }
+static void antics(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog) {
+  if(blk->visited) return;
+  blk->visited = 1;
 
-void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
+  blk->anticipability_out = bfalloc(eq->nodes->length);
+  if(blk->nextblock && blk->nextblock->anticipability_in)
+    for(int i = 0; i < (eq->nodes->length + 1)  >> 3; i++) 
+      blk->anticipability_out[i] &= blk->nextblock->anticipability_in[i];
+  if(blk->branchblock && blk->branchblock->anticipability_in)
+    for(int i = 0; i < (eq->nodes->length + 1)  >> 3; i++)
+      blk->anticipability_out[i] &= blk->branchblock->anticipability_in[i];
+
+  blk->anticipability_in = bfclone(blk->anticipability_out, eq->nodes->length);
+
+  for(int i = 0; i < blk->inedges->length; i++) {
+    antics(daget(blk->inedges, i), eq, prog);
+  }
+}
+
+void gvn(PROGRAM* prog) {
   EQONTAINER* eqcontainer = cteq(prog);
   BBLOCK* first = daget(prog->allblocks, 0);
   for(int i = 0; i < prog->allblocks->length; i++) {
@@ -791,7 +809,6 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
   }
 
   first->availability = bfalloc(eqcontainer->nodes->length);
-  first->anticipability = bfalloc(eqcontainer->nodes->length);
   int rplistind = prog->allblocks->length;
   BBLOCK** rplist = malloc(prog->allblocks->length * sizeof(BBLOCK*));
   for(int i = 0; i < prog->allblocks->length; i++) {
@@ -801,15 +818,20 @@ void gvn(PROGRAM* prog) { //Constructs, populates Strong Equivalence DAG
   rplist[0] = first;
   rpdt(first->nextblock, rplist, &rplistind);
   rpdt(first->branchblock, rplist, &rplistind);
-  for(int i = 0; i < rplistind; i++) {
-    //BBLOCK* blk = rplist[i];
-  }
   replacenode(first, eqcontainer, prog);
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    blk->visited = 0;
+  } //recalculate to tighten length
+  antics(prog->finalblock, eqcontainer, prog);
+
 
   free(rplist);
   for(int i = 0; i < prog->allblocks->length; i++) {
     free(((BBLOCK*) daget(prog->allblocks, i))->availability);
-    free(((BBLOCK*) daget(prog->allblocks, i))->anticipability);
+    free(((BBLOCK*) daget(prog->allblocks, i))->anticipability_in);
+    free(((BBLOCK*) daget(prog->allblocks, i))->anticipability_out);
+    //what if no path to final node?
   }
 
   freeq(eqcontainer);

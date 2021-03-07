@@ -118,13 +118,14 @@ typedef struct bblock {
 
   DYNARR* idominates;
   DYNARR* df;
-  struct bblock* dom;
-  struct bblock* postdom;
+  struct bblock* dom; //immediate dominator
+  struct bblock* postdom; //immediate postdominator
   int domind, postdomind;
   int visited;
   int work;
 
-  char* anticipability; //bitfield
+  char* anticipability_in; //bitfield
+  char* anticipability_out; //bitfield
   char* availability; //bitfield
 } BBLOCK;
 
