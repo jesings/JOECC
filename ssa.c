@@ -594,6 +594,56 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
     case ASM:
       assert(0); //unimplemented
   }
+}
+static void gengen(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op) {
+  BITFIELD bf = blk->availability;
+  EQNODE* sen;
+  switch(op->opcode) {
+    OPS_3_3ac_NOCOM OPS_3_3ac_COM case TPHI:
+      sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
+      if(sen) {
+      }
+      __attribute__((fallthrough));
+    OPS_NODEST_3ac OPS_3_PTRDEST_3ac
+      sen = nodefromaddr(eq, op->addr1_type, op->addr1, prog);
+      if(sen) {
+      }
+      __attribute__((fallthrough));
+    OPS_1_3ac
+      sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
+      if(sen) {
+      }
+      break;
+    OPS_2_3ac_MUT case MOV_3: case ADDR_3:
+      sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
+      if(sen) {
+      }
+      sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
+      if(sen) {
+      }
+      break;
+    case CALL_3:
+      sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
+      if(sen) {
+      }
+      break;
+    case PHI:  ;
+      sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
+      assert(sen->hasconst == NOCONST);
+      assert(!bfget(bf, sen->index));
+      bfset(bf, sen->index);
+      sen->regno = op->dest.iregnum;
+      break;
+    OPS_1_ASSIGN_3ac
+      sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
+      if(sen) {
+      }
+      break;
+    OPS_NOVAR_3ac
+      break;
+    case ASM:
+      assert(0); //unimplemented
+  }
   
 }
 
