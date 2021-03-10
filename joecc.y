@@ -658,6 +658,24 @@ esu:
       $$ = ct_intconst_expr(expr->intconst);
     }
     }
+| '(' arbitrary_cast ')' array_literal {
+    DYNARR* pointy = $2->pointerstack;
+    EXPRESSION* arrexpr = ct_array_lit($4);
+    if(pointy && pointy->length && ((struct declarator_part*) dapeek(pointy))->type == ARRAYSPEC) {
+      assert(pointy && pointy->length);
+      process_array_lit($2, arrexpr);
+    } else if(!(pointy && pointy->length) && $2->tb & (STRUCTVAL | UNIONVAL)) {
+      assert(!(pointy && pointy->length));
+      process_struct_lit($2, arrexpr);
+    } else {
+      //disgusting unnecessary brace syntax allowed
+      EXPRESSION* unnex = arrexpr;
+      assert(arrexpr->params->length == 1);
+      arrexpr = daget(arrexpr->params, 0);
+      dadtor(unnex->params);
+      free(unnex);
+    }
+    }/*compound literal*/
 | error {
     $$ = ct_nop_expr(); 
     fprintf (stderr, "Malformed expression at %s %d.%d-%d.%d\n", locprint(@1));
