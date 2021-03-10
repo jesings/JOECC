@@ -317,6 +317,7 @@ struct macrodef {
 
 USTRUCT* ustructor(char* name, DYNARR* fields, struct lexctx* lct);
 ENUM* enumctor(char* name, DYNARR* fields, struct lexctx* lct);
+IDTYPE* fcid2(IDTYPE* idt);
 OPERAND* genoperand(char* constraint, EXPRESSION* varin);
 EXPRESSION* cloneexpr(EXPRESSION* orig);
 DYNARR* ptrdaclone(DYNARR* opointerstack);

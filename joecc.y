@@ -246,9 +246,11 @@ initializer:
       if(pointy && pointy->length && ((struct declarator_part*) dapeek(pointy))->type == ARRAYSPEC) {
         assert(pointy && pointy->length);
         process_array_lit(ac->decl->type, ac->expr);
+        ac->expr->rettype = fcid2(ac->decl->type);
       } else if(!(pointy && pointy->length) && ac->decl->type->tb & (STRUCTVAL | UNIONVAL)) {
         assert(!(pointy && pointy->length));
         process_struct_lit(ac->decl->type, ac->expr);
+        ac->expr->rettype = fcid2(ac->decl->type);
       } else {
         //disgusting unnecessary brace syntax allowed
         EXPRESSION* unnex = ac->expr;
@@ -658,20 +660,23 @@ esu:
       $$ = ct_intconst_expr(expr->intconst);
     }
     }
-| '(' arbitrary_cast ')' array_literal {
-    DYNARR* pointy = $2->pointerstack;
-    EXPRESSION* arrexpr = ct_array_lit($4);
+| arbitrary_cast array_literal {
+    DYNARR* pointy = $1->pointerstack;
+    $$ = ct_array_lit($2);
     if(pointy && pointy->length && ((struct declarator_part*) dapeek(pointy))->type == ARRAYSPEC) {
       assert(pointy && pointy->length);
-      process_array_lit($2, arrexpr);
-    } else if(!(pointy && pointy->length) && $2->tb & (STRUCTVAL | UNIONVAL)) {
+      process_array_lit($1, $$);
+      $$->rettype = $1;
+    } else if(!(pointy && pointy->length) && $1->tb & (STRUCTVAL | UNIONVAL)) {
       assert(!(pointy && pointy->length));
-      process_struct_lit($2, arrexpr);
+      process_struct_lit($1, $$);
+      $$->rettype = $1;
     } else {
       //disgusting unnecessary brace syntax allowed
-      EXPRESSION* unnex = arrexpr;
-      assert(arrexpr->params->length == 1);
-      arrexpr = daget(arrexpr->params, 0);
+      EXPRESSION* unnex = $$;
+      assert($$->params->length == 1);
+      $$ = daget($$->params, 0);
+      $$->rettype = $1;
       dadtor(unnex->params);
       free(unnex);
     }

@@ -41,7 +41,7 @@ EXPRESSION* cloneexpr(EXPRESSION* orig) {
   return clone;
 }
 
-static IDTYPE* fcid2(IDTYPE* idt) {
+IDTYPE* fcid2(IDTYPE* idt) {
   IDTYPE* idr = malloc(sizeof(IDTYPE));
   memcpy(idr, idt, sizeof(IDTYPE));
   if(idt->pointerstack) idr->pointerstack = ptrdaclone(idt->pointerstack);
@@ -307,11 +307,13 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
         for(i = 0; i < arr_expr->params->length; i++) {
           EXPRESSION* arrv = daget(arr_expr->params, i);
           process_struct_lit(arr_memtype, arrv);
+          arrv->rettype = fcid2(arr_memtype);
           tdclp->arrlen += szstep;
         }
         for(; i < tdclp->arrmaxind; i++) {
           EXPRESSION* tofill = ct_array_lit(dactor(8));
           process_struct_lit(arr_memtype, tofill);
+          tofill->rettype = fcid2(arr_memtype);
           dapush(arr_expr->params, tofill);
           tdclp->arrlen += szstep;
         }
@@ -328,6 +330,7 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
             if(((struct declarator_part*) dapeek(arr_memtype->pointerstack))->type == ARRAYSPEC) {
               EXPRESSION* tofill = ct_array_lit(dactor(8));
               process_array_lit(arr_memtype, tofill);
+              tofill->rettype = fcid2(arr_memtype);
               dapush(arr_expr->params, tofill);
             } else {
               dapush(arr_expr->params, ct_uintconst_expr(0));
@@ -362,18 +365,19 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
     for(i = 0; i < arr_expr->params->length; i++) {
       EXPRESSION* arrv = daget(arr_expr->params, i);
       tdclp->arrlen += process_array_lit(arr_memtype, arrv);
+      arrv->rettype = fcid2(arr_memtype);
       assert(typecompat(arrv->rettype, arr_memtype));
     }
     for(; i < tdclp->arrmaxind; i++) {
       struct declarator_part* ldclp = dapeek(arr_memtype->pointerstack);
       EXPRESSION* arrv = ct_array_lit(dactor(ldclp->arrmaxind));
       tdclp->arrlen += process_array_lit(arr_memtype, arrv);
+      arrv->rettype = fcid2(arr_memtype);
       assert(typecompat(arrv->rettype, arr_memtype));
     }
   }
   if(!tdclp->arrmaxind) tdclp->arrmaxind = arr_expr->params->length;
   arr_memtype->pointerstack->length += 1;
-  arr_expr->rettype = fcid2(arr_memtype);
   return tdclp->arrlen;
 }
 
@@ -401,8 +405,10 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
         }
         assert(arrdim);
         process_array_lit(decl->type, member);
+        member->rettype = fcid2(decl->type);
       } else if(decl->type->tb & (STRUCTVAL | UNIONVAL)) {
         process_struct_lit(decl->type, member);
+        member->rettype = fcid2(decl->type);
       } else {
         assert(0);
       }
@@ -417,6 +423,7 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
       if(((struct declarator_part*) dapeek(decl->type->pointerstack))->type == ARRAYSPEC) {
         EXPRESSION* tofill = ct_array_lit(dactor(8));
         process_array_lit(decl->type, tofill);
+        tofill->rettype = fcid2(decl->type);
         dapush(struct_expr->params, tofill);
       } else {
         dapush(struct_expr->params, ct_uintconst_expr(0));
@@ -424,6 +431,7 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
     } else if(decl->type->tb & (STRUCTVAL | UNIONVAL)) {
       EXPRESSION* tofill = ct_array_lit(dactor(8));
       process_struct_lit(decl->type, tofill);
+      tofill->rettype = fcid2(decl->type);
       dapush(struct_expr->params, tofill);
     } else if(decl->type->tb & FLOATNUM) {
       dapush(struct_expr->params, ct_floatconst_expr(0.0));
@@ -433,7 +441,6 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
       dapush(struct_expr->params, ct_intconst_expr(0));
     }
   }
-  struct_expr->rettype = fcid2(struct_memtype);
   return imptype->size;
 }
 
