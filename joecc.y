@@ -335,6 +335,8 @@ spefptr:
 | '(' '(' abstract_ptr ')' SYMBOL ')' {$$ = mkdeclaration($5); $$->type->pointerstack = damerge($$->type->pointerstack, $3);}
 | '(' abstract_ptr ')' {$$ = mkdeclaration(NULL); $$->type->pointerstack = damerge($$->type->pointerstack, $2);}
 | '(' spefptr ')' {$$ = $2;}
+| '[' ']' {$$ = mkdeclaration(NULL); dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, NULL));}
+| '[' expression ']' {$$ = mkdeclaration(NULL); dapush($$->type->pointerstack,mkdeclpartarr(ARRAYSPEC, $2));}
 | spefptr'[' ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, NULL));}
 | spefptr'[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, $3));/*foldconst*/}
 | spefptr'(' ')' {$$ = $1;
@@ -500,7 +502,7 @@ typews1:
     }
     free($1);
     }
-| typem{ $$ = $1;}
+| typem {$$ = $1;}
 | types1 typews1 {$$ = $2; $$->tb |= $1;}
 | types2 typews1 {$$ = $2; $$->tb |= $1;} ;
 type:
