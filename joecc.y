@@ -47,8 +47,9 @@
   #define dget(param, index) ((DECLARATION*) (param)->arr[(index)])
   #define YYPARSE_PARAM void* scanner
   #define YYLEX_PARAM scanner
+  char foldconst(EXPRESSION**);
   //TODO: union initializers, optional brace nesting?
-  //TODO: Consider designated initializers, compound literals?
+  //TODO: Consider designated initializers
 }
 
 %union {
@@ -691,14 +692,33 @@ yescoa:
   '.' SYMBOL '=' escoa {
     $$ = $4;
     }
-| '[' expression ']' '=' escoa{
-    //foldconst(&$2);
-    $$ = $5;
-    }
 | escoa {$$ = $1;};
 escoal:
   yescoa {$$ = dactor(32); dapushc($$, $1);}
-| escoal ',' yescoa {$$ = $1; dapush($$, $3); };
+| escoal ',' yescoa {$$ = $1; dapush($$, $3); }
+| '[' expression ']' '=' escoa {
+    foldconst(&$2);
+    assert($2->type == INT || $2->type == UINT);
+    $$ = dactor(32 > $2->intconst + 1 ? 32 : $2->intconst + 1);
+    $$->arr[$2->intconst] = $5;
+    $$->length = $2->intconst + 1;
+    }
+| escoal ',' '[' expression ']' '=' escoa {
+    $$ = $1;
+    foldconst(&$4);
+    assert($4->type == INT || $4->type == UINT);
+    if($$->maxlength < $4->intconst + 1)
+      $$->arr = reallocarray($$->arr, $$->maxlength = ($4->intconst + 1) * 1.5, sizeof(void*));
+    if($$->length < $4->intconst + 1) {
+      for(int i = $$->length; i < $4->intconst; i++) {
+        //push zero thingy
+      }
+      $$->length = $4->intconst + 1;
+    } else {
+      rfreexpr($$->arr[$4->intconst]);
+    }
+    $$->arr[$4->intconst] = $7;
+    };
 
 array_literal:
   '{' escoal commaopt '}' {$$ = $2;};
