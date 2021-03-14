@@ -251,24 +251,10 @@ typedef struct {
   EXPRESSION* expr;
 } INITIALIZER;
 
-struct intinfo {
-  long num;
-  char sign;
-}; 
-
 typedef struct {
   PARALLEL* cases;
   char* defaultval;
 } SWITCHINFO;
-
-typedef struct {
-  char isfunc;
-  union {
-    INITIALIZER* i;
-    FUNC* f;
-    void* garbage;
-  };
-} TOPBLOCK;
 
 #define MEMBERTYPELIST X(M_TYPEDEF), X(M_VARIABLE), X(M_GLOBAL), X(M_STRUCT), X(M_UNION), X(M_ENUM), X(M_ENUM_CONST)
 #define X(name) name
@@ -384,7 +370,6 @@ char scopequeryval(struct lexctx* lct, enum membertype mt, char* key);
 void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, USTRUCT* assignval);
 INITIALIZER* decl2scope(DECLARATION* dec, EXPRESSION* ex, struct lexctx* lct);
 void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* memberval);
-TOPBLOCK* gtb(char isfunc, void* assign);
 void feedstruct(USTRUCT* s);
 int unionlen(USTRUCT* u);
 

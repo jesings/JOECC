@@ -1256,13 +1256,6 @@ void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* m
   }
 }
 
-TOPBLOCK* gtb(char isfunc, void* assign) {
-  TOPBLOCK* retval = malloc(sizeof(TOPBLOCK));
-  retval->isfunc = isfunc;
-  retval->garbage = assign;
-  return retval;
-}
-
 void feedstruct(USTRUCT* s) {
   switch(s->size) {
     case 0:

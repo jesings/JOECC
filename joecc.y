@@ -90,7 +90,7 @@
 %type<integert> typemsign
 %type<typevariant> types1 types2 types1o
 %type<idvariant> typem typews1 type typemintkw inttypem namelesstype arbitrary_cast
-%type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee escoa
+%type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee escoa yescoa
 %type<stmtvariant> statement compound_statement
 %type<arrvariant> statements_and_initializers soiorno struct_decls struct_decl cs_decls enums escl escoal abstract_ptr spefptr cs_inits cs_minutes initializer array_literal structbody enumbody nameless params clobberlist clobbers operands operandlist
 %type<structvariant> struct fullstruct union fullunion
@@ -338,7 +338,7 @@ spefptr:
 | '[' ']' {$$ = dactor(2); dapush($$, mkdeclpart(ARRAYSPEC, NULL));}
 | '[' expression ']' {$$ = dactor(2); dapush($$, mkdeclpartarr(ARRAYSPEC, $2));}
 | spefptr'[' ']' {$$ = $1; dapush($$, mkdeclpart(ARRAYSPEC, NULL));}
-| spefptr'[' expression ']' {$$ = $1; dapush($$, mkdeclpart(ARRAYSPEC, $3));/*foldconst*/}
+| spefptr'[' expression ']' {$$ = $1; dapush($$, mkdeclpart(ARRAYSPEC, $3));}
 | spefptr'(' ')' {$$ = $1;
     DYNARR* da = dactor(1 + $$->length);
     dapushc(da, mkdeclpart(NAMELESS_PARAMSSPEC, NULL));
@@ -687,9 +687,19 @@ escl:
   esc {$$ = dactor(32); dapushc($$, $1);}
 | escl ',' esc {$$ = $1; dapush($$, $3); };
 
+yescoa:
+  '.' SYMBOL '=' escoa {
+    $$ = $4;
+    }
+| '[' expression ']' '=' escoa{
+    //foldconst(&$2);
+    $$ = $5;
+    }
+| escoa {$$ = $1;};
 escoal:
-  escoa {$$ = dactor(32); dapushc($$, $1);}
-| escoal ',' escoa {$$ = $1; dapush($$, $3); };
+  yescoa {$$ = dactor(32); dapushc($$, $1);}
+| escoal ',' yescoa {$$ = $1; dapush($$, $3); };
+
 array_literal:
   '{' escoal commaopt '}' {$$ = $2;};
 
