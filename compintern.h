@@ -137,6 +137,11 @@ typedef struct expr {
   };
 } EXPRESSION;
 
+typedef struct {
+  DYNARR* inits;
+  int curpt;
+} DESIGNARR;
+
 struct lstate {
   DYNARR* argpp;
   DYNARR* locs;

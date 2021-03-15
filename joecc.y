@@ -66,6 +66,7 @@
   EOI* firforvariant;
   STATEMENT* stmtvariant;
   DYNARR* arrvariant;
+  DESIGNARR* designarrvariant;
   USTRUCT* structvariant;
   ENUM* enumvariant;
   DECLARATION* declvariant;
@@ -94,6 +95,7 @@
 %type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee escoa yescoa
 %type<stmtvariant> statement compound_statement
 %type<arrvariant> statements_and_initializers soiorno struct_decls struct_decl cs_decls enums escl escoal abstract_ptr spefptr cs_inits cs_minutes initializer array_literal structbody enumbody nameless params clobberlist clobbers operands operandlist
+%type<designarrvariant> arrescoal
 %type<structvariant> struct fullstruct union fullunion
 %type<enumvariant> enum fullenum
 %type<declvariant> declarator declname param_decl sdecl
@@ -693,35 +695,63 @@ yescoa:
     $$ = $4;
     }
 | escoa {$$ = $1;};
-escoal:
-  yescoa {$$ = dactor(32); dapushc($$, $1);}
-| escoal ',' yescoa {$$ = $1; dapush($$, $3); }
+arrescoal:
+  arrescoal ',' yescoa {$$ = $1;
+    }
 | '[' expression ']' '=' escoa {
     foldconst(&$2);
     assert($2->type == INT || $2->type == UINT);
-    $$ = dactor(32 > $2->intconst + 1 ? 32 : $2->intconst + 1);
-    $$->arr[$2->intconst] = $5;
-    $$->length = $2->intconst + 1;
+    $$->inits = dactor(32 > $2->intconst + 1 ? 32 : $2->intconst + 1);
+    for(int i = $$->inits->length; i < $5->intconst; i++) {
+      //$$->inits->arr[i] =
     }
-| escoal ',' '[' expression ']' '=' escoa {
+    $$->inits->arr[$2->intconst] = $5;
+    $$->inits->length = $2->intconst + 1;
+    $$->curpt = $$->inits->length;
+    }
+| arrescoal ',' '[' expression ']' '=' escoa {
     $$ = $1;
     foldconst(&$4);
     assert($4->type == INT || $4->type == UINT);
-    if($$->maxlength < $4->intconst + 1)
-      $$->arr = reallocarray($$->arr, $$->maxlength = ($4->intconst + 1) * 1.5, sizeof(void*));
-    if($$->length < $4->intconst + 1) {
-      for(int i = $$->length; i < $4->intconst; i++) {
+    if($$->inits->maxlength < $4->intconst + 1)
+      $$->inits->arr = reallocarray($$->inits->arr, $$->inits->maxlength = ($4->intconst + 1) * 1.5, sizeof(void*));
+    if($$->inits->length < $4->intconst + 1) {
+      for(int i = $$->inits->length; i < $4->intconst; i++) {
         //push zero thingy
       }
-      $$->length = $4->intconst + 1;
+      $$->inits->length = $4->intconst + 1;
     } else {
-      rfreexpr($$->arr[$4->intconst]);
+      rfreexpr($$->inits->arr[$4->intconst]);
     }
-    $$->arr[$4->intconst] = $7;
+    $$->inits->arr[$4->intconst] = $7;
+    $$->curpt = $4->intconst + 1;
+    }
+| escoal ',' '[' expression ']' '=' escoa {
+    $$ = malloc(sizeof(DESIGNARR)); 
+    $$->inits = $1; 
+    $$->curpt = $1->length;
+    foldconst(&$4);
+    assert($4->type == INT || $4->type == UINT);
+    if($$->inits->maxlength < $4->intconst + 1)
+      $$->inits->arr = reallocarray($$->inits->arr, $$->inits->maxlength = ($4->intconst + 1) * 1.5, sizeof(void*));
+    if($$->inits->length < $4->intconst + 1) {
+      for(int i = $$->inits->length; i < $4->intconst; i++) {
+        //push zero thingy
+      }
+      $$->inits->length = $4->intconst + 1;
+    } else {
+      rfreexpr($$->inits->arr[$4->intconst]);
+    }
+    $$->inits->arr[$4->intconst] = $7;
+    $$->curpt = $4->intconst + 1;
     };
+escoal:
+  yescoa {$$ = dactor(32); dapushc($$, $1);}
+| escoal ',' yescoa {$$ = $1; dapush($$, $3);};
 
 array_literal:
-  '{' escoal commaopt '}' {$$ = $2;};
+  '{' escoal commaopt '}' {$$ = $2;}
+| '{' arrescoal commaopt '}' {$$ = $2->inits; free($2);};
 
 multistring:
   STRING_LITERAL {$$ = $1;}
