@@ -696,14 +696,23 @@ yescoa:
     }
 | escoa {$$ = $1;};
 arrescoal:
-  arrescoal ',' yescoa {$$ = $1;
+  arrescoal ',' escoa {$$ = $1;
+    if($$->inits->maxlength < $$->curpt + 1)
+      $$->inits->arr = reallocarray($$->inits->arr, $$->inits->maxlength = ($1->curpt + 1) * 1.5, sizeof(void*));
+    if($$->inits->length < $1->curpt + 1) {
+      ++$$->inits->length;
+    } else if($$->inits->arr[$$->curpt]) {
+      rfreexpr($$->inits->arr[$$->curpt]);
+    }
+    $$->inits->arr[$$->curpt] = $3;
+    ++$$->curpt;
     }
 | '[' expression ']' '=' escoa {
     foldconst(&$2);
     assert($2->type == INT || $2->type == UINT);
     $$->inits = dactor(32 > $2->intconst + 1 ? 32 : $2->intconst + 1);
     for(int i = $$->inits->length; i < $5->intconst; i++) {
-      //$$->inits->arr[i] =
+      $$->inits->arr[i] = NULL;
     }
     $$->inits->arr[$2->intconst] = $5;
     $$->inits->length = $2->intconst + 1;
@@ -717,10 +726,10 @@ arrescoal:
       $$->inits->arr = reallocarray($$->inits->arr, $$->inits->maxlength = ($4->intconst + 1) * 1.5, sizeof(void*));
     if($$->inits->length < $4->intconst + 1) {
       for(int i = $$->inits->length; i < $4->intconst; i++) {
-        //push zero thingy
+        $$->inits->arr[i] = NULL;
       }
       $$->inits->length = $4->intconst + 1;
-    } else {
+    } else if($$->inits->arr[$4->intconst]) {
       rfreexpr($$->inits->arr[$4->intconst]);
     }
     $$->inits->arr[$4->intconst] = $7;
@@ -736,10 +745,10 @@ arrescoal:
       $$->inits->arr = reallocarray($$->inits->arr, $$->inits->maxlength = ($4->intconst + 1) * 1.5, sizeof(void*));
     if($$->inits->length < $4->intconst + 1) {
       for(int i = $$->inits->length; i < $4->intconst; i++) {
-        //push zero thingy
+        $$->inits->arr[i] = NULL;
       }
       $$->inits->length = $4->intconst + 1;
-    } else {
+    } else if($$->inits->arr[$4->intconst]) {
       rfreexpr($$->inits->arr[$4->intconst]);
     }
     $$->inits->arr[$4->intconst] = $7;
