@@ -321,8 +321,27 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
         int i;
         for(i = 0; i < arr_expr->params->length; i++) {
           EXPRESSION* arrv = daget(arr_expr->params, i);
-          IDTYPE arrt = typex(arrv);
-          assert(typecompat(&arrt, arr_memtype));
+          if(!arrv) {
+            if(ispointer(arr_memtype)) {
+              if(((struct declarator_part*) dapeek(arr_memtype->pointerstack))->type == ARRAYSPEC) {
+                EXPRESSION* tofill = ct_array_lit(dactor(8));
+                process_array_lit(arr_memtype, tofill);
+                tofill->rettype = fcid2(arr_memtype);
+                arr_expr->params->arr[i] = tofill;
+              } else {
+                arr_expr->params->arr[i] = ct_uintconst_expr(0);
+              }
+            } else if(arr_memtype->tb & FLOATNUM) {
+              arr_expr->params->arr[i] = ct_floatconst_expr(0.0);
+            } else if(arr_memtype->tb & UNSIGNEDNUM) {
+              arr_expr->params->arr[i] = ct_uintconst_expr(0);
+            } else {
+              arr_expr->params->arr[i] = ct_intconst_expr(0);
+            }
+          } else {
+            IDTYPE arrt = typex(arrv);
+            assert(typecompat(&arrt, arr_memtype));
+          }
           tdclp->arrlen += szstep;
         }
         for(; i < tdclp->arrmaxind; i++) {

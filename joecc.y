@@ -708,6 +708,7 @@ arrescoal:
     ++$$->curpt;
     }
 | '[' expression ']' '=' escoa {
+    $$ = malloc(sizeof(DESIGNARR));
     foldconst(&$2);
     assert($2->type == INT || $2->type == UINT);
     $$->inits = dactor(32 > $2->intconst + 1 ? 32 : $2->intconst + 1);
@@ -717,6 +718,7 @@ arrescoal:
     $$->inits->arr[$2->intconst] = $5;
     $$->inits->length = $2->intconst + 1;
     $$->curpt = $$->inits->length;
+    free($2);
     }
 | arrescoal ',' '[' expression ']' '=' escoa {
     $$ = $1;
@@ -734,6 +736,7 @@ arrescoal:
     }
     $$->inits->arr[$4->intconst] = $7;
     $$->curpt = $4->intconst + 1;
+    free($4);
     }
 | escoal ',' '[' expression ']' '=' escoa {
     $$ = malloc(sizeof(DESIGNARR)); 
@@ -753,6 +756,7 @@ arrescoal:
     }
     $$->inits->arr[$4->intconst] = $7;
     $$->curpt = $4->intconst + 1;
+    free($4);
     };
 escoal:
   yescoa {$$ = dactor(32); dapushc($$, $1);}
