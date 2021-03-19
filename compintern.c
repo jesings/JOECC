@@ -286,8 +286,9 @@ char typecompat(IDTYPE* t1, IDTYPE* t2) {
     return 1;
   }
   if(t2->tb & (STRUCTVAL | UNIONVAL))
-    return 1;
-  return !((t1->tb & FLOATNUM)^(t2->tb & FLOATNUM));
+    return 0;
+  return 1;//!((t1->tb & FLOATNUM)^(t2->tb & FLOATNUM));
+  //floats are coerced into ints and vice versa
 }
 
 int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {

@@ -487,18 +487,19 @@ char constfold(PROGRAM* prog) {
           case F2I:
             if(op->addr0_type & ISCONST) {
               op->opcode = MOV_3;
-              op->addr0.intconst_64 = (long) op->addr0.floatconst_64;
+              op->addr0.intconst_64 = (long int) op->addr0.floatconst_64;
               op->addr0_type = op->dest_type | ISCONST;
+              op->addr0_type &= ~ISFLOAT;
             }
             break;
           case I2F:
             if(op->addr0_type & ISCONST) {
               op->opcode = MOV_3;
               if(op->addr0_type & ISSIGNED)
-                op->addr0.floatconst_64 = op->addr0.intconst_64;
+                op->addr0.floatconst_64 = (double) op->addr0.intconst_64;
               else
-                op->addr0.floatconst_64 = op->addr0.uintconst_64;
-              op->addr0_type = op->dest_type | ISCONST;
+                op->addr0.floatconst_64 = (double) op->addr0.uintconst_64;
+              op->addr0_type |= ISSIGNED | ISFLOAT;
             }
             break;
           case BEQ_U:

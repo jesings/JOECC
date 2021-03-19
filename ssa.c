@@ -112,7 +112,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
           if((op->addr1_type & (ADDRSVAR | ISVAR)) == ISVAR) 
             op->addr1.ssaind =  (long) dapeek((DYNARR*) daget(S, op->addr1.varnum));
           __attribute__((fallthrough));
-        OPS_1_3ac
+        OPS_1_3ac case DEALOC:
           if((op->addr0_type & (ADDRSVAR | ISVAR)) == ISVAR)
             op->addr0.ssaind =  (long) dapeek((DYNARR*) daget(S, op->addr0.varnum));
           break;
@@ -507,6 +507,17 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
         }
       }
       break;
+    case DEALOC: ;
+      HASHTABLE* ophash = daget(eq->opnodes, op->opcode);
+      sen = fixedsearch(ophash, op->addr0.ssaind);
+      if(sen) {
+        if(bfget(bf, sen->index)) {
+          op->opcode = NOP_3;
+        } else {
+          bfset(bf, sen->index);
+        }
+      }
+      break;
     OPS_2_3ac_MUT case MOV_3: case ADDR_3:
       sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
       if(sen) {
@@ -609,7 +620,9 @@ static void gengen(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op) {
       if(sen) {
       }
       __attribute__((fallthrough));
-    OPS_1_3ac
+    case DEALOC:
+      break;
+    OPS_1_3ac 
       sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
       if(sen) {
       }
@@ -836,6 +849,15 @@ void gvn(PROGRAM* prog) {
             break;
           case PHI: //TODO: get phi node handling loop at end
             nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
+            break;
+          case DEALOC:
+            ophash = daget(eqcontainer->opnodes, op->opcode);
+            sen1 = fixedsearch(ophash, op->addr0.ssaind);
+            if(!sen1) {
+              destsen = cteqnode(eqcontainer, NOCONST);
+              dapush(destsen->equivs, cteqib(op->opcode, sen1, NULL));
+              fixedinsert(ophash, op->addr0.ssaind, destsen);
+            }
             break;
           OPS_3_PTRDEST_3ac OPS_NODEST_3ac
             nodefromaddr(eqcontainer, op->addr1_type, op->addr1, prog);

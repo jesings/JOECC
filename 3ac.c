@@ -451,9 +451,12 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       } else {
         return *(FULLADDR*) daget(prog->dynvars, cexpr->id->index);
       }
-    case ARRAY_LIT: ;
-      struct declarator_part* ptrtop = dapeek(cexpr->rettype->pointerstack);
+    case ARRAY_LIT:
       FILLREG(destaddr, ISPOINTER | 0x8);
+      struct declarator_part* ptrtop = dapeek(cexpr->rettype->pointerstack);
+      --cexpr->rettype->pointerstack->length;
+      ADDRTYPE memtype = addrconv(cexpr->rettype);
+      ++cexpr->rettype->pointerstack->length;
       assert(ptrtop->type == ARRAYSPEC);
       //vlas may not be initialized
       curaddr.addr.uintconst_64 = ptrtop->arrlen;
@@ -464,6 +467,17 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
           EXPRESSION* dyne = daget(cexpr->params, i);
           otheraddr = linearitree(dyne, prog);
           curaddr.addr.uintconst_64 = i;
+          if(memtype & ISFLOAT && !(otheraddr.addr_type & ISFLOAT)) {
+            FULLADDR fad2;
+            FILLREG(fad2, destaddr.addr_type & GENREGMASK);
+            opn(prog, ct_3ac_op2(I2F, otheraddr.addr_type, otheraddr.addr, fad2.addr_type, fad2.addr));
+            otheraddr = fad2;
+          } else if(!(memtype & ISFLOAT) && otheraddr.addr_type & ISFLOAT) {
+            FULLADDR fad2;
+            FILLREG(fad2, destaddr.addr_type & GENREGMASK);
+            opn(prog, ct_3ac_op2(F2I, otheraddr.addr_type, otheraddr.addr, fad2.addr_type, fad2.addr));
+            otheraddr = fad2;
+          }
           opn(prog, ct_3ac_op3(ARRMOV, otheraddr.addr_type, otheraddr.addr, ISCONST | 0x8, curaddr.addr, destaddr.addr_type, destaddr.addr));
         }
       } else {
@@ -473,6 +487,17 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
           EXPRESSION* dyne = daget(cexpr->params, i);
           otheraddr = linearitree(dyne, prog);
           opn(prog, ct_3ac_op3(ADD_U, destaddr.addr_type, destaddr.addr, ISCONST | 0x8, a, destaddr.addr_type, destaddr.addr));
+          if(destaddr.addr_type & ISFLOAT && !(otheraddr.addr_type & ISFLOAT)) {
+            FULLADDR fad2;
+            FILLREG(fad2, destaddr.addr_type & GENREGMASK);
+            opn(prog, ct_3ac_op2(I2F, otheraddr.addr_type, otheraddr.addr, fad2.addr_type, fad2.addr));
+            otheraddr = fad2;
+          } else if(!(destaddr.addr_type & ISFLOAT) && otheraddr.addr_type & ISFLOAT) {
+            FULLADDR fad2;
+            FILLREG(fad2, destaddr.addr_type & GENREGMASK);
+            opn(prog, ct_3ac_op2(F2I, otheraddr.addr_type, otheraddr.addr, fad2.addr_type, fad2.addr));
+            otheraddr = fad2;
+          }
           opn(prog, ct_3ac_op2(MOV_3, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type | ISDEREF, destaddr.addr));
         }
       }
@@ -487,6 +512,17 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         STRUCTFIELD* sf = search(cexpr->rettype->structtype->offsets, decl->varname);
         curaddr = linearitree(member, prog);
         otheraddr.addr.uintconst_64 = sf->offset;
+        if(addrconv(sf->type) & ISFLOAT && !(curaddr.addr_type & ISFLOAT)) {
+          FULLADDR fad2;
+          FILLREG(fad2, destaddr.addr_type & GENREGMASK);
+          opn(prog, ct_3ac_op2(I2F, curaddr.addr_type, curaddr.addr, fad2.addr_type, fad2.addr));
+          curaddr = fad2;
+        } else if(!(addrconv(sf->type) & ISFLOAT) && curaddr.addr_type & ISFLOAT) {
+          FULLADDR fad2;
+          FILLREG(fad2, destaddr.addr_type & GENREGMASK);
+          opn(prog, ct_3ac_op2(F2I, curaddr.addr_type, curaddr.addr, fad2.addr_type, fad2.addr));
+          curaddr = fad2;
+        }
         opn(prog, ct_3ac_op3(MTP_OFF, curaddr.addr_type, curaddr.addr, ISCONST | 0x8, otheraddr.addr, destaddr.addr_type, destaddr.addr));
       }
       return destaddr;
