@@ -92,9 +92,9 @@
 %type<integert> typemsign
 %type<typevariant> types1 types2 types1o
 %type<idvariant> typem typews1 type typemintkw inttypem namelesstype arbitrary_cast
-%type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee escoa yescoa
+%type<exprvariant> expression esc esa est eslo esla esbo esbx esba eseq escmp essh esas esm esca esp esu ee escoa
 %type<stmtvariant> statement compound_statement
-%type<arrvariant> statements_and_initializers soiorno struct_decls struct_decl cs_decls enums escl escoal abstract_ptr spefptr cs_inits cs_minutes initializer array_literal structbody enumbody nameless params clobberlist clobbers operands operandlist
+%type<arrvariant> statements_and_initializers soiorno struct_decls struct_decl cs_decls enums escl escoal abstract_ptr spefptr cs_inits cs_minutes initializer array_literal structbody enumbody nameless params clobberlist clobbers operands operandlist structescoal
 %type<designarrvariant> arrescoal
 %type<structvariant> struct fullstruct union fullunion
 %type<enumvariant> enum fullenum
@@ -689,12 +689,6 @@ esu:
 escl:
   esc {$$ = dactor(32); dapushc($$, $1);}
 | escl ',' esc {$$ = $1; dapush($$, $3); };
-
-yescoa:
-  '.' SYMBOL '=' escoa {
-    $$ = $4;
-    }
-| escoa {$$ = $1;};
 arrescoal:
   arrescoal ',' escoa {$$ = $1;
     if($$->inits->maxlength < $$->curpt + 1)
@@ -758,13 +752,35 @@ arrescoal:
     $$->curpt = $4->intconst + 1;
     free($4);
     };
+structescoal:
+  '.' SYMBOL '=' escoa {
+    $$ = dactor(32);
+    free($2);
+    dapush($$, $4);
+    }
+| structescoal ',' '.' SYMBOL '=' escoa {
+    $$ = $1;
+    free($4);
+    dapush($$, $6);
+    }
+| escoal ',' '.' SYMBOL '=' escoa {
+    $$ = $1;
+    free($4);
+    dapush($$, $6);
+    }
+| structescoal ',' escoa {
+    $$ = $1;
+    dapush($$, $3);
+    };
+
 escoal:
-  yescoa {$$ = dactor(32); dapushc($$, $1);}
-| escoal ',' yescoa {$$ = $1; dapush($$, $3);};
+  escoa {$$ = dactor(32); dapushc($$, $1);}
+| escoal ',' escoa {$$ = $1; dapush($$, $3);};
 
 array_literal:
   '{' escoal commaopt '}' {$$ = $2;}
-| '{' arrescoal commaopt '}' {$$ = $2->inits; free($2);};
+| '{' arrescoal commaopt '}' {$$ = $2->inits; free($2);}
+| '{' structescoal commaopt '}' {$$ = $2;};
 
 multistring:
   STRING_LITERAL {$$ = $1;}
