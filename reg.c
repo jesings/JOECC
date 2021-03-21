@@ -18,9 +18,27 @@ struct opinfo op2op[] = {
   [NOP_3] = {"nop", 0},
   [LBL_3] = {"", 1}, //not sure?
   [RET_0] = {"ret", 0}, //not sure?
-  [ADD_U] = {"add", 2}, //not sure?
+  [ADD_U] = {"add", 2},
+  [ADD_F] = {"vadds", 3},
+  [MULT_U] = {"mul", 1}, //multiplies ax by operand, places result in dx:ax ax is low part
+  [MULT_I] = {"imul", 2},
+  [MULT_F] = {"vmuls", 3},
+  [AND_U] = {"and", 2},
+  [OR_U] = {"or", 2},
+  [XOR_U] = {"xor", 2},
+  [EQ_U] = {"cmp", 2}, //then a cmovz
+  [EQ_F] = {"vcomis", 2}, //then a cmovz
+  [SUB_U] = {"sub", 3},
+  [SUB_F] = {"vsubs", 3},
+  [DIV_U] = {"div", 1}, //divides dx:ax by operand, places result in ax dx is remainder?
+  [DIV_I] = {"idiv", 2},
+  [DIV_F] = {"vdivs", 3},
+  //mods are gonna be a pain, do we do disgusting other stuff like gcc or just use?
+  [SHL_U] = {"shl", 2},
+  [SHL_I] = {"sal", 2},
+  [SHR_U] = {"shr", 2},
+  [SHR_I] = {"sar", 2},
 };
-//fregs are just xmm%d, we'll do 0-15
 //handle long doubles same as doubles
 //
 
