@@ -26,18 +26,44 @@ struct opinfo op2op[] = {
   [AND_U] = {"and", 2},
   [OR_U] = {"or", 2},
   [XOR_U] = {"xor", 2},
-  [EQ_U] = {"cmp", 2}, //then a cmovz
-  [EQ_F] = {"vcomis", 2}, //then a cmovz
+  [EQ_U] = {"setz", 1}, //precede this by a cmp
+  [EQ_F] = {"setz", 1}, //precede this by a cmp
+  [NEQ_U] = {"setnz", 2}, //precede this by a 
+  [NEQ_F] = {"setnz", 2}, //then a cmovz
   [SUB_U] = {"sub", 3},
   [SUB_F] = {"vsubs", 3},
   [DIV_U] = {"div", 1}, //divides dx:ax by operand, places result in ax dx is remainder?
   [DIV_I] = {"idiv", 2},
   [DIV_F] = {"vdivs", 3},
-  //mods are gonna be a pain, do we do disgusting other stuff like gcc or just use?
+  [MOD_U] = {"div", 1}, //divides dx:ax by operand, places result in ax dx is remainder?
+  [MOD_I] = {"idiv", 1}, //single operand division, use cqo or cdq or cwd or cbw before, does same as above
   [SHL_U] = {"shl", 2},
   [SHL_I] = {"sal", 2},
   [SHR_U] = {"shr", 2},
   [SHR_I] = {"sar", 2},
+  [GE_U] = {"setae", 1}, //precede this by a cmp
+  [GE_I] = {"setge", 1}, //precede this by a cmp
+  [GE_F] = {"setae", 1}, //precede this by a cmp
+  [LE_U] = {"setbe", 1}, //precede this by a cmp
+  [LE_I] = {"setle", 1}, //precede this by a cmp
+  [LE_F] = {"setbe", 1}, //precede this by a cmp
+  [GT_U] = {"seta", 1}, //precede this by a cmp
+  [GT_I] = {"setg", 1}, //precede this by a cmp
+  [GT_F] = {"seta", 1}, //precede this by a cmp
+  [LT_U] = {"setb", 1}, //precede this by a cmp
+  [LT_I] = {"setl", 1}, //precede this by a cmp
+  [LT_F] = {"setb", 1}, //precede this by a cmp
+  [COPY_3] = {"repnz movs", 0}, //clobbers si, di, move count into cx
+  [ARROFF] = {"lea", 2}, //not sure?
+  [ARRMOV] = {"mov", 2}, //not sure?
+  [MTP_OFF] = {"mov", 2}, //not sure?
+  [NOT_U] = {"not", 2},
+  [NEG_I] = {"neg", 2},
+  [NEG_F] = {"xorps", 2}, //cmpeqd reg (packed op), reg/pslld $31 (packed op), reg/xorps reg, dest
+  [F2I] = {"cvtsd2si", 2}, //many choices from cvtss2sd, etc.
+  [I2F] = {"cvtsi2sd", 2}, //many choices from cvtsd2ss, etc.
+  [ALOC_3] = {"sub", 2}, //subtract from rsp
+  [MOV_3] = {"mov", 2}, //vmovsd etc.
 };
 //handle long doubles same as doubles
 //
