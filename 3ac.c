@@ -64,11 +64,21 @@ OPERATION* implicit_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* pro
       FILLREG(fad, ISFLOAT | (retid.tb & 0xf));
       opn(prog, ct_3ac_op2(I2F, a1.addr_type, a1.addr, fad.addr_type, fad.addr));
       a1 = fad;
-    } 
+    } else if((arg1id.tb & 0xf) != (retid.tb & 0xf)) {
+      FULLADDR fad;
+      FILLREG(fad, ISFLOAT | (retid.tb & 0xf));
+      opn(prog, ct_3ac_op2(F2F, a1.addr_type, a1.addr, fad.addr_type, fad.addr));
+      a1 = fad;
+    }
     if(!(arg2id.tb & FLOATNUM)) {
       FULLADDR fad;
       FILLREG(fad, ISFLOAT | (retid.tb & 0xf));
       opn(prog, ct_3ac_op2(I2F, a2.addr_type, a2.addr, fad.addr_type, fad.addr));
+      a2 = fad;
+    } else if((arg2id.tb & 0xf) != (retid.tb & 0xf)) {
+      FULLADDR fad;
+      FILLREG(fad, ISFLOAT | (retid.tb & 0xf));
+      opn(prog, ct_3ac_op2(F2F, a2.addr_type, a2.addr, fad.addr_type, fad.addr));
       a2 = fad;
     }
     FILLREG(desta, ISFLOAT | (retid.tb & 0xf));
@@ -124,8 +134,13 @@ FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srce
       op += 2;
       if(!(srcidt.tb & FLOATNUM)) {
         FULLADDR fad;
-        FILLREG(fad, ISFLOAT | (srcidt.tb & 0xf));
+        FILLREG(fad, ISFLOAT | (destidt.tb & 0xf));
         opn(prog, ct_3ac_op2(I2F, srcaddr.addr_type, srcaddr.addr, fad.addr_type, fad.addr));
+        srcaddr = fad;
+      } else if((srcidt.tb & 0xf) != (destidt.tb & 0xf)) {
+        FULLADDR fad;
+        FILLREG(fad, ISFLOAT | (destidt.tb & 0xf));
+        opn(prog, ct_3ac_op2(F2F, srcaddr.addr_type, srcaddr.addr, fad.addr_type, fad.addr));
         srcaddr = fad;
       }
     } else if(srcidt.tb & FLOATNUM) {
@@ -160,8 +175,13 @@ static FULLADDR cmpnd_assign_addsub(enum opcode_3ac op, EXPRESSION* destexpr, EX
       op += 1;
       if(!(srcidt.tb & FLOATNUM)) {
         FULLADDR fad;
-        FILLREG(fad, ISFLOAT | (srcidt.tb & 0xf));
+        FILLREG(fad, ISFLOAT | (destidt.tb & 0xf));
         opn(prog, ct_3ac_op2(I2F, srcaddr.addr_type, srcaddr.addr, fad.addr_type, fad.addr));
+        srcaddr = fad;
+      } else if((srcidt.tb & 0xf) != (destidt.tb & 0xf)) {
+        FULLADDR fad;
+        FILLREG(fad, ISFLOAT | (destidt.tb & 0xf));
+        opn(prog, ct_3ac_op2(F2F, srcaddr.addr_type, srcaddr.addr, fad.addr_type, fad.addr));
         srcaddr = fad;
       }
     } else if(srcidt.tb & FLOATNUM) {
@@ -226,6 +246,10 @@ OPERATION* implicit_mtp_2(EXPRESSION* destexpr, EXPRESSION* fromexpr, FULLADDR a
       FULLADDR fad;
       FILLREG(fad, ISFLOAT | (destidt.tb & 0xf));
       return ct_3ac_op2(I2F, a2.addr_type, a2.addr, fad.addr_type | ISDEREF, fad.addr);
+    } else if((srcidt.tb & 0xf) != (destidt.tb & 0xf)) {
+      FULLADDR fad;
+      FILLREG(fad, ISFLOAT | (destidt.tb & 0xf));
+      return ct_3ac_op2(F2F, a2.addr_type, a2.addr, fad.addr_type | ISDEREF, fad.addr);
     }
   } else if(destidt.tb & UNSIGNEDNUM) {
     if(srcidt.tb & FLOATNUM) {
@@ -257,7 +281,12 @@ OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog
       FILLREG(fad, ISFLOAT | (retid.tb & 0xf));
       opn(prog, ct_3ac_op2(I2F, a1.addr_type, a1.addr, fad.addr_type, fad.addr));
       a1 = fad;
-    } 
+    } else if((arg1id.tb & 0xf) != (retid.tb & 0xf)) {
+      FULLADDR fad;
+      FILLREG(fad, ISFLOAT | (retid.tb & 0xf));
+      opn(prog, ct_3ac_op2(F2F, a1.addr_type, a1.addr, fad.addr_type, fad.addr));
+      a1 = fad;
+    }
     FILLREG(desta, ISFLOAT | (retid.tb & 0xf));
   } else if(retid.tb & UNSIGNEDNUM) {
     FILLREG(desta, retid.tb & 0xf);
@@ -317,6 +346,16 @@ OPERATION* cmpret_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog)
       FILLREG(fad, ISFLOAT | (arg1id.tb & 0xf));
       opn(prog, ct_3ac_op2(I2F, a2.addr_type, a2.addr, fad.addr_type, fad.addr));
       a2 = fad;
+    } else if((arg1id.tb & 0xf) > (arg2id.tb & 0xf)) {
+      FULLADDR fad;
+      FILLREG(fad, ISFLOAT | (arg1id.tb & 0xf));
+      opn(prog, ct_3ac_op2(F2F, a2.addr_type, a2.addr, fad.addr_type, fad.addr));
+      a2 = fad;
+    } else if((arg1id.tb & 0xf) < (arg2id.tb & 0xf)) {
+      FULLADDR fad;
+      FILLREG(fad, ISFLOAT | (arg1id.tb & 0xf));
+      opn(prog, ct_3ac_op2(F2F, a1.addr_type, a1.addr, fad.addr_type, fad.addr));
+      a1 = fad;
     }
   } else if(arg2id.tb & FLOATNUM) {
     op += 2;
@@ -477,6 +516,11 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
             FILLREG(fad2, destaddr.addr_type & GENREGMASK);
             opn(prog, ct_3ac_op2(F2I, otheraddr.addr_type, otheraddr.addr, fad2.addr_type, fad2.addr));
             otheraddr = fad2;
+          } else if((memtype & 0xf) != (otheraddr.addr_type & 0xf)) {
+            FULLADDR fad2;
+            FILLREG(fad2, ISFLOAT | (memtype & 0xf));
+            opn(prog, ct_3ac_op2(F2F, otheraddr.addr_type, otheraddr.addr, fad2.addr_type, fad2.addr));
+            otheraddr = fad2;
           }
           opn(prog, ct_3ac_op3(ARRMOV, otheraddr.addr_type, otheraddr.addr, ISCONST | 0x8, curaddr.addr, destaddr.addr_type, destaddr.addr));
         }
@@ -496,6 +540,11 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
             FULLADDR fad2;
             FILLREG(fad2, destaddr.addr_type & GENREGMASK);
             opn(prog, ct_3ac_op2(F2I, otheraddr.addr_type, otheraddr.addr, fad2.addr_type, fad2.addr));
+            otheraddr = fad2;
+          } else if((destaddr.addr_type & 0xf) != (otheraddr.addr_type & 0xf)) {
+            FULLADDR fad2;
+            FILLREG(fad2, ISFLOAT | (destaddr.addr_type & 0xf));
+            opn(prog, ct_3ac_op2(F2F, otheraddr.addr_type, otheraddr.addr, fad2.addr_type, fad2.addr));
             otheraddr = fad2;
           }
           opn(prog, ct_3ac_op2(MOV_3, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type | ISDEREF, destaddr.addr));
@@ -522,6 +571,11 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
           FILLREG(fad2, destaddr.addr_type & GENREGMASK);
           opn(prog, ct_3ac_op2(F2I, curaddr.addr_type, curaddr.addr, fad2.addr_type, fad2.addr));
           curaddr = fad2;
+        } else if((sf->type->tb & 0xf) != (otheraddr.addr_type & 0xf)) {
+          FULLADDR fad2;
+          FILLREG(fad2, ISFLOAT | (sf->type->tb & 0xf));
+          opn(prog, ct_3ac_op2(F2F, otheraddr.addr_type, otheraddr.addr, fad2.addr_type, fad2.addr));
+          otheraddr = fad2;
         }
         opn(prog, ct_3ac_op3(MTP_OFF, curaddr.addr_type, curaddr.addr, ISCONST | 0x8, otheraddr.addr, destaddr.addr_type, destaddr.addr));
       }
@@ -731,12 +785,19 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       IDTYPE t2t = typex(daget(cexpr->params, 2));
       IDTYPE t3t = typex(cexpr);
       giveblock(prog, succblock);
+      destaddr.addr_type = addrconv(&t3t);
       curaddr = linearitree(daget(cexpr->params, 1), prog);
       if(!(t1t.tb & FLOATNUM) && (t2t.tb & FLOATNUM)) {
         FULLADDR ad2;
         FILLREG(ad2, (t0t.tb & 0xf) | ISFLOAT | ISSIGNED);
         opn(prog, ct_3ac_op2(I2F, curaddr.addr_type, curaddr.addr, ad2.addr_type, ad2.addr));
         curaddr = ad2;
+      }
+      if((t1t.tb & FLOATNUM) && ((destaddr.addr_type & 0xf) != (t1t.tb & 0xf))) {
+        FULLADDR fad2;
+        FILLREG(fad2, ISFLOAT | (destaddr.addr_type & 0xf));
+        opn(prog, ct_3ac_op2(F2F, curaddr.addr_type, curaddr.addr, fad2.addr_type, fad2.addr));
+        curaddr = fad2;
       }
       topblock = dapeek(prog->allblocks);
       if(!topblock->nextblock) {
@@ -751,8 +812,13 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         opn(prog, ct_3ac_op2(I2F, otheraddr.addr_type, otheraddr.addr, ad2.addr_type, ad2.addr));
         otheraddr = ad2;
       }
+      if((t2t.tb & FLOATNUM) && ((destaddr.addr_type & 0xf) != (t2t.tb & 0xf))) {
+        FULLADDR fad2;
+        FILLREG(fad2, ISFLOAT | (destaddr.addr_type & 0xf));
+        opn(prog, ct_3ac_op2(F2F, otheraddr.addr_type, otheraddr.addr, fad2.addr_type, fad2.addr));
+        otheraddr = fad2;
+      }
       assert((curaddr.addr_type & ISFLOAT) == (otheraddr.addr_type & ISFLOAT)); //confirm 2 addrs have same type or are coercible
-      destaddr.addr_type = addrconv(&t3t);
       destaddr.addr.iregnum = prog->iregcnt++;
       giveblock(prog, joinblock);
       opn(prog, ct_3ac_op3(TPHI, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
@@ -965,7 +1031,11 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
         } else if(!(lastemp.addr_type & ISFLOAT) && (newa->addr_type & ISFLOAT)) {
           opn(prog, ct_3ac_op2(I2F, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
         } else {
-          opn(prog, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
+          if((lastemp.addr_type & 0xf) != (newa->addr_type & 0xf)) {
+            opn(prog, ct_3ac_op2(F2F, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
+          } else {
+            opn(prog, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
+          }
         }
       }
     }
@@ -1433,7 +1503,7 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
       PRINTOP3(==);
       break;
     case CALL_3:
-    case F2I: case I2F:
+    case F2I: case I2F: case F2F:
     case MOV_3: case ALOC_3:
       PRINTOP2( );
       break;
