@@ -291,6 +291,7 @@ char typecompat(IDTYPE* t1, IDTYPE* t2) {
   //floats are coerced into ints and vice versa
 }
 
+//TODO: handle NULLs default
 int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
   struct declarator_part* tdclp = dapeek(arr_memtype->pointerstack);
   tdclp->arrlen = 0;

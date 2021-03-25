@@ -24,7 +24,7 @@
   X(MTP_OFF)
 #define OPS_2_3ac_MUT \
   X(NOT_U) X(NEG_I) X(NEG_F) \
-  X(F2I) X(I2F) X(ALOC_3) X(F2F)
+  X(F2I) X(I2F) X(F2F) X(ALOC_3)
 #define OPS_2_3ac OPS_2_3ac_MUT X(MOV_3)
 #define OPS_NODEST_3ac \
   X(BEQ_U) X(BEQ_F) \
