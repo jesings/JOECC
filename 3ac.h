@@ -68,6 +68,12 @@ typedef union {
       unsigned int iregnum; //enforce same storage space
     };
   };
+  struct {
+    char x86ireg;
+    char scalereg;
+    short scalefactor;
+    int displacement;
+  };
   unsigned long uintconst_64; //unsigned int 64 bit or pointer
   long intconst_64;
   double floatconst_64;
