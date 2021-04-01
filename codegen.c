@@ -14,20 +14,26 @@ static void addrgen(FILE* of, ADDRTYPE adt, ADDRESS addr) {
   }
 }
 
-static void opgen(FILE* outputfile, OPERATION* op) {
-  switch(op->opcode) {
-    default:
-      assert(0);
-  }
-}
-
 static void cgblock(FILE* outputfile, BBLOCK* blk) {
   if(blk->lastop) {
     OPERATION* op = blk->firstop;
-    for(;op != blk->lastop; op = op->nextop) {
+    do {
       opgen(outputfile, op);
-    }
-    opgen(outputfile, op);//last op
+      switch(op->opcode) {
+        case NOP_3:
+          break;
+        case LBL_3:
+          fprintf(outputfile, "%s:\n", op->addr0.labelname);
+          break;
+        case RET_0:
+          fprintf(outputfile, "ret\n");
+          break;
+        case PARAM_3:
+        default:
+          assert(0);
+      }
+      if(op == blk->lastop) break;
+    } while((op = op->nextop));
     if(blk->branchblock) {
       switch(op->opcode) {
         case BNZ_3:
