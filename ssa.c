@@ -910,4 +910,21 @@ void gvn(PROGRAM* prog) {
 }
 //https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/gvn_sas04.pdf
 //https://www.cs.purdue.edu/homes/hosking/papers/cc04.pdf
+
+void ssaout(PROGRAM* prog) {
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    if(blk->lastop) {
+      OPERATION* phiop = blk->firstop;
+      while(phiop->opcode == PHI || phiop->opcode == TPHI) {
+        for(int j = 0; j < blk->inedges->length; j++) {
+          BBLOCK* predblock = daget(blk->inedges, j);
+          FULLADDR fadradr = phiop->addr0.joins[j];
+        }
+        if(phiop == blk->lastop) break;
+        phiop = phiop->nextop;
+      }
+    }
+  }
+}
 #undef X
