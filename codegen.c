@@ -17,6 +17,8 @@ static void addrgen(FILE* of, ADDRTYPE adt, ADDRESS addr) {
 static void cgblock(FILE* outputfile, BBLOCK* blk) {
   if(blk->lastop) {
     OPERATION* op = blk->firstop;
+    int iparamno = 0;
+    int fparamno = 0;
     do {
       opgen(outputfile, op);
       switch(op->opcode) {
@@ -29,6 +31,37 @@ static void cgblock(FILE* outputfile, BBLOCK* blk) {
           fprintf(outputfile, "ret\n");
           break;
         case PARAM_3:
+          if(op->addr0_type & ISFLOAT) {
+            switch(fparamno++) {
+              case 0: case 1: case 2: case 3:
+              case 4: case 5: case 6: case 7:
+                break;
+              default:
+                break;
+            }
+          } else {
+            switch(iparamno++) {
+              case 0:
+                break;
+              case 1:
+                break;
+              case 2:
+                break;
+              case 3:
+                break;
+              case 4:
+                break;
+              case 5:
+                break;
+              default:
+                break;
+            }
+          }
+          break;
+        case CALL_3:
+          fparamno = 0;
+          iparamno = 0;
+          break;
         default:
           assert(0);
       }
