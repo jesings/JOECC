@@ -917,10 +917,39 @@ void ssaout(PROGRAM* prog) {
     if(blk->lastop) {
       OPERATION* phiop = blk->firstop;
       while(phiop->opcode == PHI || phiop->opcode == TPHI) {
-        for(int j = 0; j < blk->inedges->length; j++) {
-          BBLOCK* predblock = daget(blk->inedges, j);
-          FULLADDR fadradr = phiop->addr0.joins[j];
+        FULLADDR paraddr;
+        paraddr.addr_type = phiop->dest_type & GENREGMASK;
+        paraddr.addr = phiop->dest;
+        paraddr.addr.ssaind++;
+
+        if(phiop->opcode == PHI) {
+          for(int j = 0; j < blk->inedges->length; j++) {
+             BBLOCK* predblock = daget(blk->inedges, j);
+             FULLADDR fadradr = phiop->addr0.joins[j];
+             if(predblock->lastop) {
+               predblock->lastop = predblock->lastop->nextop = ct_3ac_op2(MOV_3, fadradr.addr_type, fadradr.addr, paraddr.addr_type, paraddr.addr);
+             } else {
+               predblock->firstop = predblock->lastop = ct_3ac_op2(MOV_3, fadradr.addr_type, fadradr.addr, paraddr.addr_type, paraddr.addr);
+             }
+          }
+          free(phiop->addr0.joins);
+        } else { //TPHI
+          BBLOCK* predblock = daget(blk->inedges, 0);
+          if(predblock->lastop) {
+            predblock->lastop = predblock->lastop->nextop = ct_3ac_op2(MOV_3, phiop->addr0_type, phiop->addr0, paraddr.addr_type, paraddr.addr);
+          } else {
+            predblock->firstop = predblock->lastop = ct_3ac_op2(MOV_3, phiop->addr0_type, phiop->addr0, paraddr.addr_type, paraddr.addr);
+          }
+          predblock = daget(blk->inedges, 1);
+          if(predblock->lastop) {
+            predblock->lastop = predblock->lastop->nextop = ct_3ac_op2(MOV_3, phiop->addr1_type, phiop->addr1, paraddr.addr_type, paraddr.addr);
+          } else {
+            predblock->firstop = predblock->lastop = ct_3ac_op2(MOV_3, phiop->addr1_type, phiop->addr1, paraddr.addr_type, paraddr.addr);
+          }
         }
+        phiop->opcode = MOV_3;
+        phiop->addr0_type = paraddr.addr_type;
+        phiop->addr0 = paraddr.addr;
         if(phiop == blk->lastop) break;
         phiop = phiop->nextop;
       }

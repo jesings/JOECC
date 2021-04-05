@@ -1325,7 +1325,7 @@ void feedstruct(USTRUCT* s) {
               esize = mmi->type->structtype->size;
             }
           } else {
-            esize = mtb & 0x7f;
+            esize = mtb & 0xf;
             dapush(newmm, mmi);
           }
         }
@@ -1395,7 +1395,7 @@ int unionlen(USTRUCT* u) {
               dapush(newmm, mmi);
             }
           } else {
-            esize = mtb & 0x7f;
+            esize = mtb & 0xf;
             dapush(newmm, mmi);
           }
         }

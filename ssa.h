@@ -37,6 +37,7 @@ typedef struct {
 
 void ssa(PROGRAM* prog);
 void gvn(PROGRAM* prog);
+void ssaout(PROGRAM* prog);
 BBLOCK* intersect(BBLOCK* n1, BBLOCK* n2);
 char fixedintersect(const BBLOCK* fb, BBLOCK* gb);
 #define bfalloc(length) calloc(1, ((length) + 7) >> 3)

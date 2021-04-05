@@ -20,7 +20,6 @@ static void cgblock(FILE* outputfile, BBLOCK* blk) {
     int iparamno = 0;
     int fparamno = 0;
     do {
-      opgen(outputfile, op);
       switch(op->opcode) {
         case NOP_3:
           break;

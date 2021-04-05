@@ -571,7 +571,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
           FILLREG(fad2, destaddr.addr_type & GENREGMASK);
           opn(prog, ct_3ac_op2(F2I, curaddr.addr_type, curaddr.addr, fad2.addr_type, fad2.addr));
           curaddr = fad2;
-        } else if((sf->type->tb & 0xf) != (otheraddr.addr_type & 0xf)) {
+        } else if(addrconv(sf->type) & ISFLOAT && curaddr.addr_type & ISFLOAT &&
+                  ((sf->type->tb & 0xf) != (otheraddr.addr_type & 0xf))) {
           FULLADDR fad2;
           FILLREG(fad2, ISFLOAT | (sf->type->tb & 0xf));
           opn(prog, ct_3ac_op2(F2F, otheraddr.addr_type, otheraddr.addr, fad2.addr_type, fad2.addr));

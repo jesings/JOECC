@@ -96,6 +96,11 @@ static void filecomp(char* filename) {
       remove_nops(prog);
       DEBUG(printf("Ops after GVN %d\n", countops(prog)));
       DEBUG(treeprog(prog, pairthere->key, "withgvn"));
+
+      ssaout(prog);
+      DEBUG(printf("Ops destructed SSA %d\n", countops(prog)));
+      DEBUG(treeprog(prog, pairthere->key, "destroyed"));
+
       freeprog(prog);
     }
   }
