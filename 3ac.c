@@ -323,13 +323,14 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
     prog->curblock = NULL;
   }
   giveblock(prog, mpblk());
+  addr2use.addr.iregnum = prog->iregcnt++;
+  addr2use.addr_type = 1;
+  opn(prog, ct_3ac_op2(MOV_3, ISCONST | 1, complete_val, 1, addr2use.addr));
   prog->curblock->nextblock = finalblock;
   dapushc(finalblock->inedges, prog->curblock);
   giveblock(prog, failblock);
+  opn(prog, ct_3ac_op2(MOV_3, ISCONST | 1, shortcircuit_val, 1, addr2use.addr));
   giveblock(prog, finalblock);
-  addr2use.addr.iregnum = prog->iregcnt++;
-  addr2use.addr_type = 1;
-  opn(prog, ct_3ac_op3(TPHI, ISCONST | 1, shortcircuit_val, ISCONST | 1, complete_val, 1, addr2use.addr));
   return addr2use;
 }
 
@@ -786,7 +787,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       IDTYPE t2t = typex(daget(cexpr->params, 2));
       IDTYPE t3t = typex(cexpr);
       giveblock(prog, succblock);
-      destaddr.addr_type = addrconv(&t3t);
+      FILLREG(destaddr, addrconv(&t3t));
       curaddr = linearitree(daget(cexpr->params, 1), prog);
       if(!(t1t.tb & FLOATNUM) && (t2t.tb & FLOATNUM)) {
         FULLADDR ad2;
@@ -805,6 +806,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         topblock->nextblock = joinblock;
         dapushc(joinblock->inedges, topblock);
       }
+      opn(prog, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       giveblock(prog, failblock);
       otheraddr = linearitree(daget(cexpr->params, 2), prog);
       if((t1t.tb & FLOATNUM) && !(t2t.tb & FLOATNUM)) {
@@ -820,11 +822,9 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         otheraddr = fad2;
       }
       assert((curaddr.addr_type & ISFLOAT) == (otheraddr.addr_type & ISFLOAT)); //confirm 2 addrs have same type or are coercible
-      destaddr.addr.iregnum = prog->iregcnt++;
+      opn(prog, ct_3ac_op2(MOV_3, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
       giveblock(prog, joinblock);
-      opn(prog, ct_3ac_op3(TPHI, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
       return destaddr;
-
     case ASSIGN:
       varty = typex(cexpr);
       curaddr = linearitree(daget(cexpr->params, 1), prog);
@@ -1538,9 +1538,6 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
       }
       fprintf(f, " →  ");
       printaddr(op->dest, op->dest_type, color, f, prog);
-      break;
-    case TPHI:
-      PRINTOP3( or );
       break;
     case ASM:
       assert(0); //unimplemented

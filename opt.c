@@ -130,6 +130,7 @@ static char feq(OPERATION* op) {
   return op->addr0.iregnum == op->addr1.iregnum;
 }
 
+
 void prunebranch(PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);

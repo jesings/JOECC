@@ -98,6 +98,5 @@ RET_0|Return from function, yielding no value|None
 RET_3|Return from function, yielding value in source operand|1 source
 INIT_3|Initializes dest operand without a value, used in case of use before assignment|1 dest
 PARAM_3|Specifies that the next parameter will be passed into the specified dest operand|1 dest
-TPHI|Moves into the dest operand the source operand corresponding to the index of the inedge that the control flow took to the current block, used only in compilation of ternary expressions|2 source 1 dest
 PHI|SSA specific; Moves into the dest operand the source operand corresponding to the index of the inedge that the control flow took to the current block; PHI statements always precede all others in a block|n source 1 dest
 ASM|Has information from asm statement, passed straight through to codegen|N/A (WIP)

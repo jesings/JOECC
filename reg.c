@@ -104,7 +104,6 @@ struct opinfo op2op[] = {
   [PARAM_3] = {"mov", 2, 0, 0, 0}, //not sure
   [CALL_3] = {"call", 1, DI | SI | DX | CX | R8 | R9 | R10 , AX, 0}, //call, may 
   [PHI] = {"", 0, 0, 0, 0}, //no phi nodes by this point
-  [TPHI] = {"", 0, 0, 0, 0},//no tphi nodes by this point
   [DEALOC] = {"sub", 2, 0, 0, 0},
   [ADDR_3] = {"lea", 2, 0, 0, 0}, //most likely nop?
   [ASM] = {"", 0, 0, 0, 0}, //figure it out

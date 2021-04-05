@@ -38,7 +38,7 @@
   X(INIT_3) X(PARAM_3) /*both op1 declare variable*/
 
 #define OPS_3AC OPS_NOVAR_3ac OPS_3_3ac OPS_3_PTRDEST_3ac OPS_2_3ac \
-        OPS_NODEST_3ac OPS_1_ASSIGN_3ac OPS_1_3ac X(CALL_3) X(PHI) X(TPHI) \
+        OPS_NODEST_3ac OPS_1_ASSIGN_3ac OPS_1_3ac X(CALL_3) X(PHI) \
         X(DEALOC) X(ADDR_3) X(ASM) /*call, phi, asm, and addr are special cases*/ \
 
 #define X(s) s,

@@ -108,7 +108,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
             }
           }
           break;
-        OPS_NODEST_3ac case TPHI:
+        OPS_NODEST_3ac
           if((op->addr1_type & (ADDRSVAR | ISVAR)) == ISVAR) 
             op->addr1.ssaind =  (long) dapeek((DYNARR*) daget(S, op->addr1.varnum));
           __attribute__((fallthrough));
@@ -465,7 +465,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
   BITFIELD bf = blk->availability;
   EQNODE* sen;
   switch(op->opcode) {
-    OPS_3_3ac_NOCOM OPS_3_3ac_COM case TPHI:
+    OPS_3_3ac_NOCOM OPS_3_3ac_COM
       sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
       if(sen) {
         if(sen->hasconst != NOCONST || bfget(bf, sen->index)) {
@@ -487,7 +487,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           else if(sen->hasconst == FLOATCONST) op->addr1_type |= ISFLOAT;
           op->addr1.intconst_64 = sen->intconst; //could be anything
         } else {
-          assert(bfget(bf, sen->index) || op->opcode == TPHI);
+          assert(bfget(bf, sen->index));
           op->addr1.iregnum = sen->regno;
         }
       }
@@ -502,7 +502,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           else if(sen->hasconst == FLOATCONST) op->addr0_type |= ISFLOAT;
           op->addr0.intconst_64 = sen->intconst; //could be anything
         } else {
-          assert(bfget(bf, sen->index) || op->opcode == TPHI);
+          assert(bfget(bf, sen->index));
           op->addr0.iregnum = sen->regno;
         }
       }
@@ -610,7 +610,7 @@ static void gengen(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op) {
   BITFIELD bf = blk->availability;
   EQNODE* sen;
   switch(op->opcode) {
-    OPS_3_3ac_NOCOM OPS_3_3ac_COM case TPHI:
+    OPS_3_3ac_NOCOM OPS_3_3ac_COM
       sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
       if(sen) {
       }
@@ -815,38 +815,6 @@ void gvn(PROGRAM* prog) {
               eqcontainer->varnodes[op->dest.iregnum] = destsen;
             }
             break;
-          case TPHI:
-            sen1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
-            sen2 = nodefromaddr(eqcontainer, op->addr1_type, op->addr1, prog);
-            if(!(op->dest_type & (ISLABEL | ISDEREF))) {
-              if(op->dest_type & ISVAR) {
-                FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
-                if(adstore->addr_type & ADDRSVAR) break;
-              }
-              if(sen1 && sen2) {
-                combind = ((long) sen1->index << 32) + sen2->index;
-                if(sen1 == sen2) {
-                  destsen = sen1;
-                } else {
-                  ophash = daget(eqcontainer->opnodes, op->opcode);
-                  destsen = fixedsearch(ophash, combind);
-                  if(!destsen) {
-                    destsen = fixedsearch(ophash, ((long) sen2->index << 32) + sen1->index);
-                  }
-                  if(!destsen) {
-                    destsen = cteqnode(eqcontainer, NOCONST);
-                    dapush(destsen->equivs, cteqib(op->opcode, sen1, sen2));
-                    fixedinsert(ophash, combind, destsen);
-                  }
-                }
-              } else {
-                destsen = cteqnode(eqcontainer, NOCONST);
-              }
-              dapush(destsen->equivs, cteqi(op->dest.iregnum));
-              eqcontainer->varnodes[op->dest.iregnum] = destsen;
-            }
-            nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
-            break;
           case PHI: //TODO: get phi node handling loop at end
             nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
             break;
@@ -916,37 +884,21 @@ void ssaout(PROGRAM* prog) {
     BBLOCK* blk = daget(prog->allblocks, i);
     if(blk->lastop) {
       OPERATION* phiop = blk->firstop;
-      while(phiop->opcode == PHI || phiop->opcode == TPHI) {
+      while(phiop->opcode == PHI) {
         FULLADDR paraddr;
         paraddr.addr_type = phiop->dest_type & GENREGMASK;
         paraddr.addr = phiop->dest;
         paraddr.addr.ssaind++;
-
-        if(phiop->opcode == PHI) {
-          for(int j = 0; j < blk->inedges->length; j++) {
-             BBLOCK* predblock = daget(blk->inedges, j);
-             FULLADDR fadradr = phiop->addr0.joins[j];
-             if(predblock->lastop) {
-               predblock->lastop = predblock->lastop->nextop = ct_3ac_op2(MOV_3, fadradr.addr_type, fadradr.addr, paraddr.addr_type, paraddr.addr);
-             } else {
-               predblock->firstop = predblock->lastop = ct_3ac_op2(MOV_3, fadradr.addr_type, fadradr.addr, paraddr.addr_type, paraddr.addr);
-             }
-          }
-          free(phiop->addr0.joins);
-        } else { //TPHI
-          BBLOCK* predblock = daget(blk->inedges, 0);
-          if(predblock->lastop) {
-            predblock->lastop = predblock->lastop->nextop = ct_3ac_op2(MOV_3, phiop->addr0_type, phiop->addr0, paraddr.addr_type, paraddr.addr);
-          } else {
-            predblock->firstop = predblock->lastop = ct_3ac_op2(MOV_3, phiop->addr0_type, phiop->addr0, paraddr.addr_type, paraddr.addr);
-          }
-          predblock = daget(blk->inedges, 1);
-          if(predblock->lastop) {
-            predblock->lastop = predblock->lastop->nextop = ct_3ac_op2(MOV_3, phiop->addr1_type, phiop->addr1, paraddr.addr_type, paraddr.addr);
-          } else {
-            predblock->firstop = predblock->lastop = ct_3ac_op2(MOV_3, phiop->addr1_type, phiop->addr1, paraddr.addr_type, paraddr.addr);
-          }
+        for(int j = 0; j < blk->inedges->length; j++) {
+           BBLOCK* predblock = daget(blk->inedges, j);
+           FULLADDR fadradr = phiop->addr0.joins[j];
+           if(predblock->lastop) {
+             predblock->lastop = predblock->lastop->nextop = ct_3ac_op2(MOV_3, fadradr.addr_type, fadradr.addr, paraddr.addr_type, paraddr.addr);
+           } else {
+             predblock->firstop = predblock->lastop = ct_3ac_op2(MOV_3, fadradr.addr_type, fadradr.addr, paraddr.addr_type, paraddr.addr);
+           }
         }
+        free(phiop->addr0.joins);
         phiop->opcode = MOV_3;
         phiop->addr0_type = paraddr.addr_type;
         phiop->addr0 = paraddr.addr;
