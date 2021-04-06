@@ -39,7 +39,6 @@ struct opinfo {
 struct opinfo op2op[] = {
   [NOP_3] = {"nop", 0, 0, 0, 0},
   [LBL_3] = {"", 1, 0, 0, 0}, //not sure?
-  [RET_0] = {"ret", 0, 0, 0, 0}, //not sure?
   [ADD_U] = {"add", 2, 0, 0, 1},
   [ADD_F] = {"vadds", 3, 0, 0, 0},
   [MULT_U] = {"mul", 1, 0, DX, AX}, //multiplies ax by operand, places result in dx:ax ax is low part

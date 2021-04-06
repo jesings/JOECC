@@ -112,7 +112,10 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
           if((op->addr1_type & (ADDRSVAR | ISVAR)) == ISVAR) 
             op->addr1.ssaind =  (long) dapeek((DYNARR*) daget(S, op->addr1.varnum));
           __attribute__((fallthrough));
-        OPS_1_3ac case DEALOC:
+        OPS_1_3ac
+          if(op->addr0_type & GARBAGEVAL) break;
+          __attribute__((fallthrough));
+        case DEALOC:
           if((op->addr0_type & (ADDRSVAR | ISVAR)) == ISVAR)
             op->addr0.ssaind =  (long) dapeek((DYNARR*) daget(S, op->addr0.varnum));
           break;
@@ -493,6 +496,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
       }
       __attribute__((fallthrough));
     OPS_1_3ac
+      if(op->addr0_type & GARBAGEVAL) break;
       sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
       if(sen) {
         if(sen->hasconst != NOCONST) {
@@ -622,7 +626,8 @@ static void gengen(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op) {
       __attribute__((fallthrough));
     case DEALOC:
       break;
-    OPS_1_3ac 
+    OPS_1_3ac
+      if(op->addr0_type & GARBAGEVAL) break;
       sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
       if(sen) {
       }
@@ -831,6 +836,7 @@ void gvn(PROGRAM* prog) {
             nodefromaddr(eqcontainer, op->addr1_type, op->addr1, prog);
             __attribute__((fallthrough));
           OPS_1_3ac 
+            if(op->addr0_type & GARBAGEVAL) break;
             nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
             break;
           case CALL_3: //no pure functions for now

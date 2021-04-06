@@ -26,9 +26,6 @@ static void cgblock(FILE* outputfile, BBLOCK* blk) {
         case LBL_3:
           fprintf(outputfile, "%s:\n", op->addr0.labelname);
           break;
-        case RET_0:
-          fprintf(outputfile, "ret\n");
-          break;
         case PARAM_3:
           if(op->addr0_type & ISFLOAT) {
             switch(fparamno++) {

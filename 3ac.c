@@ -1074,7 +1074,8 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
         ret_op = linearitree(cst->expression, prog);
         opn(prog, ct_3ac_op1(RET_3, ret_op.addr_type, ret_op.addr));
       } else {
-        opn(prog, ct_3ac_op0(RET_0));
+        ret_op.addr.uintconst_64 = 0;
+        opn(prog, ct_3ac_op1(RET_3, GARBAGEVAL, ret_op.addr));
       }
       prog->curblock->nextblock = prog->finalblock;
       dapush(prog->finalblock->inedges, prog->curblock);
@@ -1409,7 +1410,7 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
   if(color) fprintf(f, "\t");
   else      fprintf(f, "&nbsp;");
   switch(op->opcode) {
-    case NOP_3: case RET_0:
+    case NOP_3:
       break;
     case LBL_3: 
       if(color) fprintf(f, RGBCOLOR(200,200,120));
@@ -1497,8 +1498,11 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
       else PRINTBROP2(&gt;);
       break;
     case BNZ_3: case BEZ_3: case ARG_3: case PARAM_3: 
-    case RET_3: case INIT_3: case DEALOC:
+    case INIT_3: case DEALOC:
       PRINTOP1( );
+      break;
+    case RET_3: 
+      if(!(op->addr0_type & GARBAGEVAL)) PRINTOP1( );
       break;
     case JEQ_I:
       PRINTOP3(==);

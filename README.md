@@ -94,8 +94,7 @@ DEALOC_3|Deallocates integer source operand 1 bytes of stack memory|1 source and
 LBL_3|Label pseudo-operation|1 source operand for label's name
 ARG_3|Specifies that source operand 1 will be passed to the function called immediately after the last arg|1 source
 CALL_3|Calls the function specified by the label or integer (pointer) in the source operand, and outputs the result to the dest operand|1 source and 1 dest
-RET_0|Return from function, yielding no value|None
-RET_3|Return from function, yielding value in source operand|1 source
+RET_3|Return from function, yielding value in source operand or nothing if source operand is garbage|1 source
 INIT_3|Initializes dest operand without a value, used in case of use before assignment|1 dest
 PARAM_3|Specifies that the next parameter will be passed into the specified dest operand|1 dest
 PHI|SSA specific; Moves into the dest operand the source operand corresponding to the index of the inedge that the control flow took to the current block; PHI statements always precede all others in a block|n source 1 dest
