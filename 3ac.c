@@ -354,7 +354,7 @@ OPERATION* cmpret_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog)
       a2 = fad;
     } else if((arg1id.tb & 0xf) < (arg2id.tb & 0xf)) {
       FULLADDR fad;
-      FILLREG(fad, ISFLOAT | (arg1id.tb & 0xf));
+      FILLREG(fad, ISFLOAT | (arg2id.tb & 0xf));
       opn(prog, ct_3ac_op2(F2F, a1.addr_type, a1.addr, fad.addr_type, fad.addr));
       a1 = fad;
     }
@@ -517,7 +517,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
             FILLREG(fad2, destaddr.addr_type & GENREGMASK);
             opn(prog, ct_3ac_op2(F2I, otheraddr.addr_type, otheraddr.addr, fad2.addr_type, fad2.addr));
             otheraddr = fad2;
-          } else if((memtype & 0xf) != (otheraddr.addr_type & 0xf)) {
+          } else if(memtype & ISFLOAT && (otheraddr.addr_type & ISFLOAT) && (memtype & 0xf) != (otheraddr.addr_type & 0xf)) {
             FULLADDR fad2;
             FILLREG(fad2, ISFLOAT | (memtype & 0xf));
             opn(prog, ct_3ac_op2(F2F, otheraddr.addr_type, otheraddr.addr, fad2.addr_type, fad2.addr));
@@ -542,7 +542,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
             FILLREG(fad2, destaddr.addr_type & GENREGMASK);
             opn(prog, ct_3ac_op2(F2I, otheraddr.addr_type, otheraddr.addr, fad2.addr_type, fad2.addr));
             otheraddr = fad2;
-          } else if((destaddr.addr_type & 0xf) != (otheraddr.addr_type & 0xf)) {
+          } else if(destaddr.addr_type & ISFLOAT && (otheraddr.addr_type & ISFLOAT) && (destaddr.addr_type & 0xf) != (otheraddr.addr_type & 0xf)) {
             FULLADDR fad2;
             FILLREG(fad2, ISFLOAT | (destaddr.addr_type & 0xf));
             opn(prog, ct_3ac_op2(F2F, otheraddr.addr_type, otheraddr.addr, fad2.addr_type, fad2.addr));
@@ -786,8 +786,14 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       IDTYPE t1t = typex(daget(cexpr->params, 1));
       IDTYPE t2t = typex(daget(cexpr->params, 2));
       IDTYPE t3t = typex(cexpr);
+      OPERATION* join = malloc(sizeof(OPERATION));
+      join->opcode = PHI;
+      join->addr0_type = ISCONST | GARBAGEVAL;
+      join->addr0.joins = malloc(2 * sizeof(FULLADDR));
       giveblock(prog, succblock);
       FILLREG(destaddr, addrconv(&t3t));
+      join->dest = destaddr.addr;
+      join->dest_type = destaddr.addr_type;
       curaddr = linearitree(daget(cexpr->params, 1), prog);
       if(!(t1t.tb & FLOATNUM) && (t2t.tb & FLOATNUM)) {
         FULLADDR ad2;
@@ -806,7 +812,9 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         topblock->nextblock = joinblock;
         dapushc(joinblock->inedges, topblock);
       }
-      opn(prog, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
+      FILLREG(otheraddr, addrconv(&t3t));
+      join->addr0.joins[0] = otheraddr;
+      opn(prog, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr));
       giveblock(prog, failblock);
       otheraddr = linearitree(daget(cexpr->params, 2), prog);
       if((t1t.tb & FLOATNUM) && !(t2t.tb & FLOATNUM)) {
@@ -822,8 +830,11 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         otheraddr = fad2;
       }
       assert((curaddr.addr_type & ISFLOAT) == (otheraddr.addr_type & ISFLOAT)); //confirm 2 addrs have same type or are coercible
-      opn(prog, ct_3ac_op2(MOV_3, otheraddr.addr_type, otheraddr.addr, destaddr.addr_type, destaddr.addr));
+      FILLREG(curaddr, addrconv(&t3t));
+      join->addr0.joins[1] = curaddr;
+      opn(prog, ct_3ac_op2(MOV_3, otheraddr.addr_type, otheraddr.addr, curaddr.addr_type, curaddr.addr));
       giveblock(prog, joinblock);
+      opn(prog, join);
       return destaddr;
     case ASSIGN:
       varty = typex(cexpr);
@@ -1032,7 +1043,7 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
         } else if(!(lastemp.addr_type & ISFLOAT) && (newa->addr_type & ISFLOAT)) {
           opn(prog, ct_3ac_op2(I2F, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
         } else {
-          if((lastemp.addr_type & 0xf) != (newa->addr_type & 0xf)) {
+          if((lastemp.addr_type & ISFLOAT) && (newa->addr_type & ISFLOAT) && (lastemp.addr_type & 0xf) != (newa->addr_type & 0xf)) {
             opn(prog, ct_3ac_op2(F2F, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
           } else {
             opn(prog, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));

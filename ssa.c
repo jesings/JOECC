@@ -143,9 +143,11 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
     while(daget(block->nextblock->inedges, ++i) != block) ;
     OPERATION* op = block->nextblock->firstop;
     while(op->opcode == PHI) {
-      op->addr0.joins[i].addr.ssaind = (int) (long) dapeek((DYNARR*) daget(S, op->dest.varnum));
-      op->addr0.joins[i].addr.varnum = op->dest.varnum;
-      op->addr0.joins[i].addr_type = op->dest_type;
+      if(!(op->addr0_type & GARBAGEVAL)) {
+        op->addr0.joins[i].addr.ssaind = (int) (long) dapeek((DYNARR*) daget(S, op->dest.varnum));
+        op->addr0.joins[i].addr.varnum = op->dest.varnum;
+        op->addr0.joins[i].addr_type = op->dest_type;
+      }
       if(op == block->nextblock->lastop) break;
       op = op->nextop;
     }
