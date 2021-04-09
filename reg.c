@@ -58,10 +58,10 @@ struct opinfo op2op[] = {
   [DIV_F] = {"vdivs", 3, 0, 0, 0},
   [MOD_U] = {"div", 1, AX, DX, 0}, //divides dx:ax by operand, places result in ax dx is remainder?
   [MOD_I] = {"idiv", 1, AX, DX, 0}, //single operand division, use cqo or cdq or cwd or cbw before, does same as above
-  [SHL_U] = {"shl", 2, 0, 0, 1},
-  [SHL_I] = {"sal", 2, 0, 0, 1},
-  [SHR_U] = {"shr", 2, 0, 0, 1},
-  [SHR_I] = {"sar", 2, 0, 0, 1},
+  [SHL_U] = {"shl", 2, CX, 0, 1}, //if right hand side is immediate, CX need not be clobbered
+  [SHL_I] = {"sal", 2, CX, 0, 1},
+  [SHR_U] = {"shr", 2, CX, 0, 1},
+  [SHR_I] = {"sar", 2, CX, 0, 1},
   [GE_U] = {"setae", 1, 0, 0, 0}, //precede this by a cmp
   [GE_I] = {"setge", 1, 0, 0, 0}, //precede this by a cmp
   [GE_F] = {"setae", 1, 0, 0, 0}, //precede this by a cmp
@@ -108,7 +108,8 @@ struct opinfo op2op[] = {
   [ASM] = {"", 0, 0, 0, 0}, //figure it out
 };
 //handle long doubles same as doubles
-//
+//https://compilers.cs.uni-saarland.de/projects/ssara/hack_ssara_ssa09.pdf
+//https://www.rw.cdl.uni-saarland.de/people/grund/private/papers/cgo08-liveness.pdf
 
 int regalloc() {
 }

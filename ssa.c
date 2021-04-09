@@ -157,6 +157,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
     while(daget(block->branchblock->inedges, ++i) != block) ;
     OPERATION* op = block->branchblock->firstop;
     while(op->opcode == PHI) {
+      assert(!(op->addr0_type & GARBAGEVAL)); //no ternaries can join at a branch block
       op->addr0.joins[i].addr.ssaind = (int) (long) dapeek((DYNARR*) daget(S, op->dest.varnum));
       op->addr0.joins[i].addr.varnum = op->dest.varnum;
       op->addr0.joins[i].addr_type = op->dest_type;

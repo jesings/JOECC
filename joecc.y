@@ -39,6 +39,7 @@
   #include "compintern.h"
   #include "dynarr.h"
   #include "parallel.h"
+  #include "treeduce.h"
 
   struct yyltype {int first_line, last_line, first_column, last_column; char* filename;};
   #define YYLTYPE struct yyltype
@@ -47,7 +48,6 @@
   #define dget(param, index) ((DECLARATION*) (param)->arr[(index)])
   #define YYPARSE_PARAM void* scanner
   #define YYLEX_PARAM scanner
-  char foldconst(EXPRESSION**);
   //TODO: union initializers, optional brace nesting?
   //TODO: Consider designated initializers
 }
