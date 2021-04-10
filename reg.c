@@ -1,4 +1,4 @@
-#include "3ac.h"
+#include "reg.h"
 
 enum reguse {
   DI = 1, 

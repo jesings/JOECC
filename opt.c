@@ -298,11 +298,13 @@ void prunebranch(PROGRAM* prog) {
   }
 }
 
-#define bincf(constkind, operator) \
+#define bincfbl(constkind, operator) \
             if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) { \
               op->opcode = MOV_3; \
               op->addr0.constkind operator op->addr1.constkind; \
-            } \
+            }
+#define bincf(constkind, operator) \
+            bincfbl(constkind, operator) \
             break;
 #define binef(constkind, operator) \
             if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) { \
@@ -360,7 +362,15 @@ char constfold(PROGRAM* prog) {
           case ADD_U:
             last1(intconst_64, 0, 0);
             first1(intconst_64, 0, 0);
-            bincf(intconst_64, +=);
+            bincfbl(intconst_64, +=)
+            else if(op->addr0.uintconst_64 == op->addr1.uintconst_64) {
+              if((op->addr0_type & (ISDEREF | ISLABEL)) == (op->addr1_type & (ISDEREF | ISLABEL))) {
+                op->opcode = SHL_U;
+                op->addr1_type = ISCONST | 0x1;
+                op->addr1.uintconst_64 = 0x1;
+              }
+            }
+            break;
           case ADD_F:
             bincf(floatconst_64, +=);
           case SUB_U:
@@ -380,11 +390,79 @@ char constfold(PROGRAM* prog) {
           case MULT_U: 
             last1(uintconst_64, 0, 1);
             first1(uintconst_64, 0, 1);
-            bincf(uintconst_64, *=);
+            bincfbl(uintconst_64, *=)
+            else if(op->addr0_type & ISCONST) {
+              unsigned int pow2 = 0;
+              unsigned long shifty = op->addr0.intconst_64;
+              while(shifty > 1) {
+                if(shifty & 1) {
+                  shifty = 0;
+                  break;
+                }
+                ++pow2;
+                shifty >>= 1;
+              }
+              if(shifty == 0) break;
+              op->addr0 = op->addr1;
+              op->addr0_type = op->addr1_type;
+              op->addr1_type = ISCONST | 0x1;
+              op->addr1.uintconst_64 = pow2;
+              op->opcode = SHL_U;
+            } else if(op->addr1_type & ISCONST) {
+              unsigned int pow2 = 0;
+              unsigned long shifty = op->addr1.intconst_64;
+              while(shifty > 1) {
+                if(shifty & 1) {
+                  shifty = 0;
+                  break;
+                }
+                ++pow2;
+                shifty >>= 1;
+              }
+              if(shifty == 0) break;
+              op->addr1_type = ISCONST | 0x1;
+              op->addr1.uintconst_64 = pow2;
+              op->opcode = SHL_U;
+            }
+            break;
           case MULT_I:
             last1(intconst_64, 0, 1);
             first1(intconst_64, 0, 1);
-            bincf(intconst_64, *=);
+            bincfbl(intconst_64, *=)
+            else if(op->addr0_type & ISCONST) {
+              unsigned int pow2 = 0;
+              unsigned long shifty = op->addr0.intconst_64;
+              while(shifty > 1) {
+                if(shifty & 1) {
+                  shifty = 0;
+                  break;
+                }
+                ++pow2;
+                shifty >>= 1;
+              }
+              if(shifty == 0) break;
+              op->addr0 = op->addr1;
+              op->addr0_type = op->addr1_type;
+              op->addr1_type = ISCONST | 0x1;
+              op->addr1.uintconst_64 = pow2;
+              op->opcode = SHL_I;
+            } else if(op->addr1_type & ISCONST) {
+              unsigned int pow2 = 0;
+              unsigned long shifty = op->addr1.intconst_64;
+              while(shifty > 1) {
+                if(shifty & 1) {
+                  shifty = 0;
+                  break;
+                }
+                ++pow2;
+                shifty >>= 1;
+              }
+              if(shifty == 0) break;
+              op->addr1_type = ISCONST | 0x1;
+              op->addr1.uintconst_64 = pow2;
+              op->opcode = SHL_I;
+            }
+            break;
           case MULT_F:
             bincf(floatconst_64, *=);
           case DIV_U:
@@ -393,6 +471,21 @@ char constfold(PROGRAM* prog) {
               if(op->addr0.uintconst_64 == 0) break;
               op->opcode = MOV_3;
               op->addr0.uintconst_64 /= op->addr1.uintconst_64;
+            } else if(op->addr1_type & ISCONST) {
+              unsigned int pow2 = 0;
+              unsigned long shifty = op->addr1.intconst_64;
+              while(shifty > 1) {
+                if(shifty & 1) {
+                  shifty = 0;
+                  break;
+                }
+                ++pow2;
+                shifty >>= 1;
+              }
+              if(shifty == 0) break;
+              op->addr1_type = ISCONST | 0x1;
+              op->addr1.uintconst_64 = pow2;
+              op->opcode = SHR_U;
             }
             break;
           case DIV_I:
@@ -402,6 +495,21 @@ char constfold(PROGRAM* prog) {
               if(op->addr0.intconst_64 == INT64_MIN && op->addr1.intconst_64 == -1) break;
               op->opcode = MOV_3;
               op->addr0.intconst_64 /= op->addr1.intconst_64;
+            } else if(op->addr1_type & ISCONST) {
+              unsigned int pow2 = 0;
+              unsigned long shifty = op->addr1.intconst_64;
+              while(shifty > 1) {
+                if(shifty & 1) {
+                  shifty = 0;
+                  break;
+                }
+                ++pow2;
+                shifty >>= 1;
+              }
+              if(shifty == 0) break;
+              op->addr1_type = ISCONST | 0x1;
+              op->addr1.uintconst_64 = pow2;
+              op->opcode = SHR_I;
             }
             break;
           case DIV_F:
@@ -412,6 +520,19 @@ char constfold(PROGRAM* prog) {
               if(op->addr0.uintconst_64 == 0) break;
               op->opcode = MOV_3;
               op->addr0.uintconst_64 %= op->addr1.uintconst_64;
+            } else if(op->addr1_type & ISCONST) {
+              unsigned long shifty = op->addr1.intconst_64;
+              while(shifty > 1) {
+                if(shifty & 1) {
+                  shifty = 0;
+                  break;
+                }
+                shifty >>= 1;
+              }
+              if(shifty == 0) break;
+              op->addr1_type = ISCONST | 0x8;
+              op->addr1.uintconst_64 -= 1;
+              op->opcode = AND_U;
             }
             break;
           case MOD_I:
@@ -421,20 +542,47 @@ char constfold(PROGRAM* prog) {
               if(op->addr0.intconst_64 == INT64_MIN && op->addr1.intconst_64 == -1) break;
               op->opcode = MOV_3;
               op->addr0.intconst_64 %= op->addr1.intconst_64;
+            } else if(op->addr1_type & ISCONST) {
+              unsigned long shifty = op->addr1.intconst_64;
+              while(shifty > 1) {
+                if(shifty & 1) {
+                  shifty = 0;
+                  break;
+                }
+                shifty >>= 1;
+              }
+              if(shifty == 0) break;
+              op->addr1_type = ISCONST | 0x8;
+              op->addr1.uintconst_64 -= 1;
+              op->opcode = AND_U;
             }
             break;
           case AND_U:
             last1(uintconst_64, 0, 0xffffffffffffffffL);
             first1(uintconst_64, 0, 0xffffffffffffffffL);
-            bincf(uintconst_64, &=);
+            bincfbl(uintconst_64, &=)
+            else if(feq(op)) {
+              op->opcode = MOV_3;
+            }
+            break;
           case OR_U:
             last1(uintconst_64, 0, 0);
             first1(uintconst_64, 0, 0);
-            bincf(uintconst_64, |=);
+            bincfbl(uintconst_64, |=)
+            else if(feq(op)) {
+              op->opcode = MOV_3;
+            }
+            break;
           case XOR_U:
             last1(uintconst_64, 0, 0);
             first1(uintconst_64, 0, 0);
-            bincf(uintconst_64, ^=);
+            bincfbl(uintconst_64, ^=)
+            else if(feq(op)) {
+              op->opcode = MOV_3;
+              op->addr0_type = ISCONST | 0x8;
+              op->addr0.uintconst_64 = 0;
+            }
+            break;
           case EQ_U:
             binef(intconst_64, ==);
           case EQ_F:
