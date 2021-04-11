@@ -16,7 +16,6 @@ void fixedinsert(HASHTABLE* ht, long fixedkey, void* value) {
     for(; (unsigned long) hp->next > 1; hp = hp->next) {
       if(hp->next && hp->fixedkey == fixedkey) {
         hp->value = value;
-        hp->next = (void*) 1;
         return;
       }
     }
@@ -105,4 +104,29 @@ void fhtdtor(HASHTABLE* ht) {
     }
   }
   free(ht);
+}
+
+void frmpair(HASHTABLE* ht, long fixedkey) {
+  long i = fixedhash(fixedkey, sizeof(fixedkey));
+  HASHPAIR* hp = &(ht->pairs[i]);
+  if(!(hp->fixedkey))
+    return;
+  HASHPAIR* prev = NULL;
+  for(; hp; hp = hp->next) {
+    if(hp->next && hp->fixedkey == fixedkey) {
+      if((unsigned long) hp->next > 1) {
+        HASHPAIR* temp = hp->next;
+        *hp = *hp->next;
+        free(temp);
+      } else {
+        if(prev) {
+          prev->next = (void*) 1;
+          free(hp);
+        }
+      }
+      --ht->keys;
+      return;
+    }
+    prev = hp;
+  }
 }
