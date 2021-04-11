@@ -323,7 +323,7 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
     prog->curblock = NULL;
   }
   giveblock(prog, mpblk());
-  addr2use.addr.iregnum = prog->iregcnt++;
+  addr2use.addr.iregnum = prog->regcnt++;
   addr2use.addr_type = 1;
   opn(prog, ct_3ac_op2(MOV_3, ISCONST | 1, complete_val, 1, addr2use.addr));
   prog->curblock->nextblock = finalblock;
@@ -585,7 +585,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case NEG:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       destaddr.addr_type = curaddr.addr_type & GENREGMASK;
-      destaddr.addr.iregnum = prog->iregcnt++;
+      destaddr.addr.iregnum = prog->regcnt++;
       if(destaddr.addr_type & ISFLOAT) {
         opn(prog, ct_3ac_op2(NEG_F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       } else {
@@ -604,7 +604,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       destaddr.addr_type = curaddr.addr_type & GENREGMASK;
       assert(!(destaddr.addr_type & ISFLOAT));
-      destaddr.addr.iregnum = prog->iregcnt++;
+      destaddr.addr.iregnum = prog->regcnt++;
       opn(prog, ct_3ac_op2(NOT_U, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       return destaddr;
 
@@ -956,7 +956,7 @@ void cmptype(EXPRESSION* cmpexpr, BBLOCK* failblock, BBLOCK* successblock, PROGR
           break;
         default: assert(0);//never should or will be reached
       }
-      --prog->iregcnt; //dealloc allocated register, ignore third operand
+      --prog->regcnt; //dealloc allocated register, ignore third operand
       opn(prog, dest_op);
       break;
      case L_AND:
@@ -1301,7 +1301,7 @@ PROGRAM* linefunc(FUNC* f) {
       if((pdec->type->tb & (STRUCTVAL | UNIONVAL) )) {
         ADDRESS tmpaddr, tmpaddr2;
         tmpaddr.intconst_64 = pdec->type->structtype->size;
-        tmpaddr2.iregnum = prog->iregcnt++;
+        tmpaddr2.iregnum = prog->regcnt++;
         opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 8, tmpaddr, newa->addr_type & ~ISVAR, tmpaddr2));
         opn(prog, ct_3ac_op3(COPY_3, newa->addr_type | ISDEREF, newa->addr, ISCONST, tmpaddr, (newa->addr_type & ~ISVAR) | ISDEREF, tmpaddr2));
         opn(prog, ct_3ac_op2(MOV_3, newa->addr_type & ~ISVAR, tmpaddr2, newa->addr_type, newa->addr));
@@ -1600,6 +1600,7 @@ void treeprog(PROGRAM* prog, char* fname, const char* pass) {
   fclose(f);
   return;
 }
+
 
 static void freeop(OPERATION* op, OPERATION* stop) {
   while(1) {

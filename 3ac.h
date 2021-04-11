@@ -96,6 +96,7 @@ typedef enum {
   ISVAR = 0x800,
   ADDRSVAR = 0x1000,
   GARBAGEVAL = 0x2000,
+  LASTUSE = 0x4000, //blockwise the last use, may not be globally
 } ADDRTYPE;
 
 typedef struct op {
@@ -136,7 +137,7 @@ typedef struct bblock {
 } BBLOCK;
 
 typedef struct {
-  unsigned long iregcnt;
+  unsigned long regcnt;
   DYNARR* breaklabels;
   DYNARR* continuelabels;
   DYNARR* allblocks;
@@ -278,7 +279,7 @@ static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
   sz.uintconst_64 = lentype(&retidt);
   retidt.pointerstack->length += 1;
   if(sz.uintconst_64 == 1) return fadt;
-  destad.addr.iregnum = prog->iregcnt++;
+  destad.addr.iregnum = prog->regcnt++;
   destad.addr_type = 8 | ISPOINTER;
 
   switch(sz.uintconst_64) {
@@ -309,6 +310,6 @@ static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
     else if((operation)->opcode == GENERIC_F) (operation)->opcode = opt ## _F;
 #endif
 #define FILLREG(addrvar, type) do { \
-    (addrvar).addr.iregnum = prog->iregcnt++; \
+    (addrvar).addr.iregnum = prog->regcnt++; \
     (addrvar).addr_type = (type); \
   } while(0)

@@ -101,7 +101,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
             if(op->dest_type & ISDEREF) {
               op->dest.ssaind =  (long) dapeek((DYNARR*) daget(S, op->dest.varnum));
             } else {
-              C[op->dest.varnum] = prog->iregcnt++;
+              C[op->dest.varnum] = prog->regcnt++;
               op->dest.ssaind = C[op->dest.varnum];
               dapush((DYNARR*) daget(S, op->dest.varnum), (void*)(long) C[op->dest.varnum]);
               dapush(assigns, (void*)(long) op->dest.varnum);
@@ -123,7 +123,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
           if((op->addr0_type & (ADDRSVAR | ISVAR)) == ISVAR) {
             assert(!(op->addr0_type & ISDEREF));
             assert(!C[op->addr0.varnum]);
-            C[op->addr0.varnum] = prog->iregcnt++;
+            C[op->addr0.varnum] = prog->regcnt++;
             op->addr0.ssaind = C[op->addr0.varnum];
             dapush((DYNARR*) daget(S, op->addr0.varnum), (void*)(long) C[op->addr0.varnum]);
             dapush(assigns, (void*)(long)op->addr0.varnum);
@@ -386,7 +386,7 @@ static EQNODE* cteqnode(EQONTAINER* eqcontainer, int hc) {
 static EQONTAINER* cteq(PROGRAM* prog) {
   EQONTAINER* retval = malloc(sizeof(EQONTAINER));
   retval->nodes = dactor(1024);
-  retval->varnodes = calloc(sizeof(void*), prog->iregcnt);
+  retval->varnodes = calloc(sizeof(void*), prog->regcnt);
   retval->intconsthash = htctor();
   retval->floatconsthash = htctor();
   retval->strconsthash = htctor();
@@ -916,5 +916,82 @@ void ssaout(PROGRAM* prog) {
       }
     }
   }
+}
+
+void annotateuse(PROGRAM* prog) {
+  DYNARR* pda = dactor(64);
+  HASHTABLE* pht = htctor();
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    if(!blk->lastop) continue;
+    OPERATION* op = blk->firstop;
+    while(1) {
+      //a deref is still a use
+      switch(op->opcode) {
+        OPS_3_3ac OPS_3_PTRDEST_3ac
+          if(!(op->dest_type & (ISCONST | ISLABEL))) {
+            int oldk = pht->keys;
+            fixedinsert(pht, op->dest.varnum, &op->dest_type);
+            if(oldk != pht->keys) dapush(pda, (void*) (long) op->dest.varnum);
+          }
+          __attribute__((fallthrough));
+        OPS_NODEST_3ac
+          if(!(op->addr1_type & (ISCONST | ISLABEL))) {
+            int oldk = pht->keys;
+            fixedinsert(pht, op->addr1.varnum, &op->addr1_type);
+            if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr1.varnum);
+          }
+          __attribute__((fallthrough));
+        OPS_1_3ac OPS_1_ASSIGN_3ac case DEALOC:
+          if(!(op->addr0_type & (ISCONST | ISLABEL))) {
+            int oldk = pht->keys;
+            fixedinsert(pht, op->addr0.varnum, &op->addr0_type);
+            if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr0.varnum);
+          }
+        break;
+        OPS_2_3ac case ADDR_3:
+          if(!(op->addr0_type & (ISCONST | ISLABEL))) {
+            int oldk = pht->keys;
+            fixedinsert(pht, op->addr0.varnum, &op->addr0_type);
+            if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr0.varnum);
+          }
+          __attribute__((fallthrough));
+        case CALL_3:
+          if(!(op->dest_type & (ISCONST | ISLABEL))) {
+            int oldk = pht->keys;
+            fixedinsert(pht, op->dest.varnum, &op->dest_type);
+            if(oldk != pht->keys) dapush(pda, (void*) (long) op->dest.varnum);
+          }
+        break;
+        case PHI:
+          for(int j = 0; j < blk->inedges->length; j++) {
+            if(!(op->addr0.joins[j].addr_type & (ISCONST | ISLABEL))) {
+              int oldk = pht->keys;
+              fixedinsert(pht, op->addr0.joins[j].addr.varnum, &op->addr0.joins[j].addr_type);
+              if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr0.joins[j].addr.varnum);
+            }
+          }
+          if(!(op->dest_type & (ISCONST | ISLABEL))) {
+            int oldk = pht->keys;
+            fixedinsert(pht, op->dest.varnum, &op->dest_type);
+            if(oldk != pht->keys) dapush(pda, (void*) (long) op->dest.varnum);
+          }
+          break;
+        OPS_NOVAR_3ac case ASM:
+          break;
+      }
+      for(int j = 0; j < pda->length; j++) {
+        unsigned int val = (unsigned long) pda->arr[j];
+        ADDRTYPE* l = (ADDRTYPE*) fixedsearch(pht, val);
+        *l |= LASTUSE;
+        frmpair(pht, val);
+      }
+      pda->length = 0;
+      if(op == blk->lastop) break;
+      op = op->nextop;
+    }
+  }
+  dadtor(pda);
+  fhtdtor(pht);
 }
 #undef X

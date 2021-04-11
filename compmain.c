@@ -94,12 +94,13 @@ static void filecomp(char* filename) {
       constfold(prog);
       gvn(prog);
       remove_nops(prog);
+      annotateuse(prog);
       DEBUG(printf("Ops after GVN %d\n", countops(prog)));
       DEBUG(treeprog(prog, pairthere->key, "withgvn"));
 
-      ssaout(prog);
-      DEBUG(printf("Ops destructed SSA %d\n", countops(prog)));
-      DEBUG(treeprog(prog, pairthere->key, "destroyed"));
+      //ssaout(prog);
+      //DEBUG(printf("Ops destructed SSA %d\n", countops(prog)));
+      //DEBUG(treeprog(prog, pairthere->key, "destroyed"));
 
       freeprog(prog);
     }
