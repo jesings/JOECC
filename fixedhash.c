@@ -14,7 +14,7 @@ void fixedinsert(HASHTABLE* ht, long fixedkey, void* value) {
     hp->next = (void*) 1;
   } else {
     for(; (unsigned long) hp->next > 1; hp = hp->next) {
-      if(hp->next && hp->fixedkey == fixedkey) {
+      if(hp->fixedkey == fixedkey) {
         hp->value = value;
         return;
       }
@@ -122,6 +122,8 @@ void frmpair(HASHTABLE* ht, long fixedkey) {
         if(prev) {
           prev->next = (void*) 1;
           free(hp);
+        } else {
+          hp->next = NULL;
         }
       }
       --ht->keys;
