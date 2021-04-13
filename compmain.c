@@ -95,6 +95,7 @@ static void filecomp(char* filename) {
       gvn(prog);
       remove_nops(prog);
       annotateuse(prog);
+      killreg(prog);
       DEBUG(printf("Ops after GVN %d\n", countops(prog)));
       DEBUG(treeprog(prog, pairthere->key, "withgvn"));
 

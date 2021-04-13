@@ -41,6 +41,7 @@ void ssaout(PROGRAM* prog);
 BBLOCK* intersect(BBLOCK* n1, BBLOCK* n2);
 char fixedintersect(const BBLOCK* fb, BBLOCK* gb);
 void annotateuse(PROGRAM* prog);
+void killreg(PROGRAM* prog);
 #define bfalloc(length) calloc(1, ((length) + 7) >> 3)
 #define bfclone(bitfield, length) memcpy(malloc(((length) + 7) >> 3), (bitfield), ((length) + 7) >> 3)
 #define bfget(bitfield, index) ((bitfield)[(index) >> 3] & (1 << ((index) & 7)))

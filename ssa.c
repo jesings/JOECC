@@ -879,7 +879,7 @@ void gvn(PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     free(((BBLOCK*) daget(prog->allblocks, i))->availability);
     free(((BBLOCK*) daget(prog->allblocks, i))->anticipability_in);
-    free(((BBLOCK*) daget(prog->allblocks, i))->anticipability_out);
+    //free(((BBLOCK*) daget(prog->allblocks, i))->anticipability_out);
     //what if no path to final node?
   }
 
@@ -929,12 +929,22 @@ void annotateuse(PROGRAM* prog) {
       //a deref is still a use
       switch(op->opcode) {
         OPS_3_3ac OPS_3_PTRDEST_3ac
+          if(!(op->addr0_type & (ISCONST | ISLABEL))) {
+            int oldk = pht->keys;
+            fixedinsert(pht, op->addr0.iregnum, &op->addr0_type);
+            if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr0.iregnum);
+          }
+          if(!(op->addr1_type & (ISCONST | ISLABEL))) {
+            int oldk = pht->keys;
+            fixedinsert(pht, op->addr1.iregnum, &op->addr1_type);
+            if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr1.iregnum);
+          }
           if(!(op->dest_type & (ISCONST | ISLABEL))) {
             int oldk = pht->keys;
             fixedinsert(pht, op->dest.iregnum, &op->dest_type);
             if(oldk != pht->keys) dapush(pda, (void*) (long) op->dest.iregnum);
           }
-          __attribute__((fallthrough));
+          break;
         OPS_NODEST_3ac
           if(!(op->addr1_type & (ISCONST | ISLABEL))) {
             int oldk = pht->keys;
@@ -994,4 +1004,54 @@ void annotateuse(PROGRAM* prog) {
   dadtor(pda);
   fhtdtor(pht);
 }
+
+void killreg(PROGRAM* prog) {
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    if(!blk->lastop) continue;
+    OPERATION* op = blk->firstop;
+    while(1) {
+      //a deref is still a use
+      switch(op->opcode) {
+        OPS_3_3ac OPS_3_PTRDEST_3ac
+          if(op->addr1_type & LASTUSE && !bfget(blk->anticipability_out, op->addr1.iregnum)) {
+          }
+          __attribute__((fallthrough));
+        OPS_2_3ac case ADDR_3:
+          if(op->addr0_type & LASTUSE && !bfget(blk->anticipability_out, op->addr0.iregnum)) {
+          }
+          __attribute__((fallthrough));
+        case CALL_3:
+          if(op->dest_type & LASTUSE && !bfget(blk->anticipability_out, op->dest.iregnum)) {
+          }
+          if(~op->dest_type & (ISCONST | ISLABEL | ISDEREF)) { //birth
+          }
+          break;
+        OPS_NODEST_3ac
+          if(op->addr1_type & LASTUSE && !bfget(blk->anticipability_out, op->addr1.iregnum)) {
+          }
+          __attribute__((fallthrough));
+        OPS_1_3ac OPS_1_ASSIGN_3ac case DEALOC:
+          if(op->addr0_type & LASTUSE && !bfget(blk->anticipability_out, op->addr0.iregnum)) {
+          }
+          break;
+        case PHI:
+          for(int j = 0; j < blk->inedges->length; j++) {
+            if(op->addr0.joins[j].addr_type & LASTUSE && !bfget(blk->anticipability_out, op->addr0.joins[j].addr.iregnum)) {
+            }
+          }
+          if(op->dest_type & LASTUSE && !bfget(blk->anticipability_out, op->dest.iregnum)) {
+          }
+          if(~op->dest_type & (ISCONST | ISLABEL | ISDEREF)) { //birth
+          }
+          break;
+        OPS_NOVAR_3ac case ASM:
+          break;
+      }
+      if(op == blk->lastop) break;
+      op = op->nextop;
+    }
+  }
+}
+
 #undef X
