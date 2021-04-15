@@ -878,11 +878,14 @@ void gvn(PROGRAM* prog) {
   free(rplist);
   for(int i = 0; i < prog->allblocks->length; i++) {
     free(((BBLOCK*) daget(prog->allblocks, i))->availability);
-    free(((BBLOCK*) daget(prog->allblocks, i))->anticipability_in);
+    ((BBLOCK*) daget(prog->allblocks, i))->availability = NULL;
+
+    //free(((BBLOCK*) daget(prog->allblocks, i))->anticipability_in);
     //free(((BBLOCK*) daget(prog->allblocks, i))->anticipability_out);
     //what if no path to final node?
   }
 
+  prog->regcnt = eqcontainer->nodes->length;
   freeq(eqcontainer);
 }
 //https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/gvn_sas04.pdf
@@ -1006,11 +1009,17 @@ void annotateuse(PROGRAM* prog) {
 }
 
 void killreg(PROGRAM* prog) {
+  DYNARR* live = dactor(16);
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     if(!blk->lastop) continue;
     OPERATION* op = blk->firstop;
-    while(1) {
+    //live is anticipable out + will be killed + born already - already killed = anticipabile in
+    for(unsigned int j = 0; j < prog->regcnt; j++) {
+      if(bfget(blk->anticipability_in, j)) dapush(live, (void*) (long) j);
+    }
+
+    while(0) { //we have issues with register numbering here
       //a deref is still a use
       switch(op->opcode) {
         OPS_3_3ac OPS_3_PTRDEST_3ac
@@ -1052,6 +1061,7 @@ void killreg(PROGRAM* prog) {
       op = op->nextop;
     }
   }
+  dadtor(live);
 }
 
 #undef X

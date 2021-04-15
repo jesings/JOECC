@@ -1628,6 +1628,9 @@ void freeblock(void* blk) {
   if(blk2->idominates) dadtor(blk2->idominates);
   if(blk2->df) dadtor(blk2->df);
   if(blk2->lastop) freeop(blk2->firstop, blk2->lastop);
+  if(blk2->anticipability_out) free(blk2->anticipability_out);
+  if(blk2->anticipability_in) free(blk2->anticipability_in);
+  if(blk2->availability) free(blk2->availability);
   free(blk);
 }
 
