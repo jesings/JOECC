@@ -111,5 +111,5 @@ struct opinfo op2op[] = {
 //https://compilers.cs.uni-saarland.de/projects/ssara/hack_ssara_ssa09.pdf
 //https://www.rw.cdl.uni-saarland.de/people/grund/private/papers/cgo08-liveness.pdf
 
-int regalloc() {
+void regalloc(PROGRAM* prog) {
 }

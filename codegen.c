@@ -64,43 +64,81 @@ static void cgblock(FILE* outputfile, BBLOCK* blk) {
       if(op == blk->lastop) break;
     } while((op = op->nextop));
     if(blk->branchblock) {
-      switch(op->opcode) {
-        case BNZ_3:
-          fprintf(outputfile, "jnz .L%d\n", blk->branchblock->work);
-          break;
-        case BEZ_3:
-          fprintf(outputfile, "jz .L%d\n", blk->branchblock->work);
-          break;
-        case BEQ_U:
-          fprintf(outputfile, "je .L%d\n", blk->branchblock->work);
-          break;
-        case BEQ_F:
-          fprintf(outputfile, "je .L%d\n", blk->branchblock->work);
-          break;
-        case BGE_U:
-          fprintf(outputfile, "jae .L%d\n", blk->branchblock->work);
-          break;
-        case BGE_I:
-          fprintf(outputfile, "jge .L%d\n", blk->branchblock->work);
-          break;
-        case BGE_F:
-          fprintf(outputfile, "jae .L%d\n", blk->branchblock->work);
-          break;
-        case BGT_U:
-          fprintf(outputfile, "ja .L%d\n", blk->branchblock->work);
-          break;
-        case BGT_I:
-          fprintf(outputfile, "jg .L%d\n", blk->branchblock->work);
-          break;
-        case BGT_F:
-          fprintf(outputfile, "ja .L%d\n", blk->branchblock->work);
-          break;
-        default:
-          assert(0);
+      if(blk->branchblock->work != blk->work + 1) {
+        switch(op->opcode) {
+          case BNZ_3:
+            fprintf(outputfile, "jnz .L%d\n", blk->branchblock->work);
+            break;
+          case BEZ_3:
+            fprintf(outputfile, "jz .L%d\n", blk->branchblock->work);
+            break;
+          case BEQ_U:
+            fprintf(outputfile, "je .L%d\n", blk->branchblock->work);
+            break;
+          case BEQ_F:
+            fprintf(outputfile, "je .L%d\n", blk->branchblock->work);
+            break;
+          case BGE_U:
+            fprintf(outputfile, "jae .L%d\n", blk->branchblock->work);
+            break;
+          case BGE_I:
+            fprintf(outputfile, "jge .L%d\n", blk->branchblock->work);
+            break;
+          case BGE_F:
+            fprintf(outputfile, "jae .L%d\n", blk->branchblock->work);
+            break;
+          case BGT_U:
+            fprintf(outputfile, "ja .L%d\n", blk->branchblock->work);
+            break;
+          case BGT_I:
+            fprintf(outputfile, "jg .L%d\n", blk->branchblock->work);
+            break;
+          case BGT_F:
+            fprintf(outputfile, "ja .L%d\n", blk->branchblock->work);
+            break;
+          default:
+            assert(0);
+        }
+      } else {
+        switch(op->opcode) {
+          case BNZ_3:
+            fprintf(outputfile, "jz .L%d\n", blk->nextblock->work);
+            break;
+          case BEZ_3:
+            fprintf(outputfile, "jnz .L%d\n", blk->nextblock->work);
+            break;
+          case BEQ_U:
+            fprintf(outputfile, "jne .L%d\n", blk->nextblock->work);
+            break;
+          case BEQ_F:
+            fprintf(outputfile, "jne .L%d\n", blk->nextblock->work);
+            break;
+          case BGE_U:
+            fprintf(outputfile, "jb .L%d\n", blk->nextblock->work);
+            break;
+          case BGE_I:
+            fprintf(outputfile, "jl .L%d\n", blk->nextblock->work);
+            break;
+          case BGE_F:
+            fprintf(outputfile, "jb .L%d\n", blk->nextblock->work);
+            break;
+          case BGT_U:
+            fprintf(outputfile, "jbe .L%d\n", blk->nextblock->work);
+            break;
+          case BGT_I:
+            fprintf(outputfile, "jle .L%d\n", blk->nextblock->work);
+            break;
+          case BGT_F:
+            fprintf(outputfile, "jbe .L%d\n", blk->nextblock->work);
+            break;
+          default:
+            assert(0);
+        }
+        return;
       }
     }
   }
-  if(blk->nextblock)
+  if(blk->nextblock && blk->nextblock->work != blk->work + 1)
     fprintf(outputfile, "jmp .L%d\n", blk->nextblock->work);//changed to index
 }
 
