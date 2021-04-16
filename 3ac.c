@@ -1373,7 +1373,7 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char color, FILE* f, PRO
     int sz = (addr_type & 0xf) * 8;
     if(color) fprintf(f, RGBCOLOR(60,220,60));
     else fprintf(f, "<FONT COLOR=\"#%.2hhx%.2hhx%.2hhx\">", 60, 220, 60);
-    if(addr_type & ISVAR) {
+    if(addr_type & ISVAR && !(prog->pdone & GVN)) {
       char* adname = daget(prog->dynchars, addr.varnum);
       if(prog->pdone & SSA && !(addr_type & ADDRSVAR)) {
         if(addr_type & ISDEREF) fprintf(f, "(%s_%u)", adname, addr.ssaind);

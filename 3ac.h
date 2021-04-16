@@ -62,7 +62,10 @@ struct fulladdr;
 
 typedef union {
   struct {
-    unsigned int varnum;
+    union {
+      unsigned int varnum;
+      unsigned int gvnind;
+    };
     union {
       unsigned int ssaind;
       unsigned int iregnum; //enforce same storage space

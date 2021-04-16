@@ -480,6 +480,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
         } else {
           bfset(bf, sen->index);
           sen->regno = op->dest.iregnum;
+          op->dest.gvnind = sen->index;
         }
       }
       __attribute__((fallthrough));
@@ -495,6 +496,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
         } else {
           assert(bfget(bf, sen->index));
           op->addr1.iregnum = sen->regno;
+          op->addr1.gvnind = sen->index;
         }
       }
       __attribute__((fallthrough));
@@ -511,6 +513,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
         } else {
           assert(bfget(bf, sen->index));
           op->addr0.iregnum = sen->regno;
+          op->addr0.gvnind = sen->index;
         }
       }
       break;
@@ -534,6 +537,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
         } else {
           bfset(bf, sen->index);
           sen->regno = op->dest.iregnum;
+          op->dest.gvnind = sen->index;
         }
       }
       sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
@@ -547,6 +551,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
         } else {
           assert(bfget(bf, sen->index));
           op->addr0.iregnum = sen->regno;
+          op->addr0.gvnind = sen->index;
         }
       }
       break;
@@ -560,6 +565,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
         } else {
           bfset(bf, sen->index);
           sen->regno = op->dest.iregnum;
+          op->dest.gvnind = sen->index;
         }
       }
       break;
@@ -580,6 +586,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           } else {
             if(bfget(bf, sen->index)) { //cannot assert here
               addrs[k].addr.iregnum = sen->regno;
+              addrs[k].addr.gvnind = sen->index;
             }
           }
         } else {
@@ -595,6 +602,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
       assert(!bfget(bf, sen->index));
       bfset(bf, sen->index);
       sen->regno = op->dest.iregnum;
+      op->dest.gvnind = sen->index;
       break;
     OPS_1_ASSIGN_3ac
       sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
@@ -604,6 +612,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
         } else {
           bfset(bf, sen->index);
           sen->regno = op->addr0.iregnum;
+          op->addr0.gvnind = sen->index;
         }
       }
       break;
@@ -887,6 +896,7 @@ void gvn(PROGRAM* prog) {
 
   prog->regcnt = eqcontainer->nodes->length;
   freeq(eqcontainer);
+  prog->pdone |= GVN;
 }
 //https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/gvn_sas04.pdf
 //https://www.cs.purdue.edu/homes/hosking/papers/cc04.pdf
@@ -1021,35 +1031,36 @@ void killreg(PROGRAM* prog) {
 
     while(0) { //we have issues with register numbering here
       //a deref is still a use
+      //what about addrsvar??? other nongvn thingies??
       switch(op->opcode) {
         OPS_3_3ac OPS_3_PTRDEST_3ac
-          if(op->addr1_type & LASTUSE && !bfget(blk->anticipability_out, op->addr1.iregnum)) {
+          if(op->addr1_type & LASTUSE && !bfget(blk->anticipability_out, op->addr1.gvnind)) {
           }
           __attribute__((fallthrough));
         OPS_2_3ac case ADDR_3:
-          if(op->addr0_type & LASTUSE && !bfget(blk->anticipability_out, op->addr0.iregnum)) {
+          if(op->addr0_type & LASTUSE && !bfget(blk->anticipability_out, op->addr0.gvnind)) {
           }
           __attribute__((fallthrough));
         case CALL_3:
-          if(op->dest_type & LASTUSE && !bfget(blk->anticipability_out, op->dest.iregnum)) {
+          if(op->dest_type & LASTUSE && !bfget(blk->anticipability_out, op->dest.gvnind)) {
           }
           if(~op->dest_type & (ISCONST | ISLABEL | ISDEREF)) { //birth
           }
           break;
         OPS_NODEST_3ac
-          if(op->addr1_type & LASTUSE && !bfget(blk->anticipability_out, op->addr1.iregnum)) {
+          if(op->addr1_type & LASTUSE && !bfget(blk->anticipability_out, op->addr1.gvnind)) {
           }
           __attribute__((fallthrough));
         OPS_1_3ac OPS_1_ASSIGN_3ac case DEALOC:
-          if(op->addr0_type & LASTUSE && !bfget(blk->anticipability_out, op->addr0.iregnum)) {
+          if(op->addr0_type & LASTUSE && !bfget(blk->anticipability_out, op->addr0.gvnind)) {
           }
           break;
         case PHI:
           for(int j = 0; j < blk->inedges->length; j++) {
-            if(op->addr0.joins[j].addr_type & LASTUSE && !bfget(blk->anticipability_out, op->addr0.joins[j].addr.iregnum)) {
+            if(op->addr0.joins[j].addr_type & LASTUSE && !bfget(blk->anticipability_out, op->addr0.joins[j].addr.gvnind)) {
             }
           }
-          if(op->dest_type & LASTUSE && !bfget(blk->anticipability_out, op->dest.iregnum)) {
+          if(op->dest_type & LASTUSE && !bfget(blk->anticipability_out, op->dest.gvnind)) {
           }
           if(~op->dest_type & (ISCONST | ISLABEL | ISDEREF)) { //birth
           }
