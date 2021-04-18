@@ -1330,10 +1330,10 @@ PROGRAM* linefunc(FUNC* f) {
   return prog;
 }
 
-static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char color, FILE* f, PROGRAM* prog) {
+static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char term, FILE* f, PROGRAM* prog) {
   if(addr_type & LASTUSE) fprintf(f, "@");
   if(addr_type & ISLABEL) {
-    if(color) fprintf(f, RGBCOLOR(255,200,10));
+    if(term) fprintf(f, RGBCOLOR(255,200,10));
     else fprintf(f, "<FONT COLOR=\"#%.2hhx%.2hhx%.2hhx\">", 255, 200, 10);
     if(addr_type & ISDEREF) fprintf(f, "({%s})", addr.labelname);
     else                    fprintf(f, "{%s}", addr.labelname);
@@ -1341,24 +1341,48 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char color, FILE* f, PRO
       if(addr_type & ISFLOAT) fprintf(f, ".%df", (addr_type & 0xf) * 8);
       else                    fprintf(f, ".%d%c", (addr_type & 0xf) * 8, addr_type & ISSIGNED ? 's' : 'u');
     }
-    if(color) fprintf(f, CLEARCOLOR);
+    if(term) fprintf(f, CLEARCOLOR);
     else fprintf(f, "</FONT>");
   } else if(addr_type & ISCONST) {
     assert(!(addr_type & ISDEREF));
     if(addr_type & ISSTRCONST) {
       int l = strlen(addr.strconst);
-      if(color) fprintf(f, RGBCOLOR(90,180,180));
+      if(term) fprintf(f, RGBCOLOR(90,180,180));
       else fprintf(f, "<FONT COLOR=\"#%.2hhx%.2hhx%.2hhx\">", 90, 180, 180);
-      if(!l)
+      if(!l) {
         fprintf(f, "\"\"");
-      else if(addr.strconst[l - 1] != '\n')
-        fprintf(f, "\"%s\"", addr.strconst);
-      else
-        fprintf(f, "\"%.*s\\n\"", l - 1, addr.strconst);
-      if(color) fprintf(f, CLEARCOLOR);
+      } else {
+        if(term) {
+          fprintf(f, "\"%s\"", addr.strconst);
+        } else {
+          char* strptr = addr.strconst;
+          char* accepted;
+          fprintf(f, "\"");
+          while((accepted = strpbrk(strptr, "<>\n"))) {
+            const char* whichtoprint;
+            switch(*accepted) {
+              case '>':
+                whichtoprint = "&GT;";
+                break;
+              case '<':
+                whichtoprint = "&LT;";
+                break;
+              case '\n':
+                whichtoprint = "\\n";
+                break;
+            }
+            *accepted = 0;
+            fprintf(f, "%s%s", strptr, whichtoprint);
+            strptr = accepted + 1;
+          }
+          fprintf(f, "%s", strptr);
+          fprintf(f, "\"");
+        }
+      }
+      if(term) fprintf(f, CLEARCOLOR);
       else fprintf(f, "</FONT>");
     } else {
-      if(color) fprintf(f, RGBCOLOR(250,60,60));
+      if(term) fprintf(f, RGBCOLOR(250,60,60));
       else fprintf(f, "<FONT COLOR=\"#%.2hhx%.2hhx%.2hhx\">", 250, 60, 60);
       if(addr_type & ISFLOAT) 
         fprintf(f, "%lf", addr.floatconst_64);
@@ -1366,12 +1390,12 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char color, FILE* f, PRO
         fprintf(f, "%ld", addr.intconst_64);
       else
         fprintf(f, "%lu", addr.intconst_64);
-      if(color) fprintf(f, CLEARCOLOR);
+      if(term) fprintf(f, CLEARCOLOR);
       else fprintf(f, "</FONT>");
     }
   } else {
     int sz = (addr_type & 0xf) * 8;
-    if(color) fprintf(f, RGBCOLOR(60,220,60));
+    if(term) fprintf(f, RGBCOLOR(60,220,60));
     else fprintf(f, "<FONT COLOR=\"#%.2hhx%.2hhx%.2hhx\">", 60, 220, 60);
     if(addr_type & ISVAR && !(prog->pdone & GVN)) {
       char* adname = daget(prog->dynchars, addr.varnum);
@@ -1387,48 +1411,48 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char color, FILE* f, PRO
       else                    fprintf(f, "reg%u", addr.iregnum);
     }
     fprintf(f, ".%d%c", sz, addr_type & ISFLOAT ? 'f' : addr_type & ISSIGNED ? 's' : 'u');
-    if(color) fprintf(f, CLEARCOLOR);
+    if(term) fprintf(f, CLEARCOLOR);
     else fprintf(f, "</FONT>");
   }
 }
 
 #define PRINTBROP2(opsymb) do { \
-    printaddr(op->addr0, op->addr0_type, color, f, prog); \
+    printaddr(op->addr0, op->addr0_type, term, f, prog); \
     fprintf(f, " %s ", #opsymb); \
-    printaddr(op->addr1, op->addr1_type, color, f, prog); \
+    printaddr(op->addr1, op->addr1_type, term, f, prog); \
   } while(0)
 
 #define PRINTOP3(opsymb) do { \
-    printaddr(op->addr0, op->addr0_type, color, f, prog); \
+    printaddr(op->addr0, op->addr0_type, term, f, prog); \
     fprintf(f, " " #opsymb " "); \
-    printaddr(op->addr1, op->addr1_type, color, f, prog); \
+    printaddr(op->addr1, op->addr1_type, term, f, prog); \
     fprintf(f, " →  "); \
-    printaddr(op->dest, op->dest_type, color, f, prog); \
+    printaddr(op->dest, op->dest_type, term, f, prog); \
   } while(0)
 
 #define PRINTOP2(opsymb) do { \
     fprintf(f, "%s", #opsymb); \
-    printaddr(op->addr0, op->addr0_type, color, f, prog); \
+    printaddr(op->addr0, op->addr0_type, term, f, prog); \
     fprintf(f, " →  "); \
-    printaddr(op->dest, op->dest_type, color, f, prog); \
+    printaddr(op->dest, op->dest_type, term, f, prog); \
   } while(0)
 
 #define PRINTOP1() do { \
-    printaddr(op->addr0, op->addr0_type, color, f, prog); \
+    printaddr(op->addr0, op->addr0_type, term, f, prog); \
   } while(0)
 
-static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* prog) {
+static void printop(OPERATION* op, char term, BBLOCK* blk, FILE* f, PROGRAM* prog) {
   fprintf(f, "%s", opcode_3ac_names[op->opcode]);
-  if(color) fprintf(f, "\t");
+  if(term) fprintf(f, "\t");
   else      fprintf(f, "&nbsp;");
   switch(op->opcode) {
     case NOP_3:
       break;
     case LBL_3: 
-      if(color) fprintf(f, RGBCOLOR(200,200,120));
+      if(term) fprintf(f, RGBCOLOR(200,200,120));
       else fprintf(f, "<FONT COLOR=\"#%.2hhx%.2hhx%.2hhx\">", 200, 200, 120);
       fprintf(f, "%s:", op->addr0.labelname);
-      if(color) fprintf(f, CLEARCOLOR);
+      if(term) fprintf(f, CLEARCOLOR);
       else fprintf(f, "</FONT>");
       break;
     case COPY_3:
@@ -1450,15 +1474,15 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
       PRINTOP3(%%);
       break;
     case SHL_U: case SHL_I: 
-      if(color) PRINTOP3(<<);
+      if(term) PRINTOP3(<<);
       else PRINTOP3(&lt;&lt;);
       break;
     case SHR_U: case SHR_I: 
-      if(color) PRINTOP3(>>);
+      if(term) PRINTOP3(>>);
       else PRINTOP3(&gt;&gt;);
       break;
     case AND_U:
-      if(color) PRINTOP3(&);
+      if(term) PRINTOP3(&);
       else PRINTOP3(&amp;);
       break;
     case OR_U:
@@ -1483,30 +1507,30 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
       PRINTOP3(!=);
       break;
     case GE_U: case GE_I: case GE_F: 
-      if(color) PRINTOP3(>=);
+      if(term) PRINTOP3(>=);
       else PRINTOP3(&gt;=);
       break;
     case LE_U: case LE_I: case LE_F: 
-      if(color) PRINTOP3(<=);
+      if(term) PRINTOP3(<=);
       else PRINTOP3(&lt;=);
       break;
     case GT_U: case GT_I: case GT_F: 
-      if(color) PRINTOP3(>);
+      if(term) PRINTOP3(>);
       else PRINTOP3(&gt;);
       break;
     case LT_U: case LT_I: case LT_F: 
-      if(color) PRINTOP3(<);
+      if(term) PRINTOP3(<);
       else PRINTOP3(&lt;);
       break;
     case BEQ_U: case BEQ_F:
       PRINTBROP2(==);
       break;
     case BGE_U: case BGE_I: case BGE_F: 
-      if(color) PRINTBROP2(>=);
+      if(term) PRINTBROP2(>=);
       else PRINTBROP2(&gt;=);
       break;
     case BGT_U: case BGT_I: case BGT_F: 
-      if(color) PRINTBROP2(>);
+      if(term) PRINTBROP2(>);
       else PRINTBROP2(&gt;);
       break;
     case BNZ_3: case BEZ_3: case ARG_3: case PARAM_3: 
@@ -1525,35 +1549,35 @@ static void printop(OPERATION* op, char color, BBLOCK* blk, FILE* f, PROGRAM* pr
       PRINTOP2( );
       break;
     case ARROFF:
-      printaddr(op->addr0, op->addr0_type, color, f, prog);
+      printaddr(op->addr0, op->addr0_type, term, f, prog);
       fprintf(f, "[");
-      printaddr(op->addr1, op->addr1_type, color, f, prog);
+      printaddr(op->addr1, op->addr1_type, term, f, prog);
       fprintf(f, "] ");
       fprintf(f, " →  ");
-      printaddr(op->dest, op->dest_type, color, f, prog);
+      printaddr(op->dest, op->dest_type, term, f, prog);
       break;
     case ARRMOV:
-      printaddr(op->addr0, op->addr0_type, color, f, prog);
+      printaddr(op->addr0, op->addr0_type, term, f, prog);
       fprintf(f, " →  ");
-      printaddr(op->dest, op->dest_type, color, f, prog);
+      printaddr(op->dest, op->dest_type, term, f, prog);
       fprintf(f, "[");
-      printaddr(op->addr1, op->addr1_type, color, f, prog);
+      printaddr(op->addr1, op->addr1_type, term, f, prog);
       fprintf(f, "] ");
       break;
     case MTP_OFF:
-      printaddr(op->addr0, op->addr0_type, color, f, prog);
+      printaddr(op->addr0, op->addr0_type, term, f, prog);
       fprintf(f, " →  ");
-      printaddr(op->dest, op->dest_type, color, f, prog);
+      printaddr(op->dest, op->dest_type, term, f, prog);
       fprintf(f, " + ");
-      printaddr(op->addr1, op->addr1_type, color, f, prog);
+      printaddr(op->addr1, op->addr1_type, term, f, prog);
       break;
     case PHI:
       for(int i = 0; i < blk->inedges->length; i++) {
-        printaddr(op->addr0.joins[i].addr, op->addr0.joins[i].addr_type, color, f, prog);
+        printaddr(op->addr0.joins[i].addr, op->addr0.joins[i].addr_type, term, f, prog);
         fprintf(f, ", ");
       }
       fprintf(f, " →  ");
-      printaddr(op->dest, op->dest_type, color, f, prog);
+      printaddr(op->dest, op->dest_type, term, f, prog);
       break;
     case ASM:
       assert(0); //unimplemented

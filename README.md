@@ -41,8 +41,6 @@ When running JOECC in debug mode, it will create in the working directory a fold
 
 In this representation, it should be pretty evident as to what basic blocks are, if they have operations. If not, they will just appear as a long hex number with no box around it. Different kinds of operands are colored, as are the edges between basic blocks. The blocks that are visited next if the branching condition is not met (which I call next blocks) have a blue edge to them, and the blocks that are visited if the branching condition is met (which I call branchblocks) have a red edge to them. JOECCIR is specifically designed so that basic blocks may have a maximum of 2 out edges.
 
-(There is currently a known bug that > and < signs in string literals break graphviz, including in assert statements. The best way to fix this would be to replace all occurrences of those with &amp;GT; and &amp;LT, but this is not a high priority)
-
 ### Operand formats
 
 Operands come in a number of formats:
