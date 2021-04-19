@@ -159,6 +159,26 @@ void codegen(FILE* outputfile, PROGRAM* prog) {
     cgblock(outputfile, daget(prog->allblocks, i));
   }
 }
+void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
+  if(ispointer(in->type)) {
+    //if it's an array do it that way, for strings as well?
+    //if it's a standard pointer, uhh???
+  } else if(in->type & (STRUCTVAL | UNIONVAL)) {
+    //do members one by one, with reasonable alignment constraints?
+  } else {
+    if(in->type & FLOATNUM) {
+      if(in->type & 8) {
+      } else if(in->type & 4) {
+      }
+    } else {
+      if(in->type & 8) {
+      } else if(in->type & 4) {
+      } else if(in->type & 2) {
+      } else if(in->type & 1) {
+      }
+    }
+  }
+}
 
 static void startgenfile(FILE* outputfile, struct lexctx* ctx) {
   //fprintf(outputfile, ".global %s\n", something);
@@ -166,10 +186,11 @@ static void startgenfile(FILE* outputfile, struct lexctx* ctx) {
   //fprintf(outputfile, ".extern %s\n", something);???
   //figure this out cleverly?
   fprintf(outputfile, ".data\n");
-  for(int i = 0; i < ctx->externglobals->length; i++) {
-    //process globals
-  }
+  //externglobals?
   for(int i = 0; i < ctx->globals->length; i++) {
+    INITIALIZER* in = daget(ctx->globals, i);
+    printf("%s:\n", in->decl->varname);
+    procinlit(outputfile, in->decl->type, in->expr);
     //process globals
   }
   //fprintf(outputfile, ".asciiz \"%s\"\n", something);
