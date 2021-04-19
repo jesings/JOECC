@@ -58,6 +58,16 @@ static void cgblock(FILE* outputfile, BBLOCK* blk) {
           fparamno = 0;
           iparamno = 0;
           break;
+        case BNZ_3: case BEZ_3:
+          //test
+          break;
+        case BEQ_U: case BGE_U: case BGE_I:
+        case BGT_U: case BGT_I:
+          //cmp
+          break;
+        case BEQ_F: case BGE_F: case BGT_F:
+          //ucomisd or ucomiss
+          break;
         default:
           assert(0);
       }
@@ -144,13 +154,24 @@ static void cgblock(FILE* outputfile, BBLOCK* blk) {
 
 void codegen(FILE* outputfile, PROGRAM* prog) {
   int labelnum = prog->allblocks->length;
-  //fprintf(outputfile, ".global %s\n", something);
-  //fprintf(outputfile, ".extern %s\n", something);???
-  fprintf(outputfile, ".data\n");
-  //fprintf(outputfile, ".asciiz \"%s\"\n", something);
-  fprintf(outputfile, ".text\n");
   for(int i = 0; i < prog->allblocks->length; i++) {
     fprintf(outputfile, ".L%d\n", i);
     cgblock(outputfile, daget(prog->allblocks, i));
   }
+}
+
+static void startgenfile(FILE* outputfile, struct lexctx* ctx) {
+  //fprintf(outputfile, ".global %s\n", something);
+  //functions that aren't static are globaled
+  //fprintf(outputfile, ".extern %s\n", something);???
+  //figure this out cleverly?
+  fprintf(outputfile, ".data\n");
+  for(int i = 0; i < ctx->externglobals->length; i++) {
+    //process globals
+  }
+  for(int i = 0; i < ctx->globals->length; i++) {
+    //process globals
+  }
+  //fprintf(outputfile, ".asciiz \"%s\"\n", something);
+  fprintf(outputfile, ".text\n");
 }

@@ -21,7 +21,7 @@ NOTE: JOECC is a work-in progress, and currently cannot fully compile code
 - [ ] Pointer Analysis
 - [ ] Scalar Replacement of Aggregates
 - [ ] Other Optimizations (to be enumerated further later)
-- [ ] Register Allocation
+- [ ] Register Allocation (in progress)
 - [ ] Assembly generation
 - [ ] Machine code generation
 - [ ] Machine code optimization
