@@ -160,21 +160,27 @@ void codegen(FILE* outputfile, PROGRAM* prog) {
   }
 }
 void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
-  if(ispointer(in->type)) {
-    //if it's an array do it that way, for strings as well?
+  if(ispointer(ty)) {
+    if(((struct declarator_part*) dapeek(ty->pointerstack))->type == ARRAYSPEC) {
+      //do numbers one by one, we will put them all on different lines for simplicity for now
+    } else {
+    }
     //if it's a standard pointer, uhh???
-  } else if(in->type & (STRUCTVAL | UNIONVAL)) {
+  } else if(ty->tb & (STRUCTVAL | UNIONVAL)) {
     //do members one by one, with reasonable alignment constraints?
   } else {
-    if(in->type & FLOATNUM) {
-      if(in->type & 8) {
-      } else if(in->type & 4) {
+    fprintf(outputfile, ".align %d\n", ty->tb & 0xf);
+    if(ty->tb & FLOATNUM) {
+      if(ty->tb & 8) {
+      } else if(ty->tb & 4) {
+      } else {
+        assert(0);
       }
     } else {
-      if(in->type & 8) {
-      } else if(in->type & 4) {
-      } else if(in->type & 2) {
-      } else if(in->type & 1) {
+      if(ty->tb & 8) {
+      } else if(ty->tb & 4) {
+      } else if(ty->tb & 2) {
+      } else if(ty->tb & 1) {
       }
     }
   }
