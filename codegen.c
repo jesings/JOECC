@@ -162,12 +162,24 @@ void codegen(FILE* outputfile, PROGRAM* prog) {
 void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
   if(ispointer(ty)) {
     if(((struct declarator_part*) dapeek(ty->pointerstack))->type == ARRAYSPEC) {
-      //do numbers one by one, we will put them all on different lines for simplicity for now
+      assert(ex->type == ARRAY_LIT);
+      //do elements one by one, we will put them all on different lines for simplicity for now
+      for(int i = 0; i < ex->params->length; i++){
+        EXPRESSION* subex = daget(ex->params, i);
+        ty->pointerstack->length--;
+        procinlit(outputfile, ty, subex);
+        ty->pointerstack->length++;
+      }
     } else {
+      fprintf(outputfile, ".align 8\n");
     }
     //if it's a standard pointer, uhh???
   } else if(ty->tb & (STRUCTVAL | UNIONVAL)) {
-    //do members one by one, with reasonable alignment constraints?
+    for(int i = 0; i < ty->structtype->fields->length; i++){
+      DECLARATION* subdecl = daget(ty->structtype->fields->length, i);
+      EXPRESSION* subex = daget(ex->params, i);
+      procinlit(outputfile, subdecl->type, subex);
+    }
   } else {
     fprintf(outputfile, ".align %d\n", ty->tb & 0xf);
     if(ty->tb & FLOATNUM) {
