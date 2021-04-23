@@ -161,7 +161,20 @@ void codegen(FILE* outputfile, PROGRAM* prog) {
 }
 void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
   if(ispointer(ty)) {
-    if(((struct declarator_part*) dapeek(ty->pointerstack))->type == ARRAYSPEC) {
+    if(ex->type == STRING) {
+      fprintf(outputfile, ".asciz \"");
+      for(int i = 0; ex->strconst[i]; i++) {
+        switch(ex->strconst[i]) {
+          case 0 ... 31: case 127: //this does newlines and carriage returns because it's a lazy solution
+            fputs("\\%hho", outputfile);
+            break;
+          default:
+            fputc(ex->strconst[i], outputfile);
+            break;
+        }
+      }
+      fprintf(outputfile, "\"\n");
+    } else if(((struct declarator_part*) dapeek(ty->pointerstack))->type == ARRAYSPEC) {
       assert(ex->type == ARRAY_LIT);
       //do elements one by one, we will put them all on different lines for simplicity for now
       for(int i = 0; i < ex->params->length; i++){
@@ -171,14 +184,14 @@ void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
         ty->pointerstack->length++;
       }
     } else {
-      fprintf(outputfile, ".align 8\n");
       assert(ex->type == INT || ex->type == UINT);
+      fprintf(outputfile, ".align 8\n");
       fprintf(outputfile, ".8byte %ld\n", ex->intconst);
     }
     //if it's a standard pointer, uhh???
   } else if(ty->tb & (STRUCTVAL | UNIONVAL)) {
     for(int i = 0; i < ty->structtype->fields->length; i++){
-      DECLARATION* subdecl = daget(ty->structtype->fields->length, i);
+      DECLARATION* subdecl = daget(ty->structtype->fields, i);
       EXPRESSION* subex = daget(ex->params, i);
       procinlit(outputfile, subdecl->type, subex);
     }
@@ -208,15 +221,15 @@ void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
   }
 }
 
-static void startgenfile(FILE* outputfile, struct lexctx* ctx) {
+static void startgenfile(FILE* outputfile, struct lexctx* lctx) {
   //fprintf(outputfile, ".global %s\n", something);
   //functions that aren't static are globaled
   //fprintf(outputfile, ".extern %s\n", something);???
   //figure this out cleverly?
   fprintf(outputfile, ".data\n");
   //externglobals?
-  for(int i = 0; i < ctx->globals->length; i++) {
-    INITIALIZER* in = daget(ctx->globals, i);
+  for(int i = 0; i < lctx->globals->length; i++) {
+    INITIALIZER* in = daget(lctx->globals, i);
     printf("%s:\n", in->decl->varname);
     procinlit(outputfile, in->decl->type, in->expr);
     //process globals
