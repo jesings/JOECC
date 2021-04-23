@@ -172,6 +172,8 @@ void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
       }
     } else {
       fprintf(outputfile, ".align 8\n");
+      assert(ex->type == INT || ex->type == UINT);
+      fprintf(outputfile, ".8byte %ld\n", ex->intconst);
     }
     //if it's a standard pointer, uhh???
   } else if(ty->tb & (STRUCTVAL | UNIONVAL)) {
@@ -183,16 +185,24 @@ void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
   } else {
     fprintf(outputfile, ".align %d\n", ty->tb & 0xf);
     if(ty->tb & FLOATNUM) {
+      assert(ex->type == FLOAT);
       if(ty->tb & 8) {
+        fprintf(outputfile, ".double %lf\n", ex->floatconst);
       } else if(ty->tb & 4) {
+        fprintf(outputfile, ".single %f\n", (float) ex->floatconst);
       } else {
         assert(0);
       }
     } else {
+      assert(ex->type == INT || ex->type == UINT);
       if(ty->tb & 8) {
+        fprintf(outputfile, ".8byte %ld\n", ex->intconst);
       } else if(ty->tb & 4) {
+        fprintf(outputfile, ".4byte %d\n", (int) ex->intconst);
       } else if(ty->tb & 2) {
+        fprintf(outputfile, ".2byte %hd\n", (short) ex->intconst);
       } else if(ty->tb & 1) {
+        fprintf(outputfile, ".byte %hhd\n", (char) ex->intconst);
       }
     }
   }
