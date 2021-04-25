@@ -152,16 +152,15 @@ static void cgblock(FILE* outputfile, BBLOCK* blk) {
     fprintf(outputfile, "jmp .L%d\n", blk->nextblock->work);//changed to index
 }
 
-void codegen(FILE* outputfile, PROGRAM* prog) {
-  int labelnum = prog->allblocks->length;
+static void codegen(FILE* outputfile, PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     fprintf(outputfile, ".L%d\n", i);
     cgblock(outputfile, daget(prog->allblocks, i));
   }
 }
-void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
+static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
   if(ispointer(ty)) {
-    if(ex->type == STRING) {
+    if(ex && ex->type == STRING) {
       fprintf(outputfile, ".asciz \"");
       for(int i = 0; ex->strconst[i]; i++) {
         switch(ex->strconst[i]) {
@@ -175,53 +174,94 @@ void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
       }
       fprintf(outputfile, "\"\n");
     } else if(((struct declarator_part*) dapeek(ty->pointerstack))->type == ARRAYSPEC) {
-      assert(ex->type == ARRAY_LIT);
-      //do elements one by one, we will put them all on different lines for simplicity for now
-      for(int i = 0; i < ex->params->length; i++){
-        EXPRESSION* subex = daget(ex->params, i);
-        ty->pointerstack->length--;
-        procinlit(outputfile, ty, subex);
-        ty->pointerstack->length++;
+      if(ex) {
+        assert(ex->type == ARRAY_LIT);
+        //do elements one by one, we will put them all on different lines for simplicity for now
+        for(int i = 0; i < ex->params->length; i++){
+          EXPRESSION* subex = daget(ex->params, i);
+          ty->pointerstack->length--;
+          procinlit(outputfile, ty, subex);
+          ty->pointerstack->length++;
+        }
+      } else {
+        for(int i = 0; i < ex->params->length; i++){
+          ty->pointerstack->length--;
+          procinlit(outputfile, ty, NULL);
+          ty->pointerstack->length++;
+        }
       }
     } else {
-      assert(ex->type == INT || ex->type == UINT);
-      fprintf(outputfile, ".align 8\n");
-      fprintf(outputfile, ".8byte %ld\n", ex->intconst);
+      if(ex) {
+        assert(ex->type == INT || ex->type == UINT);
+        fprintf(outputfile, ".align 8\n");
+        fprintf(outputfile, ".8byte %ld\n", ex->intconst);
+      } else {
+        fprintf(outputfile, ".align 8\n");
+        fprintf(outputfile, ".8byte 0\n");
+      }
     }
-    //if it's a standard pointer, uhh???
   } else if(ty->tb & (STRUCTVAL | UNIONVAL)) {
-    for(int i = 0; i < ty->structtype->fields->length; i++){
-      DECLARATION* subdecl = daget(ty->structtype->fields, i);
-      EXPRESSION* subex = daget(ex->params, i);
-      procinlit(outputfile, subdecl->type, subex);
+    if(ex) {
+      for(int i = 0; i < ty->structtype->fields->length; i++) {
+        DECLARATION* subdecl = daget(ty->structtype->fields, i);
+        EXPRESSION* subex = daget(ex->params, i);
+        procinlit(outputfile, subdecl->type, subex);
+      }
+    } else {
+      for(int i = 0; i < ty->structtype->fields->length; i++) {
+        DECLARATION* subdecl = daget(ty->structtype->fields, i);
+        procinlit(outputfile, subdecl->type, NULL);
+      }
     }
   } else {
     fprintf(outputfile, ".align %d\n", ty->tb & 0xf);
     if(ty->tb & FLOATNUM) {
-      assert(ex->type == FLOAT);
-      if(ty->tb & 8) {
-        fprintf(outputfile, ".double %lf\n", ex->floatconst);
-      } else if(ty->tb & 4) {
-        fprintf(outputfile, ".single %f\n", (float) ex->floatconst);
+      if(ex) {
+        assert(ex->type == FLOAT);
+        if(ty->tb & 8) {
+          fprintf(outputfile, ".double %lf\n", ex->floatconst);
+        } else if(ty->tb & 4) {
+          fprintf(outputfile, ".single %f\n", (float) ex->floatconst);
+        } else {
+          assert(0);
+        }
       } else {
-        assert(0);
+        if(ty->tb & 8) {
+          fprintf(outputfile, ".double 0.0\n");
+        } else if(ty->tb & 4) {
+          fprintf(outputfile, ".single 0.0\n");
+        } else {
+          assert(0);
+        }
       }
     } else {
-      assert(ex->type == INT || ex->type == UINT);
-      if(ty->tb & 8) {
-        fprintf(outputfile, ".8byte %ld\n", ex->intconst);
-      } else if(ty->tb & 4) {
-        fprintf(outputfile, ".4byte %d\n", (int) ex->intconst);
-      } else if(ty->tb & 2) {
-        fprintf(outputfile, ".2byte %hd\n", (short) ex->intconst);
-      } else if(ty->tb & 1) {
-        fprintf(outputfile, ".byte %hhd\n", (char) ex->intconst);
+      if(ex) {
+        assert(ex->type == INT || ex->type == UINT);
+        if(ty->tb & 8) {
+          fprintf(outputfile, ".8byte %ld\n", ex->intconst);
+        } else if(ty->tb & 4) {
+          fprintf(outputfile, ".4byte %d\n", (int) ex->intconst);
+        } else if(ty->tb & 2) {
+          fprintf(outputfile, ".2byte %hd\n", (short) ex->intconst);
+        } else if(ty->tb & 1) {
+          fprintf(outputfile, ".byte %hhd\n", (char) ex->intconst);
+        }
+      } else {
+        if(ty->tb & 8) {
+          fprintf(outputfile, ".8byte 0\n");
+        } else if(ty->tb & 4) {
+          fprintf(outputfile, ".4byte 0\n");
+        } else if(ty->tb & 2) {
+          fprintf(outputfile, ".2byte 0\n");
+        } else if(ty->tb & 1) {
+          fprintf(outputfile, ".byte 0\n");
+        }
       }
     }
   }
 }
 
-static void startgenfile(FILE* outputfile, struct lexctx* lctx) {
+void startgenfile(FILE* outputfile, struct lexctx* lctx) {
   //fprintf(outputfile, ".global %s\n", something);
   //functions that aren't static are globaled
   //fprintf(outputfile, ".extern %s\n", something);???
@@ -230,7 +270,8 @@ static void startgenfile(FILE* outputfile, struct lexctx* lctx) {
   //externglobals?
   for(int i = 0; i < lctx->globals->length; i++) {
     INITIALIZER* in = daget(lctx->globals, i);
-    printf("%s:\n", in->decl->varname);
+    if(ispointer(in->decl->type) && (((struct declarator_part*) dapeek(in->decl->type->pointerstack))->type == PARAMSSPEC || ((struct declarator_part*) dapeek(in->decl->type->pointerstack))->type == NAMELESS_PARAMSSPEC)) continue;
+    fprintf(outputfile, "%s:\n", in->decl->varname);
     procinlit(outputfile, in->decl->type, in->expr);
     //process globals
   }

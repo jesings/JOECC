@@ -27,6 +27,7 @@ int yyset_in(FILE*, void*);
 int yyset_debug(int flag, void*);
 void yylex_init_extra(void*, void**);
 void yylex_destroy(void*);
+void startgenfile(FILE* outputfile, struct lexctx* lctx);
 
 static void freev(void* v) {
   HASHPAIR* v2 = v;
@@ -107,6 +108,21 @@ static void filecomp(char* filename) {
     }
   }
   DEBUG(pthread_mutex_unlock(&printlock));
+  {
+    char* lastind = strrchr(filename, '.');
+    int len;
+    if(lastind) {
+      len = lastind - filename;
+    } else {
+      len = strlen(filename);
+    }
+    char* newname = malloc(len + 8);
+    strncpy(newname, filename, len);
+    strcpy(newname + len, ".joecco");
+    FILE* objf = fopen(newname, "w");
+    startgenfile(objf, lctx);
+    fclose(objf);
+  }
   scopepop(lctx);
   dadtorcfr(funcky, freev);
   dadtor(lctx->scopes);
