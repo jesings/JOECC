@@ -184,11 +184,8 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
           ty->pointerstack->length++;
         }
       } else {
-        for(int i = 0; i < ex->params->length; i++){
-          ty->pointerstack->length--;
-          procinlit(outputfile, ty, NULL);
-          ty->pointerstack->length++;
-        }
+        fprintf(outputfile, ".align 8\n");//overkill alignment
+        fprintf(outputfile, ".zero %d\n", lentype(ty));//overkill alignment
       }
     } else {
       if(ex) {
@@ -208,10 +205,8 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
         procinlit(outputfile, subdecl->type, subex);
       }
     } else {
-      for(int i = 0; i < ty->structtype->fields->length; i++) {
-        DECLARATION* subdecl = daget(ty->structtype->fields, i);
-        procinlit(outputfile, subdecl->type, NULL);
-      }
+      fprintf(outputfile, ".align 8\n");//overkill alignment
+      fprintf(outputfile, ".zero %d\n", lentype(ty));//overkill alignment
     }
   } else {
     fprintf(outputfile, ".align %d\n", ty->tb & 0xf);
