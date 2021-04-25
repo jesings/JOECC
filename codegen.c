@@ -209,7 +209,8 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
       fprintf(outputfile, ".zero %d\n", lentype(ty));//overkill alignment
     }
   } else {
-    fprintf(outputfile, ".align %d\n", ty->tb & 0xf);
+    if(ty->tb & 0xf != 1)
+      fprintf(outputfile, ".align %d\n", ty->tb & 0xf);
     if(ty->tb & FLOATNUM) {
       if(ex) {
         assert(ex->type == FLOAT);
@@ -221,13 +222,7 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
           assert(0);
         }
       } else {
-        if(ty->tb & 8) {
-          fprintf(outputfile, ".double 0.0\n");
-        } else if(ty->tb & 4) {
-          fprintf(outputfile, ".single 0.0\n");
-        } else {
-          assert(0);
-        }
+        fprintf(outputfile, ".zero %d\n", ty->tb & f);
       }
     } else {
       if(ex) {
@@ -242,15 +237,7 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
           fprintf(outputfile, ".byte %hhd\n", (char) ex->intconst);
         }
       } else {
-        if(ty->tb & 8) {
-          fprintf(outputfile, ".8byte 0\n");
-        } else if(ty->tb & 4) {
-          fprintf(outputfile, ".4byte 0\n");
-        } else if(ty->tb & 2) {
-          fprintf(outputfile, ".2byte 0\n");
-        } else if(ty->tb & 1) {
-          fprintf(outputfile, ".byte 0\n");
-        }
+        fprintf(outputfile, ".zero %d\n", ty->tb & f);
       }
     }
   }
