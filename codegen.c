@@ -177,12 +177,37 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
       if(ex) {
         assert(ex->type == ARRAY_LIT);
         //do elements one by one, we will put them all on different lines for simplicity for now
-        for(int i = 0; i < ex->params->length; i++){
-          EXPRESSION* subex = daget(ex->params, i);
-          ty->pointerstack->length--;
-          procinlit(outputfile, ty, subex);
-          ty->pointerstack->length++;
+        ty->pointerstack->length--;
+        if(ty->pointerstack->length || ty->tb == (FLOATNUM | STRUCTVAL | UNIONVAL)) {
+          for(int i = 0; i < ex->params->length; i++){
+            EXPRESSION* subex = daget(ex->params, i);
+            procinlit(outputfile, ty, subex);
+          }
+        } else {
+          if(ty->tb & 8) {
+            fprintf(outputfile, ".8byte ");
+          } else if(ty->tb & 4) {
+            fprintf(outputfile, ".4byte ");
+          } else if(ty->tb & 2) {
+            fprintf(outputfile, ".2byte ");
+          } else if(ty->tb & 1) {
+            fprintf(outputfile, ".byte ");
+          }
+          for(int i = 0; i < ex->params->length; i++){
+            EXPRESSION* subex = daget(ex->params, i);
+            if(ty->tb & 8) {
+              fprintf(outputfile, "%ld,", subex->intconst);
+            } else if(ty->tb & 4) {
+              fprintf(outputfile, "%d,", (int) subex->intconst);
+            } else if(ty->tb & 2) {
+              fprintf(outputfile, "%hd,", (short) subex->intconst);
+            } else if(ty->tb & 1) {
+              fprintf(outputfile, "%hhd,", (char) subex->intconst);
+            }
+          }
+          fprintf(outputfile, "\n");
         }
+        ty->pointerstack->length++;
       } else {
         fprintf(outputfile, ".align 8\n");//overkill alignment
         fprintf(outputfile, ".zero %d\n", lentype(ty));//overkill alignment
@@ -209,7 +234,7 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
       fprintf(outputfile, ".zero %d\n", lentype(ty));//overkill alignment
     }
   } else {
-    if(ty->tb & 0xf != 1)
+    if((ty->tb & 0xf) != 1)
       fprintf(outputfile, ".align %d\n", ty->tb & 0xf);
     if(ty->tb & FLOATNUM) {
       if(ex) {
@@ -222,7 +247,7 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
           assert(0);
         }
       } else {
-        fprintf(outputfile, ".zero %d\n", ty->tb & f);
+        fprintf(outputfile, ".zero %d\n", ty->tb & 0xf);
       }
     } else {
       if(ex) {
@@ -237,7 +262,7 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
           fprintf(outputfile, ".byte %hhd\n", (char) ex->intconst);
         }
       } else {
-        fprintf(outputfile, ".zero %d\n", ty->tb & f);
+        fprintf(outputfile, ".zero %d\n", ty->tb & 0xf);
       }
     }
   }
