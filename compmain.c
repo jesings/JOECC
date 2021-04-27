@@ -122,6 +122,7 @@ static void filecomp(char* filename) {
     FILE* objf = fopen(newname, "w");
     startgenfile(objf, lctx);
     fclose(objf);
+    free(newname);
   }
   scopepop(lctx);
   dadtorcfr(funcky, freev);

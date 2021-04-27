@@ -177,10 +177,11 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
       if(ex) {
         assert(ex->type == ARRAY_LIT);
         //do elements one by one, we will put them all on different lines for simplicity for now
+        int maxi = ((struct declarator_part*) dapeek(ty->pointerstack))->arrmaxind;
         ty->pointerstack->length--;
         if(ty->pointerstack->length || ty->tb == (FLOATNUM | STRUCTVAL | UNIONVAL)) {
-          for(int i = 0; i < ex->params->length; i++){
-            EXPRESSION* subex = daget(ex->params, i);
+          for(int i = 0; i < maxi; i++){
+            EXPRESSION* subex = i < ex->params->length ? daget(ex->params, i) : NULL;
             procinlit(outputfile, ty, subex);
           }
         } else {
@@ -193,16 +194,16 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
           } else if(ty->tb & 1) {
             fprintf(outputfile, ".byte ");
           }
-          for(int i = 0; i < ex->params->length; i++){
-            EXPRESSION* subex = daget(ex->params, i);
+          for(int i = 0; i < maxi; i++){
+            EXPRESSION* subex = i < ex->params->length ? daget(ex->params, i) : NULL;
             if(ty->tb & 8) {
-              fprintf(outputfile, "%ld,", subex->intconst);
+              fprintf(outputfile, "%ld,", subex ? subex->intconst : 0);
             } else if(ty->tb & 4) {
-              fprintf(outputfile, "%d,", (int) subex->intconst);
+              fprintf(outputfile, "%d,", subex ? (int) subex->intconst : 0);
             } else if(ty->tb & 2) {
-              fprintf(outputfile, "%hd,", (short) subex->intconst);
+              fprintf(outputfile, "%hd,", subex ? (short) subex->intconst : 0);
             } else if(ty->tb & 1) {
-              fprintf(outputfile, "%hhd,", (char) subex->intconst);
+              fprintf(outputfile, "%hhd,", subex ? (char) subex->intconst : 0);
             }
           }
           fprintf(outputfile, "\n");
@@ -214,7 +215,7 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
       }
     } else {
       if(ex) {
-        assert(ex->type == INT || ex->type == UINT);
+        if(!(ex->type == INT || ex->type == UINT)) foldconst(&ex);
         fprintf(outputfile, ".align 8\n");
         fprintf(outputfile, ".8byte %ld\n", ex->intconst);
       } else {
@@ -226,7 +227,7 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
     if(ex) {
       for(int i = 0; i < ty->structtype->fields->length; i++) {
         DECLARATION* subdecl = daget(ty->structtype->fields, i);
-        EXPRESSION* subex = daget(ex->params, i);
+        EXPRESSION* subex = i < ex->params->length ? daget(ex->params, i) : NULL;
         procinlit(outputfile, subdecl->type, subex);
       }
     } else {
