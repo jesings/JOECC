@@ -176,7 +176,7 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
     } else if(((struct declarator_part*) dapeek(ty->pointerstack))->type == ARRAYSPEC) {
       if(ex) {
         assert(ex->type == ARRAY_LIT);
-        //do elements one by one, we will put them all on different lines for simplicity for now
+        //do elements one by one, we will put them all on different lines (except arrays of integers) for simplicity for now
         int maxi = ((struct declarator_part*) dapeek(ty->pointerstack))->arrmaxind;
         ty->pointerstack->length--;
         if(ty->pointerstack->length || ty->tb == (FLOATNUM | STRUCTVAL | UNIONVAL)) {
@@ -270,15 +270,19 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
 }
 
 void startgenfile(FILE* outputfile, struct lexctx* lctx) {
-  //fprintf(outputfile, ".global %s\n", something);
-  //functions that aren't static are globaled
-  //fprintf(outputfile, ".extern %s\n", something);???
-  //figure this out cleverly?
+  for(int i = 0; i < lctx->externglobals->length; i++) {
+    INITIALIZER* in = daget(lctx->externglobals, i);
+    if(!(in->decl->type->tb & STATICNUM)) fprintf(outputfile, ".extern %s\n", in->decl->varname);
+    //not all of these are necessary
+  }
   fprintf(outputfile, ".data\n");
-  //externglobals?
   for(int i = 0; i < lctx->globals->length; i++) {
     INITIALIZER* in = daget(lctx->globals, i);
-    if(ispointer(in->decl->type) && (((struct declarator_part*) dapeek(in->decl->type->pointerstack))->type == PARAMSSPEC || ((struct declarator_part*) dapeek(in->decl->type->pointerstack))->type == NAMELESS_PARAMSSPEC)) continue;
+    if(ispointer(in->decl->type) && (((struct declarator_part*) dapeek(in->decl->type->pointerstack))->type == PARAMSSPEC || ((struct declarator_part*) dapeek(in->decl->type->pointerstack))->type == NAMELESS_PARAMSSPEC)) {
+      if(!(in->decl->type->tb & STATICNUM)) fprintf(outputfile, ".global %s\n", in->decl->varname);
+      //if not a defined function extern it instead?
+      continue;
+    }
     fprintf(outputfile, "%s:\n", in->decl->varname);
     procinlit(outputfile, in->decl->type, in->expr);
     //process globals
