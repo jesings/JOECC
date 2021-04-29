@@ -279,14 +279,24 @@ void startgenfile(FILE* outputfile, struct lexctx* lctx) {
   for(int i = 0; i < lctx->globals->length; i++) {
     INITIALIZER* in = daget(lctx->globals, i);
     if(ispointer(in->decl->type) && (((struct declarator_part*) dapeek(in->decl->type->pointerstack))->type == PARAMSSPEC || ((struct declarator_part*) dapeek(in->decl->type->pointerstack))->type == NAMELESS_PARAMSSPEC)) {
-      if(!(in->decl->type->tb & STATICNUM)) fprintf(outputfile, ".global %s\n", in->decl->varname);
-      //if not a defined function extern it instead?
-      continue;
+      if(!(in->decl->type->tb & STATICNUM)) {
+        if(search(lctx->funcs, in->decl->varname)) {
+          fprintf(outputfile, ".global %s\n", in->decl->varname);
+        } else {
+          fprintf(outputfile, ".extern %s\n", in->decl->varname);
+        }
+      }
+    } else if(in->decl->type->tb & EXTERNNUM) {
+      fprintf(outputfile, ".extern %s\n", in->decl->varname);
+    } else {
+      fprintf(outputfile, ".global %s\n", in->decl->varname);
+      fprintf(outputfile, "%s:\n", in->decl->varname);
+      procinlit(outputfile, in->decl->type, in->expr);
     }
-    fprintf(outputfile, "%s:\n", in->decl->varname);
-    procinlit(outputfile, in->decl->type, in->expr);
     //process globals
   }
+  //string literals
+  //
   //fprintf(outputfile, ".asciiz \"%s\"\n", something);
   fprintf(outputfile, ".text\n");
 }
