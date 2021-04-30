@@ -158,21 +158,33 @@ static void codegen(FILE* outputfile, PROGRAM* prog) {
     cgblock(outputfile, daget(prog->allblocks, i));
   }
 }
+static void stringconsty(FILE* outputfile, char* string) {
+  fprintf(outputfile, ".asciz \"");
+  for(int i = 0; string[i]; i++) {
+    switch(string[i]) {
+      case 0 ... 8: case 11: case 12: case 14 ... 31: case 127:
+        fputs("\\%hho", outputfile);
+        break;
+      case '\n':
+        fputs("\\n", outputfile);
+        break;
+      case '\r':
+        fputs("\\r", outputfile);
+        break;
+      case '\t':
+        fputs("\\t", outputfile);
+        break;
+      default:
+        fputc(string[i], outputfile);
+        break;
+    }
+  }
+  fprintf(outputfile, "\"\n");
+}
 static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
   if(ispointer(ty)) {
     if(ex && ex->type == STRING) {
-      fprintf(outputfile, ".asciz \"");
-      for(int i = 0; ex->strconst[i]; i++) {
-        switch(ex->strconst[i]) {
-          case 0 ... 31: case 127: //this does newlines and carriage returns because it's a lazy solution
-            fputs("\\%hho", outputfile);
-            break;
-          default:
-            fputc(ex->strconst[i], outputfile);
-            break;
-        }
-      }
-      fprintf(outputfile, "\"\n");
+      stringconsty(outputfile, ex->strconst);
     } else if(((struct declarator_part*) dapeek(ty->pointerstack))->type == ARRAYSPEC) {
       if(ex) {
         assert(ex->type == ARRAY_LIT);
@@ -293,10 +305,8 @@ void startgenfile(FILE* outputfile, struct lexctx* lctx) {
       fprintf(outputfile, "%s:\n", in->decl->varname);
       procinlit(outputfile, in->decl->type, in->expr);
     }
-    //process globals
   }
   //string literals
-  //
-  //fprintf(outputfile, ".asciiz \"%s\"\n", something);
+  //float literals
   fprintf(outputfile, ".text\n");
 }
