@@ -1,6 +1,10 @@
 #include <assert.h>
 #include "3ac.h"
 
+//assumptions we make before codegen--aside from copy(?) expressions, addr,
+//alloc (anything else?) , only 1 deref'ed arg in the expression
+//string constants are factored out to further globals, as are float consts(maybe just for x86_64?)
+//loads and stores are inserted before and after so that these assumptions hold
 static void addrgen(FILE* of, ADDRTYPE adt, ADDRESS addr) {
   if(adt & ISCONST) {
     assert(!(adt & ISSTRCONST)); //handle strconsts beforehand (address)
@@ -82,29 +86,20 @@ static void cgblock(FILE* outputfile, BBLOCK* blk) {
           case BEZ_3:
             fprintf(outputfile, "jz .L%d\n", blk->branchblock->work);
             break;
-          case BEQ_U:
+          case BEQ_U: case BEQ_F:
             fprintf(outputfile, "je .L%d\n", blk->branchblock->work);
             break;
-          case BEQ_F:
-            fprintf(outputfile, "je .L%d\n", blk->branchblock->work);
-            break;
-          case BGE_U:
+          case BGE_U: case BGE_F:
             fprintf(outputfile, "jae .L%d\n", blk->branchblock->work);
             break;
           case BGE_I:
             fprintf(outputfile, "jge .L%d\n", blk->branchblock->work);
             break;
-          case BGE_F:
-            fprintf(outputfile, "jae .L%d\n", blk->branchblock->work);
-            break;
-          case BGT_U:
+          case BGT_U: case BGT_F:
             fprintf(outputfile, "ja .L%d\n", blk->branchblock->work);
             break;
           case BGT_I:
             fprintf(outputfile, "jg .L%d\n", blk->branchblock->work);
-            break;
-          case BGT_F:
-            fprintf(outputfile, "ja .L%d\n", blk->branchblock->work);
             break;
           default:
             assert(0);
@@ -117,29 +112,20 @@ static void cgblock(FILE* outputfile, BBLOCK* blk) {
           case BEZ_3:
             fprintf(outputfile, "jnz .L%d\n", blk->nextblock->work);
             break;
-          case BEQ_U:
+          case BEQ_U: case BEQ_F:
             fprintf(outputfile, "jne .L%d\n", blk->nextblock->work);
             break;
-          case BEQ_F:
-            fprintf(outputfile, "jne .L%d\n", blk->nextblock->work);
-            break;
-          case BGE_U:
+          case BGE_U: case BGE_F:
             fprintf(outputfile, "jb .L%d\n", blk->nextblock->work);
             break;
           case BGE_I:
             fprintf(outputfile, "jl .L%d\n", blk->nextblock->work);
             break;
-          case BGE_F:
-            fprintf(outputfile, "jb .L%d\n", blk->nextblock->work);
-            break;
-          case BGT_U:
+          case BGT_U: case BGT_F:
             fprintf(outputfile, "jbe .L%d\n", blk->nextblock->work);
             break;
           case BGT_I:
             fprintf(outputfile, "jle .L%d\n", blk->nextblock->work);
-            break;
-          case BGT_F:
-            fprintf(outputfile, "jbe .L%d\n", blk->nextblock->work);
             break;
           default:
             assert(0);
