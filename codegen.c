@@ -1,6 +1,43 @@
 #include <assert.h>
 #include "3ac.h"
 
+#define X(x) case x:
+static void ldstrsep(PROGRAM* prog) {
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    if(!blk->lastop) continue;
+    OPERATION* op = blk->firstop;
+    OPERATION** prevptr = &blk->firstop;
+    while(1) {
+      int count;
+      switch(op->opcode) {
+        OPS_NOVAR_3ac OPS_1_3ac OPS_1_ASSIGN_3ac case COPY_3: case ARROFF: case CALL_3: case DEALOC: case ASM: case PHI: case ADDR_3:
+          break;
+        OPS_3_3ac
+          count = ((op->addr0_type & ISDEREF) + (op->addr1_type & ISDEREF) + (op->dest_type & ISDEREF)) / ISDEREF;
+          break;
+        case MTP_OFF: case ARRMOV:
+          if(op->addr0_type & ISDEREF) {
+          }
+          break;
+        OPS_2_3ac
+          if(op->addr0_type & ISDEREF && op->dest_type & ISDEREF) {
+          }
+          break;
+        OPS_NODEST_3ac
+          if(op->addr0_type & ISDEREF && op->addr1_type & ISDEREF) {
+          }
+          break;
+      }
+      if(op == blk->lastop) break;
+      prevptr = &op->nextop;
+      op = op->nextop;
+    }
+  }
+}
+#undef X
+
+
 //assumptions we make before codegen--aside from copy(?) expressions, addr,
 //alloc (anything else?) , only 1 deref'ed arg in the expression
 //string constants are factored out to further globals, as are float consts(maybe just for x86_64?)
