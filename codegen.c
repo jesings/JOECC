@@ -9,19 +9,40 @@ static void ldstrsep(PROGRAM* prog) {
     OPERATION* op = blk->firstop;
     OPERATION** prevptr = &blk->firstop;
     while(1) {
-      int count;
+      char inplace;
       switch(op->opcode) {
         OPS_NOVAR_3ac OPS_1_3ac OPS_1_ASSIGN_3ac case COPY_3: case ARROFF: case CALL_3: case DEALOC: case ASM: case PHI: case ADDR_3:
           break;
         OPS_3_3ac
-          count = ((op->addr0_type & ISDEREF) + (op->addr1_type & ISDEREF) + (op->dest_type & ISDEREF)) / ISDEREF;
+        //shouldn't really work for float operations!
+          inplace = 0;
+          if(op->addr0_type & ISDEREF && op->dest_type & ISDEREF) {
+            if((op->addr0_type & (ISLABEL | ISFLOAT)) == (op->dest_type & (ISLABEL | ISFLOAT)) &&
+               (op->addr0_type & ISLABEL ? strcmp(op->addr0.labelname, op->dest.labelname): op->addr0.iregnum == op->dest.iregnum)) {
+              inplace = 1;
+            } else {
+            }
+          }
+          if(op->addr1_type & ISDEREF && op->dest_type & ISDEREF) {
+            if(!inplace && (op->addr1_type & (ISLABEL | ISFLOAT)) == (op->dest_type & (ISLABEL | ISFLOAT)) &&
+               (op->addr1_type & ISLABEL ? strcmp(op->addr1.labelname, op->dest.labelname): op->addr1.iregnum == op->dest.iregnum)) {
+               //do nothing?
+            } else {
+            }
+          }
           break;
         case MTP_OFF: case ARRMOV:
           if(op->addr0_type & ISDEREF) {
           }
           break;
         OPS_2_3ac
+        //shouldn't really work for F2F, NEG_F
           if(op->addr0_type & ISDEREF && op->dest_type & ISDEREF) {
+            if((op->addr0_type & (ISLABEL | ISFLOAT)) == (op->dest_type & (ISLABEL | ISFLOAT)) &&
+               (op->addr0_type & ISLABEL ? strcmp(op->addr0.labelname, op->dest.labelname): op->addr0.iregnum == op->dest.iregnum)) {
+              //do nothing?
+            } else {
+            }
           }
           break;
         OPS_NODEST_3ac
