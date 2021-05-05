@@ -21,6 +21,13 @@ static void ldstrsep(PROGRAM* prog) {
                (op->addr0_type & ISLABEL ? strcmp(op->addr0.labelname, op->dest.labelname): op->addr0.iregnum == op->dest.iregnum)) {
               inplace = 1;
             } else {
+              ADDRESS adr;
+              adr.iregnum = prog->regcnt++;
+              ADDRTYPE adrt = op->addr0_type & GENREGMASK;
+              *prevptr = ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr);
+              (*prevptr)->nextop = op;
+              op->addr0_type = adrt;
+              op->addr0 = adr;
             }
           }
           if(op->addr1_type & ISDEREF && op->dest_type & ISDEREF) {
@@ -28,11 +35,25 @@ static void ldstrsep(PROGRAM* prog) {
                (op->addr1_type & ISLABEL ? strcmp(op->addr1.labelname, op->dest.labelname): op->addr1.iregnum == op->dest.iregnum)) {
                //do nothing?
             } else {
+              ADDRESS adr;
+              adr.iregnum = prog->regcnt++;
+              ADDRTYPE adrt = op->addr1_type & GENREGMASK;
+              *prevptr = ct_3ac_op2(MOV_3, op->addr1_type, op->addr1, adrt, adr);
+              (*prevptr)->nextop = op;
+              op->addr1_type = adrt;
+              op->addr1 = adr;
             }
           }
           break;
         case MTP_OFF: case ARRMOV:
           if(op->addr0_type & ISDEREF) {
+            ADDRESS adr;
+            adr.iregnum = prog->regcnt++;
+            ADDRTYPE adrt = op->addr0_type & GENREGMASK;
+            *prevptr = ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr);
+            (*prevptr)->nextop = op;
+            op->addr0_type = adrt;
+            op->addr0 = adr;
           }
           break;
         OPS_2_3ac
@@ -42,11 +63,25 @@ static void ldstrsep(PROGRAM* prog) {
                (op->addr0_type & ISLABEL ? strcmp(op->addr0.labelname, op->dest.labelname): op->addr0.iregnum == op->dest.iregnum)) {
               //do nothing?
             } else {
+              ADDRESS adr;
+              adr.iregnum = prog->regcnt++;
+              ADDRTYPE adrt = op->addr0_type & GENREGMASK;
+              *prevptr = ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr);
+              (*prevptr)->nextop = op;
+              op->addr0_type = adrt;
+              op->addr0 = adr;
             }
           }
           break;
         OPS_NODEST_3ac
           if(op->addr0_type & ISDEREF && op->addr1_type & ISDEREF) {
+            ADDRESS adr;
+            adr.iregnum = prog->regcnt++;
+            ADDRTYPE adrt = op->addr0_type & GENREGMASK;
+            *prevptr = ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr);
+            (*prevptr)->nextop = op;
+            op->addr0_type = adrt;
+            op->addr0 = adr;
           }
           break;
       }
