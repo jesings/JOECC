@@ -8,6 +8,7 @@
 #include "3ac.h"
 #include "ssa.h"
 #include "opt.h"
+#include "codegen.h"
 
 #ifdef NODEBUG
 #define DEBUG(a)
@@ -27,7 +28,6 @@ int yyset_in(FILE*, void*);
 int yyset_debug(int flag, void*);
 void yylex_init_extra(void*, void**);
 void yylex_destroy(void*);
-void startgenfile(FILE* outputfile, struct lexctx* lctx);
 
 static void freev(void* v) {
   HASHPAIR* v2 = v;
@@ -99,6 +99,9 @@ static void filecomp(char* filename) {
       killreg(prog);
       DEBUG(printf("Ops after GVN %d\n", countops(prog)));
       DEBUG(treeprog(prog, pairthere->key, "withgvn"));
+      ldstrsep(prog);
+      DEBUG(printf("Ops after ldstrsep %d\n", countops(prog)));
+      DEBUG(treeprog(prog, pairthere->key, "ldstrsep"));
 
       //ssaout(prog);
       //DEBUG(printf("Ops destructed SSA %d\n", countops(prog)));

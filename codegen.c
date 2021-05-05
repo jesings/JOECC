@@ -1,8 +1,9 @@
 #include <assert.h>
 #include "3ac.h"
+#include "codegen.h"
 
 #define X(x) case x:
-static void ldstrsep(PROGRAM* prog) {
+void ldstrsep(PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     if(!blk->lastop) continue;
@@ -11,7 +12,43 @@ static void ldstrsep(PROGRAM* prog) {
     while(1) {
       char inplace;
       switch(op->opcode) {
-        OPS_NOVAR_3ac OPS_1_3ac OPS_1_ASSIGN_3ac case COPY_3: case ARROFF: case CALL_3: case DEALOC: case ASM: case PHI: case ADDR_3:
+        OPS_NOVAR_3ac OPS_1_3ac OPS_1_ASSIGN_3ac case COPY_3: case ARROFF: case CALL_3: case DEALOC: case ASM:
+          break;
+        case PHI:
+          if(op->dest_type & ISDEREF) {
+            for(int i = 0; i < blk->inedges->length; i++) {
+              if((op->addr0.joins[i].addr_type & (ISLABEL | ISFLOAT)) == (op->dest_type & (ISLABEL | ISFLOAT)) &&
+                 (op->addr0.joins[i].addr_type & ISLABEL ? strcmp(op->addr0.joins[i].addr.labelname, op->dest.labelname): op->addr0.joins[i].addr.iregnum == op->dest.iregnum)) {
+                //do nothing
+              } else {
+                BBLOCK* inblk = daget(blk->inedges, i);
+                ADDRESS adr;
+                adr.iregnum = prog->regcnt++;
+                ADDRTYPE adrt = op->addr0_type & GENREGMASK;
+                if(inblk->lastop) {
+                  inblk->lastop = inblk->lastop->nextop = ct_3ac_op2(MOV_3, op->addr0.joins[i].addr_type, op->addr0.joins[i].addr, adrt, adr);
+                } else {
+                  inblk->firstop = inblk->lastop = ct_3ac_op2(MOV_3, op->addr0.joins[i].addr_type, op->addr0.joins[i].addr, adrt, adr);
+                }
+                op->addr0.joins[i].addr_type = adrt;
+                op->addr0.joins[i].addr = adr;
+              }
+            }
+          }
+          break; //maybe handle phi
+        case ADDR_3:
+          if(op->addr0_type & ISDEREF && op->dest_type & ISDEREF) {
+            ADDRESS adr;
+            adr.iregnum = prog->regcnt++;
+            ADDRTYPE adrt = op->dest_type & GENREGMASK;
+            OPERATION* newop= ct_3ac_op2(MOV_3, adrt, adr, op->dest_type, op->dest);
+            newop->nextop = op->nextop;
+            op->nextop = newop;
+            op->dest_type = adrt;
+            op->dest = adr;
+            if(blk->lastop == op) blk->lastop = op;
+            op = newop; //prevent useless iteration
+          }
           break;
         OPS_3_3ac
         //shouldn't really work for float operations!
