@@ -42,6 +42,21 @@ int zzparse(yyscan_t scanner);
 int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner);
 void yypush_stringbuffer(char* str, int length, const char* macname, YY_BUFFER_STATE ybs, yyscan_t yyscanner);
 
+const char* searchpath[] = {
+#ifdef USECLANG
+  "/usr/lib/clang/" HEADERS_VERSION "/include",
+#else
+  "/usr/lib/gcc/x86_64-pc-linux-gnu/" HEADERS_VERSION "/include/",
+#endif
+  "/usr/local/include/",
+#ifdef USECLANG
+  "/usr/lib/clang/" HEADERS_VERSION "/include-fixed", //dummy, does not exist
+#else
+  "/usr/lib/gcc/x86_64-pc-linux-gnu/" HEADERS_VERSION "/include-fixed/",
+#endif
+  "/usr/include/",
+};
+
 struct arginfo {
   DYNSTR* argi;
   int pdepth;
@@ -70,7 +85,7 @@ struct arginfo {
 %x ERROR WARNING LINE
 %x STRINGLIT CHARLIT
 %x CALLMACRO FINDREPLACE
-%x WITHINIF CHECKDEFINED CHECKDEFINED2
+%x WITHINIF CHECKDEFINED CHECKDEFINED2 HASINCLUDENEXT
 
 %%
 <CALLMACRO,WITHINIF,INITIAL>{
@@ -272,14 +287,6 @@ struct arginfo {
       lctx->ls->stmtover = 1;
       yytext[yyleng - 1] = '\0'; //ignore closing >
       char pathbuf[256];
-      static const char* searchpath[] = {
-        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.2.0/include/",
-        //"/usr/lib/clang/11.1.0/include",
-        "/usr/local/include/",
-        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.2.0/include-fixed/",
-        //"/usr/lib/clang/11.1.0/include-fixed", //dummy, does not exist
-        "/usr/include/",
-        };
       yy_pop_state(yyscanner);
       int i;
       for(i = 0; i < 4 /*sizeof searchpath*/; i++) {
@@ -352,14 +359,6 @@ struct arginfo {
       lctx->ls->stmtover = 1;
       yytext[yyleng - 1] = '\0'; //ignore closing >
       char pathbuf[256];
-      static const char* searchpath[] = {
-        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.2.0/include/",
-        //"/usr/lib/clang/11.1.0/include",
-        "/usr/local/include/",
-        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.2.0/include-fixed/",
-        //"/usr/lib/clang/11.1.0/include-fixed", //dummy, does not exist
-        "/usr/include/",
-        };
       yy_pop_state(yyscanner);
       int i = 0;
       for(; i < 3 && strncmp(yylloc->filename, searchpath[i], strlen(searchpath[i])); ++i) ;
@@ -739,6 +738,28 @@ struct arginfo {
     }
 }
 
+<HASINCLUDENEXT>{
+  [[:blank:]]*\) {yy_pop_state(yyscanner);}
+  [<"][^">]*[">] {
+    //maybe check completion
+    int i = 0;
+    char pathbuf[256];
+    yytext[yyleng - 1] = 0;
+    yylval_param->unum = 0;
+    for(; i < 4 && strncmp(yylloc->filename, searchpath[i], strlen(searchpath[i])); ++i) ;
+    ++i;
+    for(; i < 4 /*sizeof searchpath*/; ++i) {
+      FILE* newbuf;
+      snprintf(pathbuf, 256, "%s%s", searchpath[i], yytext + 1);
+      if((newbuf = fopen(pathbuf, "r")) != NULL) {
+        yylval_param->unum = 1;
+        break;
+      }
+    } 
+    return UNSIGNED_LITERAL;
+    }
+}
+
 <CHECKDEFINED>{
   [[:blank:]]*\) {yy_pop_state(yyscanner);}
   {IDENT} {
@@ -861,6 +882,7 @@ __asm__ {return ASM;}
 <WITHINIF>{
   defined{BLANKC}"("{BLANKC} {yy_push_state(CHECKDEFINED, yyscanner);}
   defined{BLANKC} {yy_push_state(CHECKDEFINED2, yyscanner);}
+  __has_include_next{BLANKC}"("{BLANKC} {yy_push_state(HASINCLUDENEXT, yyscanner);}
   {IDENT} {
     char* ds = strdup(yytext);
     int mt = check_type(ds, 0, yylloc, yyscanner);

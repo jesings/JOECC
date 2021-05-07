@@ -706,7 +706,7 @@ arrescoal:
     foldconst(&$2);
     assert($2->type == INT || $2->type == UINT);
     $$->inits = dactor(32 > $2->intconst + 1 ? 32 : $2->intconst + 1);
-    for(int i = $$->inits->length; i < $5->intconst; i++) {
+    for(int i = $$->inits->length; i < $2->intconst; i++) {
       $$->inits->arr[i] = NULL;
     }
     $$->inits->arr[$2->intconst] = $5;

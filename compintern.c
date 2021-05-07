@@ -1149,9 +1149,11 @@ struct lexctx* ctxinit(void) {
   declmacro(lct->defines, "__UINT16_TYPE__", "unsigned short");
   declmacro(lct->defines, "__INT8_TYPE__", "char");
   declmacro(lct->defines, "__UINT8_TYPE__", "unsigned char");
+  char headv[256];
+  snprintf(headv, 256, "\"%s\"", HEADERS_VERSION);
+  declmacro(lct->defines, "HEADERS_VERSION", headv); //silly
   declfmacro(lct->defines, "__attribute__", "a", "");
   declfmacro(lct->defines, "__has_feature", "a", "0"); //not right at all
-  declfmacro(lct->defines, "__has_include_next", "a", "0"); //not quite right
   lct->ls = malloc(sizeof(struct lstate));
   lct->ls->locs = dactor(32);
   lct->ls->defargs = NULL;
