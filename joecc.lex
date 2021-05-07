@@ -273,10 +273,12 @@ struct arginfo {
       yytext[yyleng - 1] = '\0'; //ignore closing >
       char pathbuf[256];
       static const char* searchpath[] = {
-        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.2.0/include",
-        "/usr/local/include",
-        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.2.0/include-fixed",
-        "/usr/include",
+        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.2.0/include/",
+        //"/usr/lib/clang/11.1.0/include",
+        "/usr/local/include/",
+        "/usr/lib/gcc/x86_64-pc-linux-gnu/10.2.0/include-fixed/",
+        //"/usr/lib/clang/11.1.0/include-fixed", //dummy, does not exist
+        "/usr/include/",
         };
       yy_pop_state(yyscanner);
       int i;
@@ -352,8 +354,10 @@ struct arginfo {
       char pathbuf[256];
       static const char* searchpath[] = {
         "/usr/lib/gcc/x86_64-pc-linux-gnu/10.2.0/include/",
+        //"/usr/lib/clang/11.1.0/include",
         "/usr/local/include/",
         "/usr/lib/gcc/x86_64-pc-linux-gnu/10.2.0/include-fixed/",
+        //"/usr/lib/clang/11.1.0/include-fixed", //dummy, does not exist
         "/usr/include/",
         };
       yy_pop_state(yyscanner);
@@ -875,7 +879,7 @@ __asm__ {return ASM;}
   char* ylstr = strdup(yytext);
   int mt = check_type(ylstr, 1, yylloc, yyscanner);
   switch(mt) {
-    case SYMBOL: case TYPE_NAME: ;
+    case SYMBOL: case TYPE_NAME:
       yylval_param->str = ylstr;
       return mt;
   } 

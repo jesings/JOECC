@@ -1138,7 +1138,20 @@ struct lexctx* ctxinit(void) {
   declmacro(lct->defines, "__linux__", "1"); 
   declmacro(lct->defines, "__builtin_va_list", "byte*"); //should be typedef
   declmacro(lct->defines, "SDL_DISABLE_IMMINTRIN_H", "1");
+  declmacro(lct->defines, "__SIZE_TYPE__", "unsigned long");
+  declmacro(lct->defines, "__PTRDIFF_TYPE__", "unsigned long");
+  declmacro(lct->defines, "__WCHAR_TYPE__", "unsigned long");
+  declmacro(lct->defines, "__INT64_TYPE__", "long");
+  declmacro(lct->defines, "__UINT64_TYPE__", "unsigned long");
+  declmacro(lct->defines, "__INT32_TYPE__", "int");
+  declmacro(lct->defines, "__UINT32_TYPE__", "unsigned int");
+  declmacro(lct->defines, "__INT16_TYPE__", "short");
+  declmacro(lct->defines, "__UINT16_TYPE__", "unsigned short");
+  declmacro(lct->defines, "__INT8_TYPE__", "char");
+  declmacro(lct->defines, "__UINT8_TYPE__", "unsigned char");
   declfmacro(lct->defines, "__attribute__", "a", "");
+  declfmacro(lct->defines, "__has_feature", "a", "0"); //not right at all
+  declfmacro(lct->defines, "__has_include_next", "a", "0"); //not quite right
   lct->ls = malloc(sizeof(struct lstate));
   lct->ls->locs = dactor(32);
   lct->ls->defargs = NULL;
