@@ -49,9 +49,7 @@ const char* searchpath[] = {
   "/usr/lib/gcc/x86_64-pc-linux-gnu/" HEADERS_VERSION "/include/",
 #endif
   "/usr/local/include/",
-#ifdef USECLANG
-  "/usr/lib/clang/" HEADERS_VERSION "/include-fixed", //dummy, does not exist
-#else
+#ifndef USECLANG
   "/usr/lib/gcc/x86_64-pc-linux-gnu/" HEADERS_VERSION "/include-fixed/",
 #endif
   "/usr/include/",
@@ -288,8 +286,8 @@ struct arginfo {
       yytext[yyleng - 1] = '\0'; //ignore closing >
       char pathbuf[256];
       yy_pop_state(yyscanner);
-      int i;
-      for(i = 0; i < 4 /*sizeof searchpath*/; i++) {
+      unsigned int i;
+      for(i = 0; i < sizeof(searchpath) / sizeof(char*) ; i++) {
         FILE* newbuf;
         snprintf(pathbuf, 256, "%s/%s", searchpath[i], yytext + 1); //ignore opening <
         if((newbuf = fopen(pathbuf, "r")) != NULL) {
@@ -305,7 +303,7 @@ struct arginfo {
           break;
         }
       } 
-      if(i == 4){
+      if(i == sizeof(searchpath) / sizeof(char*)){
         fprintf(stderr, "Invalid system file %s included!\n", yytext + 1);
       }
     }
@@ -360,10 +358,10 @@ struct arginfo {
       yytext[yyleng - 1] = '\0'; //ignore closing >
       char pathbuf[256];
       yy_pop_state(yyscanner);
-      int i = 0;
-      for(; i < 3 && strncmp(yylloc->filename, searchpath[i], strlen(searchpath[i])); ++i) ;
+      unsigned int i = 0;
+      for(; i < sizeof(searchpath) / sizeof(char*) - 1 && strncmp(yylloc->filename, searchpath[i], strlen(searchpath[i])); ++i) ;
       ++i;
-      for(; i < 4 /*sizeof searchpath*/; ++i) {
+      for(; i < sizeof(searchpath) / sizeof(char*); ++i) {
         FILE* newbuf;
         snprintf(pathbuf, 256, "%s%s", searchpath[i], yytext + 1); //ignore opening
         if((newbuf = fopen(pathbuf, "r")) != NULL) {
@@ -742,13 +740,13 @@ struct arginfo {
   [[:blank:]]*\) {yy_pop_state(yyscanner);}
   [<"][^">]*[">] {
     //maybe check completion
-    int i = 0;
+    unsigned int i = 0;
     char pathbuf[256];
     yytext[yyleng - 1] = 0;
     yylval_param->unum = 0;
-    for(; i < 4 && strncmp(yylloc->filename, searchpath[i], strlen(searchpath[i])); ++i) ;
+    for(; i < sizeof(searchpath) / sizeof(char*) && strncmp(yylloc->filename, searchpath[i], strlen(searchpath[i])); ++i) ;
     ++i;
-    for(; i < 4 /*sizeof searchpath*/; ++i) {
+    for(; i < sizeof(searchpath) / sizeof(char*) /*sizeof searchpath*/; ++i) {
       FILE* newbuf;
       snprintf(pathbuf, 256, "%s%s", searchpath[i], yytext + 1);
       if((newbuf = fopen(pathbuf, "r")) != NULL) {

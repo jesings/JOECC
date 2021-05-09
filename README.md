@@ -27,6 +27,10 @@ NOTE: JOECC is a work-in progress, and currently cannot fully compile code
 - [ ] Machine code optimization
 - [ ] Linker backend
 
+# Headers
+By default, JOECC attempts to use the system's gcc headers which it looks for at /usr/lib/gcc/x86\_64-pc-linux-gnu/(GCC VERSION). You can change this in joecc.lex in case you want to make it use a different directory.
+If you specify that JOECC should use clang headers (by running make useclang or by defining the USECLANG preprocessor macros, it looks for headers at /usr/lib/clang/(CLANG VERSION). This can be changed in the same location.
+
 # JOECCIR
 
 JOECCIR (pronounced joker) is JOECC's 3 address code intermediate representation.
