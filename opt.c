@@ -782,9 +782,15 @@ void collatealloc(PROGRAM* prog) {
               *insertloc = deallocop;
             } else {
               if(inquestion->nextblock->dom == inquestion || fixedintersect(blk, inquestion->nextblock)) {
-                dapush(allocfrontier, inquestion->nextblock);
-                if(inquestion->branchblock)
-                  dapush(allocfrontier, inquestion->branchblock);
+                if(fixedintersect(inquestion->nextblock, blk)) {
+                  //nothing to be dealloced if the loop is infinite!
+                  puts("Infinite loop detected");
+                  //is this sufficient for this purpose?
+                } else {
+                  dapush(allocfrontier, inquestion->nextblock);
+                  if(inquestion->branchblock)
+                    dapush(allocfrontier, inquestion->branchblock);
+                }
               } else {
                 OPERATION* deallocop = ct_3ac_op1(DEALOC, op->dest_type, op->dest);
                 //repetition would be handled by PRE

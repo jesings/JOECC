@@ -230,10 +230,14 @@ void ssa(PROGRAM* prog) {
   }
 
   ind = blocks->length;
-  prog->finalblock->postdom = prog->finalblock;
-  prog->finalblock->postdomind = 0;
-  for(int i = 0; i < prog->finalblock->inedges->length; i++)
-    rupdt(daget(prog->finalblock->inedges, i), blocklist, &ind);
+  if(prog->finalblock) {
+    prog->finalblock->postdom = prog->finalblock;
+    prog->finalblock->postdomind = 0;
+    for(int i = 0; i < prog->finalblock->inedges->length; i++)
+      rupdt(daget(prog->finalblock->inedges, i), blocklist, &ind);
+  } else {
+    assert(0); //cannot handle infinite loops
+  }
 
   changed = 1;
   while(!changed) {
