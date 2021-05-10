@@ -236,7 +236,6 @@ void ssa(PROGRAM* prog) {
     for(int i = 0; i < prog->finalblock->inedges->length; i++)
       rupdt(daget(prog->finalblock->inedges, i), blocklist, &ind);
   } else {
-    assert(0); //cannot handle infinite loops
   }
 
   changed = 1;

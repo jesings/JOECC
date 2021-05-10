@@ -1327,6 +1327,7 @@ PROGRAM* linefunc(FUNC* f) {
     dapush(prog->finalblock->inedges, beforeexit);
   }
   dapush(prog->allblocks, prog->finalblock);
+  prog->closedblocks = NULL;
   return prog;
 }
 
@@ -1667,5 +1668,6 @@ void freeprog(PROGRAM* prog) {
   htdtor(prog->labels);
   assert(prog->unfilledlabels->keys == 0);
   htdtor(prog->unfilledlabels);
+  if(prog->closedblocks) dadtor(prog->closedblocks);
   free(prog);
 }

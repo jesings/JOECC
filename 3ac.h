@@ -148,7 +148,10 @@ typedef struct {
   DYNARR* dynchars;
   HASHTABLE* labels;
   HASHTABLE* unfilledlabels;
-  BBLOCK* curblock;
+  union {
+    BBLOCK* curblock;
+    DYNARR* closedblocks;
+  };
   BBLOCK* finalblock;
   int* tmpstore;
   enum passes pdone;

@@ -145,7 +145,7 @@ void prunebranch(PROGRAM* prog) {
             } else {
               dharma(blk->branchblock->inedges, blk);
             }
-            blk->branchblock = NULL;
+            goto cleantrue;
           }
           break;
         case BEZ_3:
@@ -157,7 +157,7 @@ void prunebranch(PROGRAM* prog) {
             } else {
               dharma(blk->branchblock->inedges, blk);
             }
-            blk->branchblock = NULL;
+            goto cleantrue;
           }
           break;
         case BEQ_U:
@@ -169,11 +169,11 @@ void prunebranch(PROGRAM* prog) {
             } else {
               dharma(blk->branchblock->inedges, blk);
             }
-            blk->branchblock = NULL;
+            goto cleantrue;
           } else if(feq(blk->lastop)) {
             blk->lastop->opcode = NOP_3;
             dharma(blk->branchblock->inedges, blk);
-            blk->branchblock = NULL;
+            goto cleantrue;
           }
           break;
         case BEQ_F:
@@ -185,11 +185,11 @@ void prunebranch(PROGRAM* prog) {
             } else {
               dharma(blk->branchblock->inedges, blk);
             }
-            blk->branchblock = NULL;
+            goto cleantrue;
           } else if(feq(blk->lastop)) {
             blk->lastop->opcode = NOP_3;
             dharma(blk->branchblock->inedges, blk);
-            blk->branchblock = NULL;
+            goto cleantrue;
           }
           break;
         case BGT_U:
@@ -201,12 +201,12 @@ void prunebranch(PROGRAM* prog) {
             } else {
               dharma(blk->branchblock->inedges, blk);
             }
-            blk->branchblock = NULL;
+            goto cleantrue;
           } else if(feq(blk->lastop)) {
             blk->lastop->opcode = NOP_3;
             dharma(blk->nextblock->inedges, blk);
             blk->nextblock = blk->branchblock;
-            blk->branchblock = NULL;
+            goto cleantrue;
           }
           break;
         case BGT_I:
@@ -218,12 +218,12 @@ void prunebranch(PROGRAM* prog) {
             } else {
               dharma(blk->branchblock->inedges, blk);
             }
-            blk->branchblock = NULL;
+            goto cleantrue;
           } else if(feq(blk->lastop)) {
             blk->lastop->opcode = NOP_3;
             dharma(blk->nextblock->inedges, blk);
             blk->nextblock = blk->branchblock;
-            blk->branchblock = NULL;
+            goto cleantrue;
           }
           break;
         case BGT_F:
@@ -235,12 +235,12 @@ void prunebranch(PROGRAM* prog) {
             } else {
               dharma(blk->branchblock->inedges, blk);
             }
-            blk->branchblock = NULL;
+            goto cleantrue;
           } else if(feq(blk->lastop)) {
             blk->lastop->opcode = NOP_3;
             dharma(blk->nextblock->inedges, blk);
             blk->nextblock = blk->branchblock;
-            blk->branchblock = NULL;
+            goto cleantrue;
           }
           break;
         case BGE_U:
@@ -252,11 +252,11 @@ void prunebranch(PROGRAM* prog) {
             } else {
               dharma(blk->branchblock->inedges, blk);
             }
-            blk->branchblock = NULL;
+            goto cleantrue;
           } else if(feq(blk->lastop)) {
             blk->lastop->opcode = NOP_3;
             dharma(blk->branchblock->inedges, blk);
-            blk->branchblock = NULL;
+            goto cleantrue;
           }
           break;
         case BGE_I:
@@ -268,11 +268,11 @@ void prunebranch(PROGRAM* prog) {
             } else {
               dharma(blk->branchblock->inedges, blk);
             }
-            blk->branchblock = NULL;
+            goto cleantrue;
           } else if(feq(blk->lastop)) {
             blk->lastop->opcode = NOP_3;
             dharma(blk->branchblock->inedges, blk);
-            blk->branchblock = NULL;
+            goto cleantrue;
           }
           break;
         case BGE_F:
@@ -284,17 +284,24 @@ void prunebranch(PROGRAM* prog) {
             } else {
               dharma(blk->branchblock->inedges, blk);
             }
-            blk->branchblock = NULL;
+            goto cleantrue;
           } else if(feq(blk->lastop)) {
             blk->lastop->opcode = NOP_3;
             dharma(blk->branchblock->inedges, blk);
-            blk->branchblock = NULL;
+            goto cleantrue;
           }
           break;
         default:
           break;
       }
     }
+    continue;
+cleantrue:
+    if(blk->branchblock == prog->finalblock) {
+      if(NULL == prog->closedblocks) prog->closedblocks = dactor(8);
+      dapush(prog->closedblocks, blk);//not at all sufficient
+    }
+    blk->branchblock = NULL;
   }
 }
 
