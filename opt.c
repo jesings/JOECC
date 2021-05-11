@@ -50,6 +50,7 @@ void rmunreach(PROGRAM* prog) {
 //http://ssabook.gforge.inria.fr/latest/book.pdf
 //https://iitd-plos.github.io/col729/lec/loop_transformations.html
 
+//folds in blocks that only have one predecessor and one successor, while trying to maintain simplified block form
 void blockunblock(PROGRAM* prog) {
   for(int i = 1; i < prog->allblocks->length - 1; i++) {
     BBLOCK* curblock = daget(prog->allblocks, i);
@@ -123,6 +124,7 @@ char remove_nops(PROGRAM* prog) {
   return 0;
 }
 
+//checks addr0 and addr1 of op for equality
 static char feq(OPERATION* op) {
   if(op->addr0_type != op->addr1_type) return 0;
   if(op->addr0_type & ISLABEL) return !strcmp(op->addr0.labelname, op->addr1.labelname);
@@ -130,7 +132,7 @@ static char feq(OPERATION* op) {
   return op->addr0.iregnum == op->addr1.iregnum;
 }
 
-
+//largely boiler plate, just checks if branch evaluates, then gets rid of untaken branch
 void prunebranch(PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
@@ -297,45 +299,48 @@ void prunebranch(PROGRAM* prog) {
     }
     continue;
 cleantrue:
-    if(blk->branchblock == prog->finalblock) {
-      if(NULL == prog->closedblocks) prog->closedblocks = dactor(8);
-      dapush(prog->closedblocks, blk);//not at all sufficient
-    }
     blk->branchblock = NULL;
   }
 }
 
+//binary constant fold breakless
 #define bincfbl(constkind, operator) \
             if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) { \
               op->opcode = MOV_3; \
               op->addr0.constkind operator op->addr1.constkind; \
             }
+//binary constant fold
 #define bincf(constkind, operator) \
             bincfbl(constkind, operator) \
             break;
+//binary equality fold
 #define binef(constkind, operator) \
             if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) { \
               op->opcode = MOV_3; \
               op->addr0.constkind = op->addr0.constkind operator op->addr1.constkind; \
             } \
             break;
+//unary constant fold
 #define uncf(constkind, operator) \
             if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) { \
               op->opcode = MOV_3; \
               op->addr0.constkind = operator op->addr1.constkind; \
             } \
             break;
+//branch constant fold
 #define brcf(constkind, operator) \
             if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) { \
               op->opcode = BNZ_3; \
               op->addr0.constkind = op->addr0.constkind operator op->addr1.constkind; \
             } \
             break;
+//if the last operand is some value, evaluate to some passed in value (ident)
 #define last1(constkind, floatness, ident) \
             if((op->addr1_type & (ISCONST | (floatness))) && (op->addr1.constkind == ident)) { \
               op->opcode = MOV_3; \
               break; \
             }
+//if the first operand is some value, evaluate to some passed in value (ident)
 #define first1(constkind, floatness, ident) \
             if((op->addr0_type & (ISCONST | (floatness))) && (op->addr0.constkind == ident)) { \
               op->addr0_type = op->addr1_type; \
@@ -537,6 +542,7 @@ char constfold(PROGRAM* prog) {
                 shifty >>= 1;
               }
               if(shifty == 0) break;
+              //if the modulus we are taking is a power of 2, finagle it
               op->addr1_type = ISCONST | 0x8;
               op->addr1.uintconst_64 -= 1;
               op->opcode = AND_U;
@@ -559,6 +565,7 @@ char constfold(PROGRAM* prog) {
                 shifty >>= 1;
               }
               if(shifty == 0) break;
+              //if the modulus we are taking is a power of 2, finagle it
               op->addr1_type = ISCONST | 0x8;
               op->addr1.uintconst_64 -= 1;
               op->opcode = AND_U;

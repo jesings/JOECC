@@ -185,6 +185,7 @@ void treeprog(PROGRAM* prog, char* fname, const char* pass);
 void freeblock(void* blk);
 void freeprog(PROGRAM* prog);
 
+//convert IDTYPE to equivalent ADDRTYPE
 static inline ADDRTYPE addrconv(IDTYPE* idt) {
   ADDRTYPE adt;
   if(ispointer(idt)) {
@@ -201,12 +202,14 @@ static inline ADDRTYPE addrconv(IDTYPE* idt) {
   return adt;
 }
 
+//create empty
 static inline BBLOCK* mpblk(void) {
   BBLOCK* pblk = calloc(1, sizeof(BBLOCK));
   pblk->inedges = dactor(8);
   return pblk;
 }
 
+//create empty block and apply it to curblock, allblocks
 static inline BBLOCK* fctblk(PROGRAM* prog) {
   BBLOCK* retval = mpblk();
   dapush(prog->allblocks, retval);
@@ -214,7 +217,7 @@ static inline BBLOCK* fctblk(PROGRAM* prog) {
   return retval;
 }
 
-
+//additionally to hooking it up to curblock, allblocks, add it to the last block's nextblock field if it is not already populated
 static inline BBLOCK* ctblk(PROGRAM* prog) {
   BBLOCK* retval = mpblk();
   BBLOCK* curblock = dapeek(prog->allblocks);
@@ -227,6 +230,7 @@ static inline BBLOCK* ctblk(PROGRAM* prog) {
   return retval;
 }
 
+//Add op to end of current block
 static inline void opn(PROGRAM* prog, OPERATION* op) {
   if(prog->curblock) {
     if(prog->curblock->lastop) {
@@ -242,6 +246,7 @@ static inline void opn(PROGRAM* prog, OPERATION* op) {
   }
 }
 
+//put constructed block into curblock field
 static inline void giveblock(PROGRAM* prog, BBLOCK* pblk) {
   BBLOCK* curblock = dapeek(prog->allblocks);
   dapush(prog->allblocks, pblk);
@@ -252,16 +257,19 @@ static inline void giveblock(PROGRAM* prog, BBLOCK* pblk) {
   prog->curblock = pblk;
 }
 
+//return fulladdr from operation's dest
 static inline FULLADDR op2addr(OPERATION* op) {
   FULLADDR fa = {op->dest_type, op->dest};
   return fa;
 }
+//return fulladdr from operation's dest after adding that op to end of current block
 static inline FULLADDR op2ret(PROGRAM* prog, OPERATION* op) {
   opn(prog, op);
   FULLADDR fa = {op->dest_type, op->dest};
   return fa;
 }
 
+//gets size of IDTYPE in bytes
 static inline int lentype(IDTYPE* idt) {
   if(ispointer(idt)) {
     struct declarator_part* pointtop = dapeek(idt->pointerstack);
@@ -278,6 +286,7 @@ static inline int lentype(IDTYPE* idt) {
   return idt->tb & 0xf;
 }
 
+//gets numeric increment for pointer arithmetic from IDTYPE, i.e. if you have an int* type + 4, it's in reality +16. Perform that conversion here
 static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
   FULLADDR destad;
   ADDRESS sz;
