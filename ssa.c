@@ -3,6 +3,8 @@
 #include "opt.h"
 #define X(op) case op:
 
+//finds the block that dominates both of these blocks and does 
+//not dominate any other block that dominates both blocks (i.e. the lowest one)
 BBLOCK* intersect(BBLOCK* n1, BBLOCK* n2) {
   while(n1 != n2) {
     while(n1->domind > n2->domind) n1 = n1->dom;
@@ -11,6 +13,7 @@ BBLOCK* intersect(BBLOCK* n1, BBLOCK* n2) {
   return n1;
 }
 
+//same as above but for postdominators
 static BBLOCK* postintersect(BBLOCK* n1, BBLOCK* n2) {
   while(n1 != n2) {
     while(n1->postdomind > n2->postdomind) n1 = n1->postdom;
@@ -19,11 +22,13 @@ static BBLOCK* postintersect(BBLOCK* n1, BBLOCK* n2) {
   return n1;
 }
 
+//Find if the fixed block dominates the other block
 char fixedintersect(const BBLOCK* fb, BBLOCK* gb) {
   while(fb->domind < gb->domind) gb = gb->dom;
   return fb->domind == gb->domind;
 }
 
+//recursively populate dominator tree
 static void rpdt(BBLOCK* root, BBLOCK** aclist, int* ind) {
   if(!root) return;
   if(root->visited) return;
@@ -34,6 +39,7 @@ static void rpdt(BBLOCK* root, BBLOCK** aclist, int* ind) {
   aclist[--(*ind)] = root;
 }
 
+//recursively populate postdominator tree
 static void rupdt(BBLOCK* root, BBLOCK** aclist, int* ind) {
   if(!root) return;
   if(root->visited) return;
@@ -44,6 +50,7 @@ static void rupdt(BBLOCK* root, BBLOCK** aclist, int* ind) {
   aclist[--(*ind)] = root;
 }
 
+//calculate dominance frontier, dominator tree
 static void dfpdt(BBLOCK* root) {
   if(!root) return;
   if(root->visited) return;
@@ -79,6 +86,7 @@ static void dfpdt(BBLOCK* root) {
   }
 }
 
+//rename all registers in block based on SSA
 static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
   if(!block || block->visited) return;
   DYNARR* assigns = NULL;
@@ -431,6 +439,7 @@ static void freeq(EQONTAINER* eq) {
   free(eq);
 }
 
+//find which equivalence node, if any, this address corresponds to 
 static EQNODE* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, PROGRAM* prog) {
   EQNODE* cn;
   if(adt & ISCONST) {
@@ -470,6 +479,7 @@ static EQNODE* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, 
   return cn;
 }
 
+//replace operation via gvn
 static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op) {
   BITFIELD bf = blk->availability;
   EQNODE* sen;
