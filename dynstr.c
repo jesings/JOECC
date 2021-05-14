@@ -26,12 +26,14 @@ void dsmodsize(DYNSTR* ds, int len) {
   }
 }
 
+//dynamic string concatenate
 void dscat(DYNSTR* ds, char* txt, int len) {
   int lp = ds->lenstr;
   dsmodsize(ds, len);
   memcpy(ds->strptr + lp, txt, len);
 }
 
+//dynamic string concatenate character
 void dsccat(DYNSTR* ds, char txt) {
   int lp = ds->lenstr;
   dsmodsize(ds, 1);

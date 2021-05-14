@@ -82,6 +82,7 @@ void* dapop(DYNARR* da) {
   return da->arr[--(da->length)];
 }
 
+//dynamic array remove value (was going to be called darm, but couldn't pass up opportunity for punny name)
 void dharma(DYNARR* da, void* val) { //order not preserved
   int i;
   for(i = 0; i < da->length && da->arr[i] != val; i++) ;
@@ -89,6 +90,7 @@ void dharma(DYNARR* da, void* val) { //order not preserved
     da->arr[i] = da->arr[--da->length];
 }
 
+//dynamic array replace value (was going to be called darp, but couldn't pass up opportunity for punny name)
 void darpa(DYNARR* da, void* val, void* rpval) { //order not preserved
   int i;
   for(i = 0; i < da->length && da->arr[i] != val; i++) ;

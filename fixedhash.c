@@ -54,6 +54,7 @@ char fixedqueryval(HASHTABLE* ht, long fixedkey) {
   }
   return 0;
 }
+//fixed hashpair destructor with custom free
 static void fhpdtorcfr(HASHPAIR* hp, void(*freef)(void*)) {
   if(hp->next) {
     freef(hp->value);
@@ -62,6 +63,7 @@ static void fhpdtorcfr(HASHPAIR* hp, void(*freef)(void*)) {
   free(hp);
 }
 
+//fixed hashtable destructor with custom free
 void fhtdtorcfr(HASHTABLE* ht, void(*freef)(void*)) {
   for(int i = 0; i < HASHSIZE; i++) {
     if(ht->pairs[i].next) {
@@ -89,6 +91,7 @@ DYNARR* htfpairs(HASHTABLE* ht) {
   return da;
 }
 
+//fixed hashpair destructor
 static void fhpdtor(HASHPAIR* hp) {
   if((unsigned long) hp->next > 1) {
     fhpdtor(hp->next);
@@ -96,6 +99,7 @@ static void fhpdtor(HASHPAIR* hp) {
   free(hp);
 }
 
+//fixed hashtable destructor
 void fhtdtor(HASHTABLE* ht) {
   for(int i = 0; i < HASHSIZE; i++) {
     if(ht->pairs[i].next) {
@@ -106,6 +110,7 @@ void fhtdtor(HASHTABLE* ht) {
   free(ht);
 }
 
+//fixed hashtable remove hashpair
 void frmpair(HASHTABLE* ht, long fixedkey) {
   long i = fixedhash(fixedkey, sizeof(fixedkey));
   HASHPAIR* hp = &(ht->pairs[i]);

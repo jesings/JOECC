@@ -62,6 +62,7 @@ struct arginfo {
   DYNARR* parg;
 };
 
+//get one character
 #define GOC(c) yylval_param->unum = c; yy_pop_state(yyscanner); return UNSIGNED_LITERAL
 %}
 %option stack
@@ -232,6 +233,7 @@ struct arginfo {
 }
 
 <PPSKIP>{
+    /*nasty but really greedy regular expression to match even many kinds of preprocessor statements if we are skipping*/
   ([^\n\/#]|\n[[:space:]]*({PPSTART}(define|include|include_next|undef|warning|error|line)|[^#\/[:space:]])|{MCOMMENT}|{SCOMMENT}|"/"[^*/]|\n[[:blank:]]*[^#[:blank:]])+ {}
   [\n#] {}
 }

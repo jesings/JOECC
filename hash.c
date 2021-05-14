@@ -76,6 +76,7 @@ void htdtor(HASHTABLE* ht) {
   free(ht);
 }
 
+//hashpair destructor with custom free
 static void hpdtorcfr(HASHPAIR* hp, void (*freep)(void*)) {
   if(hp->key) {
     free(hp->key);
@@ -88,6 +89,7 @@ static void hpdtorcfr(HASHPAIR* hp, void (*freep)(void*)) {
 }
 
 
+//hashtable destructor with free
 void htdtorfr(HASHTABLE* ht) {
   for(int i = 0; i < HASHSIZE; i++) {
     if(ht->pairs[i].key) {
@@ -100,6 +102,7 @@ void htdtorfr(HASHTABLE* ht) {
   free(ht);
 }
 
+//hashtable destructor with custom free
 void htdtorcfr(HASHTABLE* ht, void (*freep)(void*)) {
   for(int i = 0; i < HASHSIZE; i++) {
     if(ht->pairs[i].key) {
@@ -112,6 +115,7 @@ void htdtorcfr(HASHTABLE* ht, void (*freep)(void*)) {
   free(ht);
 }
 
+//big hashtable destructor with custom free
 void bightdtorcfr(BIGHASHTABLE* ht, void (*freep)(void*)) {
   for(int i = 0; i < BIGHASHSIZE; i++) {
     if(ht->pairs[i].key) {
@@ -176,6 +180,7 @@ void biginsert(BIGHASHTABLE* ht, const char* key, void* value) {
   ++ht->keys;
 }
 
+//insert into hashtable, with custom free on previous element
 void insertcfr(HASHTABLE* ht, const char* key, void* value, void (*cfree)(void*)) {
   unsigned long i = hash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
@@ -231,6 +236,7 @@ void rmpair(HASHTABLE* ht, const char* key) {
   }
 }
 
+//remove hashpair with custom free
 void rmpaircfr(HASHTABLE* ht, const char* key, void (*cfree)(void*)) {
   unsigned long i = hash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
@@ -259,6 +265,7 @@ void rmpaircfr(HASHTABLE* ht, const char* key, void (*cfree)(void*)) {
   }
 }
 
+//remove hashpair from bighashtable with custom free
 void bigrmpaircfr(BIGHASHTABLE* ht, const char* key, void (*cfree)(void*)) {
   unsigned long i = bighash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
@@ -352,6 +359,7 @@ DYNARR* htpairs(HASHTABLE* ht) {
   return da;
 }
 
+//insert into hashtable with integer (rather than pointer) value
 void intsert(HASHTABLE* ht, const char* key, long value) {
   unsigned long i = hash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
