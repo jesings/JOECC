@@ -28,6 +28,7 @@ OPERAND* genoperand(char* constraint, EXPRESSION* varin) {
   return retval;
 }
 
+//fully clone idtype
 static IDTYPE* fcid(IDTYPE* idt) {
   IDTYPE* idr = malloc(sizeof(IDTYPE));
   memcpy(idr, idt, sizeof(IDTYPE));
@@ -35,12 +36,14 @@ static IDTYPE* fcid(IDTYPE* idt) {
   return idr;
 }
 
+//shallow clone expression
 EXPRESSION* cloneexpr(EXPRESSION* orig) {
   EXPRESSION* clone = malloc(sizeof(EXPRESSION));
   memcpy(clone, orig, sizeof(EXPRESSION));
   return clone;
 }
 
+//fully clone idtype, accepting null pointerstack
 IDTYPE* fcid2(IDTYPE* idt) {
   IDTYPE* idr = malloc(sizeof(IDTYPE));
   memcpy(idr, idt, sizeof(IDTYPE));
@@ -49,6 +52,7 @@ IDTYPE* fcid2(IDTYPE* idt) {
   return idr;
 }
 
+//fully clone pointerstack
 DYNARR* ptrdaclone(DYNARR* opointerstack) {
   DYNARR* npointerstack = dactor(opointerstack->maxlength);
   for(int i = 0; i < opointerstack->length; i++) {
@@ -263,6 +267,7 @@ char isglobal(struct lexctx* lct, char* ident) {
   return queryval(sc->members, ident);
 }
 
+//returns whether two types are compatible: i.e. they can be added without an implicit or explicit cast
 char typecompat(IDTYPE* t1, IDTYPE* t2) {
   if(ispointer(t1))
     return ispointer(t2); //array special case?
@@ -292,6 +297,7 @@ char typecompat(IDTYPE* t1, IDTYPE* t2) {
 }
 
 //TODO: handle NULLs default
+//Process array initializer expression, figuring out length and populating types
 int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
   struct declarator_part* tdclp = dapeek(arr_memtype->pointerstack);
   tdclp->arrlen = 0;
@@ -402,6 +408,7 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
   return tdclp->arrlen;
 }
 
+//Process struct initializer expression, figuring out length and populating types
 int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
   struct_expr->type = STRUCT_LIT;
   USTRUCT* imptype = struct_memtype->structtype;
@@ -465,6 +472,7 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
   return imptype->size;
 }
 
+//completely frees struct or union container
 void wipestruct(USTRUCT* strct) {
   if(strct->fields) {
     for(int i = 0; i < strct->fields->length; ++i) {
@@ -485,6 +493,7 @@ void wipestruct(USTRUCT* strct) {
   free(strct);
 }
 
+//completely frees enum container
 void freenum(ENUM* enm) {
   if(enm->name) free(enm->name);
   for(int i = 0; i < enm->fields->length; i++) {
@@ -496,12 +505,14 @@ void freenum(ENUM* enm) {
   free(enm);
 }
 
+//frees a nameless declaration
 static void fpdecl(DECLARATION* dc) {
   if(!dc) return;
   freetype(dc->type);
   free(dc); //dc->varname should be freed in dadtor
 }
 
+//frees a variable declaration, named
 static void fpdecl2(DECLARATION* dc) {
   if(!dc) return;
   freetype(dc->type);
@@ -509,6 +520,7 @@ static void fpdecl2(DECLARATION* dc) {
   free(dc); //dc->varname should be freed in dadtor
 }
 
+//recursively frees idtype
 void freetype(IDTYPE* id) {
   if(id->pointerstack) {
     for(int i = 0; i < id->pointerstack->length; i++) {
@@ -536,6 +548,7 @@ void freetype(IDTYPE* id) {
   free(id);
 }
 
+//recursively frees expr
 void rfreexpr(EXPRESSION* e) {
   switch(e->type) {
     case MEMBER:
@@ -614,6 +627,7 @@ void freeinit(INITIALIZER* i) {
   free(i);
 }
 
+//recursively frees statement
 void rfreestate(STATEMENT* s) {
   switch(s->type) {
     case LBREAK: case LCONT: case DEFAULT: case NOPSTMT:
@@ -710,6 +724,7 @@ void rfreestate(STATEMENT* s) {
   free(s);
 }
 
+//recursively frees function container
 void rfreefunc(FUNC* f) {
   if(!f) return;
   free(f->name);
@@ -720,6 +735,7 @@ void rfreefunc(FUNC* f) {
   free(f);
 }
 
+//deep clones an expression
 EXPRESSION* rclonexpr(EXPRESSION* e) {
   EXPRESSION* e2 = malloc(sizeof(EXPRESSION));
   memcpy(e2, e, sizeof(EXPRESSION));
@@ -787,6 +803,7 @@ INITIALIZER* geninit(DECLARATION* decl, EXPRESSION* expr) {
   return retval;
 }
 
+//statement or initializer: statement
 SOI* sois(struct stmt* state) {
   SOI* retval = malloc(sizeof(SOI));
   retval->isstmt = 1;
@@ -794,6 +811,7 @@ SOI* sois(struct stmt* state) {
   return retval;
 }
 
+//statement or initializer: initializer
 SOI* soii(DYNARR* init) {
   SOI* retval = malloc(sizeof(SOI));
   retval->isstmt = 0;
@@ -981,6 +999,7 @@ SCOPE* mkscope(void) {
   return child;
 }
 
+//fake scopes, such as for within a struct declaration
 SCOPE* mkfakescope(void) {
   SCOPE* child = malloc(sizeof(SCOPE));
   child->truescope = 0;
@@ -988,6 +1007,7 @@ SCOPE* mkfakescope(void) {
   return child;
 }
 
+//defines struct backwards
 void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, USTRUCT* assignval) {
   DYNARR* da;
   switch(mt) {
@@ -1010,6 +1030,7 @@ void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, USTRUCT* a
   dadtor(da);
 }
 
+//searches scopes backwards (to account for shadows) for a member
 void* scopesearch(struct lexctx* lct, enum membertype mt, char* key){
   for(int i = lct->scopes->length - 1; i >= 0; i--) {
     SCOPE* htp = daget(lct->scopes, i);
@@ -1059,6 +1080,7 @@ void* scopesearch(struct lexctx* lct, enum membertype mt, char* key){
   return NULL;
 }
 
+//queries scopes backwards (to account for shadows) for a member
 char scopequeryval(struct lexctx* lct, enum membertype mt, char* key) {
   for(int i = lct->scopes->length - 1; i >= 0; i--) {
     SCOPE* htp = daget(lct->scopes, i);
@@ -1151,7 +1173,7 @@ struct lexctx* ctxinit(void) {
   declmacro(lct->defines, "__UINT8_TYPE__", "unsigned char");
   char headv[256];
   snprintf(headv, 256, "\"%s\"", HEADERS_VERSION);
-  declmacro(lct->defines, "HEADERS_VERSION", headv); //silly
+  declmacro(lct->defines, "HEADERS_VERSION", headv); //it's just convenient to do it here rather then when running tests for now, this will be removed before a larger release
   declfmacro(lct->defines, "__attribute__", "a", "");
   declfmacro(lct->defines, "__has_feature", "a", "0"); //not right at all
   lct->ls = malloc(sizeof(struct lstate));
@@ -1161,23 +1183,28 @@ struct lexctx* ctxinit(void) {
   return lct;
 }
 
+//push scope to scopestack
 void scopepush(struct lexctx* lct) {
   dapush(lct->scopes, mkscope());
 }
+//push fake scope to scopestack
 void fakescopepush(struct lexctx* lct) {
   dapush(lct->scopes, mkfakescope());
 }
 
+//frees a scopemember
 static void freeidi(void* sidi) {
   SCOPEMEMBER* sidi2 = sidi;
   free(sidi2->idi);
   free(sidi);
 }
+//frees a scopemember which contains a type (i.e. struct)
 static void freeidibidi(void* sidi) {
   SCOPEMEMBER* sidi2 = sidi;
   freetype(sidi2->typememb);
   free(sidi);
 }
+//pops a scope from the scopestack, cleans it up
 void scopepop(struct lexctx* lct) {
   SCOPE* cleanup = dapop(lct->scopes);
   if(cleanup->truescope && (
@@ -1199,9 +1226,11 @@ void scopepop(struct lexctx* lct) {
   free(cleanup);
 }
 
+//look at scope on top of scopestack
 SCOPE* fakescopepeek(struct lexctx* lct) {
   return dapeek(lct->scopes);
 }
+//look at first real scope on top of scopestack
 SCOPE* scopepeek(struct lexctx* lct) {
   for(int i = lct->scopes->length - 1; i >= 0; i--) {
     SCOPE* htp = daget(lct->scopes, i);
@@ -1212,16 +1241,19 @@ SCOPE* scopepeek(struct lexctx* lct) {
   return NULL;
 }
 
+//frees macrodef
 void freemd(struct macrodef* mds) {
   if(mds->text) strdtor(mds->text);
   if(mds->args) dadtorfr(mds->args);
   free(mds);
 }
+//frees macrodef except for text
 void freemd2(struct macrodef* mds) {
   if(mds->args) dadtorfr(mds->args);
   free(mds);
 }
 
+//declares variable, adds it to scope
 INITIALIZER* decl2scope(DECLARATION* dec, EXPRESSION* ex, struct lexctx* lct) {
   INITIALIZER* ac = geninit(dec, ex);
   if(lct->func) {
@@ -1253,6 +1285,7 @@ INITIALIZER* decl2scope(DECLARATION* dec, EXPRESSION* ex, struct lexctx* lct) {
   return ac;
 }
 
+//adds member to scope
 void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* memberval) {
   SCOPE* scope = scopepeek(lct);
   SCOPEMEMBER* sm = malloc(sizeof(SCOPEMEMBER));
@@ -1292,6 +1325,7 @@ void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* m
   }
 }
 
+//process size, offsets for struct
 void feedstruct(USTRUCT* s) {
   switch(s->size) {
     case 0:
@@ -1367,6 +1401,7 @@ void feedstruct(USTRUCT* s) {
   }
 }
 
+//process size, offsets for union
 int unionlen(USTRUCT* u) {
   switch(u->size) {
     case 0:
