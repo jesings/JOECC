@@ -6,6 +6,7 @@
 #define EPARAM(EVA, IND) ((EXPRESSION*)((EVA)->params->arr[IND]))
 #define LPARAM(EVA, IND) ((EVA)->params->arr[IND])
 
+//Checks recursively whether expression is pure (has no side effects), currently doesn't handle function calls
 char puritree(EXPRESSION* cexpr) {
   switch(cexpr->type){
     case STRING: case INT: case UINT: case FLOAT: case NOP: case IDENT: case SZOF: case MEMBER:
@@ -32,6 +33,7 @@ char puritree(EXPRESSION* cexpr) {
   return 0;
 }
 
+//Checks recursively whether statement is pure (has no side effects)
 char purestmt(STATEMENT* stmt) {
   switch(stmt->type) {
     case FRET: case EXPR:
@@ -78,6 +80,7 @@ char purestmt(STATEMENT* stmt) {
  * This is left for later, for now no functions are pure
  */
 
+//Checks whether two IDTYPEs are compatible
 char typequality(IDTYPE* t1, IDTYPE* t2) {
   if(t1->tb != t2->tb)
     return 0;
@@ -91,6 +94,7 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
 }
 
 
+//Frees a previous expression before replacing it with subexpression and returning
 #define FREE2RET \
               subexpr->type = UINT; \
               free(rectexpr);  \
@@ -99,6 +103,8 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
               *exa = subexpr; \
               return 1  
 
+//given a comparison operator, use that operator compare 2 expressions if they can be determined at compile-time
+//then, assign that comparison result to an expression before freeing all requisite allocations
 #define CMPOP(OP, CMPEQVAL)  do {\
       subexpr = EPARAM(ex, 0); \
       rectexpr = EPARAM(ex, 1); \
@@ -142,6 +148,8 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
           return 0; \
       } } while (0)
 
+//given a comparison operator, use that operator compare 2 expressions if they can be determined at compile-time, differentiating signed and unsigned comparisons
+//then, assign that comparison result to an expression before freeing all requisite allocations
 #define CMPOP2(OP, CMPEQVAL)  do {\
       subexpr = EPARAM(ex, 0); \
       rectexpr = EPARAM(ex, 1); \
@@ -210,6 +218,8 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
       FREE2RET; \
     } while (0)
 
+//Given a compound assignment operator, performs that compound assignment on 2 subexpression values if they can be 
+//determined at compile time, and assign that comparison result to an expression before freeing all requisite allocations
 #define INTOP(OP) do {\
       subexpr = EPARAM(ex, 0); \
       rectexpr = EPARAM(ex, 1); \
@@ -253,8 +263,7 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
 
 
 
-
-//check 2 trees for equality
+//Determines whether 2 expressions are identical recursively (including children)
 char treequals(EXPRESSION* e1, EXPRESSION* e2) {
   if(e1->type != e2->type)
     return 0;
@@ -300,6 +309,8 @@ char treequals(EXPRESSION* e1, EXPRESSION* e2) {
   return 0;
 }
 
+//Determines which of 2 types a type that is the combination of 2 expressions of respective 
+//types (i.e. the sum of an expression of type 1 and an expression of type 2) will take on
 static IDTYPE simplbinprec(IDTYPE id1, IDTYPE id2) {
   if(ispointer2(id1)) {
     return id1;
@@ -326,6 +337,8 @@ static IDTYPE simplbinprec(IDTYPE id1, IDTYPE id2) {
   }
 }
 
+//Determines which of 2 types a type that is the combination of 2 expressions of respective 
+//types (i.e. the sum of an expression of type 1 and an expression of type 2) will take on, excluding pointers
 static IDTYPE simplbinprecnoptr(IDTYPE id1, IDTYPE id2) {
   assert(!(ispointer2(id1) || ispointer2(id2)));
   if(id1.tb & FLOATNUM) {
@@ -349,6 +362,7 @@ static IDTYPE simplbinprecnoptr(IDTYPE id1, IDTYPE id2) {
   }
 }
 
+//after folding in expressions, if binary operation has more than 2 params, return it into a series of binary exprs
 static void exunflatten(EXPRESSION* ex) {
   if(ex->params->length > 2) {
     EXPRESSION* ex1 = daget(ex->params, ex->params->length - 2);
@@ -362,6 +376,7 @@ static void exunflatten(EXPRESSION* ex) {
   }
 }
 
+//Determines the type of an expression recursively
 IDTYPE typex(EXPRESSION* ex) {
   if(ex->rettype) {
     return *ex->rettype;
@@ -471,6 +486,7 @@ IDTYPE typex(EXPRESSION* ex) {
   return idt;
 }
 
+//Big ol' function that evaluates compile-time evaluatable expressions recursively
 char foldconst(EXPRESSION** exa) {
   EXPRESSION* ex = *exa;
   EXPRESSION* subexpr;
@@ -1563,7 +1579,8 @@ char foldconst(EXPRESSION** exa) {
 
 //initializer needs to be handled too
 
-//do the same as above but with statements
+//do the same as above but with statements, i.e.
+//evaluate compile-time evaluatable statements recursively
 char pleatstate(STATEMENT** stated) {
   STATEMENT* st = *stated;
   DYNARR* newsdyn;

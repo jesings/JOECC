@@ -26,6 +26,7 @@ static int pdecl(DECLARATION* decl);
 static int structree(USTRUCT* container);
 static int uniontree(USTRUCT* container);
 
+//prints structure into graph, currently unused
 static int structree(USTRUCT* container) {
   int structnode = nodenumber++;
   dprintf(funcfile, "n%d [label=\"STRUCT %s\"];\n", structnode, container->name ? container->name : "ANONYMOUS");
@@ -50,6 +51,7 @@ static int structree(USTRUCT* container) {
   return structnode;
 }
 
+//prints union into graph, currently unused
 static int uniontree(USTRUCT* container) {
   int unionnode = nodenumber++;
   dprintf(funcfile, "n%d [label=\"UNION %s\"];\n", unionnode, container->name ? container->name : "ANONYMOUS");
@@ -74,6 +76,7 @@ static int uniontree(USTRUCT* container) {
   return unionnode;
 }
 
+//Calculates the name to place on the node of the fully dereferenced type for the variable in the graph for AST visualization
 static char* name_TYPEBITS(TYPEBITS tb) {
   char* vals = malloc(1024);
   short index = 0;
@@ -104,6 +107,7 @@ static char* name_TYPEBITS(TYPEBITS tb) {
   return vals;
 }
 
+//Determines full type for the variable in the graph for AST visualization, including pointerstack calcs
 static int treetype(IDTYPE* type) {
   int typenode = nodenumber++;
   dprintf(funcfile, "n%d [label=\"TYPE\"];\n", typenode);
@@ -135,6 +139,7 @@ static int treetype(IDTYPE* type) {
   return typenode;
 }
 
+//Prints out graph representation for expression in AST recursively
 int treexpr(EXPRESSION* expr) {
   int exnode = nodenumber++;
   dprintf(funcfile, "n%d [label=\"%s\"];\n", exnode, name_EXPRTYPE[expr->type]);
@@ -213,6 +218,7 @@ int treexpr(EXPRESSION* expr) {
   return exnode;
 }
 
+//Prints out graph representation for declaration in AST
 static int pdecl(DECLARATION* decl) {
   int declnode = nodenumber++;
   dprintf(funcfile, "n%d [label=\"%s\"];\n", declnode, "DECLARATION"); 
@@ -223,6 +229,7 @@ static int pdecl(DECLARATION* decl) {
   return declnode;
 }
 
+//Prints out graph representation for initialization in AST
 static int prinit(DYNARR* dinit) {
   int printnode = nodenumber++;
   dprintf(funcfile, "n%d [label=\"%s\"];\n", printnode, "INITIALIZER"); 
@@ -238,6 +245,7 @@ static int prinit(DYNARR* dinit) {
   return printnode;
 }
 
+//Prints out graph representation for statement in AST recursively
 static int statemeant(STATEMENT* stmt) {
   int statenode = nodenumber++;
   dprintf(funcfile, "n%d [label=\"%s\"];\n", statenode, name_STMTTYPE[stmt->type]); 
@@ -305,6 +313,7 @@ static int statemeant(STATEMENT* stmt) {
   return statenode;
 }
 
+//Prints out graph representation for an entire function's AST
 void treefunc(FUNC* func) {
   nodenumber = 0;
   char filename[256];
