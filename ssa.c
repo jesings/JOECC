@@ -239,11 +239,15 @@ void ssa(PROGRAM* prog) {
 
   ind = blocks->length;
   if(prog->finalblock) {
+    //not a sufficient check, functions can have infinite loop but exit in another control flow path
     prog->finalblock->postdom = prog->finalblock;
     prog->finalblock->postdomind = 0;
     for(int i = 0; i < prog->finalblock->inedges->length; i++)
       rupdt(daget(prog->finalblock->inedges, i), blocklist, &ind);
-  } else {
+    //TODO: find edges unreachable from which final block is unreachable
+    //or in the case of null finalblock simply take all nodes, and find which ones do not
+    //idominate a node with a greater index than them perhaps?
+    //finally, renumber nodes
   }
 
   changed = 1;
@@ -894,6 +898,8 @@ void gvn(PROGRAM* prog) {
     BBLOCK* blk = daget(prog->allblocks, i);
     blk->visited = 0;
   } //recalculate to tighten length
+  //TODO: obviously we'll need to handle this differently if finalblock is null
+  //and if there are other uncreachable paths even if finalblock is not null
   antics(prog->finalblock, eqcontainer, prog);
 
 
