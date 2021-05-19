@@ -197,40 +197,35 @@ static FULLADDR cmpnd_assign_addsub(enum opcode_3ac op, EXPRESSION* destexpr, EX
   opn(prog, ct_3ac_op3(op, destaddr.addr_type, destaddr.addr, srcaddr.addr_type, srcaddr.addr, destaddr.addr_type, destaddr.addr));
   return destaddr;
 }
-static FULLADDR prestep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
-  FULLADDR destaddr, curaddr;
+
+static inline ADDRESS stepty(EXPRESSION* cexpr) {
   IDTYPE rid = typex(cexpr);
-  destaddr = linearitree(daget(cexpr->params, 0), prog);
-  char baseness = destaddr.addr_type & ISFLOAT ? 2 : 0;
+  ADDRESS addr;
   if(ispointer2(rid)) {
     struct declarator_part* dclp = dapeek(rid.pointerstack);
     assert(dclp->type != ARRAYSPEC && dclp->type != VLASPEC);
     rid.pointerstack->length -= 1;
-    curaddr.addr.uintconst_64 = lentype(&rid);
+    addr.uintconst_64 = lentype(&rid);
     rid.pointerstack->length += 1;
   } else {
-    curaddr.addr.uintconst_64 = 1;
+    addr.uintconst_64 = 1;
   }
-  opn(prog, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, destaddr.addr_type, destaddr.addr, ISCONST | 0x8, curaddr.addr, destaddr.addr_type, destaddr.addr));
+  return addr;
+}
+static FULLADDR prestep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
+  FULLADDR destaddr;
+  destaddr = linearitree(daget(cexpr->params, 0), prog);
+  char baseness = destaddr.addr_type & ISFLOAT ? 2 : 0;
+  opn(prog, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, destaddr.addr_type, destaddr.addr, ISCONST | 0x8, stepty(cexpr), destaddr.addr_type, destaddr.addr));
   return destaddr;
 }
 static FULLADDR poststep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
-  FULLADDR destaddr, actualaddr, curaddr;
-  IDTYPE rid = typex(cexpr);
+  FULLADDR destaddr, actualaddr;
   destaddr = linearitree(daget(cexpr->params, 0), prog);
   char baseness = destaddr.addr_type & ISFLOAT ? 2 : 0;
   FILLREG(actualaddr, destaddr.addr_type & GENREGMASK);
   opn(prog, ct_3ac_op2(MOV_3, destaddr.addr_type, destaddr.addr, actualaddr.addr_type, actualaddr.addr));
-  if(ispointer2(rid)) {
-    struct declarator_part* dclp = dapeek(rid.pointerstack);
-    assert(dclp->type != ARRAYSPEC && dclp->type != VLASPEC);
-    rid.pointerstack->length -= 1;
-    curaddr.addr.uintconst_64 = lentype(&rid);
-    rid.pointerstack->length += 1;
-  } else {
-    curaddr.addr.uintconst_64 = 1;
-  }
-  opn(prog, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, destaddr.addr_type, destaddr.addr, ISCONST | 0x8, curaddr.addr, destaddr.addr_type, destaddr.addr));
+  opn(prog, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, destaddr.addr_type, destaddr.addr, ISCONST | 0x8, stepty(cexpr), destaddr.addr_type, destaddr.addr));
   return actualaddr;
 }
 
@@ -323,8 +318,7 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
     prog->curblock = NULL;
   }
   giveblock(prog, mpblk());
-  addr2use.addr.iregnum = prog->regcnt++;
-  addr2use.addr_type = 1;
+  FILLREG(addr2use, 1);
   opn(prog, ct_3ac_op2(MOV_3, ISCONST | 1, complete_val, 1, addr2use.addr));
   prog->curblock->nextblock = finalblock;
   dapushc(finalblock->inedges, prog->curblock);
@@ -584,8 +578,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
     case NEG:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
-      destaddr.addr_type = curaddr.addr_type & GENREGMASK;
-      destaddr.addr.iregnum = prog->regcnt++;
+      FILLREG(destaddr, curaddr.addr_type & GENREGMASK);
       if(destaddr.addr_type & ISFLOAT) {
         opn(prog, ct_3ac_op2(NEG_F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       } else {
@@ -602,9 +595,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
     case B_NOT:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
-      destaddr.addr_type = curaddr.addr_type & GENREGMASK;
+      FILLREG(destaddr, curaddr.addr_type & GENREGMASK);
       assert(!(destaddr.addr_type & ISFLOAT));
-      destaddr.addr.iregnum = prog->regcnt++;
       opn(prog, ct_3ac_op2(NOT_U, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       return destaddr;
 
@@ -1258,10 +1250,8 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
           if(s->isstmt) {
             solidstate(s->state, prog);
           } else {
-            for(int j = 0; j < s->init->length; j++) {
-              INITIALIZER* in = daget(s->init, j);
-              initializestate(in, prog);
-            }
+            for(int j = 0; j < s->init->length; j++)
+              initializestate(daget(s->init, j), prog);
           }
         }
       }
@@ -1424,12 +1414,14 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char term, FILE* f, PROG
   } while(0)
 
 #define PRINTOP3(opsymb) do { \
-    printaddr(op->addr0, op->addr0_type, term, f, prog); \
-    fprintf(f, " " #opsymb " "); \
-    printaddr(op->addr1, op->addr1_type, term, f, prog); \
+    PRINTBROP2(opsymb); \
     fprintf(f, " →  "); \
     printaddr(op->dest, op->dest_type, term, f, prog); \
   } while(0)
+#define PRINTOP3OPT(opsymb1, opsymb2) do { \
+    if(term) PRINTOP3(opsymb1); \
+    else PRINTOP3(opsymb2); \
+  } while (0);
 
 #define PRINTOP2(opsymb) do { \
     fprintf(f, "%s", #opsymb); \
@@ -1475,16 +1467,13 @@ static void printop(OPERATION* op, char term, BBLOCK* blk, FILE* f, PROGRAM* pro
       PRINTOP3(%%);
       break;
     case SHL_U: case SHL_I: 
-      if(term) PRINTOP3(<<);
-      else PRINTOP3(&lt;&lt;);
+      PRINTOP3OPT(<<, &lt;&lt;);
       break;
     case SHR_U: case SHR_I: 
-      if(term) PRINTOP3(>>);
-      else PRINTOP3(&gt;&gt;);
+      PRINTOP3OPT(>>, &gt;&gt;);
       break;
     case AND_U:
-      if(term) PRINTOP3(&);
-      else PRINTOP3(&amp;);
+      PRINTOP3OPT(&,&amp;);
       break;
     case OR_U:
       PRINTOP3(|);
@@ -1508,20 +1497,16 @@ static void printop(OPERATION* op, char term, BBLOCK* blk, FILE* f, PROGRAM* pro
       PRINTOP3(!=);
       break;
     case GE_U: case GE_I: case GE_F: 
-      if(term) PRINTOP3(>=);
-      else PRINTOP3(&gt;=);
+      PRINTOP3OPT(>=,&gt;=);
       break;
     case LE_U: case LE_I: case LE_F: 
-      if(term) PRINTOP3(<=);
-      else PRINTOP3(&lt;=);
+      PRINTOP3OPT(<=,&lt;=);
       break;
     case GT_U: case GT_I: case GT_F: 
-      if(term) PRINTOP3(>);
-      else PRINTOP3(&gt;);
+      PRINTOP3OPT(>,&gt;);
       break;
     case LT_U: case LT_I: case LT_F: 
-      if(term) PRINTOP3(<);
-      else PRINTOP3(&lt;);
+      PRINTOP3OPT(<,&lt;);
       break;
     case BEQ_U: case BEQ_F:
       PRINTBROP2(==);
