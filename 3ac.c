@@ -213,8 +213,7 @@ static inline ADDRESS stepty(EXPRESSION* cexpr) {
   return addr;
 }
 static FULLADDR prestep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
-  FULLADDR destaddr;
-  destaddr = linearitree(daget(cexpr->params, 0), prog);
+  FULLADDR destaddr = linearitree(daget(cexpr->params, 0), prog);
   char baseness = destaddr.addr_type & ISFLOAT ? 2 : 0;
   opn(prog, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, destaddr.addr_type, destaddr.addr, ISCONST | 0x8, stepty(cexpr), destaddr.addr_type, destaddr.addr));
   return destaddr;
@@ -237,25 +236,15 @@ OPERATION* implicit_mtp_2(EXPRESSION* destexpr, EXPRESSION* fromexpr, FULLADDR a
       assert((fromexpr->type == INT || fromexpr->type == UINT) && fromexpr->intconst == 0);
     }
   } else if(destidt.tb & FLOATNUM) {
-    if(!(srcidt.tb & FLOATNUM)) {
+    if(!(srcidt.tb & FLOATNUM) || (srcidt.tb & 0xf) != (destidt.tb & 0xf)) {
       FULLADDR fad;
       FILLREG(fad, ISFLOAT | (destidt.tb & 0xf));
-      return ct_3ac_op2(I2F, a2.addr_type, a2.addr, fad.addr_type | ISDEREF, fad.addr);
-    } else if((srcidt.tb & 0xf) != (destidt.tb & 0xf)) {
-      FULLADDR fad;
-      FILLREG(fad, ISFLOAT | (destidt.tb & 0xf));
-      return ct_3ac_op2(F2F, a2.addr_type, a2.addr, fad.addr_type | ISDEREF, fad.addr);
-    }
-  } else if(destidt.tb & UNSIGNEDNUM) {
-    if(srcidt.tb & FLOATNUM) {
-      FULLADDR fad;
-      FILLREG(fad, destidt.tb & 0xf);
-      return ct_3ac_op2(F2I, a2.addr_type, a2.addr, fad.addr_type | ISDEREF, fad.addr);
+      return ct_3ac_op2((srcidt.tb & FLOATNUM ? F2F : I2F), a2.addr_type, a2.addr, fad.addr_type | ISDEREF, fad.addr);
     }
   } else {
     if(srcidt.tb & FLOATNUM) {
       FULLADDR fad;
-      FILLREG(fad, (destidt.tb & 0xf) | ISSIGNED);
+      FILLREG(fad, (destidt.tb & UNSIGNEDNUM) ? destidt.tb & 0xf : (destidt.tb & 0xf) | ISSIGNED);
       return ct_3ac_op2(F2I, a2.addr_type, a2.addr, fad.addr_type | ISDEREF, fad.addr);
     }
   }
@@ -271,15 +260,10 @@ OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog
     FILLREG(desta, ISPOINTER | 8);
   } else if(retid.tb & FLOATNUM) {
     op += 2;
-    if(!(arg1id.tb & FLOATNUM)) {
+    if(!(arg1id.tb & FLOATNUM) || (arg1id.tb & 0xf) != (retid.tb & 0xf)) {
       FULLADDR fad;
       FILLREG(fad, ISFLOAT | (retid.tb & 0xf));
-      opn(prog, ct_3ac_op2(I2F, a1.addr_type, a1.addr, fad.addr_type, fad.addr));
-      a1 = fad;
-    } else if((arg1id.tb & 0xf) != (retid.tb & 0xf)) {
-      FULLADDR fad;
-      FILLREG(fad, ISFLOAT | (retid.tb & 0xf));
-      opn(prog, ct_3ac_op2(F2F, a1.addr_type, a1.addr, fad.addr_type, fad.addr));
+      opn(prog, ct_3ac_op2(arg1id.tb & FLOATNUM ? F2F : I2F, a1.addr_type, a1.addr, fad.addr_type, fad.addr));
       a1 = fad;
     }
     FILLREG(desta, ISFLOAT | (retid.tb & 0xf));
@@ -370,8 +354,7 @@ OPERATION* cmpret_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog)
 OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
   FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog);
-  assert(!(a1.addr_type & ISFLOAT));
-  assert(!(a2.addr_type & ISFLOAT));
+  assert(!(a1.addr_type & ISFLOAT) && !(a2.addr_type & ISFLOAT));
   enum opcode_3ac shlop = opcode_unsigned + (a1.addr_type & ISSIGNED ? 1 : 0);
   FULLADDR adr;
   FILLREG(adr, a1.addr_type & GENREGMASK);
@@ -579,11 +562,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case NEG:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       FILLREG(destaddr, curaddr.addr_type & GENREGMASK);
-      if(destaddr.addr_type & ISFLOAT) {
-        opn(prog, ct_3ac_op2(NEG_F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-      } else {
-        opn(prog, ct_3ac_op2(NEG_I, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-      }
+      opn(prog, ct_3ac_op2(destaddr.addr_type & ISFLOAT ? NEG_F : NEG_I, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       return destaddr;
     case L_NOT:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
@@ -726,19 +705,10 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         opn(prog, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       } else if(cexpr->vartype->tb & FLOATNUM) {
         FILLREG(destaddr, (cexpr->vartype->tb & 0xf) | ISSIGNED | ISFLOAT);
-        if(curaddr.addr_type & ISFLOAT) {
-          opn(prog, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-        } else {
-          opn(prog, ct_3ac_op2(I2F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-        }
+        opn(prog, ct_3ac_op2(curaddr.addr_type & ISFLOAT ? MOV_3 : I2F, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       } else if(cexpr->vartype->tb & UNSIGNEDNUM) {
         FILLREG(destaddr, cexpr->vartype->tb & 0xf);
-        if(!(destaddr.addr_type)) destaddr.addr_type = curaddr.addr_type & 0xf;
-        if(curaddr.addr_type & ISFLOAT) {
-          opn(prog, ct_3ac_op2(F2I, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-        } else {
-          opn(prog, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-        }
+        opn(prog, ct_3ac_op2(curaddr.addr_type & ISFLOAT ? F2I : MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       } else if(cexpr->vartype->tb & VOIDNUM) {
         return curaddr; //not sure how this should be handled
       } else if(cexpr->vartype->tb & UNIONVAL) { 
@@ -757,11 +727,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         assert(0);
       } else if(cexpr->vartype->tb & 0xf) {
         FILLREG(destaddr, (cexpr->vartype->tb & 0xf) | ISSIGNED);
-        if(curaddr.addr_type & ISFLOAT) {
-          opn(prog, ct_3ac_op2(F2I, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-        } else {
-          opn(prog, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
-        }
+        opn(prog, ct_3ac_op2(curaddr.addr_type & ISFLOAT ? F2I : MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       } else {
         //don't support casting structs yet
         assert(0);
