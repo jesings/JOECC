@@ -237,18 +237,12 @@ void ssa(PROGRAM* prog) {
     blocklist[i] = NULL;
   }
 
+  //we need to fabricate a final block
   ind = blocks->length;
-  if(prog->finalblock) {
-    //not a sufficient check, functions can have infinite loop but exit in another control flow path
-    prog->finalblock->postdom = prog->finalblock;
-    prog->finalblock->postdomind = 0;
-    for(int i = 0; i < prog->finalblock->inedges->length; i++)
-      rupdt(daget(prog->finalblock->inedges, i), blocklist, &ind);
-    //TODO: find edges unreachable from which final block is unreachable
-    //or in the case of null finalblock simply take all nodes, and find which ones do not
-    //idominate a node with a greater index than them perhaps?
-    //finally, renumber nodes
-  }
+  prog->finalblock->postdom = prog->finalblock;
+  prog->finalblock->postdomind = 0;
+  for(int i = 0; i < prog->finalblock->inedges->length; i++)
+    rupdt(daget(prog->finalblock->inedges, i), blocklist, &ind);
 
   changed = 1;
   while(!changed) {

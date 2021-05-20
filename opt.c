@@ -38,7 +38,7 @@ void rmunreach(PROGRAM* prog) {
     BBLOCK* oldb = daget(oldall, i);
     if(oldb->domind == -1) {
       freeblock(oldb);
-      if(oldb == prog->finalblock) prog->finalblock = NULL;
+      if(oldb == prog->finalblock) prog->finalblock = NULL; //maybe not?
     } else {
       dapush(newall, oldb);
     }
@@ -132,6 +132,36 @@ static char feq(OPERATION* op) {
   return op->addr0.iregnum == op->addr1.iregnum;
 }
 
+#define PRUNE(check, condition) \
+   if(check) { \
+     blk->lastop->opcode = NOP_3; \
+     if(condition) { \
+       dharma(blk->nextblock->inedges, blk); \
+       blk->nextblock = blk->branchblock; \
+     } else { \
+       if(blk->branchblock == prog->finalblock) continue;  \
+       dharma(blk->branchblock->inedges, blk); \
+     } \
+     goto cleantrue; \
+   }
+
+#define PRUNEFEQ(check, condition) \
+  PRUNE(check, condition) \
+  else if(feq(blk->lastop)) { \
+    blk->lastop->opcode = NOP_3; \
+    dharma(blk->branchblock->inedges, blk); \
+    goto cleantrue; \
+  }
+
+#define PRUNEFEQBR(check, condition) \
+  PRUNE(check, condition) \
+  else if(feq(blk->lastop)) { \
+    blk->lastop->opcode = NOP_3; \
+    dharma(blk->nextblock->inedges, blk); \
+    blk->nextblock = blk->branchblock; \
+    goto cleantrue; \
+  }
+
 //largely boiler plate, just checks if branch evaluates, then gets rid of untaken branch
 void prunebranch(PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
@@ -139,159 +169,42 @@ void prunebranch(PROGRAM* prog) {
     if(blk->lastop) {
       switch(blk->lastop->opcode) {
         case BNZ_3:
-          if(blk->lastop->addr0_type & ISCONST) {
-            blk->lastop->opcode = NOP_3;
-            if(blk->lastop->addr0.intconst_64 != 0) {
-              dharma(blk->nextblock->inedges, blk);
-              blk->nextblock = blk->branchblock;
-            } else {
-              dharma(blk->branchblock->inedges, blk);
-            }
-            goto cleantrue;
-          }
+          PRUNE(blk->lastop->addr0_type & ISCONST, blk->lastop->addr0.intconst_64 != 0)
           break;
         case BEZ_3:
-          if(blk->lastop->addr0_type & ISCONST) {
-            blk->lastop->opcode = NOP_3;
-            if(blk->lastop->addr0.intconst_64 == 0) {
-              dharma(blk->nextblock->inedges, blk);
-              blk->nextblock = blk->branchblock;
-            } else {
-              dharma(blk->branchblock->inedges, blk);
-            }
-            goto cleantrue;
-          }
+          PRUNE(blk->lastop->addr0_type & ISCONST, blk->lastop->addr0.intconst_64 == 0)
           break;
         case BEQ_U:
-          if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
-            blk->lastop->opcode = NOP_3;
-            if(blk->lastop->addr0.intconst_64 == blk->lastop->addr1.intconst_64) {
-              dharma(blk->nextblock->inedges, blk);
-              blk->nextblock = blk->branchblock;
-            } else {
-              dharma(blk->branchblock->inedges, blk);
-            }
-            goto cleantrue;
-          } else if(feq(blk->lastop)) {
-            blk->lastop->opcode = NOP_3;
-            dharma(blk->branchblock->inedges, blk);
-            goto cleantrue;
-          }
+          PRUNEFEQ(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST,
+                   blk->lastop->addr0.intconst_64 == blk->lastop->addr1.intconst_64)
           break;
         case BEQ_F:
-          if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
-            blk->lastop->opcode = NOP_3;
-            if(blk->lastop->addr0.floatconst_64 == blk->lastop->addr1.floatconst_64) {
-              dharma(blk->nextblock->inedges, blk);
-              blk->nextblock = blk->branchblock;
-            } else {
-              dharma(blk->branchblock->inedges, blk);
-            }
-            goto cleantrue;
-          } else if(feq(blk->lastop)) {
-            blk->lastop->opcode = NOP_3;
-            dharma(blk->branchblock->inedges, blk);
-            goto cleantrue;
-          }
+          PRUNEFEQ(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST,
+                   blk->lastop->addr0.floatconst_64 == blk->lastop->addr1.floatconst_64)
           break;
         case BGT_U:
-          if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
-            blk->lastop->opcode = NOP_3;
-            if(blk->lastop->addr0.uintconst_64 > blk->lastop->addr1.uintconst_64) {
-              dharma(blk->nextblock->inedges, blk);
-              blk->nextblock = blk->branchblock;
-            } else {
-              dharma(blk->branchblock->inedges, blk);
-            }
-            goto cleantrue;
-          } else if(feq(blk->lastop)) {
-            blk->lastop->opcode = NOP_3;
-            dharma(blk->nextblock->inedges, blk);
-            blk->nextblock = blk->branchblock;
-            goto cleantrue;
-          }
+          PRUNEFEQBR(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST,
+                     blk->lastop->addr0.uintconst_64 > blk->lastop->addr1.uintconst_64)
           break;
         case BGT_I:
-          if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
-            blk->lastop->opcode = NOP_3;
-            if(blk->lastop->addr0.intconst_64 > blk->lastop->addr1.intconst_64) {
-              dharma(blk->nextblock->inedges, blk);
-              blk->nextblock = blk->branchblock;
-            } else {
-              dharma(blk->branchblock->inedges, blk);
-            }
-            goto cleantrue;
-          } else if(feq(blk->lastop)) {
-            blk->lastop->opcode = NOP_3;
-            dharma(blk->nextblock->inedges, blk);
-            blk->nextblock = blk->branchblock;
-            goto cleantrue;
-          }
+          PRUNEFEQBR(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST,
+                     blk->lastop->addr0.intconst_64 > blk->lastop->addr1.intconst_64)
           break;
         case BGT_F:
-          if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
-            blk->lastop->opcode = NOP_3;
-            if(blk->lastop->addr0.floatconst_64 > blk->lastop->addr1.floatconst_64) {
-              dharma(blk->nextblock->inedges, blk);
-              blk->nextblock = blk->branchblock;
-            } else {
-              dharma(blk->branchblock->inedges, blk);
-            }
-            goto cleantrue;
-          } else if(feq(blk->lastop)) {
-            blk->lastop->opcode = NOP_3;
-            dharma(blk->nextblock->inedges, blk);
-            blk->nextblock = blk->branchblock;
-            goto cleantrue;
-          }
+          PRUNEFEQBR(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST,
+                     blk->lastop->addr0.floatconst_64 > blk->lastop->addr1.floatconst_64)
           break;
         case BGE_U:
-          if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
-            blk->lastop->opcode = NOP_3;
-            if(blk->lastop->addr0.uintconst_64 >= blk->lastop->addr1.uintconst_64) {
-              dharma(blk->nextblock->inedges, blk);
-              blk->nextblock = blk->branchblock;
-            } else {
-              dharma(blk->branchblock->inedges, blk);
-            }
-            goto cleantrue;
-          } else if(feq(blk->lastop)) {
-            blk->lastop->opcode = NOP_3;
-            dharma(blk->branchblock->inedges, blk);
-            goto cleantrue;
-          }
+          PRUNEFEQ(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST,
+                   blk->lastop->addr0.uintconst_64 >= blk->lastop->addr1.uintconst_64)
           break;
         case BGE_I:
-          if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
-            blk->lastop->opcode = NOP_3;
-            if(blk->lastop->addr0.intconst_64 >= blk->lastop->addr1.intconst_64) {
-              dharma(blk->nextblock->inedges, blk);
-              blk->nextblock = blk->branchblock;
-            } else {
-              dharma(blk->branchblock->inedges, blk);
-            }
-            goto cleantrue;
-          } else if(feq(blk->lastop)) {
-            blk->lastop->opcode = NOP_3;
-            dharma(blk->branchblock->inedges, blk);
-            goto cleantrue;
-          }
+          PRUNEFEQ(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST,
+                   blk->lastop->addr0.intconst_64 >= blk->lastop->addr1.intconst_64)
           break;
         case BGE_F:
-          if(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST ) {
-            blk->lastop->opcode = NOP_3;
-            if(blk->lastop->addr0.floatconst_64 >= blk->lastop->addr1.floatconst_64) {
-              dharma(blk->nextblock->inedges, blk);
-              blk->nextblock = blk->branchblock;
-            } else {
-              dharma(blk->branchblock->inedges, blk);
-            }
-            goto cleantrue;
-          } else if(feq(blk->lastop)) {
-            blk->lastop->opcode = NOP_3;
-            dharma(blk->branchblock->inedges, blk);
-            goto cleantrue;
-          }
+          PRUNEFEQ(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST,
+                   blk->lastop->addr0.floatconst_64 >= blk->lastop->addr1.floatconst_64)
           break;
         default:
           break;
