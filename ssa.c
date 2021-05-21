@@ -41,7 +41,6 @@ static void rpdt(BBLOCK* root, BBLOCK** aclist, int* ind) {
 
 //recursively populate postdominator tree
 static void rupdt(BBLOCK* root, BBLOCK** aclist, int* ind) {
-  if(!root) return;
   if(root->visited) return;
   root->visited = 1;
   for(int i = 0; i < root->inedges->length; i++)
@@ -235,14 +234,36 @@ void ssa(PROGRAM* prog) {
     BBLOCK* dtn = daget(blocks, i);
     dtn->visited = 0;
     blocklist[i] = NULL;
+    dtn->postdomind = -1;
   }
 
-  //we need to fabricate a final block
+  if(!prog->finalblock) {
+    BBLOCK* fb = mpblk(); //pseudo final-block
+    prog->finalblock = fb;
+  }
+  int fblen = prog->finalblock->inedges->length;
   ind = blocks->length;
   prog->finalblock->postdom = prog->finalblock;
-  prog->finalblock->postdomind = 0;
   for(int i = 0; i < prog->finalblock->inedges->length; i++)
     rupdt(daget(prog->finalblock->inedges, i), blocklist, &ind);
+  if(ind < 0) {
+    for(int i = 0; i < blocks->length; i++) {
+      BBLOCK* blk = daget(blocks, i);
+      if(blk->postdomind == -1) {
+        //check if it has a back-edge
+        //if so, add an inedge in finalblock
+        //then, recalculate postdom tree
+        if((blk->nextblock && blk->nextblock->domind < blk->domind) ||
+           (blk->nextblock && blk->nextblock->domind < blk->domind)) {
+          dapush(prog->finalblock->inedges, blk);
+        }
+      }
+      blk->visited = 0;
+    }
+    for(int i = 0; i < prog->finalblock->inedges->length; i++)
+      rupdt(daget(prog->finalblock->inedges, i), blocklist, &ind);
+  }
+  prog->finalblock->inedges->length = fblen;
 
   changed = 1;
   while(!changed) {
