@@ -238,15 +238,13 @@ void ssa(PROGRAM* prog) {
   }
 
   if(!prog->finalblock) {
-    BBLOCK* fb = mpblk(); //pseudo final-block
-    prog->finalblock = fb;
+    prog->finalblock = mpblk(); //pseudo final block
+    dapush(prog->allblocks, prog->finalblock);
   }
-  int fblen = prog->finalblock->inedges->length;
   ind = blocks->length;
   prog->finalblock->postdom = prog->finalblock;
-  for(int i = 0; i < prog->finalblock->inedges->length; i++)
-    rupdt(daget(prog->finalblock->inedges, i), blocklist, &ind);
-  if(ind < 0) {
+  rupdt(prog->finalblock, blocklist, &ind);
+  if(ind > 0) {
     for(int i = 0; i < blocks->length; i++) {
       BBLOCK* blk = daget(blocks, i);
       if(blk->postdomind == -1) {
@@ -254,7 +252,7 @@ void ssa(PROGRAM* prog) {
         //if so, add an inedge in finalblock
         //then, recalculate postdom tree
         if((blk->nextblock && blk->nextblock->domind < blk->domind) ||
-           (blk->nextblock && blk->nextblock->domind < blk->domind)) {
+           (blk->branchblock && blk->branchblock->domind < blk->domind)) {
           dapush(prog->finalblock->inedges, blk);
         }
       }
@@ -263,7 +261,6 @@ void ssa(PROGRAM* prog) {
     for(int i = 0; i < prog->finalblock->inedges->length; i++)
       rupdt(daget(prog->finalblock->inedges, i), blocklist, &ind);
   }
-  prog->finalblock->inedges->length = fblen;
 
   changed = 1;
   while(!changed) {
@@ -913,8 +910,6 @@ void gvn(PROGRAM* prog) {
     BBLOCK* blk = daget(prog->allblocks, i);
     blk->visited = 0;
   } //recalculate to tighten length
-  //TODO: obviously we'll need to handle this differently if finalblock is null
-  //and if there are other uncreachable paths even if finalblock is not null
   antics(prog->finalblock, eqcontainer, prog);
 
 
