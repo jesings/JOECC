@@ -183,6 +183,7 @@ PROGRAM* linefunc(FUNC* f);
 void printprog(PROGRAM* prog);
 void treeprog(PROGRAM* prog, char* fname, const char* pass);
 void freeblock(void* blk);
+void rectifinal(PROGRAM* prog);
 void freeprog(PROGRAM* prog);
 
 //convert IDTYPE to equivalent ADDRTYPE

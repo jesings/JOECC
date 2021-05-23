@@ -83,11 +83,13 @@ void* dapop(DYNARR* da) {
 }
 
 //dynamic array remove value (was going to be called darm, but couldn't pass up opportunity for punny name)
-void dharma(DYNARR* da, void* val) { //order not preserved
+//returns null if no element is removed, returns removed value otherwise (could be null, beware)
+void* dharma(DYNARR* da, void* val) { //order not preserved
   int i;
   for(i = 0; i < da->length && da->arr[i] != val; i++) ;
   if(i != da->length)
-    da->arr[i] = da->arr[--da->length];
+    return da->arr[i] = da->arr[--da->length];
+  return NULL;
 }
 
 //dynamic array replace value (was going to be called darp, but couldn't pass up opportunity for punny name)

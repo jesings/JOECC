@@ -190,7 +190,7 @@ void ssa(PROGRAM* prog) {
     dtn->visited = 0;
     dtn->domind = -1;
   }
-  BBLOCK** blocklist = calloc(sizeof(BBLOCK*), blocks->length);
+  BBLOCK** blocklist = calloc(sizeof(BBLOCK*), blocks->length + 1);
   BBLOCK* first = daget(blocks, 0);
   first->dom = first;
   first->domind = 1;
@@ -237,11 +237,12 @@ void ssa(PROGRAM* prog) {
     dtn->postdomind = -1;
   }
 
+  ind = blocks->length;
   if(!prog->finalblock) {
     prog->finalblock = mpblk(); //pseudo final block
-    dapush(prog->allblocks, prog->finalblock);
+    ind++;
+    //dapush(prog->allblocks, prog->finalblock);
   }
-  ind = blocks->length;
   prog->finalblock->postdom = prog->finalblock;
   rupdt(prog->finalblock, blocklist, &ind);
   if(ind > 0) {
@@ -260,6 +261,7 @@ void ssa(PROGRAM* prog) {
     }
     for(int i = 0; i < prog->finalblock->inedges->length; i++)
       rupdt(daget(prog->finalblock->inedges, i), blocklist, &ind);
+    prog->finalblock->visited = 0;
   }
 
   changed = 1;
@@ -911,6 +913,7 @@ void gvn(PROGRAM* prog) {
     blk->visited = 0;
   } //recalculate to tighten length
   antics(prog->finalblock, eqcontainer, prog);
+  prog->finalblock->visited = 0;
 
 
   free(rplist);

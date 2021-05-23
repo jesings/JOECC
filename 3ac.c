@@ -1611,7 +1611,24 @@ void freeblock(void* blk) {
   free(blk);
 }
 
+//Rectify final block, which may be a pseudo-block
+inline void rectifinal(PROGRAM* prog) {
+  BBLOCK* fb = prog->finalblock;
+  if(!fb) return;
+  for(int i = 0; i < fb->inedges->length; i++) {
+    BBLOCK* in = daget(fb->inedges, i);
+    while(in->nextblock != fb && in->branchblock != fb) {
+      in = fb->inedges->arr[i] = fb->inedges->arr[--fb->inedges->length];
+      if(fb->inedges->length == 0) {
+        freeblock(prog->finalblock);
+        return;
+      }
+    }
+  }
+}
+
 void freeprog(PROGRAM* prog) {
+  rectifinal(prog);
   dadtorcfr(prog->allblocks, freeblock);
   dadtor(prog->breaklabels);
   dadtor(prog->continuelabels);
