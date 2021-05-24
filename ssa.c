@@ -725,28 +725,74 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog) {
     }
   }
 }
-static void antics(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog) {
+
+static void gensall(PROGRAM* prog) {
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    blk->phi_gen = bfalloc(prog->regcnt);
+    blk->tmp_gen = bfalloc(prog->regcnt);
+    if(!blk->lastop) continue;
+    OPERATION* op = blk->firstop;
+    do {
+      switch(op->opcode) {
+        OPS_3_3ac_NOCOM OPS_3_3ac_COM case CALL_3:
+        OPS_2_3ac_MUT case MOV_3: case ADDR_3:
+          if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
+            bfset(blk->tmp_gen, op->dest.iregnum);
+          break;
+        OPS_1_ASSIGN_3ac
+          if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
+            bfset(blk->tmp_gen, op->addr0.iregnum);
+          break;
+        case PHI:
+          if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
+            bfset(blk->phi_gen, op->dest.iregnum);
+          break;
+        OPS_NOVAR_3ac OPS_NODEST_3ac OPS_3_PTRDEST_3ac case DEALOC: OPS_1_3ac 
+          break;
+        case ASM:
+          assert(0); //unimplemented
+      }
+    } while(op != blk->lastop && (op = op->nextop));
+  }
+}
+static void avails(BBLOCK* blk) {
+  if(blk->visited) return;
+  blk->visited = 1;
+  DYNARR* dn = blk->idominates;
+}
+static void antics(BBLOCK* blk, PROGRAM* prog) {
   if(blk->visited) return;
   blk->visited = 1;
 
-  blk->anticipability_out = bfalloc(eq->nodes->length);
+  blk->anticipability_out = bfalloc(prog->regcnt);
+  memset(blk->anticipability_out, 1, (prog->regcnt + 7) >> 3);
   if(blk->nextblock && blk->nextblock->anticipability_in)
-    for(int i = 0; i < (eq->nodes->length + 1)  >> 3; i++) 
+    for(unsigned int i = 0; i < (prog->regcnt + 7)  >> 3; i++) 
       blk->anticipability_out[i] &= blk->nextblock->anticipability_in[i];
   if(blk->branchblock && blk->branchblock->anticipability_in)
-    for(int i = 0; i < (eq->nodes->length + 1)  >> 3; i++)
+    for(unsigned int i = 0; i < (prog->regcnt + 7)  >> 3; i++)
       blk->anticipability_out[i] &= blk->branchblock->anticipability_in[i];
 
-  blk->anticipability_in = bfclone(blk->anticipability_out, eq->nodes->length);
+  blk->anticipability_in = bfclone(blk->anticipability_out, prog->regcnt);
 
   for(int i = 0; i < blk->inedges->length; i++) {
-    antics(daget(blk->inedges, i), eq, prog);
+    antics(daget(blk->inedges, i), prog);
   }
 }
 
 void gvn(PROGRAM* prog) {
-  EQONTAINER* eqcontainer = cteq(prog);
   BBLOCK* first = daget(prog->allblocks, 0);
+  gensall(prog);
+  //first->availability_in = bfalloc(prog->regcnt);
+  //first->
+  for(int i = 0; i < prog->allblocks->length; i++)
+    ((BBLOCK*) prog->allblocks->arr[i])->visited = 0;
+  antics(prog->finalblock, prog);
+  for(int i = 0; i < prog->allblocks->length; i++)
+    ((BBLOCK*) prog->allblocks->arr[i])->visited = 0;
+  prog->finalblock->visited = 0;
+  EQONTAINER* eqcontainer = cteq(prog);
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     if(blk->lastop) {
@@ -907,13 +953,12 @@ void gvn(PROGRAM* prog) {
   rplist[0] = first;
   rpdt(first->nextblock, rplist, &rplistind);
   rpdt(first->branchblock, rplist, &rplistind);
-  replacenode(first, eqcontainer, prog);
-  for(int i = 0; i < prog->allblocks->length; i++) {
-    BBLOCK* blk = daget(prog->allblocks, i);
-    blk->visited = 0;
-  } //recalculate to tighten length
-  antics(prog->finalblock, eqcontainer, prog);
-  prog->finalblock->visited = 0;
+
+  //replacenode(first, eqcontainer, prog);
+  //for(int i = 0; i < prog->allblocks->length; i++) {
+  //  BBLOCK* blk = daget(prog->allblocks, i);
+  //  blk->visited = 0;
+  //} //recalculate to tighten length
 
 
   free(rplist);

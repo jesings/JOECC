@@ -136,6 +136,8 @@ typedef struct bblock {
 
   char* anticipability_in; //bitfield
   char* anticipability_out; //bitfield
+  char* phi_gen; //bitfield
+  char* tmp_gen; //bitfield
   char* availability; //bitfield
 } BBLOCK;
 

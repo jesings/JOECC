@@ -1546,7 +1546,6 @@ void printprog(PROGRAM* prog) {
       fputc('\n', stdout);
     }
   }
-  return;
 }
 
 void treeprog(PROGRAM* prog, char* fname, const char* pass) {
@@ -1576,7 +1575,6 @@ void treeprog(PROGRAM* prog, char* fname, const char* pass) {
   }
   fprintf(f, "\n}");
   fclose(f);
-  return;
 }
 
 static void freeop(OPERATION* op, OPERATION* stop) {
