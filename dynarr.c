@@ -98,3 +98,21 @@ void darpa(DYNARR* da, void* val, void* rpval) { //order not preserved
   for(i = 0; i < da->length && da->arr[i] != val; i++) ;
   if(i != da->length) da->arr[i] = rpval;
 }
+
+DYNINT* dinctor(int initiallen) {
+  DYNINT* retval = malloc(sizeof(DYNINT));
+  retval->length = 0;
+  retval->maxlength = initiallen;
+  if(initiallen)
+    retval->arr = malloc(sizeof(int) * initiallen);
+  return retval;
+}
+void dipush(DYNINT* di, int i) {
+  if(di->length == di->maxlength)
+    di->arr = reallocarray(di->arr, di->maxlength *= 1.5, sizeof(void*));
+  di->arr[(di->length)++] = i;
+}
+void didtor(DYNINT* di) {
+  if(di->maxlength) free(di->arr);
+  free(di);
+}

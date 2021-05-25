@@ -499,7 +499,7 @@ static EQNODE* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, 
 
 //replace operation via gvn
 static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op) {
-  BITFIELD bf = blk->availability;
+  BITFIELD bf = blk->availability_out;
   EQNODE* sen;
   switch(op->opcode) {
     OPS_3_3ac_NOCOM OPS_3_3ac_COM
@@ -654,7 +654,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
   }
 }
 static void gengen(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op) {
-  BITFIELD bf = blk->availability;
+  BITFIELD bf = blk->availability_out;
   EQNODE* sen;
   switch(op->opcode) {
     OPS_3_3ac_NOCOM OPS_3_3ac_COM
@@ -709,7 +709,6 @@ static void gengen(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op) {
 }
 
 static void replacenode(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog) {
-  BITFIELD bf = blk->availability;
   if(blk->lastop) {
     OPERATION* op = blk->firstop;
     while(1) {
@@ -720,7 +719,6 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog) {
   }
   if(blk->idominates) {
     for(int i = 0; i < blk->idominates->length; i++) {
-      ((BBLOCK*) daget(blk->idominates, i))->availability = bfclone(bf, eq->nodes->length);
       replacenode(daget(blk->idominates, i), eq, prog);
     }
   }
@@ -729,24 +727,24 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog) {
 static void gensall(PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
-    blk->phi_gen = bfalloc(prog->regcnt);
-    blk->tmp_gen = bfalloc(prog->regcnt);
     if(!blk->lastop) continue;
+    blk->phi_gen = dinctor(8); //find length of phis maybe
+    blk->tmp_gen = dinctor(32); //not sure what to do with this
     OPERATION* op = blk->firstop;
     do {
       switch(op->opcode) {
         OPS_3_3ac_NOCOM OPS_3_3ac_COM case CALL_3:
         OPS_2_3ac_MUT case MOV_3: case ADDR_3:
           if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-            bfset(blk->tmp_gen, op->dest.iregnum);
+            dipush(blk->tmp_gen, op->dest.iregnum);
           break;
         OPS_1_ASSIGN_3ac
           if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-            bfset(blk->tmp_gen, op->addr0.iregnum);
+            dipush(blk->tmp_gen, op->addr0.iregnum);
           break;
         case PHI:
           if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-            bfset(blk->phi_gen, op->dest.iregnum);
+            dipush(blk->phi_gen, op->dest.iregnum);
           break;
         OPS_NOVAR_3ac OPS_NODEST_3ac OPS_3_PTRDEST_3ac case DEALOC: OPS_1_3ac 
           break;
@@ -756,10 +754,29 @@ static void gensall(PROGRAM* prog) {
     } while(op != blk->lastop && (op = op->nextop));
   }
 }
-static void avails(BBLOCK* blk) {
+static void avails(BBLOCK* blk, PROGRAM* prog) {
   if(blk->visited) return;
   blk->visited = 1;
-  DYNARR* dn = blk->idominates;
+  blk->availability_in = bfclone(blk->dom->availability_out, prog->regcnt);
+  blk->availability_out = bfclone(blk->availability_in, prog->regcnt);
+  for(int i = 0; i < blk->tmp_gen->length; i++)
+    bfset(blk->availability_out, daget(blk->tmp_gen, i));
+  for(int i = 0; i < blk->phi_gen->length; i++)
+    bfset(blk->availability_out, daget(blk->phi_gen, i));
+}
+static void availing(PROGRAM* prog) {
+  BBLOCK* first = daget(prog->allblocks, 0);
+  first->availability_in = bfalloc(prog->regcnt);
+  first->availability_out = bfalloc(prog->regcnt);
+  first->visited = 1;
+  for(int i = 0; i < first->tmp_gen->length; i++)
+    bfset(first->availability_out, daget(first->tmp_gen, i));
+  for(int i = 0; i < first->phi_gen->length; i++)
+    bfset(first->availability_out, daget(first->phi_gen, i));
+  for(int i = 0; i < first->idominates->length; i++)
+    avails(daget(first->idominates, i), prog);
+  for(int i = 0; i < prog->allblocks->length; i++)
+    ((BBLOCK*) prog->allblocks->arr[i])->visited = 0;
 }
 static void antics(BBLOCK* blk, PROGRAM* prog) {
   if(blk->visited) return;
@@ -784,10 +801,7 @@ static void antics(BBLOCK* blk, PROGRAM* prog) {
 void gvn(PROGRAM* prog) {
   BBLOCK* first = daget(prog->allblocks, 0);
   gensall(prog);
-  //first->availability_in = bfalloc(prog->regcnt);
-  //first->
-  for(int i = 0; i < prog->allblocks->length; i++)
-    ((BBLOCK*) prog->allblocks->arr[i])->visited = 0;
+  availing(prog);
   antics(prog->finalblock, prog);
   for(int i = 0; i < prog->allblocks->length; i++)
     ((BBLOCK*) prog->allblocks->arr[i])->visited = 0;
@@ -943,7 +957,6 @@ void gvn(PROGRAM* prog) {
     }
   }
 
-  first->availability = bfalloc(eqcontainer->nodes->length);
   int rplistind = prog->allblocks->length;
   BBLOCK** rplist = malloc(prog->allblocks->length * sizeof(BBLOCK*));
   for(int i = 0; i < prog->allblocks->length; i++) {
@@ -962,14 +975,6 @@ void gvn(PROGRAM* prog) {
 
 
   free(rplist);
-  for(int i = 0; i < prog->allblocks->length; i++) {
-    free(((BBLOCK*) daget(prog->allblocks, i))->availability);
-    ((BBLOCK*) daget(prog->allblocks, i))->availability = NULL;
-
-    //free(((BBLOCK*) daget(prog->allblocks, i))->anticipability_in);
-    //free(((BBLOCK*) daget(prog->allblocks, i))->anticipability_out);
-    //what if no path to final node?
-  }
 
   prog->regcnt = eqcontainer->nodes->length;
   freeq(eqcontainer);

@@ -134,11 +134,12 @@ typedef struct bblock {
   int visited;
   int work;
 
+  DYNINT* phi_gen; //bitfield
+  DYNINT* tmp_gen; //bitfield
+  char* availability_in; //bitfield
+  char* availability_out; //bitfield
   char* anticipability_in; //bitfield
   char* anticipability_out; //bitfield
-  char* phi_gen; //bitfield
-  char* tmp_gen; //bitfield
-  char* availability; //bitfield
 } BBLOCK;
 
 typedef struct {
