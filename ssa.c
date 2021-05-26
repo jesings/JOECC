@@ -730,11 +730,19 @@ static void gensall(PROGRAM* prog) {
     if(!blk->lastop) continue;
     blk->phi_gen = dinctor(8); //find length of phis maybe
     blk->tmp_gen = dinctor(32); //not sure what to do with this
+    blk->exp_gen = dinctor(64);
     OPERATION* op = blk->firstop;
     do {
       switch(op->opcode) {
-        OPS_3_3ac_NOCOM OPS_3_3ac_COM case CALL_3:
-        OPS_2_3ac_MUT case MOV_3: case ADDR_3:
+        OPS_3_3ac_NOCOM OPS_3_3ac_COM 
+          if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
+            dipush(blk->exp_gen, op->dest.iregnum);
+          __attribute__((fallthrough));
+        OPS_2_3ac_MUT case MOV_3: 
+          if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
+            dipush(blk->exp_gen, op->dest.iregnum);
+          __attribute__((fallthrough));
+        case CALL_3: case ADDR_3:
           if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
             dipush(blk->tmp_gen, op->dest.iregnum);
           break;
@@ -743,10 +751,21 @@ static void gensall(PROGRAM* prog) {
             dipush(blk->tmp_gen, op->addr0.iregnum);
           break;
         case PHI:
+          for(int i = 0; i < blk->inedges->length; i++)
+            if(!(op->addr0.joins[i].addr_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
+              dipush(blk->exp_gen, op->addr0.joins[i].addr_type);
           if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
             dipush(blk->phi_gen, op->dest.iregnum);
           break;
-        OPS_NOVAR_3ac OPS_NODEST_3ac OPS_3_PTRDEST_3ac case DEALOC: OPS_1_3ac 
+        OPS_NODEST_3ac OPS_3_PTRDEST_3ac
+          if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
+            dipush(blk->exp_gen, op->dest.iregnum);
+          __attribute__((fallthrough));
+        OPS_1_3ac 
+          if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
+            dipush(blk->exp_gen, op->dest.iregnum);
+          break;
+        OPS_NOVAR_3ac case DEALOC:
           break;
         case ASM:
           assert(0); //unimplemented

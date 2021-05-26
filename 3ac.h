@@ -136,6 +136,7 @@ typedef struct bblock {
 
   DYNINT* phi_gen; //bitfield
   DYNINT* tmp_gen; //bitfield
+  DYNINT* exp_gen; //bitfield
   char* availability_in; //bitfield
   char* availability_out; //bitfield
   char* anticipability_in; //bitfield
