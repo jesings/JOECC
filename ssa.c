@@ -724,6 +724,10 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog) {
   }
 }
 
+static int cmp(const void* v1, const void* v2) {
+  int i = *(const int*)v1, j = *(const int*)v2;
+  return (i >= j) - (i <= j);
+}
 static void gensall(PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
@@ -771,6 +775,17 @@ static void gensall(PROGRAM* prog) {
           assert(0); //unimplemented
       }
     } while(op != blk->lastop && (op = op->nextop));
+    qsort(blk->exp_gen->arr, blk->exp_gen->length, sizeof(int), cmp);
+    int last = -1;
+    int wrind = 0;
+    for(int i = 0; i < blk->exp_gen->length; i++) {
+      if(blk->exp_gen->arr[i] != last) {
+        last = blk->exp_gen->arr[i];
+        blk->exp_gen->arr[wrind] = last;
+        wrind++;
+      }
+    }
+    blk->exp_gen->length = wrind; //duplicates should be removed at this point
   }
 }
 static void avails(BBLOCK* blk, PROGRAM* prog) {

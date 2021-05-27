@@ -1,12 +1,12 @@
 #include "hash.h"
-static unsigned long fixedhash(long data, char lbits) {    /*courtesy of http://www.cse.yorku.ca/~oz/hash.html */
+static unsigned long fixedhash(long data) {
   data = (data ^ (data >> 30)) * 0xbf58476d1ce4e5b9l;
   data = (data ^ (data >> 27)) * 0x94d049bb133111ebl;
   data = data ^ (data >> 31);
   return data % HASHSIZE;
 }
 void fixedinsert(HASHTABLE* ht, long fixedkey, void* value) {
-  unsigned long i = fixedhash(fixedkey, sizeof(fixedkey));
+  unsigned long i = fixedhash(fixedkey);
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!hp->next) {
     hp->fixedkey = fixedkey;
@@ -32,7 +32,7 @@ void fixedinsert(HASHTABLE* ht, long fixedkey, void* value) {
   ++ht->keys;
 }
 void* fixedsearch(HASHTABLE* ht, long fixedkey) {
-  unsigned long i = fixedhash(fixedkey, sizeof(fixedkey));
+  unsigned long i = fixedhash(fixedkey);
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!hp->next)
     return NULL;
@@ -44,7 +44,7 @@ void* fixedsearch(HASHTABLE* ht, long fixedkey) {
 }
 
 char fixedqueryval(HASHTABLE* ht, long fixedkey) {
-  unsigned long i = fixedhash(fixedkey, sizeof(fixedkey));
+  unsigned long i = fixedhash(fixedkey);
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!hp->next)
     return 0;
@@ -112,7 +112,7 @@ void fhtdtor(HASHTABLE* ht) {
 
 //fixed hashtable remove hashpair
 void frmpair(HASHTABLE* ht, long fixedkey) {
-  long i = fixedhash(fixedkey, sizeof(fixedkey));
+  long i = fixedhash(fixedkey);
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!(hp->fixedkey))
     return;
