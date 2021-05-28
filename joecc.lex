@@ -472,7 +472,7 @@ struct arginfo {
     yy_pop_state(yyscanner);
     dsccat(lctx->ls->mdstrdly, 0);
     struct macrodef* isinplace;
-    if((isinplace = bigsearch(lctx->defines, lctx->ls->defname))) {
+    if((isinplace = bigsearch(lctx->defines, lctx->ls->defname, 0))) {
       if(strcmp(isinplace->text->strptr, lctx->ls->mdstrdly->strptr)) {
         dsws(isinplace->text);
         dsws(lctx->ls->mdstrdly);
@@ -490,9 +490,9 @@ struct arginfo {
 
 <UNDEF>{
   {IDENT}|["][^"\n]*["] {
-    bigrmpaircfr(lctx->defines, yytext, (void(*)(void*)) freemd);}
+    bigrmpaircfr(lctx->defines, yytext, (void(*)(void*)) freemd, 0);}
   {IDENT}|["][^"\n]*["]/[[:blank:]] {
-    bigrmpaircfr(lctx->defines, yytext, (void(*)(void*)) freemd); yy_push_state(KILLBLANK, yyscanner);}
+    bigrmpaircfr(lctx->defines, yytext, (void(*)(void*)) freemd, 0); yy_push_state(KILLBLANK, yyscanner);}
   \r?\n {yy_pop_state(yyscanner);/*error state if expr not over?*/}
   . {fprintf(stderr, "UNDEF: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint2(yylloc));}
 }
@@ -554,7 +554,7 @@ struct arginfo {
       dapush(lctx->ls->parg, lctx->ls->dstrdly);
 
       struct macrodef* mdl;
-      if(!(mdl = bigsearch(lctx->defines, lctx->ls->defname))) {
+      if(!(mdl = bigsearch(lctx->defines, lctx->ls->defname, 0))) {
         fprintf(stderr, "Error: Malformed function-like macro call %s %d.%d-%d.%d\n", locprint2(yylloc));
         //error state
         yy_pop_state(yyscanner);
@@ -612,7 +612,7 @@ struct arginfo {
     dsccat(lctx->ls->dstrdly, ' ');
     }
   [[:space:]]*,[[:space:]]* {
-    struct macrodef* mdl = bigsearch(lctx->defines, lctx->ls->defname);
+    struct macrodef* mdl = bigsearch(lctx->defines, lctx->ls->defname, 0);
     if(lctx->ls->paren_depth || !strcmp(daget(mdl->args, lctx->ls->parg->length), "__VA_ARGS__")) {
       char tmpstr[3];
       int tmpstrl = 0;
@@ -1077,7 +1077,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); lctx->ls->strcur = strctor(mallo
 %%
 
 int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) {
-  struct macrodef* macdef = bigsearch(lctx->defines, symb);
+  struct macrodef* macdef = bigsearch(lctx->defines, symb, 0);
   if(macdef && !queryval(lctx->withindefines, symb)) {
     char* oldname = lctx->ls->defname;
     lctx->ls->defname = symb;

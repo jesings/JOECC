@@ -728,6 +728,34 @@ static int cmp(const void* v1, const void* v2) {
   int i = *(const int*)v1, j = *(const int*)v2;
   return (i >= j) - (i <= j);
 }
+static void rmdup(DYNINT* arr) {
+  qsort(arr->arr, arr->length, sizeof(int), cmp);
+  int last = -1;
+  int wrind = 0;
+  for(int i = 0; i < arr->length; i++) {
+    if(arr->arr[i] != last) {
+      last = arr->arr[i];
+      arr->arr[wrind] = last;
+      wrind++;
+    }
+  }
+  arr->length = wrind; //duplicates should be removed at this point
+}
+static void rmdupfr(DYNARR* arr) {
+  qsort(arr->arr, arr->length, sizeof(int), (int (*)(const void*, const void*)) strcmp);
+  void* last = (void*) -2;
+  int wrind = 0;
+  for(int i = 0; i < arr->length; i++) {
+    if(arr->arr[i] != last) {
+      last = arr->arr[i];
+      arr->arr[wrind] = last;
+      wrind++;
+    } else {
+      free(arr->arr[i]);
+    }
+  }
+  arr->length = wrind; //duplicates should be removed at this point
+}
 static void gensall(PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
@@ -735,16 +763,29 @@ static void gensall(PROGRAM* prog) {
     blk->phi_gen = dinctor(8); //find length of phis maybe
     blk->tmp_gen = dinctor(32); //not sure what to do with this
     blk->exp_gen = dinctor(64);
+    blk->exp_gen2 = dactor(32);
     OPERATION* op = blk->firstop;
     do {
+      char status = 0;
       switch(op->opcode) {
         OPS_3_3ac_NOCOM OPS_3_3ac_COM 
+          if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
+            dipush(blk->exp_gen, op->dest.iregnum), ++status;
           if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-            dipush(blk->exp_gen, op->dest.iregnum);
-          __attribute__((fallthrough));
+            dipush(blk->exp_gen, op->dest.iregnum), ++status;
+          if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
+            dipush(blk->tmp_gen, op->dest.iregnum); //not sure if status matters here, I think not
+          if(status >= 2)
+            dapush(blk->exp_gen2, ex2string(op->addr0.iregnum, op->addr1.iregnum, op->opcode));
+          break;
         OPS_2_3ac_MUT case MOV_3: 
           if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-            dipush(blk->exp_gen, op->dest.iregnum);
+            dipush(blk->exp_gen, op->dest.iregnum), status++;
+          if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
+            dipush(blk->tmp_gen, op->dest.iregnum);
+          if(status >= 1)
+            dapush(blk->exp_gen2, ex2string(op->addr0.iregnum, -1, op->opcode));
+          break;
           __attribute__((fallthrough));
         case CALL_3: case ADDR_3:
           if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
@@ -765,7 +806,7 @@ static void gensall(PROGRAM* prog) {
           if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
             dipush(blk->exp_gen, op->dest.iregnum);
           __attribute__((fallthrough));
-        OPS_1_3ac 
+        OPS_1_3ac
           if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
             dipush(blk->exp_gen, op->dest.iregnum);
           break;
@@ -775,24 +816,14 @@ static void gensall(PROGRAM* prog) {
           assert(0); //unimplemented
       }
     } while(op != blk->lastop && (op = op->nextop));
-    qsort(blk->exp_gen->arr, blk->exp_gen->length, sizeof(int), cmp);
-    int last = -1;
-    int wrind = 0;
-    for(int i = 0; i < blk->exp_gen->length; i++) {
-      if(blk->exp_gen->arr[i] != last) {
-        last = blk->exp_gen->arr[i];
-        blk->exp_gen->arr[wrind] = last;
-        wrind++;
-      }
-    }
-    blk->exp_gen->length = wrind; //duplicates should be removed at this point
+    rmdup(blk->exp_gen);
+    rmdupfr(blk->exp_gen2);
   }
 }
 static void avails(BBLOCK* blk, PROGRAM* prog) {
   if(blk->visited) return;
   blk->visited = 1;
-  blk->availability_in = bfclone(blk->dom->availability_out, prog->regcnt);
-  blk->availability_out = bfclone(blk->availability_in, prog->regcnt);
+  blk->availability_out = bfclone(blk->dom->availability_out, prog->regcnt);
   for(int i = 0; i < blk->tmp_gen->length; i++)
     bfset(blk->availability_out, daget(blk->tmp_gen, i));
   for(int i = 0; i < blk->phi_gen->length; i++)
@@ -800,7 +831,6 @@ static void avails(BBLOCK* blk, PROGRAM* prog) {
 }
 static void availing(PROGRAM* prog) {
   BBLOCK* first = daget(prog->allblocks, 0);
-  first->availability_in = bfalloc(prog->regcnt);
   first->availability_out = bfalloc(prog->regcnt);
   first->visited = 1;
   for(int i = 0; i < first->tmp_gen->length; i++)

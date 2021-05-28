@@ -1606,7 +1606,7 @@ void freeblock(void* blk) {
   if(blk2->tmp_gen) didtor(blk2->tmp_gen);
   if(blk2->phi_gen) didtor(blk2->phi_gen);
   if(blk2->exp_gen) didtor(blk2->exp_gen);
-  if(blk2->availability_in) free(blk2->availability_in);
+  if(blk2->exp_gen2) dadtor(blk2->exp_gen2);
   if(blk2->availability_out) free(blk2->availability_out);
   if(blk2->anticipability_out) free(blk2->anticipability_out);
   if(blk2->anticipability_in) free(blk2->anticipability_in);

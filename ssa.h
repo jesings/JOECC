@@ -49,14 +49,13 @@ void killreg(PROGRAM* prog);
 #define bfunset(bitfield, index) ((bitfield)[(index) >> 3] & ~(1 << ((index) & 7)))
 #define BITFIELD char*
 
-inline char* ex2string(unsigned int p1, unsigned int p2, enum opcode_3ac o) {
-  const int l = sizeof(unsigned int) << 1 + sizeof(enum opcode_3ac) + 1;
-  int* irval = malloc(l);
-  irval[0] = p1;
-  irval[1] = p2;
-  *((enum opcode_3ac*) (irval + 2)) = o;
-  char* retval = (char*) irval;
-  retval[l - 1] = 0;
-  return retval;
+static inline char* ex2string(unsigned int p1, unsigned int p2, enum opcode_3ac o) {
+  const int l = (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac);
+  enum opcode_3ac* irval = malloc(l);
+  *irval = o;
+  int* il = (int*) (irval + 1);
+  il[0] = p1;
+  il[1] = p2;
+  return (char*) irval;
 }
 #endif

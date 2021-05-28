@@ -134,10 +134,10 @@ typedef struct bblock {
   int visited;
   int work;
 
-  DYNINT* phi_gen; //bitfield
-  DYNINT* tmp_gen; //bitfield
-  DYNINT* exp_gen; //bitfield
-  char* availability_in; //bitfield
+  DYNINT* phi_gen;
+  DYNINT* tmp_gen;
+  DYNINT* exp_gen;
+  DYNARR* exp_gen2; //contains expressions
   char* availability_out; //bitfield
   char* anticipability_in; //bitfield
   char* anticipability_out; //bitfield

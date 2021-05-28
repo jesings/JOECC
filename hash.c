@@ -14,6 +14,13 @@ static unsigned long bighash(const char* str) {    /*courtesy of http://www.cse.
     hash = ((hash << 5) + hash) ^ c;    /* hash* 33 + c */
   return hash % BIGHASHSIZE;
 }
+static unsigned long bighashfl(const char* str, int maxlen) {    /*courtesy of http://www.cse.yorku.ca/~oz/hash.html */
+  unsigned long hash = 5381;
+  int len = 0;
+  while(len++ < maxlen)
+    hash = ((hash << 5) + hash) ^ *str++;    /* hash* 33 + c */
+  return hash % BIGHASHSIZE;
+}
 
 HASHTABLE* htctor(void) {
   HASHTABLE* ht = malloc(sizeof(HASHTABLE));
@@ -209,6 +216,34 @@ void insertcfr(HASHTABLE* ht, const char* key, void* value, void (*cfree)(void*)
   ++ht->keys;
 }
 
+void bigfinsertfr(BIGHASHTABLE* ht, const char* key, void* value, int len) {
+  unsigned long i = bighash(key);
+  HASHPAIR* hp = &(ht->pairs[i]);
+  if(!(hp->key)) {
+    hp->key = strdup(key);
+    hp->value = value;
+  } else {
+    for(; hp->next; hp = hp->next) {
+      if(!strcmp(hp->key, key)) {
+        free(hp->value);
+        hp->value = value;
+        return;
+      }
+    }
+    if(!strcmp(hp->key, key)) {
+      free(hp->value);
+      hp->value = value;
+      return;
+    }
+    HASHPAIR* newpair = malloc(sizeof(HASHPAIR));
+    newpair->key = strdup(key);
+    newpair->value = value;
+    newpair->next = NULL;
+    hp->next = newpair;
+  }
+  ++ht->keys;
+}
+
 void rmpair(HASHTABLE* ht, const char* key) {
   unsigned long i = hash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
@@ -266,8 +301,8 @@ void rmpaircfr(HASHTABLE* ht, const char* key, void (*cfree)(void*)) {
 }
 
 //remove hashpair from bighashtable with custom free
-void bigrmpaircfr(BIGHASHTABLE* ht, const char* key, void (*cfree)(void*)) {
-  unsigned long i = bighash(key);
+void bigrmpaircfr(BIGHASHTABLE* ht, const char* key, void (*cfree)(void*), int flen) {
+  unsigned long i = flen > 0 ? bighashfl(key, flen) : bighash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!(hp->key))
     return;
@@ -306,8 +341,8 @@ void* search(HASHTABLE* ht, const char* key) {
   return NULL;
 }
 
-void* bigsearch(BIGHASHTABLE* ht, const char* key) {
-  unsigned long i = bighash(key);
+void* bigsearch(BIGHASHTABLE* ht, const char* key, int flen) {
+  unsigned long i = flen > 0 ? bighashfl(key, flen) : bighash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
   if(hp->key) {
     for(; hp; hp = hp->next) {
