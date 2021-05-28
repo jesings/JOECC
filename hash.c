@@ -224,13 +224,13 @@ void bigfinsertfr(BIGHASHTABLE* ht, const char* key, void* value, int len) {
     hp->value = value;
   } else {
     for(; hp->next; hp = hp->next) {
-      if(!strcmp(hp->key, key)) {
+      if(!memcmp(hp->key, key, len)) {
         free(hp->value);
         hp->value = value;
         return;
       }
     }
-    if(!strcmp(hp->key, key)) {
+    if(!memcmp(hp->key, key, len)) {
       free(hp->value);
       hp->value = value;
       return;
@@ -308,7 +308,7 @@ void bigrmpaircfr(BIGHASHTABLE* ht, const char* key, void (*cfree)(void*), int f
     return;
   HASHPAIR* prev = NULL;
   for(; hp; hp = hp->next) {
-    if(!strcmp(hp->key, key)) {
+    if(flen > 0 ? !memcmp(hp->key, key, flen) : !strcmp(hp->key, key)) {
       free(hp->key);
       cfree(hp->value);
       if(hp->next) {
@@ -346,7 +346,7 @@ void* bigsearch(BIGHASHTABLE* ht, const char* key, int flen) {
   HASHPAIR* hp = &(ht->pairs[i]);
   if(hp->key) {
     for(; hp; hp = hp->next) {
-      if(!strcmp(hp->key, key))
+      if(flen > 0 ? !memcmp(hp->key, key, flen) : !strcmp(hp->key, key))
         return hp->value;
     }
   }

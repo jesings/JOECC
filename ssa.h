@@ -32,7 +32,7 @@ typedef struct {
   HASHTABLE* intconsthash;
   HASHTABLE* floatconsthash;
   HASHTABLE* strconsthash;
-  DYNARR* opnodes;//one entry for every operation
+  BIGHASHTABLE* ophash;
 } EQONTAINER;
 
 void ssa(PROGRAM* prog);

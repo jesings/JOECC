@@ -419,11 +419,7 @@ static EQONTAINER* cteq(PROGRAM* prog) {
   retval->intconsthash = htctor();
   retval->floatconsthash = htctor();
   retval->strconsthash = htctor();
-  retval->opnodes = dactor(ADDR_3 + 1); //addr_3 is the last op
-  retval->opnodes->length = ADDR_3 + 1;
-  for(int i = 0; i <= ADDR_3; i++) {
-    retval->opnodes->arr[i] = htctor();
-  }
+  retval->ophash = bightctor();
   return retval;
 }
 
@@ -453,7 +449,7 @@ static void freeq(EQONTAINER* eq) {
   fhtdtor(eq->intconsthash);
   fhtdtor(eq->floatconsthash);
   htdtor(eq->strconsthash);
-  dadtorcfr(eq->opnodes, (void(*)(void*)) fhtdtor);
+  bightdtorcfr(eq->ophash, free);
   free(eq);
 }
 
@@ -548,9 +544,8 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
         }
       }
       break;
-    case DEALOC: ;
-      HASHTABLE* ophash = daget(eq->opnodes, op->opcode);
-      sen = fixedsearch(ophash, op->addr0.ssaind);
+    case DEALOC:
+      sen = bigsearch(eq->ophash, ex2string(op->addr0.ssaind, 0, op->opcode), (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
       if(sen) {
         if(bfget(bf, sen->index)) {
           op->opcode = NOP_3;
@@ -876,8 +871,8 @@ void gvn(PROGRAM* prog) {
     if(blk->lastop) {
       OPERATION* op = blk->firstop;
       EQNODE* sen1,* sen2,* destsen;
-      long combind;
-      HASHTABLE* ophash;
+      char* combind;
+      BIGHASHTABLE* ophash = eqcontainer->ophash;
       while(1) {
         switch(op->opcode) {
           OPS_NOVAR_3ac
@@ -891,13 +886,12 @@ void gvn(PROGRAM* prog) {
                 if(adstore->addr_type & ADDRSVAR) break;
               }
               if(sen1 && sen2) {
-                ophash = daget(eqcontainer->opnodes, op->opcode);
-                combind = ((long) sen1->index << 32) + sen2->index;
-                destsen = fixedsearch(ophash, combind);
+                combind = ex2string(sen1->index, sen2->index, op->opcode);
+                destsen = bigsearch(ophash, combind, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
                 if(!destsen) {
                   destsen = cteqnode(eqcontainer, NOCONST);
                   dapush(destsen->equivs, cteqib(op->opcode, sen1, sen2));
-                  fixedinsert(ophash, combind, destsen);
+                  bigfinsertfr(ophash, combind, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
                 }
               } else {
                 destsen = cteqnode(eqcontainer, NOCONST);
@@ -915,14 +909,13 @@ void gvn(PROGRAM* prog) {
                 if(adstore->addr_type & ADDRSVAR) break;
               }
               if(sen1 && sen2) {
-                ophash = daget(eqcontainer->opnodes, op->opcode);
-                combind = ((long) sen1->index << 32) + sen2->index;
-                destsen = fixedsearch(ophash, combind);
+                combind = ex2string(sen1->index, sen2->index, op->opcode);
+                destsen = bigsearch(ophash, combind, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
                 if(!destsen) {
                   destsen = cteqnode(eqcontainer, NOCONST);
                   dapush(destsen->equivs, cteqib(op->opcode, sen1, sen2));
-                  fixedinsert(ophash, combind, destsen);
-                  fixedinsert(ophash, ((long) sen2->index << 32) + sen1->index, destsen);
+                  bigfinsertfr(ophash, combind, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
+                  bigfinsertfr(ophash, ex2string(sen2->index, sen1->index, op->opcode), destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
                 }
               } else {
                 destsen = cteqnode(eqcontainer, NOCONST);
@@ -939,12 +932,12 @@ void gvn(PROGRAM* prog) {
                 if(adstore->addr_type & ADDRSVAR) break;
               }
               if(sen1) {
-                ophash = daget(eqcontainer->opnodes, op->opcode);
-                destsen = fixedsearch(ophash, (long) sen1->index);
+                combind = ex2string(sen1->index, 0, op->opcode);
+                destsen = bigsearch(ophash, combind, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
                 if(!destsen) {
                   destsen = cteqnode(eqcontainer, NOCONST);
                   dapush(destsen->equivs, cteqib(op->opcode, sen1, NULL));
-                  fixedinsert(ophash, (long) sen1->index, destsen);
+                  bigfinsertfr(ophash, combind, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
                 }
               } else {
                 destsen = cteqnode(eqcontainer, NOCONST);
@@ -973,12 +966,12 @@ void gvn(PROGRAM* prog) {
             if(!(op->dest_type & (ISDEREF | ISLABEL))) {
               //addrsvar is permissible
               if(sen1) {
-                ophash = daget(eqcontainer->opnodes, op->opcode);
-                destsen = fixedsearch(ophash, (long) sen1->index);
+                combind = ex2string(sen1->index, 0, op->opcode);
+                destsen = bigsearch(ophash, combind, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
                 if(!destsen) {
                   destsen = cteqnode(eqcontainer, NOCONST);
                   dapush(destsen->equivs, cteqib(op->opcode, sen1, NULL));
-                  fixedinsert(ophash, (long) sen1->index, destsen);
+                  bigfinsertfr(ophash, combind, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
                 }
               } else {
                 destsen = cteqnode(eqcontainer, NOCONST);
@@ -991,12 +984,12 @@ void gvn(PROGRAM* prog) {
             nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
             break;
           case DEALOC:
-            ophash = daget(eqcontainer->opnodes, op->opcode);
-            sen1 = fixedsearch(ophash, op->addr0.ssaind);
+            combind = ex2string(op->addr0.ssaind, 0, op->opcode);
+            sen1 = bigsearch(ophash, combind, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
             if(!sen1) {
               destsen = cteqnode(eqcontainer, NOCONST);
               dapush(destsen->equivs, cteqib(op->opcode, sen1, NULL));
-              fixedinsert(ophash, op->addr0.ssaind, destsen);
+              bigfinsertfr(ophash, combind, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
             }
             break;
           OPS_3_PTRDEST_3ac OPS_NODEST_3ac
