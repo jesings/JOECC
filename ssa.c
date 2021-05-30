@@ -402,8 +402,8 @@ void ssa(PROGRAM* prog) {
 }
 //lengauer tarjan: https://www.cl.cam.ac.uk/~mr10/lengtarj.pdf
 
-static EQNODE* cteqnode(EQONTAINER* eqcontainer, int hc) {
-  EQNODE* retval = malloc(sizeof(EQNODE));
+static GVNNUM* ctgvnnum(EQONTAINER* eqcontainer, int hc) {
+  GVNNUM* retval = malloc(sizeof(GVNNUM));
   retval->hasconst = hc;
   retval->equivs = dactor(8);
   retval->index = eqcontainer->nodes->length;
@@ -423,28 +423,13 @@ static EQONTAINER* cteq(PROGRAM* prog) {
   return retval;
 }
 
-static EQITEM* cteqi(unsigned int regno) {
-  EQITEM* retval = malloc(sizeof(EQITEM));
-  retval->regno = regno;
-  retval->op = PARAM_3;
-  return retval;
-}
-
-static EQITEM* cteqib(enum opcode_3ac opc, EQNODE* eq1, EQNODE* eq2) {
-  EQITEM* retval = malloc(sizeof(EQITEM));
-  retval->op = opc;
-  retval->arg0 = eq1;
-  retval->arg1 = eq2;
-  return retval;
-}
-
-static void freqnode(EQNODE* eqnode) {
+static void fregvnnum(GVNNUM* eqnode) {
   dadtorfr(eqnode->equivs);
   free(eqnode);
 }
 
 static void freeq(EQONTAINER* eq) {
-  dadtorcfr(eq->nodes, (void(*)(void*)) freqnode);
+  dadtorcfr(eq->nodes, (void(*)(void*)) fregvnnum);
   free(eq->varnodes);
   fhtdtor(eq->intconsthash);
   fhtdtor(eq->floatconsthash);
@@ -454,13 +439,13 @@ static void freeq(EQONTAINER* eq) {
 }
 
 //find which equivalence node, if any, this address corresponds to 
-static EQNODE* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, PROGRAM* prog) {
-  EQNODE* cn;
+static GVNNUM* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, PROGRAM* prog) {
+  GVNNUM* cn;
   if(adt & ISCONST) {
     if(adt & ISSTRCONST) {
       cn = search(eqcontainer->strconsthash, adr.strconst);
       if(!cn) {
-        cn = cteqnode(eqcontainer, STRCONST);
+        cn = ctgvnnum(eqcontainer, STRCONST);
         cn->strconst = adr.strconst;
         insert(eqcontainer->strconsthash, adr.strconst, cn);
       }
@@ -469,7 +454,7 @@ static EQNODE* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, 
       char floatness = adt & ISFLOAT;
       cn = fixedsearch(floatness ? eqcontainer->floatconsthash : eqcontainer->intconsthash, adr.intconst_64);
       if(!cn) {
-        cn = cteqnode(eqcontainer, floatness ? FLOATCONST : INTCONST);
+        cn = ctgvnnum(eqcontainer, floatness ? FLOATCONST : INTCONST);
         cn->intconst = adr.intconst_64;
         fixedinsert(floatness ? eqcontainer->floatconsthash : eqcontainer->intconsthash, adr.intconst_64, cn);
       }
@@ -485,8 +470,8 @@ static EQNODE* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, 
     }
     cn = eqcontainer->varnodes[adr.iregnum];
     if(!cn) {
-      cn = cteqnode(eqcontainer, NOCONST);
-      dapush(cn->equivs, cteqi(adr.iregnum));
+      cn = ctgvnnum(eqcontainer, NOCONST);
+      dapush(cn->equivs, ex2string(adr.iregnum, 0, PARAM_3));
       eqcontainer->varnodes[adr.iregnum] = cn;
     }
   }
@@ -496,7 +481,7 @@ static EQNODE* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, 
 //replace operation via gvn
 static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op) {
   BITFIELD bf = blk->availability_out;
-  EQNODE* sen;
+  GVNNUM* sen;
   switch(op->opcode) {
     OPS_3_3ac_NOCOM OPS_3_3ac_COM
       sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
@@ -545,7 +530,9 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
       }
       break;
     case DEALOC:
-      sen = bigsearch(eq->ophash, ex2string(op->addr0.ssaind, 0, op->opcode), (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
+      {
+      char* ex2 = ex2string(op->addr0.ssaind, 0, op->opcode);
+      sen = bigsearch(eq->ophash, ex2, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
       if(sen) {
         if(bfget(bf, sen->index)) {
           op->opcode = NOP_3;
@@ -553,7 +540,10 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           bfset(bf, sen->index);
         }
       }
+      free(ex2);
+      }
       break;
+
     OPS_2_3ac_MUT case MOV_3: case ADDR_3:
       sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
       if(sen) {
@@ -650,7 +640,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
 }
 static void gengen(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op) {
   BITFIELD bf = blk->availability_out;
-  EQNODE* sen;
+  GVNNUM* sen;
   switch(op->opcode) {
     OPS_3_3ac_NOCOM OPS_3_3ac_COM
       sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
@@ -751,7 +741,7 @@ static void rmdupfr(DYNARR* arr) {
   }
   arr->length = wrind; //duplicates should be removed at this point
 }
-static void gensall(PROGRAM* prog) {
+static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     if(!blk->lastop) continue;
@@ -810,6 +800,155 @@ static void gensall(PROGRAM* prog) {
         case ASM:
           assert(0); //unimplemented
       }
+      GVNNUM* sen1;
+      GVNNUM* sen2;
+      GVNNUM* destsen;
+      BIGHASHTABLE* ophash = eqcontainer->ophash;
+      char* combind;
+      switch(op->opcode) {
+        OPS_NOVAR_3ac
+          break; //nothing for nop, lbl, jmp, branching ops, or arg/ret
+        OPS_3_3ac_NOCOM
+          sen1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
+          sen2 = nodefromaddr(eqcontainer, op->addr1_type, op->addr1, prog);
+          if(!(op->dest_type & (ISLABEL | ISDEREF))) {
+            if(op->dest_type & ISVAR) {
+              FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
+              if(adstore->addr_type & ADDRSVAR) break;
+            }
+            if(sen1 && sen2) {
+              combind = ex2string(sen1->index, sen2->index, op->opcode);
+              destsen = bigsearch(ophash, combind, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
+              if(!destsen) {
+                destsen = ctgvnnum(eqcontainer, NOCONST);
+                dapush(destsen->equivs, combind);
+                bigfinsertfr(ophash, combind, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
+              } else {
+                free(combind);
+              }
+            } else {
+              destsen = ctgvnnum(eqcontainer, NOCONST);
+            }
+            dapush(destsen->equivs, ex2string(op->dest.iregnum, 0, PARAM_3));
+            eqcontainer->varnodes[op->dest.iregnum] = destsen;
+          }
+          break;
+        OPS_3_3ac_COM
+          sen1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
+          sen2 = nodefromaddr(eqcontainer, op->addr1_type, op->addr1, prog);
+          if(!(op->dest_type & (ISLABEL | ISDEREF))) {
+            if(op->dest_type & ISVAR) {
+              FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
+              if(adstore->addr_type & ADDRSVAR) break;
+            }
+            if(sen1 && sen2) {
+              combind = ex2string(sen1->index, sen2->index, op->opcode);
+              destsen = bigsearch(ophash, combind, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
+              if(!destsen) {
+                destsen = ctgvnnum(eqcontainer, NOCONST);
+                dapush(destsen->equivs, combind);
+                bigfinsertfr(ophash, combind, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
+                bigfinsertfr(ophash, ex2string(sen2->index, sen1->index, op->opcode), destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
+              } else {
+                free(combind);
+              }
+            } else {
+              destsen = ctgvnnum(eqcontainer, NOCONST);
+            }
+            dapush(destsen->equivs, ex2string(op->dest.iregnum, 0, PARAM_3));
+            eqcontainer->varnodes[op->dest.iregnum] = destsen;
+          }
+          break;
+        OPS_2_3ac_MUT
+          sen1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
+          if(!(op->dest_type & (ISLABEL | ISDEREF))) {
+            if(op->dest_type & ISVAR) {
+              FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
+              if(adstore->addr_type & ADDRSVAR) break;
+            }
+            if(sen1) {
+              combind = ex2string(sen1->index, 0, op->opcode);
+              destsen = bigsearch(ophash, combind, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
+              if(!destsen) {
+                destsen = ctgvnnum(eqcontainer, NOCONST);
+                dapush(destsen->equivs, combind);
+                bigfinsertfr(ophash, combind, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
+              } else {
+                free(combind);
+              }
+            } else {
+              destsen = ctgvnnum(eqcontainer, NOCONST);
+            }
+            dapush(destsen->equivs, ex2string(op->dest.iregnum, 0, PARAM_3));
+            eqcontainer->varnodes[op->dest.iregnum] = destsen;
+          }
+          break;
+        case MOV_3:
+          sen1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
+          if(!(op->dest_type & (ISLABEL | ISDEREF))) {
+            if(op->dest_type & ISVAR) {
+              FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
+              if(adstore->addr_type & ADDRSVAR) break;
+            }
+            if(!sen1) {
+              sen1 = ctgvnnum(eqcontainer, NOCONST);
+            }
+            dapush(sen1->equivs, ex2string(op->dest.iregnum, 0, PARAM_3));
+            eqcontainer->varnodes[op->dest.iregnum] = sen1;
+          }
+          break;
+        case ADDR_3:
+          //address should stay constant, so the value can be stored, as can the value of labels!
+          sen1 = nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
+          if(!(op->dest_type & (ISDEREF | ISLABEL))) {
+            //addrsvar is permissible
+            if(sen1) {
+              combind = ex2string(sen1->index, 0, op->opcode);
+              destsen = bigsearch(ophash, combind, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
+              if(!destsen) {
+                destsen = ctgvnnum(eqcontainer, NOCONST);
+                dapush(destsen->equivs, combind);
+                bigfinsertfr(ophash, combind, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
+              } else {
+                free(combind);
+              }
+            } else {
+              destsen = ctgvnnum(eqcontainer, NOCONST);
+            }
+            dapush(destsen->equivs, ex2string(op->dest.iregnum, 0, PARAM_3));
+            eqcontainer->varnodes[op->dest.iregnum] = destsen;
+          }
+          break;
+        case PHI: //TODO: get phi node handling loop at end
+          nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
+          break;
+        case DEALOC:
+          combind = ex2string(op->addr0.ssaind, 0, op->opcode);
+          sen1 = bigsearch(ophash, combind, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
+          if(!sen1) {
+            destsen = ctgvnnum(eqcontainer, NOCONST);
+            dapush(destsen->equivs, combind);
+            bigfinsertfr(ophash, combind, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
+          } else {
+            free(combind);
+          }
+          break;
+        OPS_3_PTRDEST_3ac OPS_NODEST_3ac
+          nodefromaddr(eqcontainer, op->addr1_type, op->addr1, prog);
+          __attribute__((fallthrough));
+        OPS_1_3ac 
+          if(op->addr0_type & GARBAGEVAL) break;
+          nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
+          break;
+        case CALL_3: //no pure functions for now
+          nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
+          break;
+        OPS_1_ASSIGN_3ac
+          nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
+          break;
+        case ASM:
+          assert(0); //unimplemented
+      }
     } while(op != blk->lastop && (op = op->nextop));
     rmdup(blk->exp_gen);
     rmdupfr(blk->exp_gen2);
@@ -859,161 +998,13 @@ static void antics(BBLOCK* blk, PROGRAM* prog) {
 
 void gvn(PROGRAM* prog) {
   BBLOCK* first = daget(prog->allblocks, 0);
-  gensall(prog);
+  EQONTAINER* eqcontainer = cteq(prog);
+  gensall(prog, eqcontainer);
   availing(prog);
   antics(prog->finalblock, prog);
   for(int i = 0; i < prog->allblocks->length; i++)
     ((BBLOCK*) prog->allblocks->arr[i])->visited = 0;
   prog->finalblock->visited = 0;
-  EQONTAINER* eqcontainer = cteq(prog);
-  for(int i = 0; i < prog->allblocks->length; i++) {
-    BBLOCK* blk = daget(prog->allblocks, i);
-    if(blk->lastop) {
-      OPERATION* op = blk->firstop;
-      EQNODE* sen1,* sen2,* destsen;
-      char* combind;
-      BIGHASHTABLE* ophash = eqcontainer->ophash;
-      while(1) {
-        switch(op->opcode) {
-          OPS_NOVAR_3ac
-            break; //nothing for nop, lbl, jmp, branching ops, or arg/ret
-          OPS_3_3ac_NOCOM
-            sen1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
-            sen2 = nodefromaddr(eqcontainer, op->addr1_type, op->addr1, prog);
-            if(!(op->dest_type & (ISLABEL | ISDEREF))) {
-              if(op->dest_type & ISVAR) {
-                FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
-                if(adstore->addr_type & ADDRSVAR) break;
-              }
-              if(sen1 && sen2) {
-                combind = ex2string(sen1->index, sen2->index, op->opcode);
-                destsen = bigsearch(ophash, combind, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
-                if(!destsen) {
-                  destsen = cteqnode(eqcontainer, NOCONST);
-                  dapush(destsen->equivs, cteqib(op->opcode, sen1, sen2));
-                  bigfinsertfr(ophash, combind, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
-                }
-              } else {
-                destsen = cteqnode(eqcontainer, NOCONST);
-              }
-              dapush(destsen->equivs, cteqi(op->dest.iregnum));
-              eqcontainer->varnodes[op->dest.iregnum] = destsen;
-            }
-            break;
-          OPS_3_3ac_COM
-            sen1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
-            sen2 = nodefromaddr(eqcontainer, op->addr1_type, op->addr1, prog);
-            if(!(op->dest_type & (ISLABEL | ISDEREF))) {
-              if(op->dest_type & ISVAR) {
-                FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
-                if(adstore->addr_type & ADDRSVAR) break;
-              }
-              if(sen1 && sen2) {
-                combind = ex2string(sen1->index, sen2->index, op->opcode);
-                destsen = bigsearch(ophash, combind, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
-                if(!destsen) {
-                  destsen = cteqnode(eqcontainer, NOCONST);
-                  dapush(destsen->equivs, cteqib(op->opcode, sen1, sen2));
-                  bigfinsertfr(ophash, combind, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
-                  bigfinsertfr(ophash, ex2string(sen2->index, sen1->index, op->opcode), destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
-                }
-              } else {
-                destsen = cteqnode(eqcontainer, NOCONST);
-              }
-              dapush(destsen->equivs, cteqi(op->dest.iregnum));
-              eqcontainer->varnodes[op->dest.iregnum] = destsen;
-            }
-            break;
-          OPS_2_3ac_MUT
-            sen1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
-            if(!(op->dest_type & (ISLABEL | ISDEREF))) {
-              if(op->dest_type & ISVAR) {
-                FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
-                if(adstore->addr_type & ADDRSVAR) break;
-              }
-              if(sen1) {
-                combind = ex2string(sen1->index, 0, op->opcode);
-                destsen = bigsearch(ophash, combind, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
-                if(!destsen) {
-                  destsen = cteqnode(eqcontainer, NOCONST);
-                  dapush(destsen->equivs, cteqib(op->opcode, sen1, NULL));
-                  bigfinsertfr(ophash, combind, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
-                }
-              } else {
-                destsen = cteqnode(eqcontainer, NOCONST);
-              }
-              dapush(destsen->equivs, cteqi(op->dest.iregnum));
-              eqcontainer->varnodes[op->dest.iregnum] = destsen;
-            }
-            break;
-          case MOV_3:
-            sen1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
-            if(!(op->dest_type & (ISLABEL | ISDEREF))) {
-              if(op->dest_type & ISVAR) {
-                FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
-                if(adstore->addr_type & ADDRSVAR) break;
-              }
-              if(!sen1) {
-                sen1 = cteqnode(eqcontainer, NOCONST);
-              }
-              dapush(sen1->equivs, cteqi(op->dest.iregnum));
-              eqcontainer->varnodes[op->dest.iregnum] = sen1;
-            }
-            break;
-          case ADDR_3:
-            //address should stay constant, so the value can be stored, as can the value of labels!
-            sen1 = nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
-            if(!(op->dest_type & (ISDEREF | ISLABEL))) {
-              //addrsvar is permissible
-              if(sen1) {
-                combind = ex2string(sen1->index, 0, op->opcode);
-                destsen = bigsearch(ophash, combind, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
-                if(!destsen) {
-                  destsen = cteqnode(eqcontainer, NOCONST);
-                  dapush(destsen->equivs, cteqib(op->opcode, sen1, NULL));
-                  bigfinsertfr(ophash, combind, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
-                }
-              } else {
-                destsen = cteqnode(eqcontainer, NOCONST);
-              }
-              dapush(destsen->equivs, cteqi(op->dest.iregnum));
-              eqcontainer->varnodes[op->dest.iregnum] = destsen;
-            }
-            break;
-          case PHI: //TODO: get phi node handling loop at end
-            nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
-            break;
-          case DEALOC:
-            combind = ex2string(op->addr0.ssaind, 0, op->opcode);
-            sen1 = bigsearch(ophash, combind, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
-            if(!sen1) {
-              destsen = cteqnode(eqcontainer, NOCONST);
-              dapush(destsen->equivs, cteqib(op->opcode, sen1, NULL));
-              bigfinsertfr(ophash, combind, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
-            }
-            break;
-          OPS_3_PTRDEST_3ac OPS_NODEST_3ac
-            nodefromaddr(eqcontainer, op->addr1_type, op->addr1, prog);
-            __attribute__((fallthrough));
-          OPS_1_3ac 
-            if(op->addr0_type & GARBAGEVAL) break;
-            nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
-            break;
-          case CALL_3: //no pure functions for now
-            nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
-            break;
-          OPS_1_ASSIGN_3ac
-            nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
-            break;
-          case ASM:
-            assert(0); //unimplemented
-        }
-        if(op == blk->lastop) break;
-        op = op->nextop;
-      }
-    }
-  }
-
   int rplistind = prog->allblocks->length;
   BBLOCK** rplist = malloc(prog->allblocks->length * sizeof(BBLOCK*));
   for(int i = 0; i < prog->allblocks->length; i++) {

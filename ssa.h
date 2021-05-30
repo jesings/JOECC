@@ -12,14 +12,14 @@ typedef struct {
   enum {NOCONST, INTCONST, FLOATCONST, STRCONST} hasconst;
   int index;
   int regno; //-1 if no regno
-} EQNODE;
+} GVNNUM;
 
 typedef struct {
   enum opcode_3ac op; //if INIT_3 (or PARAM_3) then it's a regno
   union {
     struct {
-      EQNODE* arg0;
-      EQNODE* arg1;
+      GVNNUM* arg0;
+      GVNNUM* arg1;
     };
     unsigned int regno;
   };
@@ -27,8 +27,8 @@ typedef struct {
 
 
 typedef struct {
-  DYNARR* nodes;//of EQNODES
-  EQNODE** varnodes;
+  DYNARR* nodes;//of GVNNUMS
+  GVNNUM** varnodes;
   HASHTABLE* intconsthash;
   HASHTABLE* floatconsthash;
   HASHTABLE* strconsthash;
