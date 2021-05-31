@@ -25,6 +25,12 @@ typedef struct {
   };
 } EQITEM;
 
+typedef struct {
+  enum opcode_3ac o;
+  unsigned int p1;
+  unsigned int p2;
+} EXPRSTR;
+
 
 typedef struct {
   DYNARR* nodes;//of GVNNUMS
@@ -49,13 +55,11 @@ void killreg(PROGRAM* prog);
 #define bfunset(bitfield, index) ((bitfield)[(index) >> 3] & ~(1 << ((index) & 7)))
 #define BITFIELD char*
 
-static inline char* ex2string(unsigned int p1, unsigned int p2, enum opcode_3ac o) {
-  const int l = (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac);
-  enum opcode_3ac* irval = malloc(l);
-  *irval = o;
-  int* il = (int*) (irval + 1);
-  il[0] = p1;
-  il[1] = p2;
-  return (char*) irval;
+static inline EXPRSTR* ex2string(unsigned int p1, unsigned int p2, enum opcode_3ac o) {
+  EXPRSTR* irval = malloc(sizeof(EXPRSTR));
+  irval->o = 0;
+  irval->p1 = p1;
+  irval->p2 = p2;
+  return irval;
 }
 #endif
