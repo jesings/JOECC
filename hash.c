@@ -122,6 +122,16 @@ void htdtorcfr(HASHTABLE* ht, void (*freep)(void*)) {
   free(ht);
 }
 
+void bightdtor(BIGHASHTABLE* ht) {
+  for(int i = 0; i < BIGHASHSIZE; i++) {
+    if(ht->pairs[i].key) {
+      free(ht->pairs[i].key);
+      if(ht->pairs[i].next)
+        hpdtor(ht->pairs[i].next);
+    }
+  }
+  free(ht);
+}
 //big hashtable destructor with custom free
 void bightdtorcfr(BIGHASHTABLE* ht, void (*freep)(void*)) {
   for(int i = 0; i < BIGHASHSIZE; i++) {
@@ -216,27 +226,29 @@ void insertcfr(HASHTABLE* ht, const char* key, void* value, void (*cfree)(void*)
   ++ht->keys;
 }
 
-void bigfinsertfr(BIGHASHTABLE* ht, const char* key, void* value, int len) {
+void bigfinsertfr(BIGHASHTABLE* ht, char* key, void* value, int len) {
   unsigned long i = bighash(key);
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!(hp->key)) {
-    hp->key = strdup(key);
+    hp->key = key;
     hp->value = value;
   } else {
     for(; hp->next; hp = hp->next) {
       if(!memcmp(hp->key, key, len)) {
-        free(hp->value);
+        //free(hp->value);
+        free(key);
         hp->value = value;
         return;
       }
     }
     if(!memcmp(hp->key, key, len)) {
-      free(hp->value);
+      //free(hp->value);
+      free(key);
       hp->value = value;
       return;
     }
     HASHPAIR* newpair = malloc(sizeof(HASHPAIR));
-    newpair->key = strdup(key);
+    newpair->key = key;
     newpair->value = value;
     newpair->next = NULL;
     hp->next = newpair;

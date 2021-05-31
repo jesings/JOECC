@@ -434,7 +434,7 @@ static void freeq(EQONTAINER* eq) {
   fhtdtor(eq->intconsthash);
   fhtdtor(eq->floatconsthash);
   htdtor(eq->strconsthash);
-  bightdtorcfr(eq->ophash, free);
+  bightdtor(eq->ophash);
   free(eq);
 }
 
@@ -720,21 +720,22 @@ static void rmdup(DYNINT* arr) {
   for(int i = 0; i < arr->length; i++) {
     if(arr->arr[i] != last) {
       last = arr->arr[i];
-      arr->arr[wrind] = last;
-      wrind++;
+      arr->arr[wrind++] = last;
     }
   }
   arr->length = wrind; //duplicates should be removed at this point
 }
+//static int cmc(const void* v1, const void* v2) {
+//  return memcmp(*(const void* const*) v1, *(const void* const*) v2, (sizeof(unsigned int) << 2) + sizeof(enum opcode_3ac));
+//}
 static void rmdupfr(DYNARR* arr) {
-  qsort(arr->arr, arr->length, sizeof(int), (int (*)(const void*, const void*)) strcmp);
+  //qsort(arr->arr, arr->length, sizeof(void*), cmc);
   void* last = (void*) -2;
   int wrind = 0;
   for(int i = 0; i < arr->length; i++) {
     if(arr->arr[i] != last) {
       last = arr->arr[i];
-      arr->arr[wrind] = last;
-      wrind++;
+      arr->arr[wrind++] = last;
     } else {
       free(arr->arr[i]);
     }
@@ -821,7 +822,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer) {
               destsen = bigsearch(ophash, combind, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
               if(!destsen) {
                 destsen = ctgvnnum(eqcontainer, NOCONST);
-                dapush(destsen->equivs, combind);
+                dapush(destsen->equivs, ex2string(sen1->index, sen2->index, op->opcode));
                 bigfinsertfr(ophash, combind, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
               } else {
                 free(combind);
@@ -846,9 +847,10 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer) {
               destsen = bigsearch(ophash, combind, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
               if(!destsen) {
                 destsen = ctgvnnum(eqcontainer, NOCONST);
-                dapush(destsen->equivs, combind);
+                dapush(destsen->equivs, ex2string(sen1->index, sen2->index, op->opcode));
                 bigfinsertfr(ophash, combind, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
-                bigfinsertfr(ophash, ex2string(sen2->index, sen1->index, op->opcode), destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
+                char* combind2 = ex2string(sen2->index, sen1->index, op->opcode);
+                bigfinsertfr(ophash, combind2, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
               } else {
                 free(combind);
               }
@@ -871,7 +873,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer) {
               destsen = bigsearch(ophash, combind, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
               if(!destsen) {
                 destsen = ctgvnnum(eqcontainer, NOCONST);
-                dapush(destsen->equivs, combind);
+                dapush(destsen->equivs, ex2string(sen1->index, 0, op->opcode));
                 bigfinsertfr(ophash, combind, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
               } else {
                 free(combind);
@@ -907,7 +909,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer) {
               destsen = bigsearch(ophash, combind, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
               if(!destsen) {
                 destsen = ctgvnnum(eqcontainer, NOCONST);
-                dapush(destsen->equivs, combind);
+                dapush(destsen->equivs, ex2string(sen1->index, 0, op->opcode));
                 bigfinsertfr(ophash, combind, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
               } else {
                 free(combind);
@@ -927,7 +929,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer) {
           sen1 = bigsearch(ophash, combind, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
           if(!sen1) {
             destsen = ctgvnnum(eqcontainer, NOCONST);
-            dapush(destsen->equivs, combind);
+            dapush(destsen->equivs, ex2string(sen1->index, 0, op->opcode));
             bigfinsertfr(ophash, combind, destsen, (sizeof(unsigned int) << 1) + sizeof(enum opcode_3ac));
           } else {
             free(combind);
@@ -951,7 +953,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer) {
       }
     } while(op != blk->lastop && (op = op->nextop));
     rmdup(blk->exp_gen);
-    rmdupfr(blk->exp_gen2);
+    //rmdupfr(blk->exp_gen2);
   }
 }
 static void avails(BBLOCK* blk, PROGRAM* prog) {
@@ -1001,6 +1003,9 @@ void gvn(PROGRAM* prog) {
   EQONTAINER* eqcontainer = cteq(prog);
   gensall(prog, eqcontainer);
   availing(prog);
+  freeq(eqcontainer);
+  prog->pdone |= GVN;
+  return;
   antics(prog->finalblock, prog);
   for(int i = 0; i < prog->allblocks->length; i++)
     ((BBLOCK*) prog->allblocks->arr[i])->visited = 0;
@@ -1025,8 +1030,6 @@ void gvn(PROGRAM* prog) {
   free(rplist);
 
   prog->regcnt = eqcontainer->nodes->length;
-  freeq(eqcontainer);
-  prog->pdone |= GVN;
 }
 //https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/gvn_sas04.pdf
 //https://www.cs.purdue.edu/homes/hosking/papers/cc04.pdf

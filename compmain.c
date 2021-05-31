@@ -93,11 +93,11 @@ static void filecomp(char* filename) {
       DEBUG(printf("Ops after SSA %d\n", countops(prog)));
       DEBUG(treeprog(prog, pairthere->key, "justssa"));
       constfold(prog);
-      //gvn(prog);
+      gvn(prog);
       remove_nops(prog);
       annotateuse(prog);
       //killreg(prog);
-      //DEBUG(printf("Ops after GVN %d\n", countops(prog)));
+      DEBUG(printf("Ops after GVN %d\n", countops(prog)));
       //DEBUG(treeprog(prog, pairthere->key, "withgvn"));
       ldstrsep(prog);
       DEBUG(printf("Ops after ldstrsep %d\n", countops(prog)));
