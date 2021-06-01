@@ -290,6 +290,9 @@ static void stringconsty(FILE* outputfile, char* string) {
       case '\t':
         fputs("\\t", outputfile);
         break;
+      case '"':
+        fputs("\\\"", outputfile);
+        break;
       default:
         fputc(string[i], outputfile);
         break;
@@ -307,7 +310,7 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
         //do elements one by one, we will put them all on different lines (except arrays of integers) for simplicity for now
         int maxi = ((struct declarator_part*) dapeek(ty->pointerstack))->arrmaxind;
         ty->pointerstack->length--;
-        if(ty->pointerstack->length || ty->tb == (FLOATNUM | STRUCTVAL | UNIONVAL)) {
+        if(ty->pointerstack->length || ty->tb & (FLOATNUM | STRUCTVAL | UNIONVAL)) {
           for(int i = 0; i < maxi; i++){
             EXPRESSION* subex = i < ex->params->length ? daget(ex->params, i) : NULL;
             procinlit(outputfile, ty, subex);
@@ -325,25 +328,30 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
           for(int i = 0; i < maxi; i++){
             EXPRESSION* subex = i < ex->params->length ? daget(ex->params, i) : NULL;
             if(ty->tb & 8) {
-              fprintf(outputfile, "%ld,", subex ? subex->intconst : 0);
+              fprintf(outputfile, "%ld", subex ? subex->intconst : 0);
             } else if(ty->tb & 4) {
-              fprintf(outputfile, "%d,", subex ? (int) subex->intconst : 0);
+              fprintf(outputfile, "%d", subex ? (int) subex->intconst : 0);
             } else if(ty->tb & 2) {
-              fprintf(outputfile, "%hd,", subex ? (short) subex->intconst : 0);
+              fprintf(outputfile, "%hd", subex ? (short) subex->intconst : 0);
             } else if(ty->tb & 1) {
-              fprintf(outputfile, "%hhd,", subex ? (char) subex->intconst : 0);
+              fprintf(outputfile, "%hhd", subex ? (char) subex->intconst : 0);
+            } else {
+              assert(0);
             }
+            if(i != maxi - 1) fprintf(outputfile, ",");
           }
           fprintf(outputfile, "\n");
         }
         ty->pointerstack->length++;
       } else {
         fprintf(outputfile, ".align 8\n");//overkill alignment
-        fprintf(outputfile, ".zero %d\n", lentype(ty));//overkill alignment
+        if(lentype(ty))
+          fprintf(outputfile, ".zero %d\n", lentype(ty));//overkill alignment
       }
     } else {
       if(ex) {
-        if(!(ex->type == INT || ex->type == UINT)) foldconst(&ex);
+        if(!(ex->type == INT || ex->type == UINT)) foldconst(ex);
+        assert(ex->type == INT || ex->type == UINT);
         fprintf(outputfile, ".align 8\n");
         fprintf(outputfile, ".8byte %ld\n", ex->intconst);
       } else {
@@ -360,13 +368,15 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
       }
     } else {
       fprintf(outputfile, ".align 8\n");//overkill alignment
-      fprintf(outputfile, ".zero %d\n", lentype(ty));//overkill alignment
+      if(lentype(ty))
+        fprintf(outputfile, ".zero %d\n", lentype(ty));//overkill alignment
     }
   } else {
     if((ty->tb & 0xf) != 1)
       fprintf(outputfile, ".align %d\n", ty->tb & 0xf);
     if(ty->tb & FLOATNUM) {
       if(ex) {
+        if(ex->type != FLOAT) foldconst(ex);
         assert(ex->type == FLOAT);
         if(ty->tb & 8) {
           fprintf(outputfile, ".double %lf\n", ex->floatconst);
@@ -380,6 +390,7 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
       }
     } else {
       if(ex) {
+        if(!(ex->type == INT || ex->type == UINT)) foldconst(ex);
         assert(ex->type == INT || ex->type == UINT);
         if(ty->tb & 8) {
           fprintf(outputfile, ".8byte %ld\n", ex->intconst);

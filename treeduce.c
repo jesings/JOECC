@@ -99,8 +99,9 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
               subexpr->type = UINT; \
               free(rectexpr);  \
               dadtor(ex->params);  \
-              free(ex);  \
-              *exa = subexpr; \
+              if(ex->rettype) freetype(ex->rettype); \
+              *ex = *subexpr; \
+              free(subexpr);  \
               return 1  
 
 //given a comparison operator, use that operator compare 2 expressions if they can be determined at compile-time
@@ -237,8 +238,9 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
               return 0; \
           } \
           free(rectexpr); \
-          free(ex); \
-          *exa = subexpr; \
+          if(ex->rettype) freetype(ex->rettype); \
+          *ex = *subexpr; \
+          free(subexpr); \
           return 1; \
         case INT: \
           switch(rectexpr->type) { \
@@ -253,8 +255,9 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
               return 0; \
           } \
           free(rectexpr); \
-          free(ex); \
-          *exa = subexpr; \
+          if(ex->rettype) freetype(ex->rettype); \
+          *ex = *subexpr; \
+          free(subexpr); \
           return 1; \
         default: \
           return 0; \
@@ -487,8 +490,7 @@ IDTYPE typex(EXPRESSION* ex) {
 }
 
 //Big ol' function that evaluates compile-time evaluatable expressions recursively
-char foldconst(EXPRESSION** exa) {
-  EXPRESSION* ex = *exa;
+char foldconst(EXPRESSION* ex) {
   EXPRESSION* subexpr;
   DYNARR* newdyn;
   EXPRESSION* rectexpr;
@@ -500,7 +502,7 @@ char foldconst(EXPRESSION** exa) {
       break;
     default:
       for(int i = 0; i < ex->params->length; i++) {
-        while(foldconst((EXPRESSION**) &LPARAM(ex, i))) ;
+        while(foldconst((EXPRESSION*) LPARAM(ex, i))) ;
       }
       break;
   }
@@ -511,7 +513,17 @@ char foldconst(EXPRESSION** exa) {
       return 0;
     case CAST:
       subexpr = EPARAM(ex, 0);
-      if(ispointer(ex->vartype)) return 0;
+      if(ispointer(ex->vartype)) {
+        if(subexpr->type == INT || subexpr->type == UINT) {
+          ex->type = UINT;
+          ex->uintconst = subexpr->uintconst;
+          rfreexpr(subexpr);
+          dadtor(ex->params);
+          return 1;
+        } else {
+          return 0;
+        }
+      }
       //support for casting to union in 3ac
       if(ex->vartype->tb & (UNIONVAL | STRUCTVAL | ENUMVAL)) return 0;
       switch(subexpr->type) {
@@ -527,15 +539,15 @@ char foldconst(EXPRESSION** exa) {
           if(ex->vartype->tb & UNSIGNEDNUM) {
             freetype(ex->vartype);
             dadtor(ex->params);
-            *exa = subexpr;
-            free(ex);
-            subexpr->type = UINT;
+            *ex = *subexpr;
+            free(subexpr);
+            ex->type = UINT;
             return 1;
           } else {
             freetype(ex->vartype);
             dadtor(ex->params);
-            *exa = subexpr;
-            free(ex);
+            *ex = *subexpr;
+            free(subexpr);
             return 1;
           }
         case UINT:
@@ -550,23 +562,23 @@ char foldconst(EXPRESSION** exa) {
           if(ex->vartype->tb & UNSIGNEDNUM) {
             freetype(ex->vartype);
             dadtor(ex->params);
-            *exa = subexpr;
-            free(ex);
+            *ex = *subexpr;
+            free(subexpr);
             return 1;
           } else {
             freetype(ex->vartype);
             dadtor(ex->params);
-            *exa = subexpr;
-            free(ex);
-            subexpr->type = INT;
+            *ex = *subexpr;
+            free(subexpr);
+            ex->type = INT;
             return 1;
           }
         case FLOAT:
           if(ex->vartype->tb & FLOATNUM) {
             freetype(ex->vartype);
             dadtor(ex->params);
-            *exa = subexpr;
-            free(ex);
+            *ex = *subexpr;
+            free(subexpr);
             return 1;
           }
           if(ex->vartype->tb & UNSIGNEDNUM) {
@@ -594,41 +606,42 @@ char foldconst(EXPRESSION** exa) {
       if(ispointer(ex->vartype)) {
         struct declarator_part* pointtop = dapeek(ex->vartype->pointerstack);
         if(pointtop->type == VLASPEC) return 0;
-        if(pointtop->type != ARRAYSPEC) *exa = ct_intconst_expr(0x8);
-        *exa = ct_intconst_expr(pointtop->arrlen);
+        if(pointtop->type != ARRAYSPEC) subexpr = ct_intconst_expr(0x8);
+        else subexpr = ct_intconst_expr(pointtop->arrlen);
       } else if(ex->vartype->tb & (STRUCTVAL | UNIONVAL)) {
-        *exa = ct_intconst_expr(ex->vartype->structtype->size);
+        subexpr = ct_intconst_expr(ex->vartype->structtype->size);
       } else {
-        *exa = ct_intconst_expr(ex->vartype->tb & 0xf);
+        subexpr = ct_intconst_expr(ex->vartype->tb & 0xf);
       }
-      rfreexpr(ex);
+      freetype(ex->vartype);
+      *ex = *subexpr;
+      free(subexpr);
       return 1;
     case NEG:
       subexpr = EPARAM(ex, 0);
       switch(subexpr->type) {
         case NEG:
           subexpr = EPARAM(subexpr, 0);
-          foldconst((EXPRESSION**) &LPARAM(subexpr, 0));
+          foldconst((EXPRESSION*) LPARAM(subexpr, 0));
           dadtorfr(ex->params);
-          free(ex);
           break;
         case INT: case UINT:
           subexpr->intconst = -subexpr->intconst;
           subexpr->type = INT;
           dadtor(ex->params);
-          free(ex);
           break;
         case FLOAT:
           subexpr->floatconst = -subexpr->floatconst;
           dadtor(ex->params);
-          free(ex);
           break;
         case COMMA:
           //look at end of expr
         default:
           return 0;
       }
-      *exa = subexpr;
+      if(ex->rettype) freetype(ex->rettype);
+      *ex = *subexpr;
+      free(subexpr);
       return 1;
     case L_NOT: 
       subexpr = EPARAM(ex, 0);
@@ -667,8 +680,9 @@ char foldconst(EXPRESSION** exa) {
           return 0;
       }
       dadtor(ex->params);
-      free(ex);
-      *exa = subexpr;
+      if(ex->rettype) freetype(ex->rettype);
+      *ex = *subexpr;
+      free(subexpr);
       return 1;
     case B_NOT: 
       subexpr = EPARAM(ex, 0);
@@ -677,10 +691,11 @@ char foldconst(EXPRESSION** exa) {
           rectexpr = subexpr;
           subexpr = EPARAM(subexpr, 0);
           dadtor(ex->params);
-          free(ex);
           dadtor(rectexpr->params);
           free(rectexpr);
-          *exa = subexpr;
+          if(ex->rettype) freetype(ex->rettype);
+          *ex = *subexpr;
+          free(subexpr);
           return 1;
         case COMMA:
           //look at end of expr
@@ -694,10 +709,11 @@ char foldconst(EXPRESSION** exa) {
           rectexpr = subexpr;
           subexpr = EPARAM(subexpr, 0);
           dadtor(ex->params);
-          free(ex);
           dadtor(rectexpr->params);
           free(rectexpr);
-          *exa = subexpr;
+          if(ex->rettype) freetype(ex->rettype);
+          *ex = *subexpr;
+          free(subexpr);
           return 1;
         case COMMA:
           //look at end of expr
@@ -711,10 +727,11 @@ char foldconst(EXPRESSION** exa) {
           rectexpr = subexpr;
           subexpr = EPARAM(subexpr, 0);
           dadtor(ex->params);
-          free(ex);
           dadtor(rectexpr->params);
           free(rectexpr);
-          *exa = subexpr;
+          if(ex->rettype) freetype(ex->rettype);
+          *ex = *subexpr;
+          free(subexpr);
           return 1;
         case COMMA:
           //look at end of expr
@@ -809,14 +826,16 @@ char foldconst(EXPRESSION** exa) {
       if(newdyn->length == 1) {
         EXPRESSION* rv = newdyn->arr[0];
         dadtor(newdyn);
-        free(ex);
-        *exa = rv;
+        if(ex->rettype) freetype(ex->rettype);
+        *ex = *rv;
+        free(rv);
         return 1;
       } else if(newdyn->length == 0) {
         dadtor(newdyn);
-        free(ex);
-        if(rectexpr) *exa = rectexpr;
-        else *exa = ct_uintconst_expr(0);
+        subexpr = rectexpr ? rectexpr : ct_uintconst_expr(0);
+        if(ex->rettype) freetype(ex->rettype);
+        *ex = *subexpr;
+        free(subexpr);
         return 1;
       }
       ex->params = newdyn;
@@ -935,13 +954,15 @@ char foldconst(EXPRESSION** exa) {
       if(newdyn->length == 1) {
         EXPRESSION* rv = newdyn->arr[0];
         dadtor(newdyn);
-        free(ex);
-        *exa = rv;
+        if(ex->rettype) freetype(ex->rettype);
+        *ex = *rv;
+        free(rv);
         return 1;
       } else if(newdyn->length == 0) {
         dadtor(newdyn);
-        free(ex);
-        *exa = rectexpr;
+        if(ex->rettype) freetype(ex->rettype);
+        *ex = *rectexpr;
+        free(rectexpr);
         return 1;
       }
       return rove;
@@ -1032,13 +1053,15 @@ char foldconst(EXPRESSION** exa) {
       if(newdyn->length == 1) {
         EXPRESSION* rv = newdyn->arr[0];
         dadtor(newdyn);
-        free(ex);
-        *exa = rv;
+        if(ex->rettype) freetype(ex->rettype);
+        *ex = *rv;
+        free(rv);
         return 1;
       } else if(newdyn->length == 0) {
         dadtor(newdyn);
-        free(ex);
-        *exa = rectexpr;
+        if(ex->rettype) freetype(ex->rettype);
+        *ex = *rectexpr;
+        free(rectexpr);
         return 1;
       }
       ex->params = newdyn;
@@ -1189,8 +1212,9 @@ char foldconst(EXPRESSION** exa) {
           }
           free(divisor);
           dadtor(newdyn);
-          *exa = rectexpr;
-          free(ex);
+          if(ex->rettype) freetype(ex->rettype);
+          *ex = *rectexpr;
+          free(rectexpr);
           return 1;
         }
         afterbreak:
@@ -1201,13 +1225,15 @@ char foldconst(EXPRESSION** exa) {
       if(newdyn->length == 1) {
         EXPRESSION* rv = newdyn->arr[0];
         dadtor(newdyn);
-        free(ex);
-        *exa = rv;
+        if(ex->rettype) freetype(ex->rettype);
+        *ex = *rv;
+        free(rv);
         return 1;
       } else if(newdyn->length == 0) {
         dadtor(newdyn);
-        free(ex);
-        *exa = rectexpr;
+        if(ex->rettype) freetype(ex->rettype);
+        *ex = *rectexpr;
+        free(rectexpr);
         return 1;
       }
       return rove;
@@ -1240,9 +1266,10 @@ char foldconst(EXPRESSION** exa) {
               }
               dadtor(ex->params);
               if(!newdyn->length) {
-                free(ex);
                 dadtor(newdyn);
-                *exa = subexpr;
+                if(ex->rettype) freetype(ex->rettype);
+                *ex = *subexpr;
+                free(subexpr);
               } else {
                 dapush(newdyn, subexpr);
                 ex->params = newdyn;
@@ -1256,9 +1283,11 @@ char foldconst(EXPRESSION** exa) {
       }
       dadtor(ex->params);
       if(newdyn->length == 0) {
-        free(ex);
-        *exa = ct_intconst_expr(1);
+        subexpr = ct_intconst_expr(1);
         dadtor(newdyn);
+        if(ex->rettype) freetype(ex->rettype);
+        *ex = *subexpr;
+        free(subexpr);
         return 1;
       }
       ex->params = newdyn;
@@ -1291,9 +1320,10 @@ char foldconst(EXPRESSION** exa) {
               }
               dadtor(ex->params);
               if(!newdyn->length) {
-                free(ex);
                 dadtor(newdyn);
-                *exa = subexpr;
+                if(ex->rettype) freetype(ex->rettype);
+                *ex = *subexpr;
+                free(subexpr);
               } else {
                 dapush(newdyn, subexpr);
                 ex->params = newdyn;
@@ -1307,8 +1337,10 @@ char foldconst(EXPRESSION** exa) {
       }
       dadtor(ex->params);
       if(newdyn->length == 0) {
-        free(ex);
-        *exa = ct_intconst_expr(0);
+        subexpr = ct_intconst_expr(0);
+        if(ex->rettype) freetype(ex->rettype);
+        *ex = *subexpr;
+        free(subexpr);
         dadtor(newdyn);
         return 1;
       }
@@ -1355,9 +1387,10 @@ char foldconst(EXPRESSION** exa) {
       }
       dadtor(ex->params);
       if(newdyn->length == 0) {
-        free(ex);
         dadtor(newdyn);
-        *exa = rectexpr;
+        if(ex->rettype) freetype(ex->rettype);
+        *ex = *rectexpr;
+        free(rectexpr);
         return 1;
       }
       if(rectexpr->uintconst != -1UL) {
@@ -1381,7 +1414,7 @@ char foldconst(EXPRESSION** exa) {
               dapush(newdyn, EPARAM(subexpr, j)); 
             }
             dadtor(subexpr->params);
-            free(subexpr);
+            rfreexpr(subexpr);
             rove = 1;
             break;
           case COMMA:
@@ -1393,7 +1426,7 @@ char foldconst(EXPRESSION** exa) {
             if(rectexpr->uintconst != 0)
               rove = 1;
             rectexpr->uintconst |= subexpr->uintconst;
-            free(subexpr);
+            rfreexpr(subexpr);
             if(rectexpr->uintconst == -1UL) {
               for(++i; i < ex->params->length; ++i) {
                 EXPRESSION* free2 = EPARAM(ex, i);
@@ -1410,9 +1443,10 @@ char foldconst(EXPRESSION** exa) {
       }
       dadtor(ex->params);
       if(newdyn->length == 0) {
-        free(ex);
+        if(ex->rettype) freetype(ex->rettype);
+        *ex = *rectexpr;
         dadtor(newdyn);
-        *exa = rectexpr;
+        free(rectexpr);
         return 1;
       }
       if(rectexpr->uintconst != 0) {
@@ -1456,9 +1490,10 @@ char foldconst(EXPRESSION** exa) {
       }
       dadtor(ex->params);
       if(newdyn->length == 0) {
-        free(ex);
+        if(ex->rettype) freetype(ex->rettype);
+        *ex = *rectexpr;
         dadtor(newdyn);
-        *exa = rectexpr;
+        free(rectexpr);
         return 1;
       }
       if(rectexpr->uintconst != 0) {
@@ -1539,9 +1574,11 @@ char foldconst(EXPRESSION** exa) {
     case ASSIGN:
       if(puritree(EPARAM(ex, 0)) && treequals(EPARAM(ex, 0), EPARAM(ex, 1))) {
         rfreexpr(EPARAM(ex, 0));
-        *exa = EPARAM(ex, 1);
+        subexpr = EPARAM(ex, 1);
         dadtor(ex->params);
-        free(ex);
+        if(ex->rettype) freetype(ex->rettype);
+        *ex = *subexpr;
+        free(subexpr);
         return 1;
       }
       return 0;
@@ -1555,14 +1592,16 @@ char foldconst(EXPRESSION** exa) {
         case INT: case UINT: case FLOAT:
           if(subexpr->uintconst == 0) {
             rfreexpr(EPARAM(ex, 1)); 
-            *exa = EPARAM(ex, 2);
+            rectexpr = EPARAM(ex, 2);
           } else {
             rfreexpr(EPARAM(ex, 2)); 
-            *exa = EPARAM(ex, 1);
+            rectexpr = EPARAM(ex, 1);
           }
           free(subexpr);
           dadtor(ex->params);
-          free(ex);
+          if(ex->rettype) freetype(ex->rettype);
+          *ex = *rectexpr;
+          free(rectexpr);
           rove = 1;
           break;
         default:
@@ -1590,11 +1629,11 @@ char pleatstate(STATEMENT** stated) {
       //We don't reduce case statement here
       return 0;
     case SWITCH: case DOWHILEL:
-      while(foldconst(&st->cond)) i = 1;
+      while(foldconst(st->cond)) i = 1;
       return i || pleatstate(&st->body);
     case WHILEL:
       //for while and maybe do while do something different if cond evaluates to false
-      while(foldconst(&st->cond)) i = 1;
+      while(foldconst(st->cond)) i = 1;
       switch(st->cond->type) {
         case INT: case UINT: ;
           if(st->cond->uintconst) {
@@ -1610,15 +1649,15 @@ char pleatstate(STATEMENT** stated) {
       }
       return i || pleatstate(&st->body);
     case FORL: 
-      while(foldconst(&st->forcond)) i = 1;
-      while(foldconst(&st->increment)) i = 1;
+      while(foldconst(st->forcond)) i = 1;
+      while(foldconst(st->increment)) i = 1;
       if(st->forinit->isE) {
-        while(foldconst(&st->forinit->E)) i = 1;
+        while(foldconst(st->forinit->E)) i = 1;
       } else {
         for(int j = 0; j < st->forinit->I->length; j++) {
           INITIALIZER* indinit = daget(st->forinit->I, j);
           if(indinit->expr) {
-            while(foldconst(&indinit->expr)) j = 1;
+            while(foldconst(indinit->expr)) j = 1;
           }
         }
       }
@@ -1678,7 +1717,7 @@ char pleatstate(STATEMENT** stated) {
         } else {
           for(int k = 0; k < soi->init->length; k++) {
             INITIALIZER* in = daget(soi->init, k);
-            while(foldconst(&in->expr)) i = 1;
+            while(foldconst(in->expr)) i = 1;
           }
           dapush(newsdyn, soi);
         }
@@ -1687,17 +1726,17 @@ char pleatstate(STATEMENT** stated) {
       st->stmtsandinits = newsdyn;
       return i;
     case FRET:
-      while(foldconst(&st->expression)) i = 1;
+      while(foldconst(st->expression)) i = 1;
       return i;
     case EXPR: 
-      while(foldconst(&st->expression)) i = 1;
+      while(foldconst(st->expression)) i = 1;
       if(puritree(st->expression)) {
         rfreexpr(st->expression);
         st->type = NOPSTMT;
       }
       return i;
     case IFELSES:
-      while(foldconst(&st->ifcond)) i = 1;
+      while(foldconst(st->ifcond)) i = 1;
       switch(st->ifcond->type) {
         case INT: case UINT:
           if(st->ifcond->uintconst) {
@@ -1730,7 +1769,7 @@ char pleatstate(STATEMENT** stated) {
         default:
           break;
       }
-      return foldconst(&st->ifcond) || pleatstate(&st->thencond);
+      return foldconst(st->ifcond) || pleatstate(&st->thencond);
   }
   fprintf(stderr, "Error: reducing statement failed\n");
   return 0;

@@ -247,11 +247,9 @@ initializer:
     if(ac->expr && ac->expr->type == ARRAY_LIT) {
       DYNARR* pointy = ac->decl->type->pointerstack;
       if(pointy && pointy->length && ((struct declarator_part*) dapeek(pointy))->type == ARRAYSPEC) {
-        assert(pointy && pointy->length);
         process_array_lit(ac->decl->type, ac->expr);
         ac->expr->rettype = fcid2(ac->decl->type);
       } else if(!(pointy && pointy->length) && ac->decl->type->tb & (STRUCTVAL | UNIONVAL)) {
-        assert(!(pointy && pointy->length));
         process_struct_lit(ac->decl->type, ac->expr);
         ac->expr->rettype = fcid2(ac->decl->type);
       } else {
@@ -665,11 +663,9 @@ esu:
     DYNARR* pointy = $1->pointerstack;
     $$ = ct_array_lit($2);
     if(pointy && pointy->length && ((struct declarator_part*) dapeek(pointy))->type == ARRAYSPEC) {
-      assert(pointy && pointy->length);
       process_array_lit($1, $$);
       $$->rettype = $1;
     } else if(!(pointy && pointy->length) && $1->tb & (STRUCTVAL | UNIONVAL)) {
-      assert(!(pointy && pointy->length));
       process_struct_lit($1, $$);
       $$->rettype = $1;
     } else {
@@ -703,7 +699,7 @@ arrescoal:
     }
 | '[' expression ']' '=' escoa {
     $$ = malloc(sizeof(DESIGNARR));
-    foldconst(&$2);
+    foldconst($2);
     assert($2->type == INT || $2->type == UINT);
     $$->inits = dactor(32 > $2->intconst + 1 ? 32 : $2->intconst + 1);
     for(int i = $$->inits->length; i < $2->intconst; i++) {
@@ -716,7 +712,7 @@ arrescoal:
     }
 | arrescoal ',' '[' expression ']' '=' escoa {
     $$ = $1;
-    foldconst(&$4);
+    foldconst($4);
     assert($4->type == INT || $4->type == UINT);
     if($$->inits->maxlength < $4->intconst + 1)
       $$->inits->arr = reallocarray($$->inits->arr, $$->inits->maxlength = ($4->intconst + 1) * 1.5, sizeof(void*));
@@ -736,7 +732,7 @@ arrescoal:
     $$ = malloc(sizeof(DESIGNARR)); 
     $$->inits = $1; 
     $$->curpt = $1->length;
-    foldconst(&$4);
+    foldconst($4);
     assert($4->type == INT || $4->type == UINT);
     if($$->inits->maxlength < $4->intconst + 1)
       $$->inits->arr = reallocarray($$->inits->arr, $$->inits->maxlength = ($4->intconst + 1) * 1.5, sizeof(void*));

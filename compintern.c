@@ -899,7 +899,7 @@ STATEMENT* mklblstmt(struct lexctx* lct, char* lblval) {
 
 STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label) {
   PARALLEL* pl = ((SWITCHINFO*) dapeek(lct->func->switchstack))->cases;
-  while(foldconst(&casexpr)) ;
+  while(foldconst(casexpr)) ;
   switch(casexpr->type) {
     case INT: case UINT:
       pfinsert(pl, casexpr->uintconst, label);
@@ -929,7 +929,7 @@ STATEMENT* mkasmstmt(char* asmstmts, DYNARR* outputs, DYNARR* inputs, DYNARR* cl
 ENUMFIELD* genenumfield(char* name, EXPRESSION* value) {
   ENUMFIELD* retval = malloc(sizeof(ENUMFIELD));
   retval->name = name;
-  while(foldconst(&value)) ;
+  while(foldconst(value)) ;
   switch(value->type) {
     case INT: case UINT:
       break;
@@ -951,7 +951,7 @@ struct declarator_part* mkdeclpart(enum declpart_info typ, void* d) {
 struct declarator_part* mkdeclpartarr(enum declpart_info typ, EXPRESSION* d) {
   struct declarator_part* retval = malloc(sizeof(struct declarator_part));
   retval->type = typ;
-  foldconst(&d);
+  foldconst(d);
   switch(d->type) {
     case INT: case UINT:
       retval->arrmaxind = d->intconst;

@@ -44,7 +44,7 @@
 %%
 fullifexpr:
   expression {
-    while(foldconst(&$1)) ;
+    while(foldconst($1)) ;
     enum ifdefstate* rids;
     switch($1->type) {
       case INT: case UINT:
