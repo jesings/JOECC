@@ -141,6 +141,8 @@ typedef struct bblock {
   char* availability_out; //bitfield
   char* anticipability_in; //bitfield
   char* anticipability_out; //bitfield
+  HASHTABLE* leader;
+  HASHTABLE* antileader;
 } BBLOCK;
 
 typedef struct {

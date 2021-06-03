@@ -447,7 +447,7 @@ static void freeq(EQONTAINER* eq) {
   free(eq);
 }
 
-//find which equivalence node, if any, this address corresponds to 
+//find which equivalence node, if any, this address corresponds to, and create one if it corresponds to nothing extant
 static GVNNUM* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, PROGRAM* prog) {
   GVNNUM* cn;
   if(adt & ISCONST) {
@@ -647,60 +647,6 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
       assert(0); //unimplemented
   }
 }
-static void gengen(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op) {
-  BITFIELD bf = blk->availability_out;
-  GVNNUM* sen;
-  switch(op->opcode) {
-    OPS_3_3ac_NOCOM OPS_3_3ac_COM
-      sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
-      if(sen) {
-      }
-      __attribute__((fallthrough));
-    OPS_NODEST_3ac OPS_3_PTRDEST_3ac
-      sen = nodefromaddr(eq, op->addr1_type, op->addr1, prog);
-      if(sen) {
-      }
-      __attribute__((fallthrough));
-    case DEALOC:
-      break;
-    OPS_1_3ac
-      if(op->addr0_type & GARBAGEVAL) break;
-      sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
-      if(sen) {
-      }
-      break;
-    OPS_2_3ac_MUT case MOV_3: case ADDR_3:
-      sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
-      if(sen) {
-      }
-      sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
-      if(sen) {
-      }
-      break;
-    case CALL_3:
-      sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
-      if(sen) {
-      }
-      break;
-    case PHI:  ;
-      sen = nodefromaddr(eq, op->dest_type, op->dest, prog);
-      assert(sen->hasconst == NOCONST);
-      assert(!bfget(bf, sen->index));
-      bfset(bf, sen->index);
-      sen->regno = op->dest.iregnum;
-      break;
-    OPS_1_ASSIGN_3ac
-      sen = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
-      if(sen) {
-      }
-      break;
-    OPS_NOVAR_3ac
-      break;
-    case ASM:
-      assert(0); //unimplemented
-  }
-  
-}
 
 static void replacenode(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog) {
   if(blk->lastop) {
@@ -759,6 +705,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
   blk->tmp_gen = dinctor(32); //not sure what to do with this
   blk->exp_gen = dinctor(64);
   blk->exp_gen2 = dactor(32);
+  blk->leader = htclone(blk->dom->leader);
+  blk->antileader = htclone(blk->dom->leader);
   OPERATION* op = blk->firstop;
   do {
     char status = 0;
@@ -1012,7 +960,10 @@ static void antics(BBLOCK* blk, PROGRAM* prog) {
 void gvn(PROGRAM* prog) {
   BBLOCK* first = daget(prog->allblocks, 0);
   EQONTAINER* eqcontainer = cteq(prog);
+  HASHTABLE* h1 = first->leader = htctor();
+  HASHTABLE* h2 = first->antileader = htctor();
   gensall(prog, eqcontainer, first);
+  free(h1); free(h2);
   availing(prog);
   freeq(eqcontainer);
   prog->pdone |= GVN;
