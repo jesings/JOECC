@@ -424,7 +424,6 @@ static GVNNUM* ctgvnnum(EQONTAINER* eqcontainer, int hc) {
 static EQONTAINER* cteq(PROGRAM* prog) {
   EQONTAINER* retval = malloc(sizeof(EQONTAINER));
   retval->nodes = dactor(1024);
-  retval->varnodes = calloc(sizeof(void*), prog->regcnt);
   retval->intconsthash = htctor();
   retval->floatconsthash = htctor();
   retval->strconsthash = htctor();
@@ -439,7 +438,6 @@ static void fregvnnum(GVNNUM* eqnode) {
 
 static void freeq(EQONTAINER* eq) {
   dadtorcfr(eq->nodes, (void(*)(void*)) fregvnnum);
-  free(eq->varnodes);
   fhtdtor(eq->intconsthash);
   fhtdtor(eq->floatconsthash);
   htdtor(eq->strconsthash);
@@ -477,11 +475,13 @@ static GVNNUM* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, 
       FULLADDR* adstore = daget(prog->dynvars, adr.varnum);
       if(adstore->addr_type & ADDRSVAR) return NULL;
     }
-    cn = eqcontainer->varnodes[adr.iregnum];
+    EXPRSTR* exst = ex2string(adr.iregnum, 0, INIT_3);
+    cn = bigsearch(eqcontainer->ophash, (char*) exst, sizeof(EXPRSTR));
     if(!cn) {
       cn = ctgvnnum(eqcontainer, NOCONST);
-      dapush(cn->equivs, ex2string(adr.iregnum, 0, PARAM_3));
-      eqcontainer->varnodes[adr.iregnum] = cn;
+      dapush(cn->equivs, exst);
+    } else {
+      free(exst);
     }
   }
   return cn;
@@ -597,8 +597,10 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
     case PHI:  ;
       FULLADDR* addrs = op->addr0.joins;
       void* sen_tinel = NULL;
+      EXPRSTR* est = ex2string(0, 0, INIT_3);
       for(int k = 0; k < blk->inedges->length; k++) {
-        sen = eq->varnodes[addrs[k].addr.ssaind];
+        est->p1 = k;
+        sen = bigsearch(eq->ophash, (char*) est, sizeof(EXPRSTR));
         if(sen) {
           if(!sen_tinel) sen_tinel = sen;
           else if(sen_tinel != sen) sen_tinel = (void*) -1;
@@ -618,6 +620,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           sen_tinel = (void*) -1;
         }
       }
+      free(est);
       if(sen_tinel != (void*) -1) {
         op->opcode = NOP_3;
         free(op->addr0.joins);
@@ -787,8 +790,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           } else {
             destsen = ctgvnnum(eqcontainer, NOCONST);
           }
-          dapush(destsen->equivs, ex2string(op->dest.iregnum, 0, PARAM_3));
-          eqcontainer->varnodes[op->dest.iregnum] = destsen;
+          dapush(destsen->equivs, ex2string(op->dest.iregnum, 0, INIT_3));
         }
         break;
       OPS_3_3ac_COM
@@ -814,8 +816,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           } else {
             destsen = ctgvnnum(eqcontainer, NOCONST);
           }
-          dapush(destsen->equivs, ex2string(op->dest.iregnum, 0, PARAM_3));
-          eqcontainer->varnodes[op->dest.iregnum] = destsen;
+          dapush(destsen->equivs, ex2string(op->dest.iregnum, 0, INIT_3));
         }
         break;
       OPS_2_3ac_MUT
@@ -838,8 +839,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           } else {
             destsen = ctgvnnum(eqcontainer, NOCONST);
           }
-          dapush(destsen->equivs, ex2string(op->dest.iregnum, 0, PARAM_3));
-          eqcontainer->varnodes[op->dest.iregnum] = destsen;
+          dapush(destsen->equivs, ex2string(op->dest.iregnum, 0, INIT_3));
         }
         break;
       case MOV_3:
@@ -852,8 +852,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           if(!sen1) {
             sen1 = ctgvnnum(eqcontainer, NOCONST);
           }
-          dapush(sen1->equivs, ex2string(op->dest.iregnum, 0, PARAM_3));
-          eqcontainer->varnodes[op->dest.iregnum] = sen1;
+          dapush(sen1->equivs, ex2string(op->dest.iregnum, 0, INIT_3));
         }
         break;
       case ADDR_3:
@@ -874,11 +873,10 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           } else {
             destsen = ctgvnnum(eqcontainer, NOCONST);
           }
-          dapush(destsen->equivs, ex2string(op->dest.iregnum, 0, PARAM_3));
-          eqcontainer->varnodes[op->dest.iregnum] = destsen;
+          dapush(destsen->equivs, ex2string(op->dest.iregnum, 0, INIT_3));
         }
         break;
-      case PHI: //TODO: get phi node handling loop at end
+      case PHI:
         nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
         break;
       case DEALOC:

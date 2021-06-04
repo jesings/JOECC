@@ -34,7 +34,6 @@ typedef struct {
 
 typedef struct {
   DYNARR* nodes;//of GVNNUMS
-  GVNNUM** varnodes;
   HASHTABLE* intconsthash;
   HASHTABLE* floatconsthash;
   HASHTABLE* strconsthash;

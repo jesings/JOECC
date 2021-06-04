@@ -1609,8 +1609,7 @@ void freeblock(void* blk) {
   if(blk2->exp_gen2) dadtorfr(blk2->exp_gen2);
   if(blk2->leader) htdtor(blk2->leader);
   if(blk2->antileader) htdtor(blk2->antileader);
-  if(blk2->availability_out) free(blk2->availability_out);
-  if(blk2->anticipability_out) free(blk2->anticipability_out);
+  if(blk2->availability_out) free(blk2->availability_out); if(blk2->anticipability_out) free(blk2->anticipability_out);
   if(blk2->anticipability_in) free(blk2->anticipability_in);
   free(blk);
 }
