@@ -138,7 +138,6 @@ typedef struct bblock {
   DYNINT* tmp_gen;
   DYNINT* exp_gen;
   DYNARR* exp_gen2; //contains expressions
-  char* availability_out; //bitfield
   char* anticipability_in; //bitfield
   char* anticipability_out; //bitfield
   HASHTABLE* leader;

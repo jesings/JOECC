@@ -489,7 +489,7 @@ static GVNNUM* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, 
 
 //replace operation via gvn
 static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op) {
-  BITFIELD bf = blk->availability_out;
+  BITFIELD bf = bfalloc(8);//blk->availability_out; stupid placeholder compiler doesn't yell at me
   GVNNUM* sen;
   switch(op->opcode) {
     OPS_3_3ac_NOCOM OPS_3_3ac_COM
@@ -708,8 +708,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
   blk->tmp_gen = dinctor(32); //not sure what to do with this
   blk->exp_gen = dinctor(64);
   blk->exp_gen2 = dactor(32);
-  blk->leader = htclone(blk->dom->leader);
-  blk->antileader = htclone(blk->dom->leader);
+  blk->leader = fhtclone(blk->dom->leader);
+  blk->antileader = fhtclone(blk->dom->antileader);
   OPERATION* op = blk->firstop;
   do {
     char status = 0;
@@ -763,7 +763,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
     }
     GVNNUM* sen1;
     GVNNUM* sen2;
-    GVNNUM* destsen;
+    GVNNUM* destsen = NULL;
     BIGHASHTABLE* ophash = eqcontainer->ophash;
     EXPRSTR* combind;
     switch(op->opcode) {
@@ -849,10 +849,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
             FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
             if(adstore->addr_type & ADDRSVAR) break;
           }
-          if(!sen1) {
-            sen1 = ctgvnnum(eqcontainer, NOCONST);
-          }
-          dapush(sen1->equivs, ex2string(op->dest.iregnum, 0, INIT_3));
+          destsen = sen1 ? sen1 : ctgvnnum(eqcontainer, NOCONST);
+          dapush(destsen->equivs, ex2string(op->dest.iregnum, 0, INIT_3));
         }
         break;
       case ADDR_3:
@@ -877,15 +875,15 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
         }
         break;
       case PHI:
-        nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
+        destsen = nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
         break;
       case DEALOC:
         combind = ex2string(op->addr0.ssaind, 0, op->opcode);
         sen1 = bigsearch(ophash, (char*) combind, sizeof(EXPRSTR));
         if(!sen1) {
-          destsen = ctgvnnum(eqcontainer, NOCONST);
-          dapush(destsen->equivs, ex2string(sen1->index, 0, op->opcode));
-          bigfinsertfr(ophash, (char*) combind, destsen, sizeof(EXPRSTR));
+          sen2 = ctgvnnum(eqcontainer, NOCONST);
+          dapush(sen2->equivs, ex2string(sen1->index, 0, op->opcode));
+          bigfinsertfr(ophash, (char*) combind, sen2, sizeof(EXPRSTR));
         } else {
           free(combind);
         }
@@ -898,13 +896,18 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
         nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
         break;
       case CALL_3: //no pure functions for now
-        nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
+        destsen = nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
         break;
       OPS_1_ASSIGN_3ac
-        nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
+        destsen = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
         break;
       case ASM:
         assert(0); //unimplemented
+    }
+    if(destsen && !fixedqueryval(blk->leader, destsen->index)) {
+      EXPRSTR* exs = dapeek(destsen->equivs);
+      assert(exs->o == INIT_3 || exs->o == PHI || exs->o == CALL_3 || exs->o == INIT_3 || exs->o == PARAM_3);
+      fixedinsert(blk->leader, destsen->index, (void*) (long) exs->p1);
     }
   } while(op != blk->lastop && (op = op->nextop));
   rmdup(blk->exp_gen);
@@ -912,28 +915,6 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
   if(blk->idominates) 
     for(int i = 0; i < blk->idominates->length; i++)
       gensall(prog, eqcontainer, daget(blk->idominates, i));
-}
-static void avails(BBLOCK* blk, PROGRAM* prog) {
-  if(blk->visited) return;
-  blk->visited = 1;
-  blk->availability_out = bfclone(blk->dom->availability_out, prog->regcnt);
-  for(int i = 0; i < blk->tmp_gen->length; i++)
-    bfset(blk->availability_out, daget(blk->tmp_gen, i));
-  for(int i = 0; i < blk->phi_gen->length; i++)
-    bfset(blk->availability_out, daget(blk->phi_gen, i));
-}
-static void availing(PROGRAM* prog) {
-  BBLOCK* first = daget(prog->allblocks, 0);
-  first->availability_out = bfalloc(prog->regcnt);
-  first->visited = 1;
-  for(int i = 0; i < first->tmp_gen->length; i++)
-    bfset(first->availability_out, daget(first->tmp_gen, i));
-  for(int i = 0; i < first->phi_gen->length; i++)
-    bfset(first->availability_out, daget(first->phi_gen, i));
-  for(int i = 0; i < first->idominates->length; i++)
-    avails(daget(first->idominates, i), prog);
-  for(int i = 0; i < prog->allblocks->length; i++)
-    ((BBLOCK*) prog->allblocks->arr[i])->visited = 0;
 }
 static void antics(BBLOCK* blk, PROGRAM* prog) {
   if(blk->visited) return;
@@ -962,7 +943,6 @@ void gvn(PROGRAM* prog) {
   HASHTABLE* h2 = first->antileader = htctor();
   gensall(prog, eqcontainer, first);
   free(h1); free(h2);
-  availing(prog);
   freeq(eqcontainer);
   prog->pdone |= GVN;
   return;

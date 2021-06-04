@@ -54,6 +54,29 @@ char fixedqueryval(HASHTABLE* ht, long fixedkey) {
   }
   return 0;
 }
+
+HASHTABLE* fhtclone(HASHTABLE* ht) {
+  HASHTABLE* retval = malloc(sizeof(HASHTABLE));
+  memcpy(retval, ht, sizeof(HASHTABLE));
+  for(int i = 0; i < HASHSIZE; i++) {
+    HASHPAIR* curpair = &(ht->pairs[i]), *parpar = &(retval->pairs[i]);
+    if(!(curpair->next))
+      continue;
+    do {
+      parpar->fixedkey = curpair->fixedkey;
+      parpar->value = curpair->value;
+      if((unsigned long)curpair->next == 1) {
+        parpar->next = (void*) 1;
+        break;
+      } else {
+        parpar = parpar->next = malloc(sizeof(HASHPAIR));
+        curpair = curpair->next;
+      }
+    } while(1);
+  }
+  return retval;
+}
+
 //fixed hashpair destructor with custom free
 static void fhpdtorcfr(HASHPAIR* hp, void(*freef)(void*)) {
   if(hp->next) {

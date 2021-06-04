@@ -56,7 +56,7 @@ void killreg(PROGRAM* prog);
 
 static inline EXPRSTR* ex2string(unsigned int p1, unsigned int p2, enum opcode_3ac o) {
   EXPRSTR* irval = malloc(sizeof(EXPRSTR));
-  irval->o = 0;
+  irval->o = o;
   irval->p1 = p1;
   irval->p2 = p2;
   return irval;

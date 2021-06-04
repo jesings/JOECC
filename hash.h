@@ -28,6 +28,7 @@ typedef struct {
 
 HASHTABLE* htctor(void);
 HASHTABLE* htclone(HASHTABLE* ht);
+HASHTABLE* fhtclone(HASHTABLE* ht);
 BIGHASHTABLE* bightctor(void);
 void htdtor(HASHTABLE* ht);
 void htdtorfr(HASHTABLE* ht);
