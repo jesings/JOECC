@@ -116,3 +116,43 @@ void didtor(DYNINT* di) {
   if(di->maxlength) free(di->arr);
   free(di);
 }
+
+void disort(DYNINT* di) {
+  //mergesort for stability
+  int n = di->maxlength;
+  int* other = malloc(sizeof(int) * n);
+  for(int width = 1; width < n; width *= 2) {
+    for(int i = 0; i < n; i += 2 * width) {
+      int left = i;
+      int right = i + width < n ? i + width : n;
+      int end = i + 2 * width < n ? i + 2 * width : n;
+      int origright = right;
+      for(int k = left; k < end; k++) {
+        if(left < origright && (right >= end || di->arr[left] <= di->arr[right])) {
+          other[k] = di->arr[left];
+          left++;
+        } else {
+          other[k] = di->arr[right];
+          right++;
+        }
+      }
+    }
+    int* tmp = di->arr;
+    di->arr = other;
+    other = tmp;
+  }
+  free(other);
+}
+
+void didup(DYNINT* di) {
+  disort(di);
+  int last = -1;
+  int wrind = 0;
+  for(int i = 0; i < di->length; i++) {
+    if(di->arr[i] != last) {
+      last = di->arr[i];
+      di->arr[wrind++] = last;
+    }
+  }
+  di->length = wrind;
+}
