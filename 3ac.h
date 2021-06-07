@@ -134,14 +134,12 @@ typedef struct bblock {
   int visited;
   int work;
 
-  DYNINT* phi_gen;
   DYNINT* tmp_gen;
-  DYNINT* exp_gen;
-  DYNARR* exp_gen2; //contains expressions
   char* anticipability_in; //bitfield
   char* anticipability_out; //bitfield
   HASHTABLE* leader;
   HASHTABLE* antileader;
+  HASHTABLE* exp_gen;
 } BBLOCK;
 
 typedef struct {

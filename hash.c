@@ -227,7 +227,7 @@ void insertcfr(HASHTABLE* ht, const char* key, void* value, void (*cfree)(void*)
 }
 
 void bigfinsertfr(BIGHASHTABLE* ht, char* key, void* value, int len) {
-  unsigned long i = bighash(key);
+  unsigned long i = bighashfl(key, len);
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!(hp->key)) {
     hp->key = key;

@@ -479,6 +479,9 @@ static GVNNUM* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, 
     cn = bigsearch(eqcontainer->ophash, (char*) exst, sizeof(EXPRSTR));
     if(!cn) {
       cn = ctgvnnum(eqcontainer, NOCONST);
+      EXPRSTR* exn = malloc(sizeof(EXPRSTR));
+      memcpy(exn, exst, sizeof(EXPRSTR));
+      bigfinsertfr(eqcontainer->ophash, (char*) exn, cn, sizeof(EXPRSTR));
       dapush(cn->equivs, exst);
     } else {
       free(exst);
@@ -540,8 +543,8 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
       break;
     case DEALOC:
       {
-      char* ex2 = (char*) ex2string(op->addr0.ssaind, 0, op->opcode);
-      sen = bigsearch(eq->ophash, ex2, sizeof(EXPRSTR));
+      EXPRSTR ex2 = {op->opcode, op->addr0.ssaind, 0};
+      sen = bigsearch(eq->ophash, (char*) &ex2, sizeof(EXPRSTR));
       if(sen) {
         if(bfget(bf, sen->index)) {
           op->opcode = NOP_3;
@@ -549,7 +552,6 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           bfset(bf, sen->index);
         }
       }
-      free(ex2);
       }
       break;
 
@@ -597,10 +599,10 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
     case PHI:  ;
       FULLADDR* addrs = op->addr0.joins;
       void* sen_tinel = NULL;
-      EXPRSTR* est = ex2string(0, 0, INIT_3);
+      EXPRSTR est = {INIT_3, 0, 0};
       for(int k = 0; k < blk->inedges->length; k++) {
-        est->p1 = k;
-        sen = bigsearch(eq->ophash, (char*) est, sizeof(EXPRSTR));
+        est.p1 = k;
+        sen = bigsearch(eq->ophash, (char*) &est, sizeof(EXPRSTR));
         if(sen) {
           if(!sen_tinel) sen_tinel = sen;
           else if(sen_tinel != sen) sen_tinel = (void*) -1;
@@ -620,7 +622,6 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           sen_tinel = (void*) -1;
         }
       }
-      free(est);
       if(sen_tinel != (void*) -1) {
         op->opcode = NOP_3;
         free(op->addr0.joins);
@@ -667,100 +668,18 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog) {
   }
 }
 
-static int cmp(const void* v1, const void* v2) {
-  int i = *(const int*)v1, j = *(const int*)v2;
-  return (i >= j) - (i <= j);
-}
-static void rmdup(DYNINT* arr) {
-  qsort(arr->arr, arr->length, sizeof(int), cmp);
-  int last = -1;
-  int wrind = 0;
-  for(int i = 0; i < arr->length; i++) {
-    if(arr->arr[i] != last) {
-      last = arr->arr[i];
-      arr->arr[wrind++] = last;
-    }
-  }
-  arr->length = wrind; //duplicates should be removed at this point
-}
-static int cmc(const void* v1, const void* v2) {
-  return memcmp(*(const void* const*) v1, *(const void* const*) v2, sizeof(EXPRSTR));
-}
-static void rmdupfr(DYNARR* arr) {
-  qsort(arr->arr, arr->length, sizeof(void*), cmc);
-  void* last = (void*) -2;
-  int wrind = 0;
-  for(int i = 0; i < arr->length; i++) {
-    if(arr->arr[i] != last) {
-      last = arr->arr[i];
-      arr->arr[wrind++] = last;
-    } else {
-      free(arr->arr[i]);
-    }
-  }
-  arr->length = wrind; //duplicates should be removed at this point
-}
 static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
   if(blk->visited) return;
   blk->visited = 1;
   if(!blk->lastop) return;
-  blk->phi_gen = dinctor(8); //find length of phis maybe
+  //blk->phi_gen = dinctor(8); //find length of phis maybe
   blk->tmp_gen = dinctor(32); //not sure what to do with this
-  blk->exp_gen = dinctor(64);
-  blk->exp_gen2 = dactor(32);
+  blk->exp_gen = htctor();
   blk->leader = fhtclone(blk->dom->leader);
   blk->antileader = fhtclone(blk->dom->antileader);
   OPERATION* op = blk->firstop;
+  EXPRSTR exst = {INIT_3, 0, 0};
   do {
-    char status = 0;
-    switch(op->opcode) {
-      OPS_3_3ac_NOCOM OPS_3_3ac_COM 
-        if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-          dipush(blk->exp_gen, op->dest.iregnum), ++status;
-        if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-          dipush(blk->exp_gen, op->dest.iregnum), ++status;
-        if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-          dipush(blk->tmp_gen, op->dest.iregnum); //not sure if status matters here, I think not
-        if(status >= 2)
-          dapush(blk->exp_gen2, ex2string(op->addr0.iregnum, op->addr1.iregnum, op->opcode));
-        break;
-      OPS_2_3ac_MUT case MOV_3: 
-        if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-          dipush(blk->exp_gen, op->dest.iregnum), status++;
-        if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-          dipush(blk->tmp_gen, op->dest.iregnum);
-        if(status >= 1)
-          dapush(blk->exp_gen2, ex2string(op->addr0.iregnum, -1, op->opcode));
-        break;
-        __attribute__((fallthrough));
-      case CALL_3: case ADDR_3:
-        if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-          dipush(blk->tmp_gen, op->dest.iregnum);
-        break;
-      OPS_1_ASSIGN_3ac
-        if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-          dipush(blk->tmp_gen, op->addr0.iregnum);
-        break;
-      case PHI:
-        for(int i = 0; i < blk->inedges->length; i++)
-          if(!(op->addr0.joins[i].addr_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-            dipush(blk->exp_gen, op->addr0.joins[i].addr_type);
-        if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-          dipush(blk->phi_gen, op->dest.iregnum);
-        break;
-      OPS_NODEST_3ac OPS_3_PTRDEST_3ac
-        if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-          dipush(blk->exp_gen, op->dest.iregnum);
-        __attribute__((fallthrough));
-      OPS_1_3ac
-        if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-          dipush(blk->exp_gen, op->dest.iregnum);
-        break;
-      OPS_NOVAR_3ac case DEALOC:
-        break;
-      case ASM:
-        assert(0); //unimplemented
-    }
     GVNNUM* sen1;
     GVNNUM* sen2;
     GVNNUM* destsen = NULL;
@@ -904,15 +823,122 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
       case ASM:
         assert(0); //unimplemented
     }
+    char status = 0;
+    GVNNUM* chosen;
+    switch(op->opcode) {
+      OPS_3_3ac_NOCOM OPS_3_3ac_COM 
+        if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {
+          exst.p1 = op->addr0.iregnum;
+          chosen = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
+          if(!fixedqueryval(blk->exp_gen, chosen->index)) {
+            //slightly inefficient, could query and insert in same traversal
+            //however it might be worse to have to re-free the exprstr if not used
+            EXPRSTR* exc = malloc(sizeof(EXPRSTR));
+            memcpy(exc, &exst, sizeof(EXPRSTR));
+            fixedinsert(blk->exp_gen, chosen->index, exc);
+          }
+        }
+        if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {
+          exst.p1 = op->addr1.iregnum;
+          chosen = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
+          if(!fixedqueryval(blk->exp_gen, chosen->index)) {
+            EXPRSTR* exc = malloc(sizeof(EXPRSTR));
+            memcpy(exc, &exst, sizeof(EXPRSTR));
+            fixedinsert(blk->exp_gen, chosen->index, exc);
+          }
+        }
+        if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
+          dipush(blk->tmp_gen, op->dest.iregnum);
+        if(status == 2) {
+          EXPRSTR refex = {op->opcode, op->addr0.iregnum, op->addr1.iregnum};
+          chosen = bigsearch(eqcontainer->ophash, (char*) &refex, sizeof(EXPRSTR));
+          if(!fixedqueryval(blk->exp_gen, chosen->index)) {
+            EXPRSTR* exc = malloc(sizeof(EXPRSTR));
+            memcpy(exc, &refex, sizeof(EXPRSTR));
+            fixedinsert(blk->exp_gen, chosen->index, exc);
+          }
+        }
+        break;
+      OPS_2_3ac_MUT case MOV_3: 
+        if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {
+          exst.p1 = op->addr0.iregnum;
+          chosen = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
+          if(!fixedqueryval(blk->exp_gen, chosen->index)) {
+            EXPRSTR* exc = malloc(sizeof(EXPRSTR));
+            memcpy(exc, &exst, sizeof(EXPRSTR));
+            fixedinsert(blk->exp_gen, chosen->index, exc);
+          }
+        }
+        if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
+          dipush(blk->tmp_gen, op->dest.iregnum);
+        if(status == 1) {
+          EXPRSTR refex = {op->opcode, op->addr0.iregnum, 0};
+          chosen = bigsearch(eqcontainer->ophash, (char*) &refex, sizeof(EXPRSTR));
+          if(!fixedqueryval(blk->exp_gen, chosen->index)) {
+            EXPRSTR* exc = malloc(sizeof(EXPRSTR));
+            memcpy(exc, &refex, sizeof(EXPRSTR));
+            fixedinsert(blk->exp_gen, chosen->index, exc);
+          }
+        }
+        break;
+        __attribute__((fallthrough));
+      case CALL_3: case ADDR_3:
+        if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
+          dipush(blk->tmp_gen, op->dest.iregnum);
+        break;
+      OPS_1_ASSIGN_3ac
+        if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
+          dipush(blk->tmp_gen, op->addr0.iregnum);
+        break;
+      case PHI:
+        //for(int i = 0; i < blk->inedges->length; i++) {
+        //  if(!(op->addr0.joins[i].addr_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {
+        //    exst.p1 = op->addr0.joins[i].addr.iregnum;
+        //    chosen = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
+        //    if(!fixedqueryval(blk->exp_gen, chosen->index)) {
+        //      EXPRSTR* exc = malloc(sizeof(EXPRSTR));
+        //      memcpy(exc, &exst, sizeof(EXPRSTR));
+        //      fixedinsert(blk->exp_gen, chosen->index, exc);
+        //    }
+        //  }
+        //}
+        //if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
+        //  dipush(blk->phi_gen, op->dest.iregnum); phi gen not realy necessary
+        break;
+      OPS_NODEST_3ac OPS_3_PTRDEST_3ac
+        if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {
+          exst.p1 = op->addr1.iregnum;
+          chosen = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
+          if(!fixedqueryval(blk->exp_gen, chosen->index)) {
+            EXPRSTR* exc = malloc(sizeof(EXPRSTR));
+            memcpy(exc, &exst, sizeof(EXPRSTR));
+            fixedinsert(blk->exp_gen, chosen->index, exc);
+          }
+        }
+        __attribute__((fallthrough));
+      OPS_1_3ac
+        if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {
+          exst.p1 = op->addr0.iregnum;
+          chosen = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
+          if(!fixedqueryval(blk->exp_gen, chosen->index)) {
+            EXPRSTR* exc = malloc(sizeof(EXPRSTR));
+            memcpy(exc, &exst, sizeof(EXPRSTR));
+            fixedinsert(blk->exp_gen, chosen->index, exc);
+          }
+        }
+        break;
+      OPS_NOVAR_3ac case DEALOC:
+        break;
+      case ASM:
+        assert(0); //unimplemented
+    }
     if(destsen && !fixedqueryval(blk->leader, destsen->index)) {
       EXPRSTR* exs = dapeek(destsen->equivs);
-      assert(exs->o == INIT_3 || exs->o == PHI || exs->o == CALL_3 || exs->o == INIT_3 || exs->o == PARAM_3);
+      //assert(exs->o == INIT_3 || exs->o == PHI || exs->o == CALL_3 || exs->o == INIT_3 || exs->o == PARAM_3);
       fixedinsert(blk->leader, destsen->index, (void*) (long) exs->p1);
     }
   } while(op != blk->lastop && (op = op->nextop));
-  rmdup(blk->exp_gen);
-  rmdupfr(blk->exp_gen2);
-  if(blk->idominates) 
+  if(blk->idominates)
     for(int i = 0; i < blk->idominates->length; i++)
       gensall(prog, eqcontainer, daget(blk->idominates, i));
 }
