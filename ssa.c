@@ -668,6 +668,12 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog) {
   }
 }
 
+static EXPRSTR* genx(EXPRSTR* millenial) {
+  EXPRSTR* boomer = malloc(sizeof(EXPRSTR));
+  memcpy(boomer, millenial, sizeof(EXPRSTR));
+  return boomer;
+}
+
 static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
   if(blk->visited) return;
   blk->visited = 1;
@@ -683,8 +689,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
     GVNNUM* sen1;
     GVNNUM* sen2;
     GVNNUM* destsen = NULL;
+    GVNNUM* othersen;
     BIGHASHTABLE* ophash = eqcontainer->ophash;
-    EXPRSTR* combind;
     switch(op->opcode) {
       OPS_NOVAR_3ac
         break; //nothing for nop, lbl, jmp, branching ops, or arg/ret
@@ -697,20 +703,18 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
             if(adstore->addr_type & ADDRSVAR) break;
           }
           if(sen1 && sen2) {
-            combind = ex2string(sen1->index, sen2->index, op->opcode);
-            destsen = bigsearch(ophash, (char*) combind, sizeof(EXPRSTR));
+            EXPRSTR combind = {op->opcode, sen1->index, sen2->index};
+            destsen = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
             if(!destsen) {
               destsen = ctgvnnum(eqcontainer, NOCONST);
               dapush(destsen->equivs, ex2string(sen1->index, sen2->index, op->opcode));
-              bigfinsertfr(ophash, (char*) combind, destsen, sizeof(EXPRSTR));
-            } else {
-              free(combind);
+              bigfinsertfr(ophash, (char*) genx(&combind), destsen, sizeof(EXPRSTR));
             }
           } else {
             destsen = ctgvnnum(eqcontainer, NOCONST);
           }
           dapush(destsen->equivs, ex2string(op->dest.iregnum, 0, INIT_3));
-        }
+        } 
         break;
       OPS_3_3ac_COM
         sen1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
@@ -721,16 +725,14 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
             if(adstore->addr_type & ADDRSVAR) break;
           }
           if(sen1 && sen2) {
-            combind = ex2string(sen1->index, sen2->index, op->opcode);
-            destsen = bigsearch(ophash, (char*) combind, sizeof(EXPRSTR));
+            EXPRSTR combind = {op->opcode, sen1->index, sen2->index};
+            destsen = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
             if(!destsen) {
               destsen = ctgvnnum(eqcontainer, NOCONST);
               dapush(destsen->equivs, ex2string(sen1->index, sen2->index, op->opcode));
-              bigfinsertfr(ophash, (char*) combind, destsen, sizeof(EXPRSTR));
+              bigfinsertfr(ophash, (char*) genx(&combind), destsen, sizeof(EXPRSTR));
               EXPRSTR* combind2 = ex2string(sen2->index, sen1->index, op->opcode);
               bigfinsertfr(ophash, (char*) combind2, destsen, sizeof(EXPRSTR));
-            } else {
-              free(combind);
             }
           } else {
             destsen = ctgvnnum(eqcontainer, NOCONST);
@@ -746,14 +748,12 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
             if(adstore->addr_type & ADDRSVAR) break;
           }
           if(sen1) {
-            combind = ex2string(sen1->index, 0, op->opcode);
-            destsen = bigsearch(ophash, (char*) combind, sizeof(EXPRSTR));
+            EXPRSTR combind = {op->opcode, sen1->index, 0};
+            destsen = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
             if(!destsen) {
               destsen = ctgvnnum(eqcontainer, NOCONST);
               dapush(destsen->equivs, ex2string(sen1->index, 0, op->opcode));
-              bigfinsertfr(ophash, (char*) combind, destsen, sizeof(EXPRSTR));
-            } else {
-              free(combind);
+              bigfinsertfr(ophash, (char*) genx(&combind), destsen, sizeof(EXPRSTR));
             }
           } else {
             destsen = ctgvnnum(eqcontainer, NOCONST);
@@ -778,14 +778,12 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
         if(!(op->dest_type & (ISDEREF | ISLABEL))) {
           //addrsvar is permissible
           if(sen1) {
-            combind = ex2string(sen1->index, 0, op->opcode);
-            destsen = bigsearch(ophash, (char*) combind, sizeof(EXPRSTR));
+            EXPRSTR combind = {op->opcode, sen1->index, 0};
+            destsen = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
             if(!destsen) {
               destsen = ctgvnnum(eqcontainer, NOCONST);
               dapush(destsen->equivs, ex2string(sen1->index, 0, op->opcode));
-              bigfinsertfr(ophash, (char*) combind, destsen, sizeof(EXPRSTR));
-            } else {
-              free(combind);
+              bigfinsertfr(ophash, (char*) genx(&combind), destsen, sizeof(EXPRSTR));
             }
           } else {
             destsen = ctgvnnum(eqcontainer, NOCONST);
@@ -797,14 +795,14 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
         destsen = nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
         break;
       case DEALOC:
-        combind = ex2string(op->addr0.ssaind, 0, op->opcode);
-        sen1 = bigsearch(ophash, (char*) combind, sizeof(EXPRSTR));
-        if(!sen1) {
-          sen2 = ctgvnnum(eqcontainer, NOCONST);
-          dapush(sen2->equivs, ex2string(sen1->index, 0, op->opcode));
-          bigfinsertfr(ophash, (char*) combind, sen2, sizeof(EXPRSTR));
-        } else {
-          free(combind);
+        {
+          EXPRSTR combind = {op->opcode, op->addr0.ssaind, 0};
+          sen1 = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
+          if(!sen1) {
+            sen2 = ctgvnnum(eqcontainer, NOCONST);
+            dapush(sen2->equivs, ex2string(sen1->index, 0, op->opcode));
+            bigfinsertfr(ophash, (char*) genx(&combind), sen2, sizeof(EXPRSTR));
+          }
         }
         break;
       OPS_3_PTRDEST_3ac OPS_NODEST_3ac
@@ -825,26 +823,23 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
     }
     char status = 0;
     GVNNUM* chosen;
+    //if in any case chosen is assigned null, it must be an addrsvar
     switch(op->opcode) {
       OPS_3_3ac_NOCOM OPS_3_3ac_COM 
         if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {
           exst.p1 = op->addr0.iregnum;
           chosen = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
-          if(!fixedqueryval(blk->exp_gen, chosen->index)) {
+          if(chosen && !fixedqueryval(blk->exp_gen, chosen->index)) {
             //slightly inefficient, could query and insert in same traversal
             //however it might be worse to have to re-free the exprstr if not used
-            EXPRSTR* exc = malloc(sizeof(EXPRSTR));
-            memcpy(exc, &exst, sizeof(EXPRSTR));
-            fixedinsert(blk->exp_gen, chosen->index, exc);
+            fixedinsert(blk->exp_gen, chosen->index, genx(&exst));
           }
         }
         if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {
           exst.p1 = op->addr1.iregnum;
           chosen = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
-          if(!fixedqueryval(blk->exp_gen, chosen->index)) {
-            EXPRSTR* exc = malloc(sizeof(EXPRSTR));
-            memcpy(exc, &exst, sizeof(EXPRSTR));
-            fixedinsert(blk->exp_gen, chosen->index, exc);
+          if(chosen && !fixedqueryval(blk->exp_gen, chosen->index)) {
+            fixedinsert(blk->exp_gen, chosen->index, genx(&exst));
           }
         }
         if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
@@ -853,9 +848,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           EXPRSTR refex = {op->opcode, op->addr0.iregnum, op->addr1.iregnum};
           chosen = bigsearch(eqcontainer->ophash, (char*) &refex, sizeof(EXPRSTR));
           if(!fixedqueryval(blk->exp_gen, chosen->index)) {
-            EXPRSTR* exc = malloc(sizeof(EXPRSTR));
-            memcpy(exc, &refex, sizeof(EXPRSTR));
-            fixedinsert(blk->exp_gen, chosen->index, exc);
+            fixedinsert(blk->exp_gen, chosen->index, genx(&refex));
           }
         }
         break;
@@ -863,10 +856,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
         if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {
           exst.p1 = op->addr0.iregnum;
           chosen = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
-          if(!fixedqueryval(blk->exp_gen, chosen->index)) {
-            EXPRSTR* exc = malloc(sizeof(EXPRSTR));
-            memcpy(exc, &exst, sizeof(EXPRSTR));
-            fixedinsert(blk->exp_gen, chosen->index, exc);
+          if(chosen && !fixedqueryval(blk->exp_gen, chosen->index)) {
+            fixedinsert(blk->exp_gen, chosen->index, genx(&exst));
           }
         }
         if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
@@ -875,9 +866,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           EXPRSTR refex = {op->opcode, op->addr0.iregnum, 0};
           chosen = bigsearch(eqcontainer->ophash, (char*) &refex, sizeof(EXPRSTR));
           if(!fixedqueryval(blk->exp_gen, chosen->index)) {
-            EXPRSTR* exc = malloc(sizeof(EXPRSTR));
-            memcpy(exc, &refex, sizeof(EXPRSTR));
-            fixedinsert(blk->exp_gen, chosen->index, exc);
+            fixedinsert(blk->exp_gen, chosen->index, genx(&refex));
           }
         }
         break;
@@ -909,10 +898,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
         if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {
           exst.p1 = op->addr1.iregnum;
           chosen = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
-          if(!fixedqueryval(blk->exp_gen, chosen->index)) {
-            EXPRSTR* exc = malloc(sizeof(EXPRSTR));
-            memcpy(exc, &exst, sizeof(EXPRSTR));
-            fixedinsert(blk->exp_gen, chosen->index, exc);
+          if(chosen && !fixedqueryval(blk->exp_gen, chosen->index)) {
+            fixedinsert(blk->exp_gen, chosen->index, genx(&exst));
           }
         }
         __attribute__((fallthrough));
@@ -920,10 +907,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
         if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {
           exst.p1 = op->addr0.iregnum;
           chosen = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
-          if(!fixedqueryval(blk->exp_gen, chosen->index)) {
-            EXPRSTR* exc = malloc(sizeof(EXPRSTR));
-            memcpy(exc, &exst, sizeof(EXPRSTR));
-            fixedinsert(blk->exp_gen, chosen->index, exc);
+          if(chosen && !fixedqueryval(blk->exp_gen, chosen->index)) {
+            fixedinsert(blk->exp_gen, chosen->index, genx(&exst));
           }
         }
         break;
