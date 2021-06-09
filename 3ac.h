@@ -126,6 +126,7 @@ typedef struct bblock {
   struct bblock* nextblock;
   struct bblock* branchblock;
 
+  DYNARR* pidominates;
   DYNARR* idominates;
   DYNARR* df;
   struct bblock* dom; //immediate dominator

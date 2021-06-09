@@ -1601,6 +1601,7 @@ void freeblock(void* blk) {
   BBLOCK* blk2 = blk;
   dadtor(blk2->inedges);
   if(blk2->idominates) dadtor(blk2->idominates);
+  if(blk2->pidominates) dadtor(blk2->pidominates);
   if(blk2->df) dadtor(blk2->df);
   if(blk2->lastop) freeop(blk2->firstop, blk2->lastop);
   if(blk2->tmp_gen) didtor(blk2->tmp_gen);

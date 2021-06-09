@@ -689,7 +689,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
     GVNNUM* sen1;
     GVNNUM* sen2;
     GVNNUM* destsen = NULL;
-    GVNNUM* othersen;
+    GVNNUM* othersen = NULL;
     BIGHASHTABLE* ophash = eqcontainer->ophash;
     switch(op->opcode) {
       OPS_NOVAR_3ac
@@ -707,14 +707,22 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
             destsen = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
             if(!destsen) {
               destsen = ctgvnnum(eqcontainer, NOCONST);
-              dapush(destsen->equivs, ex2string(sen1->index, sen2->index, op->opcode));
+              dapush(destsen->equivs, genx(&combind));
               bigfinsertfr(ophash, (char*) genx(&combind), destsen, sizeof(EXPRSTR));
             }
           } else {
             destsen = ctgvnnum(eqcontainer, NOCONST);
           }
           dapush(destsen->equivs, ex2string(op->dest.iregnum, 0, INIT_3));
-        } 
+        } else if(sen1 && sen2) {
+          EXPRSTR combind = {op->opcode, sen1->index, sen2->index};
+          othersen = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
+          if(!othersen) {
+            othersen = ctgvnnum(eqcontainer, NOCONST);
+            dapush(othersen->equivs, genx(&combind));
+            bigfinsertfr(ophash, (char*) genx(&combind), othersen, sizeof(EXPRSTR));
+          }
+        }
         break;
       OPS_3_3ac_COM
         sen1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
@@ -729,7 +737,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
             destsen = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
             if(!destsen) {
               destsen = ctgvnnum(eqcontainer, NOCONST);
-              dapush(destsen->equivs, ex2string(sen1->index, sen2->index, op->opcode));
+              dapush(destsen->equivs, genx(&combind));
               bigfinsertfr(ophash, (char*) genx(&combind), destsen, sizeof(EXPRSTR));
               EXPRSTR* combind2 = ex2string(sen2->index, sen1->index, op->opcode);
               bigfinsertfr(ophash, (char*) combind2, destsen, sizeof(EXPRSTR));
@@ -738,6 +746,16 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
             destsen = ctgvnnum(eqcontainer, NOCONST);
           }
           dapush(destsen->equivs, ex2string(op->dest.iregnum, 0, INIT_3));
+        } else if(sen1 && sen2) {
+          EXPRSTR combind = {op->opcode, sen1->index, sen2->index};
+          othersen = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
+          if(!othersen) {
+            othersen = ctgvnnum(eqcontainer, NOCONST);
+            dapush(othersen->equivs, genx(&combind));
+            bigfinsertfr(ophash, (char*) genx(&combind), othersen, sizeof(EXPRSTR));
+            EXPRSTR* combind2 = ex2string(sen2->index, sen1->index, op->opcode);
+            bigfinsertfr(ophash, (char*) combind2, othersen, sizeof(EXPRSTR));
+          }
         }
         break;
       OPS_2_3ac_MUT
@@ -752,13 +770,21 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
             destsen = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
             if(!destsen) {
               destsen = ctgvnnum(eqcontainer, NOCONST);
-              dapush(destsen->equivs, ex2string(sen1->index, 0, op->opcode));
+              dapush(destsen->equivs,genx(&combind));
               bigfinsertfr(ophash, (char*) genx(&combind), destsen, sizeof(EXPRSTR));
             }
           } else {
             destsen = ctgvnnum(eqcontainer, NOCONST);
           }
           dapush(destsen->equivs, ex2string(op->dest.iregnum, 0, INIT_3));
+        } else if(sen1) {
+          EXPRSTR combind = {op->opcode, sen1->index, 0};
+          othersen = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
+          if(!othersen) {
+            othersen = ctgvnnum(eqcontainer, NOCONST);
+            dapush(othersen->equivs, genx(&combind));
+            bigfinsertfr(ophash, (char*) genx(&combind), othersen, sizeof(EXPRSTR));
+          }
         }
         break;
       case MOV_3:
@@ -782,13 +808,21 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
             destsen = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
             if(!destsen) {
               destsen = ctgvnnum(eqcontainer, NOCONST);
-              dapush(destsen->equivs, ex2string(sen1->index, 0, op->opcode));
+              dapush(destsen->equivs, genx(&combind));
               bigfinsertfr(ophash, (char*) genx(&combind), destsen, sizeof(EXPRSTR));
             }
           } else {
             destsen = ctgvnnum(eqcontainer, NOCONST);
           }
           dapush(destsen->equivs, ex2string(op->dest.iregnum, 0, INIT_3));
+        } else if(sen1) {
+          EXPRSTR combind = {op->opcode, sen1->index, 0};
+          othersen = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
+          if(!othersen) {
+            othersen = ctgvnnum(eqcontainer, NOCONST);
+            dapush(othersen->equivs, genx(&combind));
+            bigfinsertfr(ophash, (char*) genx(&combind), othersen, sizeof(EXPRSTR));
+          }
         }
         break;
       case PHI:
@@ -928,20 +962,6 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
       gensall(prog, eqcontainer, daget(blk->idominates, i));
 }
 static void antics(BBLOCK* blk, PROGRAM* prog) {
-  if(blk->visited) return;
-  blk->visited = 1;
-
-  blk->anticipability_out = bfalloc(prog->regcnt);
-  memset(blk->anticipability_out, 1, (prog->regcnt + 7) >> 3);
-  if(blk->nextblock && blk->nextblock->anticipability_in)
-    for(unsigned int i = 0; i < (prog->regcnt + 7)  >> 3; i++) 
-      blk->anticipability_out[i] &= blk->nextblock->anticipability_in[i];
-  if(blk->branchblock && blk->branchblock->anticipability_in)
-    for(unsigned int i = 0; i < (prog->regcnt + 7)  >> 3; i++)
-      blk->anticipability_out[i] &= blk->branchblock->anticipability_in[i];
-
-  blk->anticipability_in = bfclone(blk->anticipability_out, prog->regcnt);
-
   for(int i = 0; i < blk->inedges->length; i++) {
     antics(daget(blk->inedges, i), prog);
   }
@@ -953,11 +973,11 @@ void gvn(PROGRAM* prog) {
   HASHTABLE* h1 = first->leader = htctor();
   HASHTABLE* h2 = first->antileader = htctor();
   gensall(prog, eqcontainer, first);
+  antics(prog->finalblock, prog);
   free(h1); free(h2);
   freeq(eqcontainer);
   prog->pdone |= GVN;
   return;
-  antics(prog->finalblock, prog);
   for(int i = 0; i < prog->allblocks->length; i++)
     ((BBLOCK*) prog->allblocks->arr[i])->visited = 0;
   prog->finalblock->visited = 0;
