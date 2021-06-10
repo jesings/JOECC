@@ -268,23 +268,28 @@ void ssa(PROGRAM* prog) {
       blk->visited = 0;
     }
   }
-
   changed = 1;
-  while(!changed) {
+  while(changed) {
     changed = 0;
     for(int i = ind; i < blocks->length; i++) {
       BBLOCK* cb = blocklist[i];
+      if(!cb) continue;
       BBLOCK* new_pidom = NULL;
-      if(cb->nextblock->postdom) {
-        if(cb->branchblock && cb->branchblock->postdom)
-          new_pidom = postintersect(cb->branchblock, cb->nextblock);
-        else
-          new_pidom = cb->nextblock;
-      } else {
-        if(cb->branchblock && cb->branchblock->postdom)
-          new_pidom = cb->branchblock;
+      if(cb->nextblock) {
+        if(!cb->branchblock) new_pidom = cb->nextblock;
+        else {
+          if(cb->nextblock->postdom) {
+            if(cb->branchblock && cb->branchblock->postdom)
+              new_pidom = postintersect(cb->branchblock, cb->nextblock);
+            else
+              new_pidom = cb->nextblock;
+          } else {
+            if(cb->branchblock && cb->branchblock->postdom)
+              new_pidom = cb->branchblock;
+          }
+        }
       }
-      if(cb->postdom != new_pidom) {
+      if(new_pidom != NULL && cb->postdom != new_pidom) {
         cb->postdom = new_pidom;
         changed = 1;
       }
@@ -302,6 +307,18 @@ void ssa(PROGRAM* prog) {
       dapush(cb->dom->idominates, cb);
     }
     cb->visited = 0;
+  }
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    BBLOCK* pdblk = blk->postdom;
+    if(!pdblk) {
+      pdblk = prog->finalblock;
+    }
+    if(!pdblk->pidominates) pdblk->pidominates = dactor(8);
+    dapush(pdblk->pidominates, blk);
+  }
+  if(prog->finalblock->pidominates) {
+    dharma(prog->finalblock->pidominates, prog->finalblock);
   }
   //dominator tree (immediate dominators) calculated
   dfpdt(first); //populate dominance frontiers dfs
@@ -962,8 +979,9 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
       gensall(prog, eqcontainer, daget(blk->idominates, i));
 }
 static void antics(BBLOCK* blk, PROGRAM* prog) {
-  for(int i = 0; i < blk->inedges->length; i++) {
-    antics(daget(blk->inedges, i), prog);
+  if(!blk->pidominates) return;
+  for(int i = 0; i < blk->pidominates->length; i++) {
+    antics(daget(blk->pidominates, i), prog);
   }
 }
 
