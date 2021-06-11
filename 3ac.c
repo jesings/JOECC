@@ -1607,8 +1607,8 @@ void freeblock(void* blk) {
   if(blk2->tmp_gen) didtor(blk2->tmp_gen);
   if(blk2->exp_gen) fhtdtorcfr(blk2->exp_gen, free);
   if(blk2->leader) fhtdtor(blk2->leader);
-  if(blk2->antileader) fhtdtor(blk2->antileader);
-  if(blk2->anticipability_in) free(blk2->anticipability_in);
+  if(blk2->antileader_in) fhtdtor(blk2->antileader_in);
+  if(blk2->antileader_out) fhtdtor(blk2->antileader_out);
   free(blk);
 }
 

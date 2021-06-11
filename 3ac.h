@@ -136,10 +136,9 @@ typedef struct bblock {
   int work;
 
   DYNINT* tmp_gen;
-  char* anticipability_in; //bitfield
-  char* anticipability_out; //bitfield
   HASHTABLE* leader;
-  HASHTABLE* antileader;
+  HASHTABLE* antileader_in;
+  HASHTABLE* antileader_out;
   HASHTABLE* exp_gen;
 } BBLOCK;
 

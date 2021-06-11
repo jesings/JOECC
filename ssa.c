@@ -699,7 +699,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
   blk->tmp_gen = dinctor(32); //not sure what to do with this
   blk->exp_gen = htctor();
   blk->leader = fhtclone(blk->dom->leader);
-  blk->antileader = fhtclone(blk->dom->antileader);
+  blk->antileader_in = htctor();
+  blk->antileader_out = htctor();
   OPERATION* op = blk->firstop;
   EXPRSTR exst = {INIT_3, 0, 0};
   do {
@@ -980,6 +981,15 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
 }
 static void antics(BBLOCK* blk, PROGRAM* prog) {
   if(!blk->pidominates) return;
+  HASHTABLE* oldanticin = blk->antileader_in;
+  HASHTABLE* oldanticout = blk->antileader_out;
+  if(blk->nextblock && !blk->branchblock) {
+    //1 succ
+  } else if(blk->branchblock) {
+    blk->antileader_in = htclone(blk->nextblock);
+    //and with branchblock
+    //>1 succ
+  }
   for(int i = 0; i < blk->pidominates->length; i++) {
     antics(daget(blk->pidominates, i), prog);
   }
@@ -989,10 +999,9 @@ void gvn(PROGRAM* prog) {
   BBLOCK* first = daget(prog->allblocks, 0);
   EQONTAINER* eqcontainer = cteq(prog);
   HASHTABLE* h1 = first->leader = htctor();
-  HASHTABLE* h2 = first->antileader = htctor();
   gensall(prog, eqcontainer, first);
   antics(prog->finalblock, prog);
-  free(h1); free(h2);
+  free(h1);
   freeq(eqcontainer);
   prog->pdone |= GVN;
   return;
@@ -1141,6 +1150,7 @@ void annotateuse(PROGRAM* prog) {
 }
 
 void killreg(PROGRAM* prog) {
+  /*
   DYNARR* live = dactor(16);
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
@@ -1195,6 +1205,7 @@ void killreg(PROGRAM* prog) {
     }
   }
   dadtor(live);
+  */
 }
 
 #undef X
