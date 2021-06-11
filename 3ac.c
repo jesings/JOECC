@@ -1571,7 +1571,7 @@ void treeprog(PROGRAM* prog, char* fname, const char* pass) {
       printop(op, 0, blk, f, prog);
       fprintf(f, "<BR ALIGN=\"LEFT\"/>");
     }
-    fprintf(f, "</FONT></TD></TR></TABLE>> fontcolor=white xlabel=\"%d, %d\"]\n", blk->domind, blk->df ? blk->df->length : 0);
+    fprintf(f, "</FONT></TD></TR></TABLE>> fontcolor=white xlabel=\"%d, %d\"]\n", blk->domind, blk->dom ? blk->dom->domind : -1);
   }
   fprintf(f, "\n}");
   fclose(f);

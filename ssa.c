@@ -983,13 +983,34 @@ static void antics(BBLOCK* blk, PROGRAM* prog) {
   if(!blk->pidominates) return;
   HASHTABLE* oldanticin = blk->antileader_in;
   HASHTABLE* oldanticout = blk->antileader_out;
+
   if(blk->nextblock && !blk->branchblock) {
-    //1 succ
+    int index = 0;
+    BBLOCK* blkn = blk->nextblock;
+    for(; daget(blkn->inedges,index) != blk; index++) ;
+    if(blkn->lastop) {
+      OPERATION* op = blkn->firstop;
+      while(op->opcode == PHI) {
+        int prephi = op->addr0.joins[index].addr.iregnum;
+        int postphi = op->dest.iregnum;
+        //figure out where prephi is used and change to postphi
+        if(op == blkn->lastop) break;
+        op = op->nextop;
+      }
+    }
+    blk->antileader_out = htctor();
   } else if(blk->branchblock) {
-    blk->antileader_in = htclone(blk->nextblock);
+    if(blk->nextblock->antileader_in)
+      blk->antileader_out = htclone(blk->nextblock->antileader_in);
+    else blk->antileader_out = htctor();
     //and with branchblock
     //>1 succ
+  } else {
+    blk->antileader_out = htctor();
   }
+  blk->antileader_in = htclone(blk->antileader_out);
+  if(oldanticin) fhtdtorcfr(oldanticin, free);
+  if(oldanticout) fhtdtorcfr(oldanticout, free);
   for(int i = 0; i < blk->pidominates->length; i++) {
     antics(daget(blk->pidominates, i), prog);
   }
