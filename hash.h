@@ -48,6 +48,7 @@ char bigqueryval(BIGHASHTABLE* ht, const char* key);
 void rmpair(HASHTABLE* ht, const char* key);
 void frmpair(HASHTABLE* ht, long fixedkey);
 void rmpaircfr(HASHTABLE* ht, const char* key, void (*cfree)(void*));
+char htequal(HASHTABLE* ht1, HASHTABLE* ht2);
 void bigrmpaircfr(BIGHASHTABLE* ht, const char* key, void (*cfree)(void*), int flen);
 DYNARR* htpairs(HASHTABLE* ht);
 DYNARR* htfpairs(HASHTABLE* ht);

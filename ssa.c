@@ -979,8 +979,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
     for(int i = 0; i < blk->idominates->length; i++)
       gensall(prog, eqcontainer, daget(blk->idominates, i));
 }
-static void antics(BBLOCK* blk, PROGRAM* prog) {
-  if(!blk->pidominates) return;
+static char antics(BBLOCK* blk, PROGRAM* prog) {
+  if(!blk->pidominates) return 0;
   HASHTABLE* oldanticin = blk->antileader_in;
   HASHTABLE* oldanticout = blk->antileader_out;
 
@@ -1009,11 +1009,13 @@ static void antics(BBLOCK* blk, PROGRAM* prog) {
     blk->antileader_out = htctor();
   }
   blk->antileader_in = htclone(blk->antileader_out);
+  char changed = htequal(blk->antileader_out, oldanticout) || htequal(blk->antileader_in, oldanticin);
   if(oldanticin) fhtdtorcfr(oldanticin, free);
   if(oldanticout) fhtdtorcfr(oldanticout, free);
   for(int i = 0; i < blk->pidominates->length; i++) {
     antics(daget(blk->pidominates, i), prog);
   }
+  return changed;
 }
 
 void gvn(PROGRAM* prog) {

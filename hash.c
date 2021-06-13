@@ -406,6 +406,26 @@ DYNARR* htpairs(HASHTABLE* ht) {
   return da;
 }
 
+char htequal(HASHTABLE* ht1, HASHTABLE* ht2) {
+  if(!ht1) if(ht2) return 0;
+  if(!ht2) return 0;
+  for(int i = 0; i < HASHSIZE; i++) {
+    HASHPAIR* current1 = &(ht1->pairs[i]);
+    HASHPAIR* current2 = &(ht2->pairs[i]);
+    if(current1->key) {
+      do {
+        if(!((current1->key == current2->key) && (current1->value == current2->value))) return 0;
+        current1 = current1->next;
+        current2 = current2->next;
+      } while(current1 && current2);
+      if(current1 || current2) return 0;
+    } else if(current2->key) {
+      return 0;
+    }
+  }
+  return 1;
+}
+
 //insert into hashtable with integer (rather than pointer) value
 void intsert(HASHTABLE* ht, const char* key, long value) {
   unsigned long i = hash(key);
