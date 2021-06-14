@@ -462,6 +462,13 @@ static void freeq(EQONTAINER* eq) {
   free(eq);
 }
 
+static EXPRSTR* genx(EXPRSTR* millenial) {
+  EXPRSTR* boomer = malloc(sizeof(EXPRSTR));
+  memcpy(boomer, millenial, sizeof(EXPRSTR));
+  return boomer;
+}
+
+
 //find which equivalence node, if any, this address corresponds to, and create one if it corresponds to nothing extant
 static GVNNUM* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, PROGRAM* prog) {
   GVNNUM* cn;
@@ -492,16 +499,13 @@ static GVNNUM* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, 
       FULLADDR* adstore = daget(prog->dynvars, adr.varnum);
       if(adstore->addr_type & ADDRSVAR) return NULL;
     }
-    EXPRSTR* exst = ex2string(adr.iregnum, 0, INIT_3);
-    cn = bigsearch(eqcontainer->ophash, (char*) exst, sizeof(EXPRSTR));
+    EXPRSTR exst = {INIT_3, adr.iregnum, 0};
+    cn = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
     if(!cn) {
       cn = ctgvnnum(eqcontainer, NOCONST);
-      EXPRSTR* exn = malloc(sizeof(EXPRSTR));
-      memcpy(exn, exst, sizeof(EXPRSTR));
+      EXPRSTR* exn = ex2string(adr.iregnum, 0, INIT_3);
       bigfinsertfr(eqcontainer->ophash, (char*) exn, cn, sizeof(EXPRSTR));
-      dapush(cn->equivs, exst);
-    } else {
-      free(exst);
+      dapush(cn->equivs, genx(exn));
     }
   }
   return cn;
@@ -615,14 +619,14 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
       break;
     case PHI:  ;
       FULLADDR* addrs = op->addr0.joins;
-      void* val_tinel = NULL;
+      void* valcheck = NULL;
       EXPRSTR est = {INIT_3, 0, 0};
       for(int k = 0; k < blk->inedges->length; k++) {
-        est.p1 = k;
+        est.p1 = addrs[k].addr.iregnum;
         val = bigsearch(eq->ophash, (char*) &est, sizeof(EXPRSTR));
         if(val) {
-          if(!val_tinel) val_tinel = val;
-          else if(val_tinel != val) val_tinel = (void*) -1;
+          if(!valcheck) valcheck = val;
+          else if(valcheck != val) valcheck = (void*) -1;
           if(val->hasconst != NOCONST) {
             addrs[k].addr_type &= 0xf | ISSIGNED;
             addrs[k].addr_type |= ISCONST;
@@ -636,10 +640,10 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
             }
           }
         } else {
-          val_tinel = (void*) -1;
+          valcheck = (void*) -1;
         }
       }
-      if(val_tinel != (void*) -1) {
+      if(valcheck != (void*) -1) {
         op->opcode = NOP_3;
         free(op->addr0.joins);
       }
@@ -683,12 +687,6 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog) {
       replacenode(daget(blk->idominates, i), eq, prog);
     }
   }
-}
-
-static EXPRSTR* genx(EXPRSTR* millenial) {
-  EXPRSTR* boomer = malloc(sizeof(EXPRSTR));
-  memcpy(boomer, millenial, sizeof(EXPRSTR));
-  return boomer;
 }
 
 static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
@@ -979,7 +977,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
     for(int i = 0; i < blk->idominates->length; i++)
       gensall(prog, eqcontainer, daget(blk->idominates, i));
 }
-static char antics(BBLOCK* blk, PROGRAM* prog) {
+static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   if(!blk->pidominates) return 0;
   HASHTABLE* oldanticin = blk->antileader_in;
   HASHTABLE* oldanticout = blk->antileader_out;
@@ -989,16 +987,90 @@ static char antics(BBLOCK* blk, PROGRAM* prog) {
     BBLOCK* blkn = blk->nextblock;
     for(; daget(blkn->inedges,index) != blk; index++) ;
     if(blkn->lastop) {
+      blk->antileader_out = htctor();
       OPERATION* op = blkn->firstop;
+      HASHTABLE* translator = htctor();
       while(op->opcode == PHI) {
         int prephi = op->addr0.joins[index].addr.iregnum;
         int postphi = op->dest.iregnum;
-        //figure out where prephi is used and change to postphi
+        fixedinsertint(translator, prephi, postphi);
         if(op == blkn->lastop) break;
         op = op->nextop;
       }
+      DYNARR* pairs2trans = htpairs(blkn->antileader_in);
+      for(int i = 0; i < pairs2trans->length; i++) {
+        HASHPAIR* hp = daget(pairs2trans, i);
+        EXPRSTR* prevex = hp->value;
+        int translated;
+        GVNNUM* val1;
+        GVNNUM* val2;
+        GVNNUM* destval;
+        ADDRESS a1, a2;
+        switch(prevex->o) {
+          OPS_NOVAR_3ac OPS_3_PTRDEST_3ac case MOV_3:
+          OPS_NODEST_3ac OPS_1_3ac case CALL_3: case PHI:
+          case ASM:
+            assert(0);
+          case DEALOC:
+            continue;
+          OPS_3_3ac
+            if((translated = (long) fixedsearch(translator, prevex->p1))) {
+              a1.iregnum = translated;
+            } else {
+              a1.iregnum = prevex->p1;
+            }
+            if((translated = (long) fixedsearch(translator, prevex->p2))) {
+              a2.iregnum = translated;
+            } else {
+              a2.iregnum = prevex->p2;
+            }
+            val1 = nodefromaddr(eq, 0, a1, prog);
+            val2 = nodefromaddr(eq, 0, a2, prog);
+            if(!(val1 && val2)) continue;
+            EXPRSTR* destex = ex2string(val1->index, val2->index, prevex->o);
+            destval = bigsearch(eq->ophash, (char*) &destex, sizeof(EXPRSTR));
+            if(!destval) {
+              destval = ctgvnnum(eq, NOCONST);
+              EXPRSTR* newdestex = genx(destex);
+              biginsert(eq->ophash, (char*) newdestex, destval);
+              dapush(destval->equivs, genx(newdestex));
+            }
+            fixedinsert(blk->antileader_out, destval->index, destex);
+            break;
+          OPS_2_3ac_MUT
+            if((translated = (long) fixedsearch(translator, prevex->p1))) {
+              a1.iregnum = translated;
+            } else {
+              a1.iregnum = prevex->p1;
+            }
+            val1 = nodefromaddr(eq, 0, a1, prog);
+            if(!val1) continue;
+            EXPRSTR* destex2 = ex2string(val1->index, 0, prevex->o);
+            destval = bigsearch(eq->ophash, (char*) &destex2, sizeof(EXPRSTR));
+            if(!destval) {
+              destval = ctgvnnum(eq, NOCONST);
+              EXPRSTR* newdestex = genx(destex2);
+              biginsert(eq->ophash, (char*) newdestex, destval);
+              dapush(destval->equivs, genx(newdestex));
+            }
+            fixedinsert(blk->antileader_out, destval->index, destex);
+            break;
+          OPS_1_ASSIGN_3ac case ADDR_3:
+            if((translated = (long) fixedsearch(translator, prevex->p1))) {
+              a1.iregnum = translated;
+            } else {
+              a1.iregnum = prevex->p1;
+            }
+            val1 = nodefromaddr(eq, 0, a1, prog);
+            if(!val1) continue;
+            fixedinsert(blk->antileader_out, val1->index, ex2string(a1.iregnum, 0, INIT_3));
+            break;
+        }
+      }
+      fhtdtor(translator);
+    } else {
+      blk->antileader_out = htclone(blkn->antileader_in);
     }
-    blk->antileader_out = htctor();
   } else if(blk->branchblock) {
     if(blk->nextblock->antileader_in)
       blk->antileader_out = htclone(blk->nextblock->antileader_in);
@@ -1013,7 +1085,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog) {
   if(oldanticin) fhtdtorcfr(oldanticin, free);
   if(oldanticout) fhtdtorcfr(oldanticout, free);
   for(int i = 0; i < blk->pidominates->length; i++)
-    changed |= antics(daget(blk->pidominates, i), prog);
+    changed |= antics(daget(blk->pidominates, i), prog, eq);
   return changed;
 }
 
@@ -1022,7 +1094,7 @@ void gvn(PROGRAM* prog) {
   EQONTAINER* eqcontainer = cteq(prog);
   HASHTABLE* h1 = first->leader = htctor();
   gensall(prog, eqcontainer, first);
-  while(antics(prog->finalblock, prog)) ;
+  while(antics(prog->finalblock, prog, eqcontainer)) ;
   free(h1);
   freeq(eqcontainer);
   prog->pdone |= GVN;

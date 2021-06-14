@@ -53,6 +53,7 @@ void bigrmpaircfr(BIGHASHTABLE* ht, const char* key, void (*cfree)(void*), int f
 DYNARR* htpairs(HASHTABLE* ht);
 DYNARR* htfpairs(HASHTABLE* ht);
 void fixedinsert(HASHTABLE* ht, long fixedkey, void* value);
+void fixedinsertint(HASHTABLE* ht, long fixedkey, long value);
 void* fixedsearch(HASHTABLE* ht, long fixedkey);
 char fixedqueryval(HASHTABLE* ht, long fixedkey);
 void intsert(HASHTABLE* ht, const char* key, long value);

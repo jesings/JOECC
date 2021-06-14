@@ -31,6 +31,9 @@ void fixedinsert(HASHTABLE* ht, long fixedkey, void* value) {
   }
   ++ht->keys;
 }
+void fixedinsertint(HASHTABLE* ht, long fixedkey, long value) {
+  return fixedinsert(ht, fixedkey, (void*) value);
+}
 void* fixedsearch(HASHTABLE* ht, long fixedkey) {
   unsigned long i = fixedhash(fixedkey);
   HASHPAIR* hp = &(ht->pairs[i]);
