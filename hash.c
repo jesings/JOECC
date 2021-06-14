@@ -407,8 +407,8 @@ DYNARR* htpairs(HASHTABLE* ht) {
 }
 
 char htequal(HASHTABLE* ht1, HASHTABLE* ht2) {
-  if(!ht1) if(ht2) return 0;
-  if(!ht2) return 0;
+  if(ht1) if(!ht2) return 0;
+  if(!ht1) return 0;
   for(int i = 0; i < HASHSIZE; i++) {
     HASHPAIR* current1 = &(ht1->pairs[i]);
     HASHPAIR* current2 = &(ht2->pairs[i]);
