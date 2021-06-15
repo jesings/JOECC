@@ -292,7 +292,7 @@ void implicit_shortcircuit_noret(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, B
 FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, ADDRESS complete_val, ADDRESS shortcircuit_val, PROGRAM* prog) {
   BBLOCK* failblock,* finalblock;
   finalblock = mpblk();
-  failblock= mpblk();
+  failblock = mpblk();
   FULLADDR addr2use;
   for(int i = 0; i < cexpr->params->length; i++) {
     addr2use = linearitree(daget(cexpr->params, i), prog);
@@ -1455,7 +1455,7 @@ static void printop(OPERATION* op, char term, BBLOCK* blk, FILE* f, PROGRAM* pro
       PRINTOP2(-);
       break;
     case ADDR_3: /*not sure if I is needed*/
-      PRINTOP2(&);
+      PRINTOP2(&amp;);
       break;
     case EQ_U: case EQ_F: 
       PRINTOP3(==);

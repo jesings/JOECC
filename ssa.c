@@ -93,47 +93,66 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
   if(block->lastop) {
     assigns = dactor(32);
     OPERATION* op = block->firstop;
+    DYNARR* bdarr;
     while(1) {
       switch(op->opcode) {
         OPS_3_3ac OPS_3_PTRDEST_3ac
-          if((op->addr1_type & (ADDRSVAR | ISVAR)) == ISVAR) 
-            op->addr1.ssaind =  (long) dapeek((DYNARR*) daget(S, op->addr1.varnum));
+          if(op->addr1_type & ISVAR) {
+            bdarr = daget(S, op->addr1.varnum);
+            if(bdarr->length) //in case of addrsvar
+              op->addr1.ssaind =  (long) dapeek(bdarr);
+          }
           __attribute__((fallthrough));
         OPS_2_3ac case ADDR_3:
-          if((op->addr0_type & (ADDRSVAR | ISVAR)) == ISVAR)
-            op->addr0.ssaind =  (long) dapeek((DYNARR*) daget(S, op->addr0.varnum));
+          if(op->addr0_type & ISVAR) {
+            bdarr = daget(S, op->addr0.varnum);
+            if(bdarr->length) 
+              op->addr0.ssaind =  (long) dapeek(bdarr);
+          }
           __attribute__((fallthrough));
         case CALL_3: case PHI: /*must have constant input in alloc_3*/
-          if((op->dest_type & (ADDRSVAR | ISVAR)) == ISVAR) {
-            if(op->dest_type & ISDEREF) {
-              op->dest.ssaind =  (long) dapeek((DYNARR*) daget(S, op->dest.varnum));
-            } else {
-              C[op->dest.varnum] = prog->regcnt++;
-              op->dest.ssaind = C[op->dest.varnum];
-              dapush((DYNARR*) daget(S, op->dest.varnum), (void*)(long) C[op->dest.varnum]);
-              dapush(assigns, (void*)(long) op->dest.varnum);
+          if(op->dest_type & ISVAR) {
+            bdarr = daget(S, op->dest.varnum);
+            if(bdarr->length) {
+              if(op->dest_type & ISDEREF) {
+                op->dest.ssaind =  (long) dapeek(bdarr);
+              } else {
+                C[op->dest.varnum] = prog->regcnt++;
+                op->dest.ssaind = C[op->dest.varnum];
+                dapush(bdarr, (void*)(long) C[op->dest.varnum]);
+                dapush(assigns, (void*)(long) op->dest.varnum);
+              }
             }
           }
           break;
         OPS_NODEST_3ac
-          if((op->addr1_type & (ADDRSVAR | ISVAR)) == ISVAR) 
-            op->addr1.ssaind =  (long) dapeek((DYNARR*) daget(S, op->addr1.varnum));
+          if(op->addr1_type & ISVAR) {
+            bdarr = daget(S, op->addr1.varnum);
+            if(bdarr->length) //in case of addrsvar
+              op->addr1.ssaind =  (long) dapeek(bdarr);
+          }
           __attribute__((fallthrough));
         OPS_1_3ac
           if(op->addr0_type & GARBAGEVAL) break;
           __attribute__((fallthrough));
         case DEALOC:
-          if((op->addr0_type & (ADDRSVAR | ISVAR)) == ISVAR)
-            op->addr0.ssaind =  (long) dapeek((DYNARR*) daget(S, op->addr0.varnum));
+          if(op->addr0_type & ISVAR) {
+            bdarr = daget(S, op->addr0.varnum);
+            if(bdarr->length) 
+              op->addr0.ssaind =  (long) dapeek(bdarr);
+          }
           break;
         OPS_1_ASSIGN_3ac
-          if((op->addr0_type & (ADDRSVAR | ISVAR)) == ISVAR) {
-            assert(!(op->addr0_type & ISDEREF));
-            assert(!C[op->addr0.varnum]);
-            C[op->addr0.varnum] = prog->regcnt++;
-            op->addr0.ssaind = C[op->addr0.varnum];
-            dapush((DYNARR*) daget(S, op->addr0.varnum), (void*)(long) C[op->addr0.varnum]);
-            dapush(assigns, (void*)(long)op->addr0.varnum);
+          if(op->addr0_type & ISVAR) {
+            bdarr = daget(S, op->addr0.varnum);
+            if(bdarr->length) {
+              assert(!(op->addr0_type & ISDEREF));
+              assert(!C[op->addr0.varnum]);
+              C[op->addr0.varnum] = prog->regcnt++;
+              op->addr0.ssaind = C[op->addr0.varnum];
+              dapush(bdarr, (void*)(long) C[op->addr0.varnum]);
+              dapush(assigns, (void*)(long)op->addr0.varnum);
+            }
           }
           break;
         OPS_NOVAR_3ac
@@ -151,7 +170,10 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
     OPERATION* op = block->nextblock->firstop;
     while(op->opcode == PHI) {
       if(!(op->addr0_type & GARBAGEVAL)) {
-        op->addr0.joins[i].addr.ssaind = (int) (long) dapeek((DYNARR*) daget(S, op->dest.varnum));
+        DYNARR* bdarr = daget(S, op->dest.varnum);
+        if(bdarr->length) {
+          op->addr0.joins[i].addr.ssaind = (int) (long) dapeek(bdarr);
+        }
         op->addr0.joins[i].addr.varnum = op->dest.varnum;
         op->addr0.joins[i].addr_type = op->dest_type;
       }
@@ -345,7 +367,7 @@ void ssa(PROGRAM* prog) {
             }
             __attribute__((fallthrough));
           OPS_3_3ac OPS_2_3ac case CALL_3:
-          //arrmov, mtp_off, copy_3 must have pointer dest
+          //ARRMOV, MTP_OFF, COPY_3 must have pointer dest
             if((op->dest_type & (ISVAR | ISDEREF | ADDRSVAR)) == ISVAR) {
               DYNARR* dda = daget(varas, op->dest.varnum);
               if(!dda->length || dapeek(dda) != cb)
@@ -355,7 +377,7 @@ void ssa(PROGRAM* prog) {
           OPS_1_ASSIGN_3ac
             if(!(op->addr0_type & ADDRSVAR)) {
               DYNARR* dda = daget(varas, op->addr0.varnum);
-              dapushc(dda, cb);
+              dapush(dda, cb);
             }
           default:
             break; //no possible correct destination
@@ -1068,6 +1090,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
         }
       }
       fhtdtor(translator);
+      dadtor(pairs2trans);
     } else {
       blk->antileader_out = htclone(blkn->antileader_in);
     }
