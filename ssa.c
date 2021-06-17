@@ -144,8 +144,9 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
           break;
         OPS_1_ASSIGN_3ac
           if(op->addr0_type & ISVAR) {
-            bdarr = daget(S, op->addr0.varnum);
-            if(bdarr->length) {
+            FULLADDR* fad = daget(prog->dynvars, op->addr0.varnum);
+            if(!(fad->addr_type & ADDRSVAR)) {
+              bdarr = daget(S, op->addr0.varnum);
               assert(!(op->addr0_type & ISDEREF));
               assert(!C[op->addr0.varnum]);
               C[op->addr0.varnum] = prog->regcnt++;
@@ -1011,7 +1012,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
     if(blkn->lastop) {
       blk->antileader_out = htctor();
       OPERATION* op = blkn->firstop;
-      HASHTABLE* translator = htctor();
+      HASHTABLE* translator = htctor(); //would be more efficient to keep dag of references?
       while(op->opcode == PHI) {
         int prephi = op->addr0.joins[index].addr.iregnum;
         int postphi = op->dest.iregnum;
@@ -1019,7 +1020,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
         if(op == blkn->lastop) break;
         op = op->nextop;
       }
-      DYNARR* pairs2trans = htpairs(blkn->antileader_in);
+      DYNARR* pairs2trans = htfpairs(blkn->antileader_in);
       for(int i = 0; i < pairs2trans->length; i++) {
         HASHPAIR* hp = daget(pairs2trans, i);
         EXPRSTR* prevex = hp->value;
@@ -1092,19 +1093,68 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
       fhtdtor(translator);
       dadtor(pairs2trans);
     } else {
-      blk->antileader_out = htclone(blkn->antileader_in);
+      blk->antileader_out = fhtcclone(blkn->antileader_in, (void*(*)(void*)) genx);
     }
   } else if(blk->branchblock) {
     if(blk->nextblock->antileader_in)
-      blk->antileader_out = htclone(blk->nextblock->antileader_in);
+      blk->antileader_out = fhtcclone(blk->nextblock->antileader_in, (void*(*)(void*)) genx);
     else blk->antileader_out = htctor();
     //and with branchblock
     //>1 succ
   } else {
     blk->antileader_out = htctor();
   }
-  blk->antileader_in = htclone(blk->antileader_out);
-  char changed = !(htequal(blk->antileader_out, oldanticout) || htequal(blk->antileader_in, oldanticin));
+  blk->antileader_in = fhtcclone(blk->antileader_out, (void*(*)(void*)) genx);
+  if(blk->exp_gen) {
+    DYNARR* expairs = htfpairs(blk->exp_gen);
+    for(int i = 0; i < expairs->length; i++) {
+      HASHPAIR* hp = expairs->arr[i];
+      EXPRSTR* exs = hp->value;
+      ADDRESS a;
+      GVNNUM* n1;
+      GVNNUM* n2;
+      GVNNUM* n3;
+      switch(exs->o) {
+        OPS_NOVAR_3ac OPS_3_PTRDEST_3ac case MOV_3:
+        OPS_NODEST_3ac OPS_1_3ac case CALL_3: case PHI:
+        case ASM:
+          assert(0);
+        case DEALOC:
+          continue;
+        OPS_3_3ac
+          a.iregnum = exs->p1;
+          n1 = nodefromaddr(eq, 0, a, prog);
+          a.iregnum = exs->p2;
+          n2 = nodefromaddr(eq, 0, a, prog);
+          if(n1 && n2) {
+            EXPRSTR oex = {exs->o, n1->index, n2->index};
+            n3 = bigsearch(eq->ophash, (char*) &oex, sizeof(EXPRSTR));
+            if(!fixedqueryval(blk->antileader_in, n3->index))
+              fixedinsert(blk->antileader_in, n3->index, genx(exs));
+          }
+          break;
+        OPS_2_3ac_MUT
+          a.iregnum = exs->p1;
+          n1 = nodefromaddr(eq, 0, a, prog);
+          if(n1) {
+            EXPRSTR oex = {exs->o, n1->index, 0};
+            n3 = bigsearch(eq->ophash, (char*) &oex, sizeof(EXPRSTR));
+            if(!fixedqueryval(blk->antileader_in, n3->index))
+              fixedinsert(blk->antileader_in, n3->index, genx(exs));
+          }
+          break;
+        OPS_1_ASSIGN_3ac case ADDR_3:
+            a.iregnum = exs->p1;
+            n3 = nodefromaddr(eq, 0, a, prog);
+            if(!n3) continue;
+            if(!fixedqueryval(blk->antileader_in, n3->index))
+              fixedinsert(blk->antileader_in, n3->index, genx(exs));
+            break;
+      }
+    }
+    dadtor(expairs);
+  }
+  char changed = !(fhtequal(blk->antileader_out, oldanticout) || fhtequal(blk->antileader_in, oldanticin));
   if(oldanticin) fhtdtorcfr(oldanticin, free);
   if(oldanticout) fhtdtorcfr(oldanticout, free);
   for(int i = 0; i < blk->pidominates->length; i++)

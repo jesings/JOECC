@@ -79,6 +79,27 @@ HASHTABLE* fhtclone(HASHTABLE* ht) {
   }
   return retval;
 }
+HASHTABLE* fhtcclone(HASHTABLE* ht, void*(*custfunc)(void*)) {
+  HASHTABLE* retval = malloc(sizeof(HASHTABLE));
+  memcpy(retval, ht, sizeof(HASHTABLE));
+  for(int i = 0; i < HASHSIZE; i++) {
+    HASHPAIR* curpair = &(ht->pairs[i]), *parpar = &(retval->pairs[i]);
+    if(!(curpair->next))
+      continue;
+    do {
+      parpar->fixedkey = curpair->fixedkey;
+      parpar->value = custfunc(curpair->value);
+      if((unsigned long)curpair->next == 1) {
+        parpar->next = (void*) 1;
+        break;
+      } else {
+        parpar = parpar->next = malloc(sizeof(HASHPAIR));
+        curpair = curpair->next;
+      }
+    } while(1);
+  }
+  return retval;
+}
 
 //fixed hashpair destructor with custom free
 static void fhpdtorcfr(HASHPAIR* hp, void(*freef)(void*)) {
@@ -115,6 +136,27 @@ DYNARR* htfpairs(HASHTABLE* ht) {
     }
   }
   return da;
+}
+
+char fhtequal(HASHTABLE* ht1, HASHTABLE* ht2) {
+  if(ht1) if(!ht2) return 0;
+  if(!ht1) return 0;
+  for(int i = 0; i < HASHSIZE; i++) {
+    HASHPAIR* current1 = &(ht1->pairs[i]);
+    HASHPAIR* current2 = &(ht2->pairs[i]);
+    if(current1->next) {
+      if(!current2->next) return 0;
+      do {
+        if(!((current1->fixedkey == current2->fixedkey)/* && (current1->value == current2->value)*/)) return 0;
+        current1 = current1->next;
+        current2 = current2->next;
+      } while((long) current1 > 1 && (long) current2 > 1);
+      if(current1 != current2) return 0;
+    } else if(current2->next) {
+      return 0;
+    }
+  }
+  return 1;
 }
 
 //fixed hashpair destructor

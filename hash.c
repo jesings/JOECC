@@ -414,7 +414,7 @@ char htequal(HASHTABLE* ht1, HASHTABLE* ht2) {
     HASHPAIR* current2 = &(ht2->pairs[i]);
     if(current1->key) {
       do {
-        if(!((current1->key == current2->key) && (current1->value == current2->value))) return 0;
+        if(!((current1->key == current2->key)/* && (current1->value == current2->value)*/)) return 0;
         current1 = current1->next;
         current2 = current2->next;
       } while(current1 && current2);
