@@ -1004,6 +1004,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   if(!blk->pidominates) return 0;
   HASHTABLE* oldanticin = blk->antileader_in;
   HASHTABLE* oldanticout = blk->antileader_out;
+  void* storage;
 
   if(blk->nextblock && !blk->branchblock) {
     int index = 0;
@@ -1058,6 +1059,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
               biginsert(eq->ophash, (char*) newdestex, destval);
               dapush(destval->equivs, genx(newdestex));
             }
+            if((storage = fixedsearch(blk->antileader_out, destval->index))) free(storage);//inefficient
             fixedinsert(blk->antileader_out, destval->index, destex);
             break;
           OPS_2_3ac_MUT
@@ -1076,6 +1078,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
               biginsert(eq->ophash, (char*) newdestex, destval);
               dapush(destval->equivs, genx(newdestex));
             }
+            if((storage = fixedsearch(blk->antileader_out, destval->index))) free(storage);//inefficient
             fixedinsert(blk->antileader_out, destval->index, destex);
             break;
           OPS_1_ASSIGN_3ac case ADDR_3:
@@ -1086,6 +1089,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
             }
             val1 = nodefromaddr(eq, 0, a1, prog);
             if(!val1) continue;
+            if((storage = fixedsearch(blk->antileader_out, val1->index))) free(storage);//inefficient
             fixedinsert(blk->antileader_out, val1->index, ex2string(a1.regnum, 0, INIT_3));
             break;
         }

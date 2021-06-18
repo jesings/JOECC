@@ -517,7 +517,7 @@ static void fpdecl2(DECLARATION* dc) {
   if(!dc) return;
   freetype(dc->type);
   free(dc->varname);
-  free(dc); //dc->varname should be freed in dadtor
+  free(dc);
 }
 
 //recursively frees idtype

@@ -539,7 +539,7 @@ arbitrary_cast:
   } else {
     $2->pointerstack = $3;
   }
-  $2->pointerstack = damerge(ptrdaclone($2->pointerstack), $4);
+  $2->pointerstack = damerge($2->pointerstack, $4);
   $$ = $2;};
 
 expression:
