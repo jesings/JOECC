@@ -18,12 +18,12 @@ void ldstrsep(PROGRAM* prog) {
           if(op->dest_type & ISDEREF) {
             for(int i = 0; i < blk->inedges->length; i++) {
               if((op->addr0.joins[i].addr_type & (ISLABEL | ISFLOAT)) == (op->dest_type & (ISLABEL | ISFLOAT)) &&
-                 (op->addr0.joins[i].addr_type & ISLABEL ? strcmp(op->addr0.joins[i].addr.labelname, op->dest.labelname): op->addr0.joins[i].addr.iregnum == op->dest.iregnum)) {
+                 (op->addr0.joins[i].addr_type & ISLABEL ? strcmp(op->addr0.joins[i].addr.labelname, op->dest.labelname): op->addr0.joins[i].addr.regnum == op->dest.regnum)) {
                 //do nothing
               } else {
                 BBLOCK* inblk = daget(blk->inedges, i);
                 ADDRESS adr;
-                adr.iregnum = prog->regcnt++;
+                adr.regnum = prog->regcnt++;
                 ADDRTYPE adrt = op->addr0_type & GENREGMASK;
                 if(inblk->lastop) {
                   inblk->lastop = inblk->lastop->nextop = ct_3ac_op2(MOV_3, op->addr0.joins[i].addr_type, op->addr0.joins[i].addr, adrt, adr);
@@ -39,7 +39,7 @@ void ldstrsep(PROGRAM* prog) {
         case ADDR_3:
           if(op->addr0_type & ISDEREF && op->dest_type & ISDEREF) {
             ADDRESS adr;
-            adr.iregnum = prog->regcnt++;
+            adr.regnum = prog->regcnt++;
             ADDRTYPE adrt = op->dest_type & GENREGMASK;
             OPERATION* newop= ct_3ac_op2(MOV_3, adrt, adr, op->dest_type, op->dest);
             newop->nextop = op->nextop;
@@ -55,11 +55,11 @@ void ldstrsep(PROGRAM* prog) {
           inplace = 0;
           if(op->addr0_type & ISDEREF && op->dest_type & ISDEREF) {
             if((op->addr0_type & (ISLABEL | ISFLOAT)) == (op->dest_type & (ISLABEL | ISFLOAT)) &&
-               (op->addr0_type & ISLABEL ? strcmp(op->addr0.labelname, op->dest.labelname): op->addr0.iregnum == op->dest.iregnum)) {
+               (op->addr0_type & ISLABEL ? strcmp(op->addr0.labelname, op->dest.labelname): op->addr0.regnum == op->dest.regnum)) {
               inplace = 1;
             } else {
               ADDRESS adr;
-              adr.iregnum = prog->regcnt++;
+              adr.regnum = prog->regcnt++;
               ADDRTYPE adrt = op->addr0_type & GENREGMASK;
               *prevptr = ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr);
               (*prevptr)->nextop = op;
@@ -69,11 +69,11 @@ void ldstrsep(PROGRAM* prog) {
           }
           if(op->addr1_type & ISDEREF && op->dest_type & ISDEREF) {
             if(!inplace && (op->addr1_type & (ISLABEL | ISFLOAT)) == (op->dest_type & (ISLABEL | ISFLOAT)) &&
-               (op->addr1_type & ISLABEL ? strcmp(op->addr1.labelname, op->dest.labelname): op->addr1.iregnum == op->dest.iregnum)) {
+               (op->addr1_type & ISLABEL ? strcmp(op->addr1.labelname, op->dest.labelname): op->addr1.regnum == op->dest.regnum)) {
                //do nothing?
             } else {
               ADDRESS adr;
-              adr.iregnum = prog->regcnt++;
+              adr.regnum = prog->regcnt++;
               ADDRTYPE adrt = op->addr1_type & GENREGMASK;
               *prevptr = ct_3ac_op2(MOV_3, op->addr1_type, op->addr1, adrt, adr);
               (*prevptr)->nextop = op;
@@ -85,7 +85,7 @@ void ldstrsep(PROGRAM* prog) {
         case MTP_OFF: case ARRMOV:
           if(op->addr0_type & ISDEREF) {
             ADDRESS adr;
-            adr.iregnum = prog->regcnt++;
+            adr.regnum = prog->regcnt++;
             ADDRTYPE adrt = op->addr0_type & GENREGMASK;
             *prevptr = ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr);
             (*prevptr)->nextop = op;
@@ -97,11 +97,11 @@ void ldstrsep(PROGRAM* prog) {
         //shouldn't really work for F2F, NEG_F
           if(op->addr0_type & ISDEREF && op->dest_type & ISDEREF) {
             if((op->addr0_type & (ISLABEL | ISFLOAT)) == (op->dest_type & (ISLABEL | ISFLOAT)) &&
-               (op->addr0_type & ISLABEL ? strcmp(op->addr0.labelname, op->dest.labelname): op->addr0.iregnum == op->dest.iregnum)) {
+               (op->addr0_type & ISLABEL ? strcmp(op->addr0.labelname, op->dest.labelname): op->addr0.regnum == op->dest.regnum)) {
               //do nothing?
             } else {
               ADDRESS adr;
-              adr.iregnum = prog->regcnt++;
+              adr.regnum = prog->regcnt++;
               ADDRTYPE adrt = op->addr0_type & GENREGMASK;
               *prevptr = ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr);
               (*prevptr)->nextop = op;
@@ -113,7 +113,7 @@ void ldstrsep(PROGRAM* prog) {
         OPS_NODEST_3ac
           if(op->addr0_type & ISDEREF && op->addr1_type & ISDEREF) {
             ADDRESS adr;
-            adr.iregnum = prog->regcnt++;
+            adr.regnum = prog->regcnt++;
             ADDRTYPE adrt = op->addr0_type & GENREGMASK;
             *prevptr = ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr);
             (*prevptr)->nextop = op;

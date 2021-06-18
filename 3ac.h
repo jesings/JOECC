@@ -68,7 +68,7 @@ typedef union {
     };
     union {
       unsigned int ssaind;
-      unsigned int iregnum; //enforce same storage space
+      unsigned int regnum; //enforce same storage space
     };
   };
   struct {
@@ -298,7 +298,7 @@ static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
   sz.uintconst_64 = lentype(&retidt);
   retidt.pointerstack->length += 1;
   if(sz.uintconst_64 == 1) return fadt;
-  destad.addr.iregnum = prog->regcnt++;
+  destad.addr.regnum = prog->regcnt++;
   destad.addr_type = 8 | ISPOINTER;
 
   switch(sz.uintconst_64) {
@@ -329,6 +329,6 @@ static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
     else if((operation)->opcode == GENERIC_F) (operation)->opcode = opt ## _F;
 #endif
 #define FILLREG(addrvar, type) do { \
-    (addrvar).addr.iregnum = prog->regcnt++; \
+    (addrvar).addr.regnum = prog->regcnt++; \
     (addrvar).addr_type = (type); \
   } while(0)

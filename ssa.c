@@ -522,11 +522,11 @@ static GVNNUM* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, 
       FULLADDR* adstore = daget(prog->dynvars, adr.varnum);
       if(adstore->addr_type & ADDRSVAR) return NULL;
     }
-    EXPRSTR exst = {INIT_3, adr.iregnum, 0};
+    EXPRSTR exst = {INIT_3, adr.regnum, 0};
     cn = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
     if(!cn) {
       cn = ctgvnnum(eqcontainer, NOCONST);
-      EXPRSTR* exn = ex2string(adr.iregnum, 0, INIT_3);
+      EXPRSTR* exn = ex2string(adr.regnum, 0, INIT_3);
       bigfinsertfr(eqcontainer->ophash, (char*) exn, cn, sizeof(EXPRSTR));
       dapush(cn->equivs, genx(exn));
     }
@@ -547,7 +547,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           break;
         } else {
           bfset(bf, val->index);
-          val->regno = op->dest.iregnum;
+          val->regno = op->dest.regnum;
           op->dest.gvnind = val->index;
         }
       }
@@ -563,7 +563,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           op->addr1.intconst_64 = val->intconst; //could be anything
         } else {
           assert(bfget(bf, val->index));
-          op->addr1.iregnum = val->regno;
+          op->addr1.regnum = val->regno;
           op->addr1.gvnind = val->index;
         }
       }
@@ -580,7 +580,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           op->addr0.intconst_64 = val->intconst; //could be anything
         } else {
           assert(bfget(bf, val->index));
-          op->addr0.iregnum = val->regno;
+          op->addr0.regnum = val->regno;
           op->addr0.gvnind = val->index;
         }
       }
@@ -607,7 +607,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           break;
         } else {
           bfset(bf, val->index);
-          val->regno = op->dest.iregnum;
+          val->regno = op->dest.regnum;
           op->dest.gvnind = val->index;
         }
       }
@@ -621,7 +621,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           op->addr0.intconst_64 = val->intconst; //could be anything
         } else {
           assert(bfget(bf, val->index));
-          op->addr0.iregnum = val->regno;
+          op->addr0.regnum = val->regno;
           op->addr0.gvnind = val->index;
         }
       }
@@ -635,7 +635,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           assert(0);
         } else {
           bfset(bf, val->index);
-          val->regno = op->dest.iregnum;
+          val->regno = op->dest.regnum;
           op->dest.gvnind = val->index;
         }
       }
@@ -645,7 +645,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
       void* valcheck = NULL;
       EXPRSTR est = {INIT_3, 0, 0};
       for(int k = 0; k < blk->inedges->length; k++) {
-        est.p1 = addrs[k].addr.iregnum;
+        est.p1 = addrs[k].addr.regnum;
         val = bigsearch(eq->ophash, (char*) &est, sizeof(EXPRSTR));
         if(val) {
           if(!valcheck) valcheck = val;
@@ -658,7 +658,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
             addrs[k].addr.intconst_64 = val->intconst; //could be anything
           } else {
             if(bfget(bf, val->index)) { //cannot assert here
-              addrs[k].addr.iregnum = val->regno;
+              addrs[k].addr.regnum = val->regno;
               addrs[k].addr.gvnind = val->index;
             }
           }
@@ -674,7 +674,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
       assert(val->hasconst == NOCONST);
       assert(!bfget(bf, val->index));
       bfset(bf, val->index);
-      val->regno = op->dest.iregnum;
+      val->regno = op->dest.regnum;
       op->dest.gvnind = val->index;
       break;
     OPS_1_ASSIGN_3ac
@@ -684,7 +684,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           op->opcode = NOP_3;
         } else {
           bfset(bf, val->index);
-          val->regno = op->addr0.iregnum;
+          val->regno = op->addr0.regnum;
           op->addr0.gvnind = val->index;
         }
       }
@@ -752,7 +752,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           } else {
             destval = ctgvnnum(eqcontainer, NOCONST);
           }
-          dapush(destval->equivs, ex2string(op->dest.iregnum, 0, INIT_3));
+          dapush(destval->equivs, ex2string(op->dest.regnum, 0, INIT_3));
         } else if(val1 && val2) {
           EXPRSTR combind = {op->opcode, val1->index, val2->index};
           otherval = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
@@ -784,7 +784,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           } else {
             destval = ctgvnnum(eqcontainer, NOCONST);
           }
-          dapush(destval->equivs, ex2string(op->dest.iregnum, 0, INIT_3));
+          dapush(destval->equivs, ex2string(op->dest.regnum, 0, INIT_3));
         } else if(val1 && val2) {
           EXPRSTR combind = {op->opcode, val1->index, val2->index};
           otherval = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
@@ -815,7 +815,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           } else {
             destval = ctgvnnum(eqcontainer, NOCONST);
           }
-          dapush(destval->equivs, ex2string(op->dest.iregnum, 0, INIT_3));
+          dapush(destval->equivs, ex2string(op->dest.regnum, 0, INIT_3));
         } else if(val1) {
           EXPRSTR combind = {op->opcode, val1->index, 0};
           otherval = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
@@ -834,7 +834,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
             if(adstore->addr_type & ADDRSVAR) break;
           }
           destval = val1 ? val1 : ctgvnnum(eqcontainer, NOCONST);
-          dapush(destval->equivs, ex2string(op->dest.iregnum, 0, INIT_3));
+          dapush(destval->equivs, ex2string(op->dest.regnum, 0, INIT_3));
         }
         break;
       case ADDR_3:
@@ -853,7 +853,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           } else {
             destval = ctgvnnum(eqcontainer, NOCONST);
           }
-          dapush(destval->equivs, ex2string(op->dest.iregnum, 0, INIT_3));
+          dapush(destval->equivs, ex2string(op->dest.regnum, 0, INIT_3));
         } else if(val1) {
           EXPRSTR combind = {op->opcode, val1->index, 0};
           otherval = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
@@ -900,7 +900,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
     switch(op->opcode) {
       OPS_3_3ac_NOCOM OPS_3_3ac_COM 
         if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {
-          exst.p1 = op->addr0.iregnum;
+          exst.p1 = op->addr0.regnum;
           chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
           if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
             //slightly inefficient, could query and insert in same traversal
@@ -909,16 +909,16 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           }
         }
         if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {
-          exst.p1 = op->addr1.iregnum;
+          exst.p1 = op->addr1.regnum;
           chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
           if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
             fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
           }
         }
         if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-          dipush(blk->tmp_gen, op->dest.iregnum);
+          dipush(blk->tmp_gen, op->dest.regnum);
         if(status == 2) {
-          EXPRSTR refex = {op->opcode, op->addr0.iregnum, op->addr1.iregnum};
+          EXPRSTR refex = {op->opcode, op->addr0.regnum, op->addr1.regnum};
           chosenval = bigsearch(eqcontainer->ophash, (char*) &refex, sizeof(EXPRSTR));
           if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
             fixedinsert(blk->exp_gen, chosenval->index, genx(&refex));
@@ -927,16 +927,16 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
         break;
       OPS_2_3ac_MUT case MOV_3: 
         if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {
-          exst.p1 = op->addr0.iregnum;
+          exst.p1 = op->addr0.regnum;
           chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
           if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
             fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
           }
         }
         if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-          dipush(blk->tmp_gen, op->dest.iregnum);
+          dipush(blk->tmp_gen, op->dest.regnum);
         if(status == 1) {
-          EXPRSTR refex = {op->opcode, op->addr0.iregnum, 0};
+          EXPRSTR refex = {op->opcode, op->addr0.regnum, 0};
           chosenval = bigsearch(eqcontainer->ophash, (char*) &refex, sizeof(EXPRSTR));
           if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
             fixedinsert(blk->exp_gen, chosenval->index, genx(&refex));
@@ -946,16 +946,16 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
         __attribute__((fallthrough));
       case CALL_3: case ADDR_3:
         if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-          dipush(blk->tmp_gen, op->dest.iregnum);
+          dipush(blk->tmp_gen, op->dest.regnum);
         break;
       OPS_1_ASSIGN_3ac
         if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-          dipush(blk->tmp_gen, op->addr0.iregnum);
+          dipush(blk->tmp_gen, op->addr0.regnum);
         break;
       case PHI:
         //for(int i = 0; i < blk->inedges->length; i++) {
         //  if(!(op->addr0.joins[i].addr_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {
-        //    exst.p1 = op->addr0.joins[i].addr.iregnum;
+        //    exst.p1 = op->addr0.joins[i].addr.regnum;
         //    chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
         //    if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
         //      EXPRSTR* exc = malloc(sizeof(EXPRSTR));
@@ -965,11 +965,11 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
         //  }
         //}
         //if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-        //  dipush(blk->phi_gen, op->dest.iregnum); phi gen not realy necessary
+        //  dipush(blk->phi_gen, op->dest.regnum); phi gen not realy necessary
         break;
       OPS_NODEST_3ac OPS_3_PTRDEST_3ac
         if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {
-          exst.p1 = op->addr1.iregnum;
+          exst.p1 = op->addr1.regnum;
           chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
           if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
             fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
@@ -978,7 +978,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
         __attribute__((fallthrough));
       OPS_1_3ac
         if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {
-          exst.p1 = op->addr0.iregnum;
+          exst.p1 = op->addr0.regnum;
           chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
           if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
             fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
@@ -1014,8 +1014,8 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
       OPERATION* op = blkn->firstop;
       HASHTABLE* translator = htctor(); //would be more efficient to keep dag of references?
       while(op->opcode == PHI) {
-        int prephi = op->addr0.joins[index].addr.iregnum;
-        int postphi = op->dest.iregnum;
+        int prephi = op->addr0.joins[index].addr.regnum;
+        int postphi = op->dest.regnum;
         fixedinsertint(translator, prephi, postphi);
         if(op == blkn->lastop) break;
         op = op->nextop;
@@ -1038,14 +1038,14 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
             continue;
           OPS_3_3ac
             if((translated = (long) fixedsearch(translator, prevex->p1))) {
-              a1.iregnum = translated;
+              a1.regnum = translated;
             } else {
-              a1.iregnum = prevex->p1;
+              a1.regnum = prevex->p1;
             }
             if((translated = (long) fixedsearch(translator, prevex->p2))) {
-              a2.iregnum = translated;
+              a2.regnum = translated;
             } else {
-              a2.iregnum = prevex->p2;
+              a2.regnum = prevex->p2;
             }
             val1 = nodefromaddr(eq, 0, a1, prog);
             val2 = nodefromaddr(eq, 0, a2, prog);
@@ -1062,9 +1062,9 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
             break;
           OPS_2_3ac_MUT
             if((translated = (long) fixedsearch(translator, prevex->p1))) {
-              a1.iregnum = translated;
+              a1.regnum = translated;
             } else {
-              a1.iregnum = prevex->p1;
+              a1.regnum = prevex->p1;
             }
             val1 = nodefromaddr(eq, 0, a1, prog);
             if(!val1) continue;
@@ -1080,13 +1080,13 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
             break;
           OPS_1_ASSIGN_3ac case ADDR_3:
             if((translated = (long) fixedsearch(translator, prevex->p1))) {
-              a1.iregnum = translated;
+              a1.regnum = translated;
             } else {
-              a1.iregnum = prevex->p1;
+              a1.regnum = prevex->p1;
             }
             val1 = nodefromaddr(eq, 0, a1, prog);
             if(!val1) continue;
-            fixedinsert(blk->antileader_out, val1->index, ex2string(a1.iregnum, 0, INIT_3));
+            fixedinsert(blk->antileader_out, val1->index, ex2string(a1.regnum, 0, INIT_3));
             break;
         }
       }
@@ -1122,9 +1122,9 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
         case DEALOC:
           continue;
         OPS_3_3ac
-          a.iregnum = exs->p1;
+          a.regnum = exs->p1;
           n1 = nodefromaddr(eq, 0, a, prog);
-          a.iregnum = exs->p2;
+          a.regnum = exs->p2;
           n2 = nodefromaddr(eq, 0, a, prog);
           if(n1 && n2) {
             EXPRSTR oex = {exs->o, n1->index, n2->index};
@@ -1134,7 +1134,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
           }
           break;
         OPS_2_3ac_MUT
-          a.iregnum = exs->p1;
+          a.regnum = exs->p1;
           n1 = nodefromaddr(eq, 0, a, prog);
           if(n1) {
             EXPRSTR oex = {exs->o, n1->index, 0};
@@ -1144,7 +1144,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
           }
           break;
         OPS_1_ASSIGN_3ac case ADDR_3:
-            a.iregnum = exs->p1;
+            a.regnum = exs->p1;
             n3 = nodefromaddr(eq, 0, a, prog);
             if(!n3) continue;
             if(!fixedqueryval(blk->antileader_in, n3->index))
@@ -1242,60 +1242,60 @@ void annotateuse(PROGRAM* prog) {
         OPS_3_3ac OPS_3_PTRDEST_3ac
           if(!(op->addr0_type & (ISCONST | ISLABEL))) {
             int oldk = pht->keys;
-            fixedinsert(pht, op->addr0.iregnum, &op->addr0_type);
-            if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr0.iregnum);
+            fixedinsert(pht, op->addr0.regnum, &op->addr0_type);
+            if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr0.regnum);
           }
           if(!(op->addr1_type & (ISCONST | ISLABEL))) {
             int oldk = pht->keys;
-            fixedinsert(pht, op->addr1.iregnum, &op->addr1_type);
-            if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr1.iregnum);
+            fixedinsert(pht, op->addr1.regnum, &op->addr1_type);
+            if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr1.regnum);
           }
           if(!(op->dest_type & (ISCONST | ISLABEL))) {
             int oldk = pht->keys;
-            fixedinsert(pht, op->dest.iregnum, &op->dest_type);
-            if(oldk != pht->keys) dapush(pda, (void*) (long) op->dest.iregnum);
+            fixedinsert(pht, op->dest.regnum, &op->dest_type);
+            if(oldk != pht->keys) dapush(pda, (void*) (long) op->dest.regnum);
           }
           break;
         OPS_NODEST_3ac
           if(!(op->addr1_type & (ISCONST | ISLABEL))) {
             int oldk = pht->keys;
-            fixedinsert(pht, op->addr1.iregnum, &op->addr1_type);
-            if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr1.iregnum);
+            fixedinsert(pht, op->addr1.regnum, &op->addr1_type);
+            if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr1.regnum);
           }
           __attribute__((fallthrough));
         OPS_1_3ac OPS_1_ASSIGN_3ac case DEALOC:
           if(!(op->addr0_type & (ISCONST | ISLABEL))) {
             int oldk = pht->keys;
-            fixedinsert(pht, op->addr0.iregnum, &op->addr0_type);
-            if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr0.iregnum);
+            fixedinsert(pht, op->addr0.regnum, &op->addr0_type);
+            if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr0.regnum);
           }
           break;
         OPS_2_3ac case ADDR_3:
           if(!(op->addr0_type & (ISCONST | ISLABEL))) {
             int oldk = pht->keys;
-            fixedinsert(pht, op->addr0.iregnum, &op->addr0_type);
-            if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr0.iregnum);
+            fixedinsert(pht, op->addr0.regnum, &op->addr0_type);
+            if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr0.regnum);
           }
           __attribute__((fallthrough));
         case CALL_3:
           if(!(op->dest_type & (ISCONST | ISLABEL))) {
             int oldk = pht->keys;
-            fixedinsert(pht, op->dest.iregnum, &op->dest_type);
-            if(oldk != pht->keys) dapush(pda, (void*) (long) op->dest.iregnum);
+            fixedinsert(pht, op->dest.regnum, &op->dest_type);
+            if(oldk != pht->keys) dapush(pda, (void*) (long) op->dest.regnum);
           }
           break;
         case PHI:
           for(int j = 0; j < blk->inedges->length; j++) {
             if(!(op->addr0.joins[j].addr_type & (ISCONST | ISLABEL))) {
               int oldk = pht->keys;
-              fixedinsert(pht, op->addr0.joins[j].addr.iregnum, &op->addr0.joins[j].addr_type);
-              if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr0.joins[j].addr.iregnum);
+              fixedinsert(pht, op->addr0.joins[j].addr.regnum, &op->addr0.joins[j].addr_type);
+              if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr0.joins[j].addr.regnum);
             }
           }
           if(!(op->dest_type & (ISCONST | ISLABEL))) {
             int oldk = pht->keys;
-            fixedinsert(pht, op->dest.iregnum, &op->dest_type);
-            if(oldk != pht->keys) dapush(pda, (void*) (long) op->dest.iregnum);
+            fixedinsert(pht, op->dest.regnum, &op->dest_type);
+            if(oldk != pht->keys) dapush(pda, (void*) (long) op->dest.regnum);
           }
           break;
         OPS_NOVAR_3ac case ASM:

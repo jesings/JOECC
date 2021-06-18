@@ -1258,7 +1258,7 @@ PROGRAM* linefunc(FUNC* f) {
       if((pdec->type->tb & (STRUCTVAL | UNIONVAL) )) {
         ADDRESS tmpaddr, tmpaddr2;
         tmpaddr.intconst_64 = pdec->type->structtype->size;
-        tmpaddr2.iregnum = prog->regcnt++;
+        tmpaddr2.regnum = prog->regcnt++;
         opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 8, tmpaddr, newa->addr_type & ~ISVAR, tmpaddr2));
         opn(prog, ct_3ac_op3(COPY_3, newa->addr_type | ISDEREF, newa->addr, ISCONST, tmpaddr, (newa->addr_type & ~ISVAR) | ISDEREF, tmpaddr2));
         opn(prog, ct_3ac_op2(MOV_3, newa->addr_type & ~ISVAR, tmpaddr2, newa->addr_type, newa->addr));
@@ -1365,8 +1365,8 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char term, FILE* f, PROG
         else                    fprintf(f, "%s", adname);
       }
     } else {
-      if(addr_type & ISDEREF) fprintf(f, "(reg%u)", addr.iregnum);
-      else                    fprintf(f, "reg%u", addr.iregnum);
+      if(addr_type & ISDEREF) fprintf(f, "(reg%u)", addr.regnum);
+      else                    fprintf(f, "reg%u", addr.regnum);
     }
     fprintf(f, ".%d%c", sz, addr_type & ISFLOAT ? 'f' : addr_type & ISSIGNED ? 's' : 'u');
     if(term) fprintf(f, CLEARCOLOR);

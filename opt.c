@@ -129,7 +129,7 @@ static char feq(OPERATION* op) {
   if(op->addr0_type != op->addr1_type) return 0;
   if(op->addr0_type & ISLABEL) return !strcmp(op->addr0.labelname, op->addr1.labelname);
   if(op->addr0_type & ISVAR) return op->addr0.varnum == op->addr1.varnum;
-  return op->addr0.iregnum == op->addr1.iregnum;
+  return op->addr0.regnum == op->addr1.regnum;
 }
 
 #define PRUNE(check, condition) \
@@ -692,7 +692,7 @@ void collatealloc(PROGRAM* prog) {
           while(allocfrontier->length) {
             BBLOCK* inquestion = dapop(allocfrontier);
             if(inquestion->lastop && inquestion->lastop->opcode == DEALOC 
-               && inquestion->lastop->addr0.iregnum == op->dest.iregnum) continue;
+               && inquestion->lastop->addr0.regnum == op->dest.regnum) continue;
             //removal of critical edges should remove the issue that arises if one branch leaves dominance but the other doesn't
             if(inquestion->nextblock == prog->finalblock) {
               OPERATION* preretop = inquestion->firstop;
