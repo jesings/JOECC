@@ -1100,9 +1100,13 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
       blk->antileader_out = fhtcclone(blkn->antileader_in, (void*(*)(void*)) genx);
     }
   } else if(blk->branchblock) {
-    if(blk->nextblock->antileader_in)
+    if(blk->nextblock->antileader_in) {
       blk->antileader_out = fhtcclone(blk->nextblock->antileader_in, (void*(*)(void*)) genx);
-    else blk->antileader_out = htctor();
+    } else if(blk->branchblock->antileader_in) {
+      blk->antileader_out = fhtcclone(blk->branchblock->antileader_in, (void*(*)(void*)) genx);
+    } else {
+      blk->antileader_out = htctor();
+    }
     //and with branchblock
     //>1 succ
   } else {
@@ -1157,6 +1161,16 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
       }
     }
     dadtor(expairs);
+  }
+  if(blk->tmp_gen) {
+    for(int i = 0; i < blk->tmp_gen->length; i++) {
+      ADDRESS a;
+      a.regnum = blk->tmp_gen->arr[i];
+      GVNNUM* g = nodefromaddr(eq, 0, a, prog);
+      //this absolutely removes too much, we should know see if the use of that equivalence class is anticipable in other forms
+      void* fr = frmpair(blk->antileader_in, g->index);
+      if(fr) free(fr);
+    }
   }
   char changed = !(fhtequal(blk->antileader_out, oldanticout) || fhtequal(blk->antileader_in, oldanticin));
   if(oldanticin) fhtdtorcfr(oldanticin, free);

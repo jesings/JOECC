@@ -47,7 +47,7 @@ void* bigsearch(BIGHASHTABLE* ht, const char* key, int flen);
 char queryval(HASHTABLE* ht, const char* key);
 char bigqueryval(BIGHASHTABLE* ht, const char* key);
 void rmpair(HASHTABLE* ht, const char* key);
-void frmpair(HASHTABLE* ht, long fixedkey);
+void* frmpair(HASHTABLE* ht, long fixedkey);
 void rmpaircfr(HASHTABLE* ht, const char* key, void (*cfree)(void*));
 char htequal(HASHTABLE* ht1, HASHTABLE* ht2);
 char fhtequal(HASHTABLE* ht1, HASHTABLE* ht2);

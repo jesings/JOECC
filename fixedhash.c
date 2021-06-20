@@ -179,19 +179,22 @@ void fhtdtor(HASHTABLE* ht) {
 }
 
 //fixed hashtable remove hashpair
-void frmpair(HASHTABLE* ht, long fixedkey) {
+void* frmpair(HASHTABLE* ht, long fixedkey) {
   long i = fixedhash(fixedkey);
+  void* rv = NULL;
   HASHPAIR* hp = &(ht->pairs[i]);
   if(!(hp->fixedkey))
-    return;
+    return NULL;
   HASHPAIR* prev = NULL;
-  for(; hp; hp = hp->next) {
+  for(; (long) hp > 1; hp = hp->next) {
     if(hp->next && hp->fixedkey == fixedkey) {
       if((unsigned long) hp->next > 1) {
         HASHPAIR* temp = hp->next;
+        rv = hp->value;
         *hp = *hp->next;
         free(temp);
       } else {
+        rv = hp->value;
         if(prev) {
           prev->next = (void*) 1;
           free(hp);
@@ -200,8 +203,9 @@ void frmpair(HASHTABLE* ht, long fixedkey) {
         }
       }
       --ht->keys;
-      return;
+      return rv;
     }
     prev = hp;
   }
+  return rv;
 }
