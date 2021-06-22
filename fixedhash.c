@@ -150,7 +150,7 @@ char fhtequal(HASHTABLE* ht1, HASHTABLE* ht2) {
         if(!((current1->fixedkey == current2->fixedkey)/* && (current1->value == current2->value)*/)) return 0;
         current1 = current1->next;
         current2 = current2->next;
-      } while((long) current1 > 1 && (long) current2 > 1);
+      } while((unsigned long) current1 > 1 && (unsigned long) current2 > 1);
       if(current1 != current2) return 0;
     } else if(current2->next) {
       return 0;
@@ -171,7 +171,7 @@ static void fhpdtor(HASHPAIR* hp) {
 void fhtdtor(HASHTABLE* ht) {
   for(int i = 0; i < HASHSIZE; i++) {
     if(ht->pairs[i].next) {
-      if((long) ht->pairs[i].next > 1)
+      if((unsigned long) ht->pairs[i].next > 1)
         fhpdtor(ht->pairs[i].next);
     }
   }
@@ -186,21 +186,20 @@ void* frmpair(HASHTABLE* ht, long fixedkey) {
   if(!(hp->fixedkey))
     return NULL;
   HASHPAIR* prev = NULL;
-  for(; (long) hp > 1; hp = hp->next) {
-    if(hp->next && hp->fixedkey == fixedkey) {
-      if((unsigned long) hp->next > 1) {
-        HASHPAIR* temp = hp->next;
-        rv = hp->value;
-        *hp = *hp->next;
-        free(temp);
-      } else {
-        rv = hp->value;
+  for(; (unsigned long) hp > 1; hp = hp->next) {
+    if(hp->fixedkey == fixedkey) {
+      rv = hp->value;
+      if((unsigned long) hp->next == 1) {
         if(prev) {
           prev->next = (void*) 1;
           free(hp);
         } else {
           hp->next = NULL;
         }
+      } else {
+        HASHPAIR* temp = hp->next;
+        *hp = *hp->next;
+        free(temp);
       }
       --ht->keys;
       return rv;

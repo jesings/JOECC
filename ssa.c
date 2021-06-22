@@ -1117,6 +1117,17 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   } else if(blk->branchblock) {
     if(blk->nextblock->antileader_in) {
       blk->antileader_out = fhtcclone(blk->nextblock->antileader_in, (void*(*)(void*)) genx);
+      if(blk->branchblock->antileader_in) {
+        DYNARR* otharr = htfpairs(blk->antileader_out);
+        for(int i = 0; i < otharr->length; i++) {
+          HASHPAIR* hp = daget(otharr, i);
+          if(!fixedqueryval(blk->branchblock->antileader_in, hp->fixedkey)) {
+            free(hp->value);
+            frmpair(blk->antileader_out, hp->fixedkey);
+          }
+        }
+        dadtor(otharr);
+      }
     } else if(blk->branchblock->antileader_in) {
       blk->antileader_out = fhtcclone(blk->branchblock->antileader_in, (void*(*)(void*)) genx);
     } else {
