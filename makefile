@@ -7,12 +7,14 @@ compilerasan: CFLAGS += -fsanitize=address
 compilerasan: LDFLAGS += -fsanitize=address
 compilerasan: compiler
 nodebug: CFLAGS = -O2 -D NODEBUG -ggdb -g3 -march=native -D HEADERS_VERSION=\"$(VERSION)\"
-nodebug: LEXFLAGS = -Cfer -p -p
 nodebug: LDFLAGS +=
 nodebug: compiler
 useclang: VERSION = $(shell clang --version | grep "[0-9]\+\.[0-9]\+\.[0-9]\+" -o)
 useclang: CFLAGS += -D USECLANG
 useclang: compiler
+perftest: CFLAGS = -O2 -D NODEBUG -ggdb -g3 -march=native -D HEADERS_VERSION=\"$(VERSION)\"
+perftest: LEXFLAGS = -Cfer -p -p
+perftest: profile
 CFLAGS += -D HEADERS_VERSION=\"$(VERSION)\"
 compiler: joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o  dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o opt.o ssa.o codegen.o
 	$(CC) joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o opt.o ssa.o codegen.o -o compiler $(LDFLAGS)
@@ -54,6 +56,11 @@ ssa.o: ssa.c
 	$(CC) ssa.c -c $(CFLAGS)
 codegen.o: codegen.c
 	$(CC) codegen.c -c $(CFLAGS)
+
+profile: compiler
+	perf record ./compiler treeduce.c
+
+
 
 clean:
 	-rm *.o
