@@ -44,12 +44,14 @@ BIGHASHTABLE* bightctor(void) {
 
 HASHTABLE* htclone(HASHTABLE* ht) {
   HASHTABLE* retval = malloc(sizeof(HASHTABLE));
-  memcpy(retval, ht, sizeof(HASHTABLE));
   for(int i = 0; i < HASHSIZE; i++) {
     HASHPAIR* clonepair;
     HASHPAIR* curpair = &(ht->pairs[i]), *parpar = &(retval->pairs[i]);
-    if(!(curpair->key))
+    if(!(curpair->key)) {
+      curpair->key = NULL;
+      curpair->next= NULL;
       continue;
+    }
     parpar->key = strdup(curpair->key);
     if(curpair->next) {
       for(curpair = curpair->next; curpair->next; curpair = curpair->next) {

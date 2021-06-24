@@ -1198,6 +1198,10 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
       if(fr) free(fr);
     }
   }
+    if(blk->antileader_in) printf("antileader in keys for domblock %d: %d\n", blk->postdomind, blk->antileader_in->keys);
+    else printf("antileader in keys for domblock %d: %d\n", blk->postdomind, 0);
+    if(blk->antileader_out) printf("antileader out keys for domblock %d: %d", blk->postdomind, blk->antileader_out->keys);
+    else  printf("antileader out keys for domblock %d: %d\n", blk->postdomind, 0);
   char changed = !(fhtequal(blk->antileader_out, oldanticout) || fhtequal(blk->antileader_in, oldanticin));
   if(oldanticin) fhtdtorcfr(oldanticin, free);
   if(oldanticout) fhtdtorcfr(oldanticout, free);

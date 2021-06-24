@@ -81,11 +81,12 @@ HASHTABLE* fhtclone(HASHTABLE* ht) {
 }
 HASHTABLE* fhtcclone(HASHTABLE* ht, void*(*custfunc)(void*)) {
   HASHTABLE* retval = malloc(sizeof(HASHTABLE));
-  memcpy(retval, ht, sizeof(HASHTABLE));
   for(int i = 0; i < HASHSIZE; i++) {
     HASHPAIR* curpair = &(ht->pairs[i]), *parpar = &(retval->pairs[i]);
-    if(!(curpair->next))
+    if(!(curpair->next)) {
+      parpar->next = NULL;
       continue;
+    }
     do {
       parpar->fixedkey = curpair->fixedkey;
       parpar->value = custfunc(curpair->value);
@@ -183,7 +184,7 @@ void* frmpair(HASHTABLE* ht, long fixedkey) {
   long i = fixedhash(fixedkey);
   void* rv = NULL;
   HASHPAIR* hp = &(ht->pairs[i]);
-  if(!(hp->fixedkey))
+  if(!(hp->next))
     return NULL;
   HASHPAIR* prev = NULL;
   for(; (unsigned long) hp > 1; hp = hp->next) {
