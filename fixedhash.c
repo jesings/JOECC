@@ -60,11 +60,13 @@ char fixedqueryval(HASHTABLE* ht, long fixedkey) {
 
 HASHTABLE* fhtclone(HASHTABLE* ht) {
   HASHTABLE* retval = malloc(sizeof(HASHTABLE));
-  memcpy(retval, ht, sizeof(HASHTABLE));
+  retval->keys = ht->keys;
   for(int i = 0; i < HASHSIZE; i++) {
     HASHPAIR* curpair = &(ht->pairs[i]), *parpar = &(retval->pairs[i]);
-    if(!(curpair->next))
+    if(!(curpair->next)) {
+      parpar->next = NULL;
       continue;
+    }
     do {
       parpar->fixedkey = curpair->fixedkey;
       parpar->value = curpair->value;
@@ -81,6 +83,7 @@ HASHTABLE* fhtclone(HASHTABLE* ht) {
 }
 HASHTABLE* fhtcclone(HASHTABLE* ht, void*(*custfunc)(void*)) {
   HASHTABLE* retval = malloc(sizeof(HASHTABLE));
+  retval->keys = ht->keys;
   for(int i = 0; i < HASHSIZE; i++) {
     HASHPAIR* curpair = &(ht->pairs[i]), *parpar = &(retval->pairs[i]);
     if(!(curpair->next)) {

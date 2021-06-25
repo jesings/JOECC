@@ -44,6 +44,7 @@ BIGHASHTABLE* bightctor(void) {
 
 HASHTABLE* htclone(HASHTABLE* ht) {
   HASHTABLE* retval = malloc(sizeof(HASHTABLE));
+  retval->keys = ht->keys;
   for(int i = 0; i < HASHSIZE; i++) {
     HASHPAIR* clonepair;
     HASHPAIR* curpair = &(ht->pairs[i]), *parpar = &(retval->pairs[i]);
