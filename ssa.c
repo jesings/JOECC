@@ -1193,7 +1193,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
       ADDRESS a;
       a.regnum = blk->tmp_gen->arr[i];
       GVNNUM* g = nodefromaddr(eq, 0, a, prog);
-      //this absolutely removes too much, we should know see if the use of that equivalence class is anticipable in other forms
+      //this absolutely removes too much, we should see if the use of that equivalence class is anticipable in other forms
       void* fr = frmpair(blk->antileader_in, g->index);
       if(fr) free(fr);
     }
@@ -1210,13 +1210,22 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   return changed;
 }
 
-static void hoist(PROGRAM* prog) {
+static char hoist(PROGRAM* prog) {
+    char changed = 0;
     for(int i = 0; i < prog->allblocks->length; i++) {
         BBLOCK* blk = daget(prog->allblocks, i);
         if(blk->inedges->length > 1) {
             //consider hoisting
+            if(blk->lastop) {
+              OPERATION* op = blk->firstop;
+              while(op->opcode == PHI) {
+                if(op == blk->lastop) break;
+                op = op->nextop;
+              }
+            }
         }
     }
+    return changed;
 }
 
 void gvn(PROGRAM* prog) {
