@@ -536,7 +536,7 @@ static GVNNUM* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, 
 
 //replace operation via gvn
 static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op) {
-  BITFIELD bf = bfalloc(8);//blk->availability_out; stupid placeholder compiler doesn't yell at me
+  BITFIELD bf = bfalloc(8);
   GVNNUM* val;
   switch(op->opcode) {
     OPS_3_3ac_NOCOM OPS_3_3ac_COM
@@ -1212,6 +1212,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
 
 static char hoist(PROGRAM* prog, EQONTAINER* eq) {
     char changed = 0;
+    DYNARR* stubbornblocks = dactor(8);
     for(int i = 0; i < prog->allblocks->length; i++) {
         BBLOCK* blk = daget(prog->allblocks, i);
         if(blk->inedges->length > 1) {
@@ -1240,6 +1241,8 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                       n3 = bigsearch(eq->ophash, (char*) &oex, sizeof(EXPRSTR));
                       if(!n3) goto hoistcont;//would have liked to have just held as an invariant that it exists, something's off
                       antil = fixedsearch(blk->antileader_in, n3->index);
+                    } else {
+                      goto hoistcont;
                     }
                     break;
                   OPS_2_3ac_MUT
@@ -1252,6 +1255,8 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                       n3 = bigsearch(eq->ophash, (char*) &oex, sizeof(EXPRSTR));
                       if(!n3) goto hoistcont;//would have liked to have just held as an invariant that it exists, something's off
                       antil = fixedsearch(blk->antileader_in, n3->index);
+                    } else {
+                      goto hoistcont;
                     }
                     break;
                   OPS_1_ASSIGN_3ac case ADDR_3:
@@ -1261,6 +1266,19 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                     antil = fixedsearch(blk->antileader_in, n3->index);
                     break;
                 }
+
+                if(antil) {
+                  for(int j = 0; j < blk->inedges->length; j++) {
+                    BBLOCK* oblk = daget(blk->inedges, j);
+                    if(fixedqueryval(oblk->leader, n3->index))
+                      dapush(stubbornblocks, oblk);
+                  }
+                  if(stubbornblocks->length > 0 && stubbornblocks->length < blk->inedges->length) {
+                      //hoist where relevant
+                      //phi translate
+                  }
+                  stubbornblocks->length = 0;
+                }
 hoistcont:
                 if(op == blk->lastop) break;
                 op = op->nextop;
@@ -1268,6 +1286,7 @@ hoistcont:
             }
         }
     }
+    dadtor(stubbornblocks);
     return changed;
 }
 

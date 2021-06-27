@@ -1205,7 +1205,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
         for(int i = 1; i < toempty->length; i++) {
           *(void**) daget(toempty, i) = prog->curblock;
         }
-        damerge(prog->curblock->inedges, daget(toempty, 0));
+        prog->curblock->inedges = damerge(prog->curblock->inedges, daget(toempty, 0));
         dadtor(toempty);
         rmpair(prog->unfilledlabels, cst->glabel);
       }
