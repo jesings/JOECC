@@ -1210,7 +1210,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   return changed;
 }
 
-static char hoist(PROGRAM* prog) {
+static char hoist(PROGRAM* prog, EQONTAINER* eq) {
     char changed = 0;
     for(int i = 0; i < prog->allblocks->length; i++) {
         BBLOCK* blk = daget(prog->allblocks, i);
@@ -1218,7 +1218,50 @@ static char hoist(PROGRAM* prog) {
             //consider hoisting
             if(blk->lastop) {
               OPERATION* op = blk->firstop;
-              while(op->opcode == PHI) {
+              while(1) {
+                GVNNUM* n1, * n2, * n3;
+                EXPRSTR* antil = NULL;
+                switch(op->opcode) {
+                  case ASM:
+                    assert(0);
+                  OPS_NOVAR_3ac OPS_3_PTRDEST_3ac case MOV_3:
+                  OPS_NODEST_3ac OPS_1_3ac case CALL_3: case PHI:
+                  case DEALOC:
+                    goto hoistcont;
+                  OPS_3_3ac
+                    if((op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)) ||
+                       (op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)) ||
+                       (op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) goto hoistcont;
+                       //perhaps unnecessary to check for dest
+                    n1 = nodefromaddr(eq, 0, op->addr0, prog);
+                    n2 = nodefromaddr(eq, 0, op->addr1, prog);
+                    if(n1 && n2) {
+                      EXPRSTR oex = {op->opcode, n1->index, n2->index};
+                      n3 = bigsearch(eq->ophash, (char*) &oex, sizeof(EXPRSTR));
+                      if(!n3) goto hoistcont;//would have liked to have just held as an invariant that it exists, something's off
+                      antil = fixedsearch(blk->antileader_in, n3->index);
+                    }
+                    break;
+                  OPS_2_3ac_MUT
+                    if((op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)) ||
+                       (op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) goto hoistcont;
+                       //perhaps unnecessary to check for dest
+                    n1 = nodefromaddr(eq, 0, op->addr0, prog);
+                    if(n1) {
+                      EXPRSTR oex = {op->opcode, n1->index, 0};
+                      n3 = bigsearch(eq->ophash, (char*) &oex, sizeof(EXPRSTR));
+                      if(!n3) goto hoistcont;//would have liked to have just held as an invariant that it exists, something's off
+                      antil = fixedsearch(blk->antileader_in, n3->index);
+                    }
+                    break;
+                  OPS_1_ASSIGN_3ac case ADDR_3:
+                    if(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)) goto hoistcont;
+                    n3 = nodefromaddr(eq, 0, op->addr0, prog);
+                    if(!n3) goto hoistcont;
+                    antil = fixedsearch(blk->antileader_in, n3->index);
+                    break;
+                }
+hoistcont:
                 if(op == blk->lastop) break;
                 op = op->nextop;
               }
@@ -1236,7 +1279,7 @@ void gvn(PROGRAM* prog) {
   free(h1);
   while(antics(prog->finalblock, prog, eqcontainer)) ;
   //buildsets calculated
-  hoist(prog);
+  hoist(prog, eqcontainer);
   freeq(eqcontainer);
   prog->pdone |= GVN;
   return;
