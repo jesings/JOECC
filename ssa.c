@@ -1015,11 +1015,81 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
     for(int i = 0; i < blk->idominates->length; i++)
       gensall(prog, eqcontainer, daget(blk->idominates, i));
 }
+void translate(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk, BBLOCK* blkn, EXPRSTR* prevex) {
+  void* storage;
+  int translated;
+  GVNNUM* val1;
+  GVNNUM* val2;
+  GVNNUM* destval;
+  ADDRESS a1, a2;
+  switch(prevex->o) {
+    OPS_NOVAR_3ac OPS_3_PTRDEST_3ac case MOV_3:
+    OPS_NODEST_3ac OPS_1_3ac case CALL_3: case PHI:
+    case ASM:
+      assert(0);
+    case DEALOC:
+      return;
+    OPS_3_3ac
+      if((translated = (long) fixedsearch(blk->translator, prevex->p1))) {
+        a1.regnum = translated;
+      } else {
+        a1.regnum = prevex->p1;
+      }
+      if((translated = (long) fixedsearch(blk->translator, prevex->p2))) {
+        a2.regnum = translated;
+      } else {
+        a2.regnum = prevex->p2;
+      }
+      val1 = nodefromaddr(eq, 0, a1, prog);
+      val2 = nodefromaddr(eq, 0, a2, prog);
+      if(!(val1 && val2)) return;;
+      EXPRSTR* destex = ex2string(val1->index, val2->index, prevex->o);
+      destval = bigsearch(eq->ophash, (char*) &destex, sizeof(EXPRSTR));
+      if(!destval) {
+        destval = ctgvnnum(eq, NOCONST);
+        EXPRSTR* newdestex = genx(destex);
+        biginsert(eq->ophash, (char*) newdestex, destval);
+        dapush(destval->equivs, genx(newdestex));
+      }
+      if((storage = fixedsearch(blk->antileader_out, destval->index))) free(storage);//inefficient
+      fixedinsert(blk->antileader_out, destval->index, destex);
+      break;
+    OPS_2_3ac_MUT
+      if((translated = (long) fixedsearch(blk->translator, prevex->p1))) {
+        a1.regnum = translated;
+      } else {
+        a1.regnum = prevex->p1;
+      }
+      val1 = nodefromaddr(eq, 0, a1, prog);
+      if(!val1) return;;
+      EXPRSTR* destex2 = ex2string(val1->index, 0, prevex->o);
+      destval = bigsearch(eq->ophash, (char*) &destex2, sizeof(EXPRSTR));
+      if(!destval) {
+        destval = ctgvnnum(eq, NOCONST);
+        EXPRSTR* newdestex = genx(destex2);
+        biginsert(eq->ophash, (char*) newdestex, destval);
+        dapush(destval->equivs, genx(newdestex));
+      }
+      if((storage = fixedsearch(blk->antileader_out, destval->index))) free(storage);//inefficient
+      fixedinsert(blk->antileader_out, destval->index, destex);
+      break;
+    OPS_1_ASSIGN_3ac case ADDR_3:
+      if((translated = (long) fixedsearch(blk->translator, prevex->p1))) {
+        a1.regnum = translated;
+      } else {
+        a1.regnum = prevex->p1;
+      }
+      val1 = nodefromaddr(eq, 0, a1, prog);
+      if(!val1) return;;
+      if((storage = fixedsearch(blk->antileader_out, val1->index))) free(storage);//inefficient
+      fixedinsert(blk->antileader_out, val1->index, ex2string(a1.regnum, 0, INIT_3));
+      break;
+  }
+}
 static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   if(!blk->pidominates) return 0;
   HASHTABLE* oldanticin = blk->antileader_in;
   HASHTABLE* oldanticout = blk->antileader_out;
-  void* storage;
 
   if(blk->nextblock && !blk->branchblock) {
     int index = 0;
@@ -1028,88 +1098,20 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
     if(blkn->lastop) {
       blk->antileader_out = htctor();
       OPERATION* op = blkn->firstop;
-      HASHTABLE* translator = htctor(); //would be more efficient to keep dag of references?
+      if(blk->translator) fhtdtor(blk->translator);
+      blk->translator = htctor(); //would be more efficient to keep dag of references?
       while(op->opcode == PHI) {
         int prephi = op->addr0.joins[index].addr.regnum;
         int postphi = op->dest.regnum;
-        fixedinsertint(translator, prephi, postphi);
+        fixedinsertint(blk->translator, prephi, postphi);
         if(op == blkn->lastop) break;
         op = op->nextop;
       }
       DYNARR* pairs2trans = htfpairs(blkn->antileader_in);
       for(int i = 0; i < pairs2trans->length; i++) {
         HASHPAIR* hp = daget(pairs2trans, i);
-        EXPRSTR* prevex = hp->value;
-        int translated;
-        GVNNUM* val1;
-        GVNNUM* val2;
-        GVNNUM* destval;
-        ADDRESS a1, a2;
-        switch(prevex->o) {
-          OPS_NOVAR_3ac OPS_3_PTRDEST_3ac case MOV_3:
-          OPS_NODEST_3ac OPS_1_3ac case CALL_3: case PHI:
-          case ASM:
-            assert(0);
-          case DEALOC:
-            continue;
-          OPS_3_3ac
-            if((translated = (long) fixedsearch(translator, prevex->p1))) {
-              a1.regnum = translated;
-            } else {
-              a1.regnum = prevex->p1;
-            }
-            if((translated = (long) fixedsearch(translator, prevex->p2))) {
-              a2.regnum = translated;
-            } else {
-              a2.regnum = prevex->p2;
-            }
-            val1 = nodefromaddr(eq, 0, a1, prog);
-            val2 = nodefromaddr(eq, 0, a2, prog);
-            if(!(val1 && val2)) continue;
-            EXPRSTR* destex = ex2string(val1->index, val2->index, prevex->o);
-            destval = bigsearch(eq->ophash, (char*) &destex, sizeof(EXPRSTR));
-            if(!destval) {
-              destval = ctgvnnum(eq, NOCONST);
-              EXPRSTR* newdestex = genx(destex);
-              biginsert(eq->ophash, (char*) newdestex, destval);
-              dapush(destval->equivs, genx(newdestex));
-            }
-            if((storage = fixedsearch(blk->antileader_out, destval->index))) free(storage);//inefficient
-            fixedinsert(blk->antileader_out, destval->index, destex);
-            break;
-          OPS_2_3ac_MUT
-            if((translated = (long) fixedsearch(translator, prevex->p1))) {
-              a1.regnum = translated;
-            } else {
-              a1.regnum = prevex->p1;
-            }
-            val1 = nodefromaddr(eq, 0, a1, prog);
-            if(!val1) continue;
-            EXPRSTR* destex2 = ex2string(val1->index, 0, prevex->o);
-            destval = bigsearch(eq->ophash, (char*) &destex2, sizeof(EXPRSTR));
-            if(!destval) {
-              destval = ctgvnnum(eq, NOCONST);
-              EXPRSTR* newdestex = genx(destex2);
-              biginsert(eq->ophash, (char*) newdestex, destval);
-              dapush(destval->equivs, genx(newdestex));
-            }
-            if((storage = fixedsearch(blk->antileader_out, destval->index))) free(storage);//inefficient
-            fixedinsert(blk->antileader_out, destval->index, destex);
-            break;
-          OPS_1_ASSIGN_3ac case ADDR_3:
-            if((translated = (long) fixedsearch(translator, prevex->p1))) {
-              a1.regnum = translated;
-            } else {
-              a1.regnum = prevex->p1;
-            }
-            val1 = nodefromaddr(eq, 0, a1, prog);
-            if(!val1) continue;
-            if((storage = fixedsearch(blk->antileader_out, val1->index))) free(storage);//inefficient
-            fixedinsert(blk->antileader_out, val1->index, ex2string(a1.regnum, 0, INIT_3));
-            break;
-        }
+        translate(prog, eq, blk, blkn, hp->value);
       }
-      fhtdtor(translator);
       dadtor(pairs2trans);
     } else {
       blk->antileader_out = fhtcclone(blkn->antileader_in, (void*(*)(void*)) genx);
@@ -1276,6 +1278,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                   if(stubbornblocks->length > 0 && stubbornblocks->length < blk->inedges->length) {
                       //hoist where relevant
                       //phi translate
+                      //printf("STUBBORN BLOCKS %d\n", stubbornblocks->length);
                   }
                   stubbornblocks->length = 0;
                 }
