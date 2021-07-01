@@ -969,13 +969,10 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           }
         }
         if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
-          if(op->addr0_type & ISCONST) {
-          } else {
-            exst.p1 = op->dest.regnum;
-            chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
-            if(chosenval && !fixedqueryval(blk->antileader_in, chosenval->index))
-              dipush(blk->tmp_gen, chosenval->index);
-          }
+          exst.p1 = op->dest.regnum;
+          chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
+          if(chosenval && !fixedqueryval(blk->antileader_in, chosenval->index))
+            dipush(blk->tmp_gen, chosenval->index);
         }
         if(status == 1) {
           EXPRSTR refex = {op->opcode, op->addr0.regnum, 0};
@@ -1278,26 +1275,28 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                   case DEALOC:
                     goto hoistcont;
                   OPS_3_3ac
-                    if((op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)) ||
-                       (op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)) ||
-                       (op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) goto hoistcont;
+                    if((op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL)) ||
+                       (op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL)) ||
+                       (op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) goto hoistcont;
                        //perhaps unnecessary to check for dest
-                    n1 = nodefromaddr(eq, 0, op->addr0, prog);
-                    n2 = nodefromaddr(eq, 0, op->addr1, prog);
+                    n1 = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
+                    n2 = nodefromaddr(eq, op->addr1_type, op->addr1, prog);
                     if(n1 && n2) {
                       EXPRSTR oex = {op->opcode, n1->index, n2->index};
                       n3 = bigsearch(eq->ophash, (char*) &oex, sizeof(EXPRSTR));
                       if(!n3) goto hoistcont;//would have liked to have just held as an invariant that it exists, something's off
+                      //printop(op, 1, blk, stdout, prog);
+                      //putchar('\n');
                       antil = fixedsearch(blk->antileader_in, n3->index);
                     } else {
                       goto hoistcont;
                     }
                     break;
                   OPS_2_3ac_MUT
-                    if((op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)) ||
-                       (op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) goto hoistcont;
+                    if((op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL)) ||
+                       (op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) goto hoistcont;
                        //perhaps unnecessary to check for dest
-                    n1 = nodefromaddr(eq, 0, op->addr0, prog);
+                    n1 = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
                     if(n1) {
                       EXPRSTR oex = {op->opcode, n1->index, 0};
                       n3 = bigsearch(eq->ophash, (char*) &oex, sizeof(EXPRSTR));
@@ -1308,8 +1307,8 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                     }
                     break;
                   OPS_1_ASSIGN_3ac case ADDR_3:
-                    if(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)) goto hoistcont;
-                    n3 = nodefromaddr(eq, 0, op->addr0, prog);
+                    if(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL)) goto hoistcont;
+                    n3 = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
                     if(!n3) goto hoistcont;
                     antil = fixedsearch(blk->antileader_in, n3->index);
                     break;

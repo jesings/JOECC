@@ -1401,7 +1401,7 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char term, FILE* f, PROG
     printaddr(op->addr0, op->addr0_type, term, f, prog); \
   } while(0)
 
-static void printop(OPERATION* op, char term, BBLOCK* blk, FILE* f, PROGRAM* prog) {
+void printop(OPERATION* op, char term, BBLOCK* blk, FILE* f, PROGRAM* prog) {
   fprintf(f, "%s", opcode_3ac_names[op->opcode]);
   if(term) fprintf(f, "\t");
   else      fprintf(f, "&nbsp;");
