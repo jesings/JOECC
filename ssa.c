@@ -491,6 +491,16 @@ static EXPRSTR* genx(EXPRSTR* millenial) {
   return boomer;
 }
 
+static GVNNUM* lookup_const(EQONTAINER* eq, ADDRTYPE adt, ADDRESS adr) {
+    assert(adt & ISCONST);
+    if(adt & ISSTRCONST) {
+        return search(eq->strconsthash, adr.strconst);
+    } else if(adt & ISFLOAT) {
+        return fixedsearch(eq->floatconsthash, adr.intconst_64);
+    } else {
+        return fixedsearch(eq->intconsthash, adr.intconst_64);
+    }
+}
 
 //find which equivalence node, if any, this address corresponds to, and create one if it corresponds to nothing extant
 static GVNNUM* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, PROGRAM* prog) {
@@ -901,39 +911,44 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
       OPS_3_3ac_NOCOM OPS_3_3ac_COM 
         if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
           if(op->addr0_type & ISCONST) {
+            chosenval = lookup_const(eqcontainer, op->addr0_type, op->addr0);
           } else {
             exst.p1 = op->addr0.regnum;
             chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
-            if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
-              //slightly inefficient, could query and insert in same traversal
-              //however it might be worse to have to re-free the exprstr if not used
+          }
+          if(chosenval) {
+            status++;
+            //slightly inefficient, could query and insert in same traversal
+            //however it might be worse to have to re-free the exprstr if not used
+            if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
               fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
             }
           }
         }
         if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
-          if(op->addr0_type & ISCONST) {
+          if(op->addr1_type & ISCONST) {
+            chosenval = lookup_const(eqcontainer, op->addr1_type, op->addr1);
           } else {
             exst.p1 = op->addr1.regnum;
             chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
-            if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
+          }
+          if(chosenval) {
+            status++;
+            if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
               fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
             }
           }
         }
         if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
-          if(op->addr0_type & ISCONST) {
-          } else {
-            exst.p1 = op->dest.regnum;
-            chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
-            if(chosenval && !fixedqueryval(blk->antileader_in, chosenval->index))
-              dipush(blk->tmp_gen, chosenval->index);
-          }
+          exst.p1 = op->dest.regnum;
+          chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
+          if(chosenval && !fixedqueryval(blk->antileader_in, chosenval->index))
+            dipush(blk->tmp_gen, chosenval->index);
         }
         if(status == 2) {
           EXPRSTR refex = {op->opcode, op->addr0.regnum, op->addr1.regnum};
           chosenval = bigsearch(eqcontainer->ophash, (char*) &refex, sizeof(EXPRSTR));
-          if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
+          if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
             fixedinsert(blk->exp_gen, chosenval->index, genx(&refex));
           }
         }
@@ -941,10 +956,14 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
       OPS_2_3ac_MUT case MOV_3: 
         if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
           if(op->addr0_type & ISCONST) {
+            chosenval = lookup_const(eqcontainer, op->addr0_type, op->addr0);
           } else {
             exst.p1 = op->addr0.regnum;
             chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
-            if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
+          }
+          if(chosenval) {
+            status++;
+            if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
               fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
             }
           }
@@ -961,7 +980,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
         if(status == 1) {
           EXPRSTR refex = {op->opcode, op->addr0.regnum, 0};
           chosenval = bigsearch(eqcontainer->ophash, (char*) &refex, sizeof(EXPRSTR));
-          if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
+          if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
             fixedinsert(blk->exp_gen, chosenval->index, genx(&refex));
           }
         }
@@ -970,12 +989,13 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
       case CALL_3: case ADDR_3:
         if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
           if(op->addr0_type & ISCONST) {
+            chosenval = lookup_const(eqcontainer, op->addr0_type, op->addr0);
           } else {
             exst.p1 = op->dest.regnum;
             chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
-            if(chosenval && !fixedqueryval(blk->antileader_in, chosenval->index))
-              dipush(blk->tmp_gen, chosenval->index);
           }
+          if(chosenval && !fixedqueryval(blk->antileader_in, chosenval->index))
+            dipush(blk->tmp_gen, chosenval->index);
         }
         break;
       OPS_1_ASSIGN_3ac
@@ -1003,24 +1023,26 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
       OPS_NODEST_3ac OPS_3_PTRDEST_3ac
         if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
           if(op->addr0_type & ISCONST) {
+            chosenval = lookup_const(eqcontainer, op->addr0_type, op->addr0);
           } else {
             exst.p1 = op->addr1.regnum;
             chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
-            if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
-              fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
-            }
+          }
+          if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
+            fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
           }
         }
         __attribute__((fallthrough));
       OPS_1_3ac
         if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
           if(op->addr0_type & ISCONST) {
+            chosenval = lookup_const(eqcontainer, op->addr0_type, op->addr0);
           } else {
             exst.p1 = op->addr0.regnum;
             chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
-            if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
-              fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
-            }
+          }
+          if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
+            fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
           }
         }
         break;
