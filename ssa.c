@@ -272,9 +272,7 @@ void ssa(PROGRAM* prog) {
     for(int i = 0; i < blocks->length; i++) {
       BBLOCK* blk = daget(blocks, i);
       if(blk->postdomind == -1) {
-        //check if it has a back-edge
-        //if so, add an inedge in finalblock
-        //then, recalculate postdom tree
+        //check if it has a back-edge if so, add an inedge in finalblock then, recalculate postdom tree
         if((blk->nextblock && blk->nextblock->domind < blk->domind) ||
            (blk->branchblock && blk->branchblock->domind < blk->domind)) {
           dapush(prog->finalblock->inedges, blk);
@@ -722,6 +720,7 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog) {
   }
 }
 
+//number values
 static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
   if(blk->visited) return;
   blk->visited = 1;
@@ -1058,6 +1057,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
     for(int i = 0; i < blk->idominates->length; i++)
       gensall(prog, eqcontainer, daget(blk->idominates, i));
 }
+//translate an expression across a phi, translation table pre-populated
 void translate(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk, BBLOCK* blkn, EXPRSTR* prevex) {
   void* storage;
   int translated;
@@ -1129,6 +1129,7 @@ void translate(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk, BBLOCK* blkn, EXPRSTR
       break;
   }
 }
+//populate the anticipability of values coming into and going out of a block for GVNPRE
 static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   if(!blk->pidominates) return 0;
   HASHTABLE* oldanticin = blk->antileader_in;
@@ -1255,6 +1256,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   return changed;
 }
 
+//Hoist expressions to their earliest available program point, part of GVNPRE
 static char hoist(PROGRAM* prog, EQONTAINER* eq) {
     char changed = 0;
     DYNARR* stubbornblocks = dactor(8);
@@ -1339,6 +1341,8 @@ hoistcont:
     return changed;
 }
 
+//Run the GVNPRE algorithm on the code to eliminate recalculations of value and 
+//partial redundancies (as well as factor out loop invariants)
 void gvn(PROGRAM* prog) {
   BBLOCK* first = daget(prog->allblocks, 0);
   EQONTAINER* eqcontainer = cteq(prog);
@@ -1378,6 +1382,7 @@ void gvn(PROGRAM* prog) {
 //https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/gvn_sas04.pdf
 //https://www.cs.purdue.edu/homes/hosking/papers/cc04.pdf
 
+//Convert code out of SSA form (currently we don't care to do so, and will register allocate right from SSA)
 void ssaout(PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
@@ -1408,6 +1413,7 @@ void ssaout(PROGRAM* prog) {
   }
 }
 
+//Annotate the last use of a regnum in a block with the LASTUSE flag, this will allow us to figure out kills
 void annotateuse(PROGRAM* prog) {
   DYNARR* pda = dactor(64);
   HASHTABLE* pht = htctor();
