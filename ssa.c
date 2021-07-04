@@ -1240,8 +1240,12 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
       a.regnum = blk->tmp_gen->arr[i];
       GVNNUM* g = nodefromaddr(eq, 0, a, prog);
       //this absolutely removes too much, we should see if the use of that equivalence class is anticipable in other forms
-      void* fr = frmpair(blk->antileader_in, g->index);
-      if(fr) free(fr);
+      EXPRSTR* ex2rm = fixedsearch(blk->antileader_in, g->index);
+      EXPRSTR compareagainst = {PARAM_3, a.regnum, 0};
+      if(ex2rm && !memcmp(ex2rm, &compareagainst, sizeof(EXPRSTR))) {
+        void* fr = frmpair(blk->antileader_in, g->index);
+        if(fr) free(fr);
+      }
     }
   }
   // if(blk->antileader_in) printf("antileader in keys for domblock %d: %d\n", blk->postdomind, blk->antileader_in->keys);
@@ -1256,89 +1260,111 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   return changed;
 }
 
+static void printeq(EQONTAINER* eq) {
+  puts("-------------------------------------------");
+  for(int i = 0; i < eq->nodes->length; i++) {
+    printf("node %d: ", i);
+    GVNNUM* eqnode = daget(eq->nodes, i);
+    if(eqnode->hasconst == INTCONST) printf("intconst %ld, ", eqnode->intconst);
+    else if(eqnode->hasconst == FLOATCONST) printf("floatconst %lf, ", eqnode->floatconst);
+    else if(eqnode->hasconst == STRCONST) printf("strconst \"%s\", ", eqnode->strconst);
+    for(int j = 0; j < eqnode->equivs->length; j++) {
+      EXPRSTR* exs = daget(eqnode->equivs, j);
+      if(exs->o != INIT_3) {
+        printf("[%s %d %d], ", opcode_3ac_names[exs->o], exs->p1, exs->p2);
+      } else {
+        printf("%d, ", exs->p1);
+      }
+    } 
+    printf("\n");
+  }
+  puts("-------------------------------------------");
+  //then do something blockwise?
+}
+
 //Hoist expressions to their earliest available program point, part of GVNPRE
 static char hoist(PROGRAM* prog, EQONTAINER* eq) {
-    char changed = 0;
-    DYNARR* stubbornblocks = dactor(8);
-    for(int i = 0; i < prog->allblocks->length; i++) {
-        BBLOCK* blk = daget(prog->allblocks, i);
-        if(blk->inedges->length > 1) {
-            //consider hoisting
-            if(blk->lastop) {
-              OPERATION* op = blk->firstop;
-              while(1) {
-                GVNNUM* n1, * n2, * n3;
-                EXPRSTR* antil = NULL;
-                switch(op->opcode) {
-                  case ASM:
-                    assert(0);
-                  OPS_NOVAR_3ac OPS_3_PTRDEST_3ac case MOV_3:
-                  OPS_NODEST_3ac OPS_1_3ac case CALL_3: case PHI:
-                  case DEALOC:
-                    goto hoistcont;
-                  OPS_3_3ac
-                    if((op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL)) ||
-                       (op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL)) ||
-                       (op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) goto hoistcont;
-                       //perhaps unnecessary to check for dest
-                    n1 = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
-                    n2 = nodefromaddr(eq, op->addr1_type, op->addr1, prog);
-                    if(n1 && n2) {
-                      EXPRSTR oex = {op->opcode, n1->index, n2->index};
-                      n3 = bigsearch(eq->ophash, (char*) &oex, sizeof(EXPRSTR));
-                      if(!n3) goto hoistcont;//would have liked to have just held as an invariant that it exists, something's off
-                      //printop(op, 1, blk, stdout, prog);
-                      //putchar('\n');
-                      antil = fixedsearch(blk->antileader_in, n3->index);
-                    } else {
-                      goto hoistcont;
-                    }
-                    break;
-                  OPS_2_3ac_MUT
-                    if((op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL)) ||
-                       (op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) goto hoistcont;
-                       //perhaps unnecessary to check for dest
-                    n1 = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
-                    if(n1) {
-                      EXPRSTR oex = {op->opcode, n1->index, 0};
-                      n3 = bigsearch(eq->ophash, (char*) &oex, sizeof(EXPRSTR));
-                      if(!n3) goto hoistcont;//would have liked to have just held as an invariant that it exists, something's off
-                      antil = fixedsearch(blk->antileader_in, n3->index);
-                    } else {
-                      goto hoistcont;
-                    }
-                    break;
-                  OPS_1_ASSIGN_3ac case ADDR_3:
-                    if(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL)) goto hoistcont;
-                    n3 = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
-                    if(!n3) goto hoistcont;
-                    antil = fixedsearch(blk->antileader_in, n3->index);
-                    break;
-                }
-
-                if(antil) {
-                  for(int j = 0; j < blk->inedges->length; j++) {
-                    BBLOCK* oblk = daget(blk->inedges, j);
-                    if(oblk->leader && fixedqueryval(oblk->leader, n3->index))
-                      dapush(stubbornblocks, oblk);
-                  }
-                  if(stubbornblocks->length > 0 && stubbornblocks->length < blk->inedges->length) {
-                      //EXPRSTR stubbornexpr = {};
-                      //hoist where relevant
-                      //phi translate
-                      printf("STUBBORN BLOCKS %d\n", stubbornblocks->length);
-                  }
-                  stubbornblocks->length = 0;
-                }
-hoistcont:
-                if(op == blk->lastop) break;
-                op = op->nextop;
+  char changed = 0;
+  DYNARR* stubbornblocks = dactor(8);
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    if(blk->inedges->length > 1) {
+      //consider hoisting
+      if(blk->lastop) {
+        OPERATION* op = blk->firstop;
+        while(1) {
+          GVNNUM* n1, * n2, * n3;
+          EXPRSTR* antil = NULL;
+          switch(op->opcode) {
+            case ASM:
+              assert(0);
+            OPS_NOVAR_3ac OPS_3_PTRDEST_3ac case MOV_3:
+            OPS_NODEST_3ac OPS_1_3ac case CALL_3: case PHI:
+            case DEALOC:
+              goto hoistcont;
+            OPS_3_3ac
+              if((op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL)) ||
+                 (op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL)) ||
+                 (op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) goto hoistcont;
+                 //perhaps unnecessary to check for dest
+              n1 = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
+              n2 = nodefromaddr(eq, op->addr1_type, op->addr1, prog);
+              if(n1 && n2) {
+                EXPRSTR oex = {op->opcode, n1->index, n2->index};
+                n3 = bigsearch(eq->ophash, (char*) &oex, sizeof(EXPRSTR));
+                if(!n3) goto hoistcont;//would have liked to have just held as an invariant that it exists, something's off
+                //printop(op, 1, blk, stdout, prog);
+                //putchar('\n');
+                antil = fixedsearch(blk->antileader_in, n3->index);
+              } else {
+                goto hoistcont;
               }
+              break;
+            OPS_2_3ac_MUT
+              if((op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL)) ||
+                 (op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) goto hoistcont;
+                 //perhaps unnecessary to check for dest
+              n1 = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
+              if(n1) {
+                EXPRSTR oex = {op->opcode, n1->index, 0};
+                n3 = bigsearch(eq->ophash, (char*) &oex, sizeof(EXPRSTR));
+                if(!n3) goto hoistcont;//would have liked to have just held as an invariant that it exists, something's off
+                antil = fixedsearch(blk->antileader_in, n3->index);
+              } else {
+                goto hoistcont;
+              }
+              break;
+            OPS_1_ASSIGN_3ac case ADDR_3:
+              if(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL)) goto hoistcont;
+              n3 = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
+              if(!n3) goto hoistcont;
+              antil = fixedsearch(blk->antileader_in, n3->index);
+              break;
+          }
+
+          if(antil) {
+            for(int j = 0; j < blk->inedges->length; j++) {
+              BBLOCK* oblk = daget(blk->inedges, j);
+              if(oblk->leader && fixedqueryval(oblk->leader, n3->index))
+                dapush(stubbornblocks, oblk);
             }
+            if(stubbornblocks->length > 0 && stubbornblocks->length < blk->inedges->length) {
+                //EXPRSTR stubbornexpr = {};
+                //hoist where relevant
+                //phi translate
+                printf("STUBBORN BLOCKS %d\n", stubbornblocks->length);
+            }
+            stubbornblocks->length = 0;
+          }
+hoistcont:
+          if(op == blk->lastop) break;
+            op = op->nextop;
         }
+      }
     }
-    dadtor(stubbornblocks);
-    return changed;
+  }
+  dadtor(stubbornblocks);
+  return changed;
 }
 
 //Run the GVNPRE algorithm on the code to eliminate recalculations of value and 
@@ -1352,6 +1378,7 @@ void gvn(PROGRAM* prog) {
   while(antics(prog->finalblock, prog, eqcontainer)) ;
   //buildsets calculated
   hoist(prog, eqcontainer);
+  printeq(eqcontainer);
   freeq(eqcontainer);
   prog->pdone |= GVN;
   return;
