@@ -1049,7 +1049,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
     }
     if(destval && !fixedqueryval(blk->leader, destval->index)) {
       EXPRSTR* exs = dapeek(destval->equivs);
-      //assert(exs->o == INIT_3 || exs->o == PHI || exs->o == CALL_3 || exs->o == INIT_3 || exs->o == PARAM_3);
+      assert(exs->o == INIT_3 || exs->o == PHI || exs->o == CALL_3 || exs->o == INIT_3 || exs->o == PARAM_3);
       fixedinsert(blk->leader, destval->index, (void*) (long) exs->p1);
     }
   } while(op != blk->lastop && (op = op->nextop));
@@ -1260,7 +1260,14 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   return changed;
 }
 
-static void printeq(EQONTAINER* eq) {
+static void printfht(DYNARR* da) {
+  for(int i = 0; i < da->length; i++) {
+    HASHPAIR* hp = daget(da, i);
+    printf("{%ld: %ld}, ", hp->fixedkey, hp->ivalue);
+  }
+}
+
+static void printeq(EQONTAINER* eq, PROGRAM* prog) {
   puts("-------------------------------------------");
   for(int i = 0; i < eq->nodes->length; i++) {
     printf("node %d: ", i);
@@ -1279,7 +1286,19 @@ static void printeq(EQONTAINER* eq) {
     printf("\n");
   }
   puts("-------------------------------------------");
-  //then do something blockwise?
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    if(blk->leader) {
+      printf("BLOCK %d: ", i);
+
+      DYNARR* av = htfpairs(blk->leader);
+      printf(" leader: (");
+      printfht(av);
+      printf(") \n");
+      dadtor(av);
+    }
+  }
+  puts("-------------------------------------------");
 }
 
 //Hoist expressions to their earliest available program point, part of GVNPRE
@@ -1378,7 +1397,7 @@ void gvn(PROGRAM* prog) {
   while(antics(prog->finalblock, prog, eqcontainer)) ;
   //buildsets calculated
   hoist(prog, eqcontainer);
-  printeq(eqcontainer);
+  printeq(eqcontainer, prog);
   freeq(eqcontainer);
   prog->pdone |= GVN;
   return;
