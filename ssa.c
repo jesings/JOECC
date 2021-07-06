@@ -1260,10 +1260,18 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   return changed;
 }
 
-static void printfht(DYNARR* da) {
+static void printffht(DYNARR* da) {
   for(int i = 0; i < da->length; i++) {
     HASHPAIR* hp = daget(da, i);
     printf("{%ld: %ld}, ", hp->fixedkey, hp->ivalue);
+  }
+}
+
+static void printfht(DYNARR* da) {
+  for(int i = 0; i < da->length; i++) {
+    HASHPAIR* hp = daget(da, i);
+    EXPRSTR* ex = hp->value;
+    printf("{%ld: [%s %d %d]}, ", hp->fixedkey, opcode_3ac_names[ex->o], ex->p1, ex->p2);
   }
 }
 
@@ -1288,11 +1296,24 @@ static void printeq(EQONTAINER* eq, PROGRAM* prog) {
   puts("-------------------------------------------");
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
+    printf("BLOCK %d:\n", blk->domind);
     if(blk->leader) {
-      printf("BLOCK %d: ", i);
-
       DYNARR* av = htfpairs(blk->leader);
-      printf(" leader: (");
+      printf("leader: (");
+      printffht(av);
+      printf(") \n");
+      dadtor(av);
+    }
+    if(blk->antileader_in) {
+      DYNARR* av = htfpairs(blk->antileader_in);
+      printf("antileader in: (");
+      printfht(av);
+      printf(") \n");
+      dadtor(av);
+    }
+    if(blk->antileader_out) {
+      DYNARR* av = htfpairs(blk->antileader_out);
+      printf("antileader in: (");
       printfht(av);
       printf(") \n");
       dadtor(av);
