@@ -685,6 +685,7 @@ void collatealloc(PROGRAM* prog) {
           op->addr0.uintconst_64 = totalalloc;
           op->addr1_type = baseptr.addr_type;
           op->addr1 = baseptr.addr;
+          //op->dest.ssaind = -1;
           totalalloc += tmpstore;
         } else {
           DYNARR* allocfrontier = dactor(8);

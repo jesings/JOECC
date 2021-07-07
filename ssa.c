@@ -951,12 +951,15 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
             dipush(blk->tmp_gen, chosenval->index);
         }
         if(status == 2) {
-          GVNNUM* n0 = nodefromaddr(eqcontainer, 0, op->addr0, prog);
-          GVNNUM* n1 = nodefromaddr(eqcontainer, 0, op->addr1, prog);
+          GVNNUM* n0 = nodefromaddr(eqcontainer, op->addr0_type & ~ISVAR, op->addr0, prog);
+          GVNNUM* n1 = nodefromaddr(eqcontainer, op->addr1_type & ~ISVAR, op->addr1, prog);
 
           if(!(n0 && n1)) break;
           EXPRSTR refex = {op->opcode, n0->index, n1->index};
           chosenval = bigsearch(eqcontainer->ophash, (char*) &refex, sizeof(EXPRSTR));
+          printop(op, 1, blk, stdout, prog);
+          printf("\n %s %d %d\n", opcode_3ac_names[refex.o], refex.p1, refex.p2);
+          assert(chosenval);
           if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
             fixedinsert(blk->exp_gen, chosenval->index, genx(&refex));
           }
@@ -987,7 +990,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
             dipush(blk->tmp_gen, chosenval->index);
         }
         if(status == 1) {
-          GVNNUM* n0 = nodefromaddr(eqcontainer, 0, op->addr0, prog);
+          GVNNUM* n0 = nodefromaddr(eqcontainer, op->addr0_type & ~ISVAR, op->addr0, prog);
           if(!n0) break;
           EXPRSTR refex = {op->opcode, n0->index, 0};
           chosenval = bigsearch(eqcontainer->ophash, (char*) &refex, sizeof(EXPRSTR));
@@ -1112,7 +1115,7 @@ void translate(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk, BBLOCK* blkn, EXPRSTR
       val2 = nodefromaddr(eq, 0, a2, prog);
       if(!(val1 && val2)) return;;
       EXPRSTR* destex = ex2string(val1->index, val2->index, prevex->o);
-      destval = bigsearch(eq->ophash, (char*) &destex, sizeof(EXPRSTR));
+      destval = bigsearch(eq->ophash, (char*) destex, sizeof(EXPRSTR));
       if(!destval) {
         destval = ctgvnnum(eq, NOCONST);
         EXPRSTR* newdestex = genx(destex);
@@ -1139,7 +1142,7 @@ void translate(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk, BBLOCK* blkn, EXPRSTR
         dapush(destval->equivs, genx(newdestex));
       }
       if((storage = fixedsearch(blk->antileader_out, destval->index))) free(storage);//inefficient
-      fixedinsert(blk->antileader_out, destval->index, destex);
+      fixedinsert(blk->antileader_out, destval->index, destex2);
       break;
     OPS_1_ASSIGN_3ac case ADDR_3:
       if((translated = (long) fixedsearch(blk->translator, prevex->p1))) {
@@ -1219,7 +1222,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
       GVNNUM* n1;
       GVNNUM* n2;
       GVNNUM* n3;
-      switch(exs->o) {
+      switch((int) exs->o) {
         OPS_NOVAR_3ac OPS_3_PTRDEST_3ac case MOV_3:
         OPS_NODEST_3ac OPS_1_3ac case CALL_3: case PHI:
         case ASM:
@@ -1250,12 +1253,14 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
               fixedinsert(blk->antileader_in, n3->index, genx(exs));
           }
           break;
-        OPS_1_ASSIGN_3ac case ADDR_3: case CONST_3:
+        OPS_1_ASSIGN_3ac case ADDR_3:
             a.regnum = exs->p1;
             n3 = nodefromaddr(eq, 0, a, prog);
             if(!n3) continue;
             if(!fixedqueryval(blk->antileader_in, n3->index))
               fixedinsert(blk->antileader_in, n3->index, genx(exs));
+            break;
+        case CONST_3:
             break;
       }
     }
