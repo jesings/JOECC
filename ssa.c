@@ -947,7 +947,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
         if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
           exst.p1 = op->dest.regnum;
           chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
-          if(chosenval && !fixedqueryval(blk->antileader_in, chosenval->index))
+          if(chosenval && !fixedqueryval(blk->leader, chosenval->index))
             dipush(blk->tmp_gen, chosenval->index);
         }
         if(status == 2) {
@@ -986,7 +986,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
         if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
           exst.p1 = op->dest.regnum;
           chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
-          if(chosenval && !fixedqueryval(blk->antileader_in, chosenval->index))
+          if(chosenval && !fixedqueryval(blk->leader, chosenval->index))
             dipush(blk->tmp_gen, chosenval->index);
         }
         if(status == 1) {
@@ -1010,7 +1010,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
             exst.p1 = op->dest.regnum;
             chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
           }
-          if(chosenval && !fixedqueryval(blk->antileader_in, chosenval->index)) {
+          if(chosenval && !fixedqueryval(blk->leader, chosenval->index)) {
             dipush(blk->tmp_gen, chosenval->index);
             exst.o = INIT_3;
           }
@@ -1020,7 +1020,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
         assert(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)));
         exst.p1 = op->addr0.regnum;
         chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
-        if(chosenval && !fixedqueryval(blk->antileader_in, chosenval->index))
+        if(chosenval && !fixedqueryval(blk->leader, chosenval->index))
           dipush(blk->tmp_gen, chosenval->index);
         break;
       case PHI:
@@ -1157,6 +1157,7 @@ void translate(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk, BBLOCK* blkn, EXPRSTR
       break;
   }
 }
+static void printeq(EQONTAINER* eq, PROGRAM* prog);
 //populate the anticipability of values coming into and going out of a block for GVNPRE
 static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   if(!blk->pidominates) return 0;
@@ -1193,14 +1194,22 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
       blk->antileader_out = fhtcclone(blk->nextblock->antileader_in, (void*(*)(void*)) genx);
       if(blk->branchblock->antileader_in) {
         DYNARR* otharr = htfpairs(blk->antileader_out);
+        DYNINT* dinctarr = dinctor(otharr->length);
         for(int i = 0; i < otharr->length; i++) {
           HASHPAIR* hp = daget(otharr, i);
-          if(!fixedqueryval(blk->branchblock->antileader_in, hp->fixedkey)) {
-            free(hp->value);
-            frmpair(blk->antileader_out, hp->fixedkey);
+          dinctarr->arr[i] = hp->fixedkey;
+        }
+
+        for(int i = 0; i < otharr->length; i++) {
+          int key = dinctarr->arr[i];
+          void* val;
+          if(!(val = fixedsearch(blk->branchblock->antileader_in, key))) {
+            free(val);
+            frmpair(blk->antileader_out, key);
           }
         }
         dadtor(otharr);
+        didtor(dinctarr);
       }
     } else if(blk->branchblock->antileader_in) {
       blk->antileader_out = fhtcclone(blk->branchblock->antileader_in, (void*(*)(void*)) genx);
@@ -1219,8 +1228,6 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
       HASHPAIR* hp = expairs->arr[i];
       EXPRSTR* exs = hp->value;
       ADDRESS a;
-      GVNNUM* n1;
-      GVNNUM* n2;
       GVNNUM* n3;
       switch((int) exs->o) {
         OPS_NOVAR_3ac OPS_3_PTRDEST_3ac case MOV_3:
@@ -1230,28 +1237,16 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
         case DEALOC:
           continue;
         OPS_3_3ac
-          a.regnum = exs->p1;
-          n1 = nodefromaddr(eq, 0, a, prog);
-          a.regnum = exs->p2;
-          n2 = nodefromaddr(eq, 0, a, prog);
-          if(n1 && n2) {
-            EXPRSTR oex = {exs->o, n1->index, n2->index};
-            n3 = bigsearch(eq->ophash, (char*) &oex, sizeof(EXPRSTR));
-            if(!n3) continue;
-            if(!fixedqueryval(blk->antileader_in, n3->index))
-              fixedinsert(blk->antileader_in, n3->index, genx(exs));
-          }
+          n3 = bigsearch(eq->ophash, (char*) exs, sizeof(EXPRSTR));
+          if(!n3) continue;
+          if(!fixedqueryval(blk->antileader_in, n3->index))
+            fixedinsert(blk->antileader_in, n3->index, genx(exs));
           break;
         OPS_2_3ac_MUT
-          a.regnum = exs->p1;
-          n1 = nodefromaddr(eq, 0, a, prog);
-          if(n1) {
-            EXPRSTR oex = {exs->o, n1->index, 0};
-            n3 = bigsearch(eq->ophash, (char*) &oex, sizeof(EXPRSTR));
-            if(!n3) continue;
-            if(!fixedqueryval(blk->antileader_in, n3->index))
-              fixedinsert(blk->antileader_in, n3->index, genx(exs));
-          }
+          n3 = bigsearch(eq->ophash, (char*) exs, sizeof(EXPRSTR));
+          if(!n3) continue;
+          if(!fixedqueryval(blk->antileader_in, n3->index))
+            fixedinsert(blk->antileader_in, n3->index, genx(exs));
           break;
         OPS_1_ASSIGN_3ac case ADDR_3:
             a.regnum = exs->p1;
@@ -1284,6 +1279,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   // else printf("antileader in keys for domblock %d: %d\n", blk->postdomind, 0);
   // if(blk->antileader_out) printf("antileader out keys for domblock %d: %d\n", blk->postdomind, blk->antileader_out->keys);
   // else  printf("antileader out keys for domblock %d: %d\n", blk->postdomind, 0);
+  printeq(eq, prog);
   char changed = !(fhtequal(blk->antileader_out, oldanticout) && fhtequal(blk->antileader_in, oldanticin));
   if(oldanticin) fhtdtorcfr(oldanticin, free);
   if(oldanticout) fhtdtorcfr(oldanticout, free);
