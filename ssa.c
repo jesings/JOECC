@@ -959,7 +959,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           chosenval = bigsearch(eqcontainer->ophash, (char*) &refex, sizeof(EXPRSTR));
           printop(op, 1, blk, stdout, prog);
           printf("\n %s %d %d\n", opcode_3ac_names[refex.o], refex.p1, refex.p2);
-          assert(chosenval);
+          //assert(chosenval);
           if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
             fixedinsert(blk->exp_gen, chosenval->index, genx(&refex));
           }

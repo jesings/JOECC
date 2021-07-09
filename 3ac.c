@@ -948,6 +948,7 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
   FULLADDR* newa = malloc(sizeof(FULLADDR));
   newa->addr_type = addrconv(i->decl->type) | ISVAR;
   newa->addr.varnum = i->decl->varid;
+  newa->addr.regnum = prog->regcnt++;
   opn(prog, ct_3ac_op1(INIT_3, newa->addr_type, newa->addr));
   if(i->decl->type->tb & (STRUCTVAL | UNIONVAL)) {
     if(i->expr) {
@@ -1254,6 +1255,7 @@ PROGRAM* linefunc(FUNC* f) {
     DECLARATION* pdec = daget(f->params, i);
     newa->addr_type = addrconv(pdec->type) | ISVAR;
     newa->addr.varnum = pdec->varid;
+    newa->addr.regnum = prog->regcnt++;
     opn(prog, ct_3ac_op1(PARAM_3, newa->addr_type, newa->addr));
     if(!ispointer(pdec->type)) {
       if((pdec->type->tb & (STRUCTVAL | UNIONVAL) )) {
