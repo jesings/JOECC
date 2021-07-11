@@ -1113,14 +1113,13 @@ void translate(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk, BBLOCK* blkn, EXPRSTR
       }
       val1 = nodefromaddr(eq, 0, a1, prog);
       val2 = nodefromaddr(eq, 0, a2, prog);
-      if(!(val1 && val2)) return;;
+      if(!(val1 && val2)) return;
       EXPRSTR* destex = ex2string(val1->index, val2->index, prevex->o);
       destval = bigsearch(eq->ophash, (char*) destex, sizeof(EXPRSTR));
       if(!destval) {
         destval = ctgvnnum(eq, NOCONST);
-        EXPRSTR* newdestex = genx(destex);
-        biginsert(eq->ophash, (char*) newdestex, destval);
-        dapush(destval->equivs, genx(newdestex));
+        bigfinsertfr(eq->ophash, (char*) genx(destex), destval, sizeof(EXPRSTR));
+        dapush(destval->equivs, genx(destex));
       }
       if((storage = fixedsearch(blk->antileader_out, destval->index))) free(storage);//inefficient
       fixedinsert(blk->antileader_out, destval->index, destex);
@@ -1132,14 +1131,13 @@ void translate(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk, BBLOCK* blkn, EXPRSTR
         a1.regnum = prevex->p1;
       }
       val1 = nodefromaddr(eq, 0, a1, prog);
-      if(!val1) return;;
+      if(!val1) return;
       EXPRSTR* destex2 = ex2string(val1->index, 0, prevex->o);
-      destval = bigsearch(eq->ophash, (char*) &destex2, sizeof(EXPRSTR));
+      destval = bigsearch(eq->ophash, (char*) destex2, sizeof(EXPRSTR));
       if(!destval) {
         destval = ctgvnnum(eq, NOCONST);
-        EXPRSTR* newdestex = genx(destex2);
-        biginsert(eq->ophash, (char*) newdestex, destval);
-        dapush(destval->equivs, genx(newdestex));
+        bigfinsertfr(eq->ophash, (char*) genx(destex2), destval, sizeof(EXPRSTR));
+        dapush(destval->equivs, genx(destex2));
       }
       if((storage = fixedsearch(blk->antileader_out, destval->index))) free(storage);//inefficient
       fixedinsert(blk->antileader_out, destval->index, destex2);
