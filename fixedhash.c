@@ -149,13 +149,16 @@ char fhtequal(HASHTABLE* ht1, HASHTABLE* ht2) {
     HASHPAIR* current1 = &(ht1->pairs[i]);
     HASHPAIR* current2 = &(ht2->pairs[i]);
     if(current1->next) {
-      if(!current2->next) return 0;
+      if(!current2->next) 
+          return 0;
       do {
-        if(!((current1->fixedkey == current2->fixedkey)/* && (current1->value == current2->value)*/)) return 0;
+        if(!((current1->fixedkey == current2->fixedkey)/* && (current1->value == current2->value)*/))
+            return 0;
         current1 = current1->next;
         current2 = current2->next;
       } while((unsigned long) current1 > 1 && (unsigned long) current2 > 1);
-      if(current1 != current2) return 0;
+      if(current1 != current2)
+          return 0;
     } else if(current2->next) {
       return 0;
     }

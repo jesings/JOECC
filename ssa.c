@@ -534,7 +534,7 @@ static GVNNUM* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, 
     cn = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
     if(!cn) {
       cn = ctgvnnum(eqcontainer, NOCONST);
-      EXPRSTR* exn = ex2string(adr.regnum, 0, INIT_3);
+      EXPRSTR* exn = ex2string(INIT_3, adr.regnum, 0);
       bigfinsertfr(eqcontainer->ophash, (char*) exn, cn, sizeof(EXPRSTR));
       dapush(cn->equivs, genx(exn));
     }
@@ -761,7 +761,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           } else {
             destval = ctgvnnum(eqcontainer, NOCONST);
           }
-          dapush(destval->equivs, ex2string(op->dest.regnum, 0, INIT_3));
+          dapush(destval->equivs, ex2string(INIT_3, op->dest.regnum, 0));
         } else if(val1 && val2) {
           EXPRSTR combind = {op->opcode, val1->index, val2->index};
           otherval = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
@@ -787,13 +787,13 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
               destval = ctgvnnum(eqcontainer, NOCONST);
               dapush(destval->equivs, genx(&combind));
               bigfinsertfr(ophash, (char*) genx(&combind), destval, sizeof(EXPRSTR));
-              EXPRSTR* combind2 = ex2string(val2->index, val1->index, op->opcode);
+              EXPRSTR* combind2 = ex2string(op->opcode, val2->index, val1->index);
               bigfinsertfr(ophash, (char*) combind2, destval, sizeof(EXPRSTR));
             }
           } else {
             destval = ctgvnnum(eqcontainer, NOCONST);
           }
-          dapush(destval->equivs, ex2string(op->dest.regnum, 0, INIT_3));
+          dapush(destval->equivs, ex2string(INIT_3, op->dest.regnum, 0));
         } else if(val1 && val2) {
           EXPRSTR combind = {op->opcode, val1->index, val2->index};
           otherval = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
@@ -801,7 +801,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
             otherval = ctgvnnum(eqcontainer, NOCONST);
             dapush(otherval->equivs, genx(&combind));
             bigfinsertfr(ophash, (char*) genx(&combind), otherval, sizeof(EXPRSTR));
-            EXPRSTR* combind2 = ex2string(val2->index, val1->index, op->opcode);
+            EXPRSTR* combind2 = ex2string(op->opcode, val2->index, val1->index);
             bigfinsertfr(ophash, (char*) combind2, otherval, sizeof(EXPRSTR));
           }
         }
@@ -824,7 +824,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           } else {
             destval = ctgvnnum(eqcontainer, NOCONST);
           }
-          dapush(destval->equivs, ex2string(op->dest.regnum, 0, INIT_3));
+          dapush(destval->equivs, ex2string(INIT_3, op->dest.regnum, 0));
         } else if(val1) {
           EXPRSTR combind = {op->opcode, val1->index, 0};
           otherval = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
@@ -843,7 +843,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
             if(adstore->addr_type & ADDRSVAR) break;
           }
           destval = val1 ? val1 : ctgvnnum(eqcontainer, NOCONST);
-          dapush(destval->equivs, ex2string(op->dest.regnum, 0, INIT_3));
+          dapush(destval->equivs, ex2string(INIT_3, op->dest.regnum, 0));
         }
         break;
       case ADDR_3:
@@ -862,7 +862,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           } else {
             destval = ctgvnnum(eqcontainer, NOCONST);
           }
-          dapush(destval->equivs, ex2string(op->dest.regnum, 0, INIT_3));
+          dapush(destval->equivs, ex2string(INIT_3, op->dest.regnum, 0));
         } else if(val1) {
           EXPRSTR combind = {op->opcode, val1->index, 0};
           otherval = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
@@ -882,7 +882,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           val1 = bigsearch(ophash, (char*) &combind, sizeof(EXPRSTR));
           if(!val1) {
             val2 = ctgvnnum(eqcontainer, NOCONST);
-            dapush(val2->equivs, ex2string(val1->index, 0, op->opcode));
+            dapush(val2->equivs, ex2string(op->opcode, val1->index, 0));
             bigfinsertfr(ophash, (char*) genx(&combind), val2, sizeof(EXPRSTR));
           }
         }
@@ -1114,7 +1114,7 @@ void translate(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk, BBLOCK* blkn, EXPRSTR
       val1 = nodefromaddr(eq, 0, a1, prog);
       val2 = nodefromaddr(eq, 0, a2, prog);
       if(!(val1 && val2)) return;
-      EXPRSTR* destex = ex2string(val1->index, val2->index, prevex->o);
+      EXPRSTR* destex = ex2string(prevex->o, val1->index, val2->index);
       destval = bigsearch(eq->ophash, (char*) destex, sizeof(EXPRSTR));
       if(!destval) {
         destval = ctgvnnum(eq, NOCONST);
@@ -1132,7 +1132,7 @@ void translate(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk, BBLOCK* blkn, EXPRSTR
       }
       val1 = nodefromaddr(eq, 0, a1, prog);
       if(!val1) return;
-      EXPRSTR* destex2 = ex2string(val1->index, 0, prevex->o);
+      EXPRSTR* destex2 = ex2string(prevex->o, val1->index, 0);
       destval = bigsearch(eq->ophash, (char*) destex2, sizeof(EXPRSTR));
       if(!destval) {
         destval = ctgvnnum(eq, NOCONST);
@@ -1151,7 +1151,7 @@ void translate(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk, BBLOCK* blkn, EXPRSTR
       val1 = nodefromaddr(eq, 0, a1, prog);
       if(!val1) return;;
       if((storage = fixedsearch(blk->antileader_out, val1->index))) free(storage);//inefficient
-      fixedinsert(blk->antileader_out, val1->index, ex2string(a1.regnum, 0, INIT_3));
+      fixedinsert(blk->antileader_out, val1->index, ex2string(INIT_3, a1.regnum, 0));
       break;
   }
 }

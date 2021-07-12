@@ -54,7 +54,7 @@ void killreg(PROGRAM* prog);
 #define bfunset(bitfield, index) ((bitfield)[(index) >> 3] & ~(1 << ((index) & 7)))
 #define BITFIELD char*
 
-static inline EXPRSTR* ex2string(unsigned int p1, unsigned int p2, enum opcode_3ac o) {
+static inline EXPRSTR* ex2string(enum opcode_3ac o, unsigned int p1, unsigned int p2) {
   EXPRSTR* irval = malloc(sizeof(EXPRSTR));
   irval->o = o;
   irval->p1 = p1;
