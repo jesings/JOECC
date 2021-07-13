@@ -911,8 +911,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
         if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
           if(op->addr0_type & ISCONST) {
             exst.o = CONST_3;
-            exst.p1 = 0;
             chosenval = lookup_const(eqcontainer, op->addr0_type, op->addr0);
+            exst.p1 = chosenval->index;
           } else {
             exst.p1 = op->addr0.regnum;
             chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
@@ -930,8 +930,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
         if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
           if(op->addr1_type & ISCONST) {
             exst.o = CONST_3;
-            exst.p1 = 0;
             chosenval = lookup_const(eqcontainer, op->addr1_type, op->addr1);
+            exst.p1 = chosenval->index;
           } else {
             exst.p1 = op->addr1.regnum;
             chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(EXPRSTR));
@@ -1236,24 +1236,24 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
           continue;
         OPS_3_3ac
           n3 = bigsearch(eq->ophash, (char*) exs, sizeof(EXPRSTR));
-          if(!n3) continue;
           if(!fixedqueryval(blk->antileader_in, n3->index))
             fixedinsert(blk->antileader_in, n3->index, genx(exs));
           break;
         OPS_2_3ac_MUT
           n3 = bigsearch(eq->ophash, (char*) exs, sizeof(EXPRSTR));
-          if(!n3) continue;
           if(!fixedqueryval(blk->antileader_in, n3->index))
             fixedinsert(blk->antileader_in, n3->index, genx(exs));
           break;
         OPS_1_ASSIGN_3ac case ADDR_3:
             a.regnum = exs->p1;
             n3 = nodefromaddr(eq, 0, a, prog);
-            if(!n3) continue;
             if(!fixedqueryval(blk->antileader_in, n3->index))
               fixedinsert(blk->antileader_in, n3->index, genx(exs));
             break;
         case CONST_3:
+            n3 = daget(eq->nodes, hp->fixedkey);
+            if(!fixedqueryval(blk->antileader_in, n3->index))
+              fixedinsert(blk->antileader_in, n3->index, genx(exs));
             break;
       }
     }
@@ -1277,7 +1277,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   // else printf("antileader in keys for domblock %d: %d\n", blk->postdomind, 0);
   // if(blk->antileader_out) printf("antileader out keys for domblock %d: %d\n", blk->postdomind, blk->antileader_out->keys);
   // else  printf("antileader out keys for domblock %d: %d\n", blk->postdomind, 0);
-  printeq(eq, prog);
+  //printeq(eq, prog);
   char changed = !(fhtequal(blk->antileader_out, oldanticout) && fhtequal(blk->antileader_in, oldanticin));
   if(oldanticin) fhtdtorcfr(oldanticin, free);
   if(oldanticout) fhtdtorcfr(oldanticout, free);

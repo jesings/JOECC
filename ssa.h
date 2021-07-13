@@ -15,17 +15,6 @@ typedef struct {
 } GVNNUM;
 
 typedef struct {
-  enum opcode_3ac op; //if INIT_3 (or PARAM_3) then it's a regno
-  union {
-    struct {
-      GVNNUM* arg0;
-      GVNNUM* arg1;
-    };
-    unsigned int regno;
-  };
-} EQITEM;
-
-typedef struct {
   enum opcode_3ac o;
   unsigned int p1;
   unsigned int p2;
