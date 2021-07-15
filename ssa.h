@@ -18,7 +18,7 @@ typedef struct {
   enum opcode_3ac o;
   unsigned int p1;
   unsigned int p2;
-} EXPRSTR;
+} VALUESTRUCT;
 
 
 typedef struct {
@@ -43,8 +43,8 @@ void killreg(PROGRAM* prog);
 #define bfunset(bitfield, index) ((bitfield)[(index) >> 3] & ~(1 << ((index) & 7)))
 #define BITFIELD char*
 
-static inline EXPRSTR* ex2string(enum opcode_3ac o, unsigned int p1, unsigned int p2) {
-  EXPRSTR* irval = malloc(sizeof(EXPRSTR));
+static inline VALUESTRUCT* ctvalstruct(enum opcode_3ac o, unsigned int p1, unsigned int p2) {
+  VALUESTRUCT* irval = malloc(sizeof(VALUESTRUCT));
   irval->o = o;
   irval->p1 = p1;
   irval->p2 = p2;
