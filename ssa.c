@@ -1134,7 +1134,6 @@ VALUESTRUCT* translate(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk, BBLOCK* blkn,
   }
   return NULL;
 }
-static void printeq(EQONTAINER* eq, PROGRAM* prog);
 //populate the anticipability of values coming into and going out of a block for GVNPRE
 static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   if(!blk->pidominates) return 0;
@@ -1269,11 +1268,6 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
       }
     }
   }
-  // if(blk->antileader_in) printf("antileader in keys for domblock %d: %d\n", blk->postdomind, blk->antileader_in->keys);
-  // else printf("antileader in keys for domblock %d: %d\n", blk->postdomind, 0);
-  // if(blk->antileader_out) printf("antileader out keys for domblock %d: %d\n", blk->postdomind, blk->antileader_out->keys);
-  // else  printf("antileader out keys for domblock %d: %d\n", blk->postdomind, 0);
-  //printeq(eq, prog);
   char changed = !(fhtequal(blk->antileader_out, oldanticout) && fhtequal(blk->antileader_in, oldanticin));
   if(oldanticin) fhtdtorcfr(oldanticin, free);
   if(oldanticout) fhtdtorcfr(oldanticout, free);
@@ -1418,9 +1412,22 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                 dapush(stubbornblocks, oblk);
             }
             if(stubbornblocks->length > 0 && stubbornblocks->length < blk->inedges->length) {
-                //VALUESTRUCT stubbornexpr = {};
-                //hoist where relevant
-                //phi translate
+              for(int j = 0; j < stubbornblocks->length; j++) {
+                BBLOCK* stubbornblk = daget(stubbornblocks, j);
+                VALUESTRUCT* stubbornval = fixedsearch(stubbornblk->antileader_out, n3->index);
+                if(!stubbornval) continue;
+                assert(0);
+                assert(stubbornval);
+                switch(stubbornval->o) {
+                  default:
+                    break;
+                }
+                //insert phi at top of block
+                //insert calculation in stubborn block
+                //other value will be taken care of by GVN nopification
+              }
+              //hoist where relevant
+              //phi translate
             }
             stubbornblocks->length = 0;
           }
