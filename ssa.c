@@ -1412,20 +1412,22 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                 dapush(stubbornblocks, oblk);
             }
             if(stubbornblocks->length > 0 && stubbornblocks->length < blk->inedges->length) {
-              for(int j = 0; j < stubbornblocks->length; j++) {
-                BBLOCK* stubbornblk = daget(stubbornblocks, j);
-                VALUESTRUCT* stubbornval = fixedsearch(stubbornblk->antileader_out, n3->index);
-                if(!stubbornval) continue;
-                assert(0);
-                assert(stubbornval);
-                switch(stubbornval->o) {
-                  default:
-                    break;
+              int stubbornindex = 0;
+              //OPERATION* phi = ct_3ac_op2(PHI, ISCONST, dactor(blk->inedges->length), op->dest_type, op->dest);
+              for(int j = 0; j < blk->inedges->length; j++) {
+                BBLOCK* oblk = daget(blk->inedges, j);
+                if(oblk == daget(stubbornblocks, stubbornindex)) {
+                  int stubbornval = (int) (long) fixedsearch(oblk->leader, n3->index);
+                  assert(stubbornval);
+                  stubbornindex += 1;
+                } else {
+                  VALUESTRUCT* vs = fixedsearch(oblk->antileader_in, n3->index);
+                  assert(vs);
                 }
                 //insert phi at top of block
                 //insert calculation in stubborn block
-                //other value will be taken care of by GVN nopification
               }
+              //op->opcode = NOP_3;
               //hoist where relevant
               //phi translate
             }
