@@ -1413,23 +1413,33 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
             }
             if(stubbornblocks->length > 0 && stubbornblocks->length < blk->inedges->length) {
               int stubbornindex = 0;
-              //OPERATION* phi = ct_3ac_op2(PHI, ISCONST, dactor(blk->inedges->length), op->dest_type, op->dest);
+              ADDRESS joins;
+              joins.joins = malloc(blk->inedges->length * sizeof(FULLADDR));
+              OPERATION* phi = ct_3ac_op2(PHI, ISCONST, joins, op->dest_type, op->dest);
               for(int j = 0; j < blk->inedges->length; j++) {
                 BBLOCK* oblk = daget(blk->inedges, j);
                 if(oblk == daget(stubbornblocks, stubbornindex)) {
                   int stubbornval = (int) (long) fixedsearch(oblk->leader, n3->index);
-                  assert(stubbornval);
+                  FULLADDR join;
+                  join.addr_type = 8 | (op->dest_type & ISFLOAT);
+                  join.addr.regnum = stubbornval;
+                  joins.joins[j] = join;
                   stubbornindex += 1;
                 } else {
-                  VALUESTRUCT* vs = fixedsearch(oblk->antileader_in, n3->index);
-                  assert(vs);
+                  //insert calculation of value here in predecessor block
                 }
-                //insert phi at top of block
-                //insert calculation in stubborn block
               }
-              //op->opcode = NOP_3;
-              //hoist where relevant
-              //phi translate
+              //insert phi at top of block
+              /*
+              if(blk->lastop) {
+                phi->nextop = blk->firstop;
+                blk->firstop = phi;
+              } else {
+                blk->firstop = blk->lastop = phi;
+              }
+              */
+              free(joins.joins);
+              free(phi);
             }
             stubbornblocks->length = 0;
           }
