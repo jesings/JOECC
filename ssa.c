@@ -1086,11 +1086,12 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
       gensall(prog, eqcontainer, daget(blk->idominates, i));
 }
 //translate an expression across a phi, translation table pre-populated
-VALUESTRUCT* translate(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk, BBLOCK* blkn, VALUESTRUCT* prevex) {
+static VALUESTRUCT* translate(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk, BBLOCK* blkn, VALUESTRUCT* prevex) {
   int translated;
   GVNNUM* val1;
   GVNNUM* val2;
   ADDRESS a1, a2;
+  if(!blk->translator) return NULL;
   switch(prevex->o) {
     OPS_NOVAR_3ac OPS_3_PTRDEST_3ac case MOV_3:
     OPS_NODEST_3ac OPS_1_3ac case CALL_3: case PHI:
@@ -1426,7 +1427,40 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                   joins.joins[j] = join;
                   stubbornindex += 1;
                 } else {
+                  VALUESTRUCT* vs = translate(prog, eq, oblk, blk, antil);
+                  VALUESTRUCT* actionable = vs ? vs : antil;
+                  if(actionable->o == INIT_3) {
+                  } else {
+                    OPERATION* genop = malloc(sizeof(OPERATION));
+                    int leadreg;
+                    genop->opcode = actionable->o;
+                    genop->dest_type = op->dest_type & GENREGMASK;
+                    genop->dest.regnum = prog->regcnt++;
+                    switch(actionable->o) {
+                        default:
+                          assert(0);
+                        OPS_3_3ac
+                            //for some reason this filters out far too much stuff
+                          if(oblk->leader && (leadreg = (long) fixedsearch(oblk->leader, actionable->p2))) {
+                            genop->addr1_type = genop->dest_type;
+                            genop->addr1.regnum = leadreg;
+                            __attribute__((fallthrough));
+                        OPS_2_3ac
+                            if(oblk->leader && (leadreg = (long) fixedsearch(oblk->leader, actionable->p1))) {
+                              genop->addr0_type = genop->dest_type;
+                              genop->addr0.regnum = leadreg;
+                            } //what to do if else?
+                          } //what to do if else?
+                          break;
+                        OPS_1_3ac
+                          break;
+
+                    }
+                    free(genop);
+                  }
+                  //convert antil into operation
                   //insert calculation of value here in predecessor block
+                  if(vs) free(vs);
                 }
               }
               //insert phi at top of block
