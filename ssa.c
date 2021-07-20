@@ -724,7 +724,10 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog) {
 static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
   if(blk->visited) return;
   blk->visited = 1;
-  if(!blk->lastop) return;
+  if(!blk->lastop) {
+    blk->leader = fhtclone(blk->dom->leader);
+    return;
+  }
   //blk->phi_gen = dinctor(8); //find length of phis maybe
   blk->tmp_gen = dinctor(32); //not sure what to do with this
   blk->exp_gen = htctor();
@@ -1454,14 +1457,15 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                           } else if(constclass->hasconst == FLOATCONST) {
                             genop->addr1_type = genop->dest_type | ISCONST | ISFLOAT; //float should be assumed
                           } else if(constclass->hasconst == STRCONST) {
-                            genop->addr1_type = genop->dest_type | ISSTRCONST | ISCONST; //float should be assumed
+                            genop->addr1_type = genop->dest_type | ISSTRCONST | ISCONST;
                           } else {
                             assert(0);
                           }
                         } else {
+                          //figure out why this would happen
                           free(genop);
                           if(vs) free(vs);
-                          continue;
+                          goto failure;
                         }
                         __attribute__((fallthrough));
                       OPS_2_3ac
@@ -1475,39 +1479,60 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                           } else if(constclass->hasconst == FLOATCONST) {
                             genop->addr0_type = genop->dest_type | ISCONST | ISFLOAT; //float should be assumed
                           } else if(constclass->hasconst == STRCONST) {
-                            genop->addr0_type = genop->dest_type | ISSTRCONST | ISCONST; //float should be assumed
+                            genop->addr0_type = genop->dest_type | ISSTRCONST | ISCONST;
                           } else {
                             assert(0);
                           }
                         } else {
+                          //figure out why this would happen
                           free(genop);
                           if(vs) free(vs);
-                          continue;
+                          goto failure;
                         }
-                        break;
-                      OPS_1_3ac
                         break;
 
                   }
+
+                  assert(oblk->nextblock == blk && !oblk->branchblock); //assert complex edges separated
+                  switch(genop->opcode) {
+                    default: break;
+                    OPS_NODEST_3ac case BNZ_3: case BEZ_3:
+                        assert(0);
+                  } //similar further assertion, these will be removed later
+
+                  if(oblk->lastop) {
+                    oblk->lastop = oblk->lastop->nextop = genop;
+                  } else {
+                    oblk->firstop = oblk->lastop = genop;
+                  }
+                  //now update antileader and stuff?
+
                   //printop(genop, 1, oblk, stdout, prog);
                   //putchar('\n');
-                  free(genop);
                   //convert antil into operation
                   //insert calculation of value here in predecessor block
+                  FULLADDR join = {genop->dest_type, genop->dest};
+                  joins.joins[j] = join;
                   if(vs) free(vs);
                 }
               }
               //insert phi at top of block
-              /*
-              if(blk->lastop) {
-                phi->nextop = blk->firstop;
-                blk->firstop = phi;
+              if(0) {
+failure:
+                //this shouldn't have to be handled
+                free(phi);
+                free(joins.joins);
               } else {
-                blk->firstop = blk->lastop = phi;
+                if(blk->lastop) {
+                  phi->nextop = blk->firstop;
+                  blk->firstop = phi;
+                } else {
+                  blk->firstop = blk->lastop = phi;
+                }
+
+                //remove previous computation
+                op->opcode = NOP_3;
               }
-              */
-              free(joins.joins);
-              free(phi);
             }
             stubbornblocks->length = 0;
           }
