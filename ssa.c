@@ -1429,35 +1429,88 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                 } else {
                   VALUESTRUCT* vs = translate(prog, eq, oblk, blk, antil);
                   VALUESTRUCT* actionable = vs ? vs : antil;
-                  if(actionable->o == INIT_3) {
-                  } else {
-                    OPERATION* genop = malloc(sizeof(OPERATION));
-                    int leadreg;
-                    genop->opcode = actionable->o;
-                    genop->dest_type = op->dest_type & GENREGMASK;
-                    genop->dest.regnum = prog->regcnt++;
-                    switch(actionable->o) {
-                        default:
-                          assert(0);
-                        OPS_3_3ac
-                            //for some reason this filters out far too much stuff
-                          if(oblk->leader && (leadreg = (long) fixedsearch(oblk->leader, actionable->p2))) {
-                            genop->addr1_type = genop->dest_type;
-                            genop->addr1.regnum = leadreg;
-                            __attribute__((fallthrough));
-                        OPS_2_3ac
-                            if(oblk->leader && (leadreg = (long) fixedsearch(oblk->leader, actionable->p1))) {
-                              genop->addr0_type = genop->dest_type;
-                              genop->addr0.regnum = leadreg;
-                            } //what to do if else?
-                          } //what to do if else?
-                          break;
-                        OPS_1_3ac
-                          break;
+                  OPERATION* genop = malloc(sizeof(OPERATION));
+                  int leadreg;
+                  GVNNUM* constclass;
+                  genop->opcode = actionable->o;
+                  genop->dest_type = op->dest_type & GENREGMASK;
+                  genop->dest.regnum = prog->regcnt++;
+                  //printf("%s\n", opcode_3ac_names[actionable->o]);
+                  switch(actionable->o) {
+                      case INIT_3: 
+                        free(genop);
+                        if(vs) free(vs);
+                        continue;
+                      default:
+                        assert(0);
+                      OPS_3_3ac
+                        if(oblk->leader && (leadreg = (long) fixedsearch(oblk->leader, actionable->p1))) {
+                          genop->addr0_type = genop->dest_type;
+                          genop->addr0.regnum = leadreg;
+                        } else if((constclass = daget(eq->nodes, actionable->p1))->hasconst != NOCONST) {
+                          genop->addr0.intconst_64 = constclass->intconst;
+                          if(constclass->hasconst == INTCONST) {
+                            genop->addr0_type = genop->dest_type | ISCONST;
+                          } else if(constclass->hasconst == FLOATCONST) {
+                            genop->addr0_type = genop->dest_type | ISCONST | ISFLOAT; //float should be assumed
+                          } else if(constclass->hasconst == STRCONST) {
+                            genop->addr0_type = genop->dest_type | ISSTRCONST | ISCONST; //float should be assumed
+                          } else {
+                            assert(0);
+                          }
+                        } else {
+                          free(genop);
+                          if(vs) free(vs);
+                          continue;
+                        }
+                        if(oblk->leader && (leadreg = (long) fixedsearch(oblk->leader, actionable->p2))) {
+                          genop->addr1_type = genop->dest_type;
+                          genop->addr1.regnum = leadreg;
+                        } else if((constclass = daget(eq->nodes, actionable->p2))->hasconst != NOCONST) {
+                          genop->addr1.intconst_64 = constclass->intconst;
+                          if(constclass->hasconst == INTCONST) {
+                            genop->addr1_type = genop->dest_type | ISCONST;
+                          } else if(constclass->hasconst == FLOATCONST) {
+                            genop->addr1_type = genop->dest_type | ISCONST | ISFLOAT; //float should be assumed
+                          } else if(constclass->hasconst == STRCONST) {
+                            genop->addr1_type = genop->dest_type | ISSTRCONST | ISCONST; //float should be assumed
+                          } else {
+                            assert(0);
+                          }
+                        } else {
+                          free(genop);
+                          if(vs) free(vs);
+                          continue;
+                        }
+                        break;
+                      OPS_2_3ac
+                        if(oblk->leader && (leadreg = (long) fixedsearch(oblk->leader, actionable->p1))) {
+                          genop->addr0_type = genop->dest_type;
+                          genop->addr0.regnum = leadreg;
+                        } else if((constclass = daget(eq->nodes, actionable->p1))->hasconst != NOCONST) {
+                          genop->addr0.intconst_64 = constclass->intconst;
+                          if(constclass->hasconst == INTCONST) {
+                            genop->addr0_type = genop->dest_type | ISCONST;
+                          } else if(constclass->hasconst == FLOATCONST) {
+                            genop->addr0_type = genop->dest_type | ISCONST | ISFLOAT; //float should be assumed
+                          } else if(constclass->hasconst == STRCONST) {
+                            genop->addr0_type = genop->dest_type | ISSTRCONST | ISCONST; //float should be assumed
+                          } else {
+                            assert(0);
+                          }
+                        } else {
+                          free(genop);
+                          if(vs) free(vs);
+                          continue;
+                        }
+                        break;
+                      OPS_1_3ac
+                        break;
 
-                    }
-                    free(genop);
                   }
+                  //printop(genop, 1, oblk, stdout, prog);
+                  //putchar('\n');
+                  free(genop);
                   //convert antil into operation
                   //insert calculation of value here in predecessor block
                   if(vs) free(vs);
