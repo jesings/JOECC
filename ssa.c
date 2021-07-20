@@ -1444,25 +1444,6 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                       default:
                         assert(0);
                       OPS_3_3ac
-                        if(oblk->leader && (leadreg = (long) fixedsearch(oblk->leader, actionable->p1))) {
-                          genop->addr0_type = genop->dest_type;
-                          genop->addr0.regnum = leadreg;
-                        } else if((constclass = daget(eq->nodes, actionable->p1))->hasconst != NOCONST) {
-                          genop->addr0.intconst_64 = constclass->intconst;
-                          if(constclass->hasconst == INTCONST) {
-                            genop->addr0_type = genop->dest_type | ISCONST;
-                          } else if(constclass->hasconst == FLOATCONST) {
-                            genop->addr0_type = genop->dest_type | ISCONST | ISFLOAT; //float should be assumed
-                          } else if(constclass->hasconst == STRCONST) {
-                            genop->addr0_type = genop->dest_type | ISSTRCONST | ISCONST; //float should be assumed
-                          } else {
-                            assert(0);
-                          }
-                        } else {
-                          free(genop);
-                          if(vs) free(vs);
-                          continue;
-                        }
                         if(oblk->leader && (leadreg = (long) fixedsearch(oblk->leader, actionable->p2))) {
                           genop->addr1_type = genop->dest_type;
                           genop->addr1.regnum = leadreg;
@@ -1482,7 +1463,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                           if(vs) free(vs);
                           continue;
                         }
-                        break;
+                        __attribute__((fallthrough));
                       OPS_2_3ac
                         if(oblk->leader && (leadreg = (long) fixedsearch(oblk->leader, actionable->p1))) {
                           genop->addr0_type = genop->dest_type;
