@@ -33,6 +33,21 @@ static void freev(void* v) {
   HASHPAIR* v2 = v;
   rfreefunc(v2->value);
 }
+
+static char* explainjoke(char* filename) {
+  char* lastind = strrchr(filename, '.');
+  int len;
+  if(lastind) {
+    len = lastind - filename;
+  } else {
+    len = strlen(filename);
+  }
+  char* newname = malloc(len + 8);
+  strncpy(newname, filename, len);
+  strcpy(newname + len, ".joecco");
+  return newname;
+}
+
 static void filecomp(char* filename) {
   FILE* yyin = fopen(filename, "r");
   if(yyin == NULL)
@@ -112,16 +127,7 @@ static void filecomp(char* filename) {
   }
   DEBUG(pthread_mutex_unlock(&printlock));
   {
-    char* lastind = strrchr(filename, '.');
-    int len;
-    if(lastind) {
-      len = lastind - filename;
-    } else {
-      len = strlen(filename);
-    }
-    char* newname = malloc(len + 8);
-    strncpy(newname, filename, len);
-    strcpy(newname + len, ".joecco");
+    char* newname = explainjoke(filename);
     FILE* objf = fopen(newname, "w");
     startgenfile(objf, lctx);
     fclose(objf);
@@ -155,6 +161,14 @@ static void* ldeleg(void* arg) {
   }
 }
 
+static void linkall(char const* outfile, char** argv) {
+  FILE* f = fopen(outfile, "w");
+  char* humorless;
+  while((humorless = *(argv++))) {
+    char* humored = explainjoke(humorless);
+    free(humored);
+  }
+}
 
 int main(int argc, char** argv) {
   if(argc <= 1) {
@@ -222,5 +236,6 @@ int main(int argc, char** argv) {
     case 0:
       break;
   }
+  linkall(filedest, argv);
   return 0;
 }

@@ -1228,6 +1228,10 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
     case EXPR:
       linearitree(cst->expression, prog);
       return;
+    case ASMSTMT: 
+      //TODO: asm statement really not implemented yet
+      opn(prog, ct_3ac_op1(ASM, GARBAGEVAL, ret_op.addr));
+      return;
     case NOPSTMT: 
       return;
     case CASE: case DEFAULT:
