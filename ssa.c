@@ -1148,7 +1148,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
     int index = 0;
     BBLOCK* blkn = blk->nextblock;
     for(; daget(blkn->inedges,index) != blk; index++) ;
-    if(blkn->lastop) {
+    if(blkn->lastop && blkn->firstop->opcode == PHI) {
       blk->antileader_out = htctor();
       OPERATION* op = blkn->firstop;
       if(blk->translator) fhtdtor(blk->translator);
@@ -1390,7 +1390,6 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
             OPS_2_3ac_MUT
               if((op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL)) ||
                  (op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) goto hoistcont;
-                 //perhaps unnecessary to check for dest
               n1 = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
               if(n1) {
                 VALUESTRUCT oex = {op->opcode, n1->index, 0};
@@ -1431,6 +1430,10 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                   stubbornindex += 1;
                 } else {
                   VALUESTRUCT* vs = translate(prog, eq, oblk, blk, antil);
+                  if(vs) {
+                    free(vs);
+                    goto failure;
+                  }
                   VALUESTRUCT* actionable = vs ? vs : antil;
                   OPERATION* genop = malloc(sizeof(OPERATION));
                   int leadreg;
@@ -1438,7 +1441,6 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                   genop->opcode = actionable->o;
                   genop->dest_type = op->dest_type & GENREGMASK;
                   genop->dest.regnum = prog->regcnt++;
-                  //printf("%s\n", opcode_3ac_names[actionable->o]);
                   switch(actionable->o) {
                       case INIT_3: 
                         free(genop);
