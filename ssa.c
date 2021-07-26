@@ -1150,43 +1150,45 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
     for(; daget(blkn->inedges,index) != blk; index++) ;
     if(blkn->lastop && blkn->firstop->opcode == PHI) {
       blk->antileader_out = htctor();
-      OPERATION* op = blkn->firstop;
-      if(blk->translator) fhtdtor(blk->translator);
-      blk->translator = htctor(); //would be more efficient to keep dag of references?
-      while(op->opcode == PHI) {
-        int prephi = op->addr0.joins[index].addr.regnum;
-        int postphi = op->dest.regnum;
-        fixedinsertint(blk->translator, prephi, postphi);
-        if(op == blkn->lastop) break;
-        op = op->nextop;
-      }
-      DYNARR* pairs2trans = htfpairs(blkn->antileader_in);
-      for(int i = 0; i < pairs2trans->length; i++) {
-        HASHPAIR* hp = daget(pairs2trans, i);
-        VALUESTRUCT* translated = translate(prog, eq, blk, blkn, hp->value);
-        int valnum;
-        if(translated) {
-          if(translated->o != INIT_3) {
-            GVNNUM* destval = bigsearch(eq->ophash, (char*) translated, sizeof(VALUESTRUCT));
-            if(!destval) {
-              destval = ctgvnnum(eq, NOCONST);
-              bigfinsertfr(eq->ophash, (char*) genx(translated), destval, sizeof(VALUESTRUCT));
-              dapush(destval->equivs, genx(translated));
-            }
-            valnum = destval->index;
-          } else {
-            valnum = translated->p1;
-          }
-          void* storage;
-          if((storage = fixedsearch(blk->antileader_out, valnum))) free(storage);//inefficient
-          fixedinsert(blk->antileader_out, valnum, translated);
+      if(!blk->translator) { //translators will be properly populated the first time
+        OPERATION* op = blkn->firstop;
+        blk->translator = htctor(); //would be more efficient to keep dag of references?
+        while(op->opcode == PHI) {
+          int prephi = op->addr0.joins[index].addr.regnum;
+          int postphi = op->dest.regnum;
+          fixedinsertint(blk->translator, prephi, postphi);
+          if(op == blkn->lastop) break;
+          op = op->nextop;
         }
+        DYNARR* pairs2trans = htfpairs(blkn->antileader_in);
+        for(int i = 0; i < pairs2trans->length; i++) {
+          HASHPAIR* hp = daget(pairs2trans, i);
+          VALUESTRUCT* translated = translate(prog, eq, blk, blkn, hp->value);
+          int valnum;
+          if(translated) {
+            if(translated->o != INIT_3) {
+              GVNNUM* destval = bigsearch(eq->ophash, (char*) translated, sizeof(VALUESTRUCT));
+              if(!destval) {
+                destval = ctgvnnum(eq, NOCONST);
+                bigfinsertfr(eq->ophash, (char*) genx(translated), destval, sizeof(VALUESTRUCT));
+                dapush(destval->equivs, genx(translated));
+              }
+              valnum = destval->index;
+            } else {
+              valnum = translated->p1;
+            }
+            void* storage;
+            if((storage = fixedsearch(blk->antileader_out, valnum))) free(storage);//inefficient
+            fixedinsert(blk->antileader_out, valnum, translated);
+          }
+        }
+        dadtor(pairs2trans);
       }
-      dadtor(pairs2trans);
     } else {
       blk->antileader_out = fhtcclone(blkn->antileader_in, (void*(*)(void*)) genx);
     }
   } else if(blk->branchblock) {
+    //the first block isn't populated here if next block has phi
     if(blk->nextblock->antileader_in) {
       blk->antileader_out = fhtcclone(blk->nextblock->antileader_in, (void*(*)(void*)) genx);
       if(blk->branchblock->antileader_in) {
@@ -1430,7 +1432,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                   stubbornindex += 1;
                 } else {
                   VALUESTRUCT actionable = *antil;
-                  int placeholder;
+                  ADDRESS provisional;
                   OPERATION* genop = malloc(sizeof(OPERATION));
                   int leadreg;
                   GVNNUM* constclass;
@@ -1444,8 +1446,8 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                       default:
                         assert(0);
                       OPS_3_3ac
-                        placeholder = (long) fixedsearch(blk->translator, op->addr1.regnum);
-                        if(placeholder) actionable.p2 = nodefromaddr(eq, op->addr1_type, (ADDRESS) placeholder);
+                        provisional.regnum = oblk->translator ? (long) fixedsearch(oblk->translator, op->addr1.regnum) : 0;
+                        if(provisional.regnum) actionable.p2 = nodefromaddr(eq, op->addr1_type, provisional, prog)->index;
                         if(oblk->leader && (leadreg = (long) fixedsearch(oblk->leader, actionable.p2))) {
                           genop->addr1_type = genop->dest_type;
                           genop->addr1.regnum = leadreg;
@@ -1467,8 +1469,8 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                         }
                         __attribute__((fallthrough));
                       OPS_2_3ac
-                        placeholder = (long) fixedsearch(blk->translator, op->addr0.regnum);
-                        if(placeholder) actionable.p1 = nodefromaddr(eq, op->addr0_type, (ADDRESS) placeholder);
+                        provisional.regnum = oblk->translator ? (long) fixedsearch(oblk->translator, op->addr0.regnum) : 0;
+                        if(provisional.regnum) actionable.p1 = nodefromaddr(eq, op->addr0_type, provisional, prog)->index;
                         if(oblk->leader && (leadreg = (long) fixedsearch(oblk->leader, actionable.p1))) {
                           genop->addr0_type = genop->dest_type;
                           genop->addr0.regnum = leadreg;
