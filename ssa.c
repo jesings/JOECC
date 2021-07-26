@@ -1429,30 +1429,27 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                   joins.joins[j] = join;
                   stubbornindex += 1;
                 } else {
-                  VALUESTRUCT* vs = translate(prog, eq, oblk, blk, antil);
-                  if(vs) {
-                    free(vs);
-                    goto failure;
-                  }
-                  VALUESTRUCT* actionable = vs ? vs : antil;
+                  VALUESTRUCT actionable = *antil;
+                  int placeholder;
                   OPERATION* genop = malloc(sizeof(OPERATION));
                   int leadreg;
                   GVNNUM* constclass;
-                  genop->opcode = actionable->o;
+                  genop->opcode = actionable.o;
                   genop->dest_type = op->dest_type & GENREGMASK;
                   genop->dest.regnum = prog->regcnt++;
-                  switch(actionable->o) {
+                  switch(actionable.o) {
                       case INIT_3: 
                         free(genop);
-                        if(vs) free(vs);
                         continue;
                       default:
                         assert(0);
                       OPS_3_3ac
-                        if(oblk->leader && (leadreg = (long) fixedsearch(oblk->leader, actionable->p2))) {
+                        placeholder = (long) fixedsearch(blk->translator, op->addr1.regnum);
+                        if(placeholder) actionable.p2 = nodefromaddr(eq, op->addr1_type, (ADDRESS) placeholder);
+                        if(oblk->leader && (leadreg = (long) fixedsearch(oblk->leader, actionable.p2))) {
                           genop->addr1_type = genop->dest_type;
                           genop->addr1.regnum = leadreg;
-                        } else if((constclass = daget(eq->nodes, actionable->p2))->hasconst != NOCONST) {
+                        } else if((constclass = daget(eq->nodes, actionable.p2))->hasconst != NOCONST) {
                           genop->addr1.intconst_64 = constclass->intconst;
                           if(constclass->hasconst == INTCONST) {
                             genop->addr1_type = genop->dest_type | ISCONST;
@@ -1466,15 +1463,16 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                         } else {
                           //figure out why this would happen
                           free(genop);
-                          if(vs) free(vs);
                           goto failure;
                         }
                         __attribute__((fallthrough));
                       OPS_2_3ac
-                        if(oblk->leader && (leadreg = (long) fixedsearch(oblk->leader, actionable->p1))) {
+                        placeholder = (long) fixedsearch(blk->translator, op->addr0.regnum);
+                        if(placeholder) actionable.p1 = nodefromaddr(eq, op->addr0_type, (ADDRESS) placeholder);
+                        if(oblk->leader && (leadreg = (long) fixedsearch(oblk->leader, actionable.p1))) {
                           genop->addr0_type = genop->dest_type;
                           genop->addr0.regnum = leadreg;
-                        } else if((constclass = daget(eq->nodes, actionable->p1))->hasconst != NOCONST) {
+                        } else if((constclass = daget(eq->nodes, actionable.p1))->hasconst != NOCONST) {
                           genop->addr0.intconst_64 = constclass->intconst;
                           if(constclass->hasconst == INTCONST) {
                             genop->addr0_type = genop->dest_type | ISCONST;
@@ -1488,7 +1486,6 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                         } else {
                           //figure out why this would happen
                           free(genop);
-                          if(vs) free(vs);
                           goto failure;
                         }
                         break;
@@ -1515,7 +1512,6 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                   //insert calculation of value here in predecessor block
                   FULLADDR join = {genop->dest_type, genop->dest};
                   joins.joins[j] = join;
-                  if(vs) free(vs);
                 }
               }
               //insert phi at top of block
