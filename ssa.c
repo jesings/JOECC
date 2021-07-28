@@ -1153,10 +1153,12 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
       if(!blk->translator) { //translators will be properly populated the first time
         OPERATION* op = blkn->firstop;
         blk->translator = htctor(); //would be more efficient to keep dag of references?
+        blk->revtranslator = htctor(); //would be more efficient to keep dag of references?
         while(op->opcode == PHI) {
           int prephi = op->addr0.joins[index].addr.regnum;
           int postphi = op->dest.regnum;
           fixedinsertint(blk->translator, prephi, postphi);
+          fixedinsertint(blk->revtranslator, postphi, prephi);
           if(op == blkn->lastop) break;
           op = op->nextop;
         }
@@ -1446,8 +1448,8 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                       default:
                         assert(0);
                       OPS_3_3ac
-                        provisional.regnum = oblk->translator ? (long) fixedsearch(oblk->translator, op->addr1.regnum) : 0;
-                        if(provisional.regnum) actionable.p2 = nodefromaddr(eq, op->addr1_type, provisional, prog)->index;
+                        provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, op->addr1.regnum) : 0;
+                        if(provisional.regnum) actionable.p2 = nodefromaddr(eq, op->addr1_type &~ISVAR, provisional, prog)->index;
                         if(oblk->leader && (leadreg = (long) fixedsearch(oblk->leader, actionable.p2))) {
                           genop->addr1_type = genop->dest_type;
                           genop->addr1.regnum = leadreg;
@@ -1469,8 +1471,8 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                         }
                         __attribute__((fallthrough));
                       OPS_2_3ac
-                        provisional.regnum = oblk->translator ? (long) fixedsearch(oblk->translator, op->addr0.regnum) : 0;
-                        if(provisional.regnum) actionable.p1 = nodefromaddr(eq, op->addr0_type, provisional, prog)->index;
+                        provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, op->addr0.regnum) : 0;
+                        if(provisional.regnum) actionable.p1 = nodefromaddr(eq, op->addr0_type &~ISVAR, provisional, prog)->index;
                         if(oblk->leader && (leadreg = (long) fixedsearch(oblk->leader, actionable.p1))) {
                           genop->addr0_type = genop->dest_type;
                           genop->addr0.regnum = leadreg;
@@ -1555,6 +1557,7 @@ void gvn(PROGRAM* prog) {
   HASHTABLE* h1 = first->leader = htctor();
   gensall(prog, eqcontainer, first);
   free(h1);
+  first->pidominates = dactor(0);
   while(antics(prog->finalblock, prog, eqcontainer)) ;
   //buildsets calculated
   hoist(prog, eqcontainer);

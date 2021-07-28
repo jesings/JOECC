@@ -142,6 +142,7 @@ typedef struct bblock {
   HASHTABLE* antileader_out;
   HASHTABLE* exp_gen;
   HASHTABLE* translator;
+  HASHTABLE* revtranslator;
 } BBLOCK;
 
 typedef struct {
