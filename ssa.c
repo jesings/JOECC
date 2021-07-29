@@ -722,372 +722,368 @@ static void replacenode(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog) {
 
 //number values
 static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
-  if(blk->visited) return;
-  blk->visited = 1;
-
   blk->leader = fhtclone(blk->dom->leader);
-  if(!blk->lastop) {
-    return;
-  }
-  blk->tmp_gen = dinctor(32); //not sure what to do with this
-  blk->exp_gen = htctor();
-  blk->antileader_in = htctor();
-  blk->antileader_out = htctor();
-  OPERATION* op = blk->firstop;
-  VALUESTRUCT exst = {INIT_3, 0, 0};
-  do {
-    GVNNUM* val1;
-    GVNNUM* val2;
-    GVNNUM* destval = NULL;
-    GVNNUM* otherval = NULL;
-    BIGHASHTABLE* ophash = eqcontainer->ophash;
-    switch(op->opcode) {
-      OPS_NOVAR_3ac
-        break; //nothing for nop, lbl, jmp, branching ops, or arg/ret
-      OPS_3_3ac_NOCOM
-        val1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
-        val2 = nodefromaddr(eqcontainer, op->addr1_type, op->addr1, prog);
-        if(!(op->dest_type & (ISLABEL | ISDEREF))) {
-          if(op->dest_type & ISVAR) {
-            FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
-            if(adstore->addr_type & ADDRSVAR) break;
-          }
-          if(val1 && val2) {
-            VALUESTRUCT combind = {op->opcode, val1->index, val2->index};
-            destval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
-            if(!destval) {
-              destval = ctgvnnum(eqcontainer, NOCONST);
-              dapush(destval->equivs, genx(&combind));
-              bigfinsertfr(ophash, (char*) genx(&combind), destval, sizeof(VALUESTRUCT));
+  if(blk->lastop) {
+    blk->tmp_gen = dinctor(32); //not sure what to do with this
+    blk->exp_gen = htctor();
+    blk->antileader_in = htctor();
+    blk->antileader_out = htctor();
+    OPERATION* op = blk->firstop;
+    VALUESTRUCT exst = {INIT_3, 0, 0};
+    do {
+      GVNNUM* val1;
+      GVNNUM* val2;
+      GVNNUM* destval = NULL;
+      GVNNUM* otherval = NULL;
+      BIGHASHTABLE* ophash = eqcontainer->ophash;
+      switch(op->opcode) {
+        OPS_NOVAR_3ac
+          break; //nothing for nop, lbl, jmp, branching ops, or arg/ret
+        OPS_3_3ac_NOCOM
+          val1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
+          val2 = nodefromaddr(eqcontainer, op->addr1_type, op->addr1, prog);
+          if(!(op->dest_type & (ISLABEL | ISDEREF))) {
+            if(op->dest_type & ISVAR) {
+              FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
+              if(adstore->addr_type & ADDRSVAR) break;
             }
-          } else {
-            destval = ctgvnnum(eqcontainer, NOCONST);
-          }
-          dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0));
-          bigfinsertfr(ophash, (char*) ctvalstruct(INIT_3, op->dest.regnum, 0), destval, sizeof(VALUESTRUCT));
-        } else if(val1 && val2) {
-          VALUESTRUCT combind = {op->opcode, val1->index, val2->index};
-          otherval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
-          if(!otherval) {
-            otherval = ctgvnnum(eqcontainer, NOCONST);
-            dapush(otherval->equivs, genx(&combind));
-            bigfinsertfr(ophash, (char*) genx(&combind), otherval, sizeof(VALUESTRUCT));
-          }
-        }
-        break;
-      OPS_3_3ac_COM
-        val1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
-        val2 = nodefromaddr(eqcontainer, op->addr1_type, op->addr1, prog);
-        if(!(op->dest_type & (ISLABEL | ISDEREF))) {
-          if(op->dest_type & ISVAR) {
-            FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
-            if(adstore->addr_type & ADDRSVAR) break;
-          }
-          if(val1 && val2) {
-            VALUESTRUCT combind = {op->opcode, val1->index, val2->index};
-            destval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
-            if(!destval) {
+            if(val1 && val2) {
+              VALUESTRUCT combind = {op->opcode, val1->index, val2->index};
+              destval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
+              if(!destval) {
+                destval = ctgvnnum(eqcontainer, NOCONST);
+                dapush(destval->equivs, genx(&combind));
+                bigfinsertfr(ophash, (char*) genx(&combind), destval, sizeof(VALUESTRUCT));
+              }
+            } else {
               destval = ctgvnnum(eqcontainer, NOCONST);
-              dapush(destval->equivs, genx(&combind));
-              bigfinsertfr(ophash, (char*) genx(&combind), destval, sizeof(VALUESTRUCT));
+            }
+            dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0));
+            bigfinsertfr(ophash, (char*) ctvalstruct(INIT_3, op->dest.regnum, 0), destval, sizeof(VALUESTRUCT));
+          } else if(val1 && val2) {
+            VALUESTRUCT combind = {op->opcode, val1->index, val2->index};
+            otherval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
+            if(!otherval) {
+              otherval = ctgvnnum(eqcontainer, NOCONST);
+              dapush(otherval->equivs, genx(&combind));
+              bigfinsertfr(ophash, (char*) genx(&combind), otherval, sizeof(VALUESTRUCT));
+            }
+          }
+          break;
+        OPS_3_3ac_COM
+          val1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
+          val2 = nodefromaddr(eqcontainer, op->addr1_type, op->addr1, prog);
+          if(!(op->dest_type & (ISLABEL | ISDEREF))) {
+            if(op->dest_type & ISVAR) {
+              FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
+              if(adstore->addr_type & ADDRSVAR) break;
+            }
+            if(val1 && val2) {
+              VALUESTRUCT combind = {op->opcode, val1->index, val2->index};
+              destval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
+              if(!destval) {
+                destval = ctgvnnum(eqcontainer, NOCONST);
+                dapush(destval->equivs, genx(&combind));
+                bigfinsertfr(ophash, (char*) genx(&combind), destval, sizeof(VALUESTRUCT));
+                VALUESTRUCT* combind2 = ctvalstruct(op->opcode, val2->index, val1->index);
+                bigfinsertfr(ophash, (char*) combind2, destval, sizeof(VALUESTRUCT));
+              }
+            } else {
+              destval = ctgvnnum(eqcontainer, NOCONST);
+            }
+            dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0));
+            bigfinsertfr(ophash, (char*) ctvalstruct(INIT_3, op->dest.regnum, 0), destval, sizeof(VALUESTRUCT));
+          } else if(val1 && val2) {
+            VALUESTRUCT combind = {op->opcode, val1->index, val2->index};
+            otherval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
+            if(!otherval) {
+              otherval = ctgvnnum(eqcontainer, NOCONST);
+              dapush(otherval->equivs, genx(&combind));
+              bigfinsertfr(ophash, (char*) genx(&combind), otherval, sizeof(VALUESTRUCT));
               VALUESTRUCT* combind2 = ctvalstruct(op->opcode, val2->index, val1->index);
-              bigfinsertfr(ophash, (char*) combind2, destval, sizeof(VALUESTRUCT));
+              bigfinsertfr(ophash, (char*) combind2, otherval, sizeof(VALUESTRUCT));
             }
-          } else {
-            destval = ctgvnnum(eqcontainer, NOCONST);
           }
-          dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0));
-          bigfinsertfr(ophash, (char*) ctvalstruct(INIT_3, op->dest.regnum, 0), destval, sizeof(VALUESTRUCT));
-        } else if(val1 && val2) {
-          VALUESTRUCT combind = {op->opcode, val1->index, val2->index};
-          otherval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
-          if(!otherval) {
-            otherval = ctgvnnum(eqcontainer, NOCONST);
-            dapush(otherval->equivs, genx(&combind));
-            bigfinsertfr(ophash, (char*) genx(&combind), otherval, sizeof(VALUESTRUCT));
-            VALUESTRUCT* combind2 = ctvalstruct(op->opcode, val2->index, val1->index);
-            bigfinsertfr(ophash, (char*) combind2, otherval, sizeof(VALUESTRUCT));
-          }
-        }
-        break;
-      OPS_2_3ac_MUT
-        val1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
-        if(!(op->dest_type & (ISLABEL | ISDEREF))) {
-          if(op->dest_type & ISVAR) {
-            FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
-            if(adstore->addr_type & ADDRSVAR) break;
-          }
-          if(val1) {
-            VALUESTRUCT combind = {op->opcode, val1->index, 0};
-            destval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
-            if(!destval) {
+          break;
+        OPS_2_3ac_MUT
+          val1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
+          if(!(op->dest_type & (ISLABEL | ISDEREF))) {
+            if(op->dest_type & ISVAR) {
+              FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
+              if(adstore->addr_type & ADDRSVAR) break;
+            }
+            if(val1) {
+              VALUESTRUCT combind = {op->opcode, val1->index, 0};
+              destval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
+              if(!destval) {
+                destval = ctgvnnum(eqcontainer, NOCONST);
+                dapush(destval->equivs, genx(&combind));
+                bigfinsertfr(ophash, (char*) genx(&combind), destval, sizeof(VALUESTRUCT));
+              }
+            } else {
               destval = ctgvnnum(eqcontainer, NOCONST);
-              dapush(destval->equivs, genx(&combind));
-              bigfinsertfr(ophash, (char*) genx(&combind), destval, sizeof(VALUESTRUCT));
             }
-          } else {
-            destval = ctgvnnum(eqcontainer, NOCONST);
-          }
-          dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0));
-          bigfinsertfr(ophash, (char*) ctvalstruct(INIT_3, op->dest.regnum, 0), destval, sizeof(VALUESTRUCT));
-        } else if(val1) {
-          VALUESTRUCT combind = {op->opcode, val1->index, 0};
-          otherval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
-          if(!otherval) {
-            otherval = ctgvnnum(eqcontainer, NOCONST);
-            dapush(otherval->equivs, genx(&combind));
-            bigfinsertfr(ophash, (char*) genx(&combind), otherval, sizeof(VALUESTRUCT));
-          }
-        }
-        break;
-      case MOV_3:
-        val1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
-        if(!(op->dest_type & (ISLABEL | ISDEREF))) {
-          if(op->dest_type & ISVAR) {
-            FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
-            if(adstore->addr_type & ADDRSVAR) break;
-          }
-          destval = val1 ? val1 : ctgvnnum(eqcontainer, NOCONST);
-          dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0));
-          bigfinsertfr(ophash, (char*) ctvalstruct(INIT_3, op->dest.regnum, 0), destval, sizeof(VALUESTRUCT));
-        }
-        break;
-      case ADDR_3:
-        //address should stay constant, so the value can be stored, as can the value of labels!
-        val1 = nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
-        if(!(op->dest_type & (ISDEREF | ISLABEL))) {
-          //addrsvar is permissible
-          if(val1) {
+            dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0));
+            bigfinsertfr(ophash, (char*) ctvalstruct(INIT_3, op->dest.regnum, 0), destval, sizeof(VALUESTRUCT));
+          } else if(val1) {
             VALUESTRUCT combind = {op->opcode, val1->index, 0};
-            destval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
-            if(!destval) {
+            otherval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
+            if(!otherval) {
+              otherval = ctgvnnum(eqcontainer, NOCONST);
+              dapush(otherval->equivs, genx(&combind));
+              bigfinsertfr(ophash, (char*) genx(&combind), otherval, sizeof(VALUESTRUCT));
+            }
+          }
+          break;
+        case MOV_3:
+          val1 = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
+          if(!(op->dest_type & (ISLABEL | ISDEREF))) {
+            if(op->dest_type & ISVAR) {
+              FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
+              if(adstore->addr_type & ADDRSVAR) break;
+            }
+            destval = val1 ? val1 : ctgvnnum(eqcontainer, NOCONST);
+            dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0));
+            bigfinsertfr(ophash, (char*) ctvalstruct(INIT_3, op->dest.regnum, 0), destval, sizeof(VALUESTRUCT));
+          }
+          break;
+        case ADDR_3:
+          //address should stay constant, so the value can be stored, as can the value of labels!
+          val1 = nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
+          if(!(op->dest_type & (ISDEREF | ISLABEL))) {
+            //addrsvar is permissible
+            if(val1) {
+              VALUESTRUCT combind = {op->opcode, val1->index, 0};
+              destval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
+              if(!destval) {
+                destval = ctgvnnum(eqcontainer, NOCONST);
+                dapush(destval->equivs, genx(&combind));
+                bigfinsertfr(ophash, (char*) genx(&combind), destval, sizeof(VALUESTRUCT));
+              }
+            } else {
               destval = ctgvnnum(eqcontainer, NOCONST);
-              dapush(destval->equivs, genx(&combind));
-              bigfinsertfr(ophash, (char*) genx(&combind), destval, sizeof(VALUESTRUCT));
             }
-          } else {
-            destval = ctgvnnum(eqcontainer, NOCONST);
-          }
-          dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0));
-          bigfinsertfr(ophash, (char*) ctvalstruct(INIT_3, op->dest.regnum, 0), destval, sizeof(VALUESTRUCT));
-        } else if(val1) {
-          VALUESTRUCT combind = {op->opcode, val1->index, 0};
-          otherval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
-          if(!otherval) {
-            otherval = ctgvnnum(eqcontainer, NOCONST);
-            dapush(otherval->equivs, genx(&combind));
-            bigfinsertfr(ophash, (char*) genx(&combind), otherval, sizeof(VALUESTRUCT));
-          }
-        }
-        break;
-      case PHI:
-        destval = nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
-        break;
-      case DEALOC:
-        {
-          VALUESTRUCT combind = {op->opcode, op->addr0.ssaind, 0};
-          val1 = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
-          if(!val1) {
-            val2 = ctgvnnum(eqcontainer, NOCONST);
-            dapush(val2->equivs, ctvalstruct(DEALOC, val1->index, 0));
-            bigfinsertfr(ophash, (char*) genx(&combind), val2, sizeof(VALUESTRUCT));
-          }
-        }
-        break;
-      OPS_3_PTRDEST_3ac OPS_NODEST_3ac
-        nodefromaddr(eqcontainer, op->addr1_type, op->addr1, prog);
-        __attribute__((fallthrough));
-      OPS_1_3ac 
-        if(op->addr0_type & GARBAGEVAL) break;
-        nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
-        break;
-      case CALL_3: //no pure functions for now
-        destval = nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
-        break;
-      OPS_1_ASSIGN_3ac
-        destval = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
-        break;
-      case ASM:
-        assert(0); //unimplemented
-    }
-    char status = 0;
-    GVNNUM* chosenval;
-    //if in any case chosenval is assigned null, it must be an addrsvar
-    switch(op->opcode) {
-      OPS_3_3ac_NOCOM OPS_3_3ac_COM 
-        if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
-          if(op->addr0_type & ISCONST) {
-            exst.o = CONST_3;
-            chosenval = lookup_const(eqcontainer, op->addr0_type, op->addr0);
-            exst.p1 = chosenval->index;
-          } else {
-            exst.p1 = op->addr0.regnum;
-            chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
-          }
-          if(chosenval) {
-            status++;
-            //slightly inefficient, could query and insert in same traversal
-            //however it might be worse to have to re-free the exprstr if not used
-            if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
-              fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
-              exst.o = INIT_3;
+            dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0));
+            bigfinsertfr(ophash, (char*) ctvalstruct(INIT_3, op->dest.regnum, 0), destval, sizeof(VALUESTRUCT));
+          } else if(val1) {
+            VALUESTRUCT combind = {op->opcode, val1->index, 0};
+            otherval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
+            if(!otherval) {
+              otherval = ctgvnnum(eqcontainer, NOCONST);
+              dapush(otherval->equivs, genx(&combind));
+              bigfinsertfr(ophash, (char*) genx(&combind), otherval, sizeof(VALUESTRUCT));
             }
           }
-        }
-        if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
-          if(op->addr1_type & ISCONST) {
-            exst.o = CONST_3;
-            chosenval = lookup_const(eqcontainer, op->addr1_type, op->addr1);
-            exst.p1 = chosenval->index;
-          } else {
-            exst.p1 = op->addr1.regnum;
-            chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
-          }
-          if(chosenval) {
-            status++;
-            if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
-              fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
-              exst.o = INIT_3;
+          break;
+        case PHI:
+          destval = nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
+          break;
+        case DEALOC:
+          {
+            VALUESTRUCT combind = {op->opcode, op->addr0.ssaind, 0};
+            val1 = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
+            if(!val1) {
+              val2 = ctgvnnum(eqcontainer, NOCONST);
+              dapush(val2->equivs, ctvalstruct(DEALOC, val1->index, 0));
+              bigfinsertfr(ophash, (char*) genx(&combind), val2, sizeof(VALUESTRUCT));
             }
           }
-        }
-        if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
-          exst.p1 = op->dest.regnum;
-          chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
-          if(chosenval && !fixedqueryval(blk->leader, chosenval->index))
-            dipush(blk->tmp_gen, chosenval->index);
-        }
-        if(status == 2) {
-          GVNNUM* n0 = nodefromaddr(eqcontainer, op->addr0_type & ~ISVAR, op->addr0, prog);
-          GVNNUM* n1 = nodefromaddr(eqcontainer, op->addr1_type & ~ISVAR, op->addr1, prog);
-
-          if(!(n0 && n1)) break;
-          VALUESTRUCT refex = {op->opcode, n0->index, n1->index};
-          chosenval = bigsearch(eqcontainer->ophash, (char*) &refex, sizeof(VALUESTRUCT));
-          //printop(op, 1, blk, stdout, prog);
-          //printf("\n %s %d %d\n", opcode_3ac_names[refex.o], refex.p1, refex.p2);
-          //assert(chosenval);
-          if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
-            fixedinsert(blk->exp_gen, chosenval->index, genx(&refex));
-          }
-        }
-        break;
-      OPS_2_3ac_MUT case MOV_3: 
-        if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
-          if(op->addr0_type & ISCONST) {
-            exst.o = CONST_3;
-            exst.p1 = 0;
-            chosenval = lookup_const(eqcontainer, op->addr0_type, op->addr0);
-          } else {
-            exst.p1 = op->addr0.regnum;
-            chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
-          }
-          if(chosenval) {
-            status++;
-            if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
-              fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
-              exst.o = INIT_3;
+          break;
+        OPS_3_PTRDEST_3ac OPS_NODEST_3ac
+          nodefromaddr(eqcontainer, op->addr1_type, op->addr1, prog);
+          __attribute__((fallthrough));
+        OPS_1_3ac 
+          if(op->addr0_type & GARBAGEVAL) break;
+          nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
+          break;
+        case CALL_3: //no pure functions for now
+          destval = nodefromaddr(eqcontainer, op->dest_type, op->dest, prog);
+          break;
+        OPS_1_ASSIGN_3ac
+          destval = nodefromaddr(eqcontainer, op->addr0_type, op->addr0, prog);
+          break;
+        case ASM:
+          assert(0); //unimplemented
+      }
+      char status = 0;
+      GVNNUM* chosenval;
+      //if in any case chosenval is assigned null, it must be an addrsvar
+      switch(op->opcode) {
+        OPS_3_3ac_NOCOM OPS_3_3ac_COM 
+          if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
+            if(op->addr0_type & ISCONST) {
+              exst.o = CONST_3;
+              chosenval = lookup_const(eqcontainer, op->addr0_type, op->addr0);
+              exst.p1 = chosenval->index;
+            } else {
+              exst.p1 = op->addr0.regnum;
+              chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
+            }
+            if(chosenval) {
+              status++;
+              //slightly inefficient, could query and insert in same traversal
+              //however it might be worse to have to re-free the exprstr if not used
+              if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
+                fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
+                exst.o = INIT_3;
+              }
             }
           }
-        }
-        if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
-          exst.p1 = op->dest.regnum;
-          chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
-          if(chosenval && !fixedqueryval(blk->leader, chosenval->index))
-            dipush(blk->tmp_gen, chosenval->index);
-        }
-        if(status == 1) {
-          GVNNUM* n0 = nodefromaddr(eqcontainer, op->addr0_type & ~ISVAR, op->addr0, prog);
-          if(!n0) break;
-          VALUESTRUCT refex = {op->opcode, n0->index, 0};
-          chosenval = bigsearch(eqcontainer->ophash, (char*) &refex, sizeof(VALUESTRUCT));
-          if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
-            fixedinsert(blk->exp_gen, chosenval->index, genx(&refex));
+          if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
+            if(op->addr1_type & ISCONST) {
+              exst.o = CONST_3;
+              chosenval = lookup_const(eqcontainer, op->addr1_type, op->addr1);
+              exst.p1 = chosenval->index;
+            } else {
+              exst.p1 = op->addr1.regnum;
+              chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
+            }
+            if(chosenval) {
+              status++;
+              if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
+                fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
+                exst.o = INIT_3;
+              }
+            }
           }
-        }
-        break;
-        __attribute__((fallthrough));
-      case CALL_3: case ADDR_3:
-        if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
-          if(op->addr0_type & ISCONST) {
-            exst.o = CONST_3;
-            exst.p1 = 0;
-            chosenval = lookup_const(eqcontainer, op->addr0_type, op->addr0);
-          } else {
+          if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
             exst.p1 = op->dest.regnum;
             chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
+            if(chosenval && !fixedqueryval(blk->leader, chosenval->index))
+              dipush(blk->tmp_gen, chosenval->index);
           }
-          if(chosenval && !fixedqueryval(blk->leader, chosenval->index)) {
+          if(status == 2) {
+            GVNNUM* n0 = nodefromaddr(eqcontainer, op->addr0_type & ~ISVAR, op->addr0, prog);
+            GVNNUM* n1 = nodefromaddr(eqcontainer, op->addr1_type & ~ISVAR, op->addr1, prog);
+
+            if(!(n0 && n1)) break;
+            VALUESTRUCT refex = {op->opcode, n0->index, n1->index};
+            chosenval = bigsearch(eqcontainer->ophash, (char*) &refex, sizeof(VALUESTRUCT));
+            //printop(op, 1, blk, stdout, prog);
+            //printf("\n %s %d %d\n", opcode_3ac_names[refex.o], refex.p1, refex.p2);
+            //assert(chosenval);
+            if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
+              fixedinsert(blk->exp_gen, chosenval->index, genx(&refex));
+            }
+          }
+          break;
+        OPS_2_3ac_MUT case MOV_3: 
+          if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
+            if(op->addr0_type & ISCONST) {
+              exst.o = CONST_3;
+              exst.p1 = 0;
+              chosenval = lookup_const(eqcontainer, op->addr0_type, op->addr0);
+            } else {
+              exst.p1 = op->addr0.regnum;
+              chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
+            }
+            if(chosenval) {
+              status++;
+              if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
+                fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
+                exst.o = INIT_3;
+              }
+            }
+          }
+          if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
+            exst.p1 = op->dest.regnum;
+            chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
+            if(chosenval && !fixedqueryval(blk->leader, chosenval->index))
+              dipush(blk->tmp_gen, chosenval->index);
+          }
+          if(status == 1) {
+            GVNNUM* n0 = nodefromaddr(eqcontainer, op->addr0_type & ~ISVAR, op->addr0, prog);
+            if(!n0) break;
+            VALUESTRUCT refex = {op->opcode, n0->index, 0};
+            chosenval = bigsearch(eqcontainer->ophash, (char*) &refex, sizeof(VALUESTRUCT));
+            if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
+              fixedinsert(blk->exp_gen, chosenval->index, genx(&refex));
+            }
+          }
+          break;
+          __attribute__((fallthrough));
+        case CALL_3: case ADDR_3:
+          if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
+            if(op->addr0_type & ISCONST) {
+              exst.o = CONST_3;
+              exst.p1 = 0;
+              chosenval = lookup_const(eqcontainer, op->addr0_type, op->addr0);
+            } else {
+              exst.p1 = op->dest.regnum;
+              chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
+            }
+            if(chosenval && !fixedqueryval(blk->leader, chosenval->index)) {
+              dipush(blk->tmp_gen, chosenval->index);
+              exst.o = INIT_3;
+            }
+          }
+          break;
+        OPS_1_ASSIGN_3ac
+          assert(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)));
+          exst.p1 = op->addr0.regnum;
+          chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
+          if(chosenval && !fixedqueryval(blk->leader, chosenval->index))
             dipush(blk->tmp_gen, chosenval->index);
-            exst.o = INIT_3;
+          break;
+        case PHI:
+          //for(int i = 0; i < blk->inedges->length; i++) {
+          //  if(!(op->addr0.joins[i].addr_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {
+          //    exst.p1 = op->addr0.joins[i].addr.regnum;
+          //    chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
+          //    if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
+          //      VALUESTRUCT* exc = malloc(sizeof(VALUESTRUCT));
+          //      memcpy(exc, &exst, sizeof(VALUESTRUCT));
+          //      fixedinsert(blk->exp_gen, chosenval->index, exc);
+          //    }
+          //  }
+          //}
+          //if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
+          //  dipush(blk->phi_gen, op->dest.regnum); phi gen not realy necessary
+          break;
+        OPS_NODEST_3ac OPS_3_PTRDEST_3ac
+          if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
+            if(op->addr0_type & ISCONST) {
+              exst.o = CONST_3;
+              exst.p1 = 0;
+              chosenval = lookup_const(eqcontainer, op->addr0_type, op->addr0);
+            } else {
+              exst.p1 = op->addr1.regnum;
+              chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
+            }
+            if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
+              fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
+              exst.o = INIT_3;
+            }
           }
-        }
-        break;
-      OPS_1_ASSIGN_3ac
-        assert(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)));
-        exst.p1 = op->addr0.regnum;
-        chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
-        if(chosenval && !fixedqueryval(blk->leader, chosenval->index))
-          dipush(blk->tmp_gen, chosenval->index);
-        break;
-      case PHI:
-        //for(int i = 0; i < blk->inedges->length; i++) {
-        //  if(!(op->addr0.joins[i].addr_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {
-        //    exst.p1 = op->addr0.joins[i].addr.regnum;
-        //    chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
-        //    if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
-        //      VALUESTRUCT* exc = malloc(sizeof(VALUESTRUCT));
-        //      memcpy(exc, &exst, sizeof(VALUESTRUCT));
-        //      fixedinsert(blk->exp_gen, chosenval->index, exc);
-        //    }
-        //  }
-        //}
-        //if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-        //  dipush(blk->phi_gen, op->dest.regnum); phi gen not realy necessary
-        break;
-      OPS_NODEST_3ac OPS_3_PTRDEST_3ac
-        if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
-          if(op->addr0_type & ISCONST) {
-            exst.o = CONST_3;
-            exst.p1 = 0;
-            chosenval = lookup_const(eqcontainer, op->addr0_type, op->addr0);
-          } else {
-            exst.p1 = op->addr1.regnum;
-            chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
+          __attribute__((fallthrough));
+        OPS_1_3ac
+          if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
+            if(op->addr0_type & ISCONST) {
+              exst.o = CONST_3;
+              exst.p1 = 0;
+              chosenval = lookup_const(eqcontainer, op->addr0_type, op->addr0);
+            } else {
+              exst.p1 = op->addr0.regnum;
+              chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
+            }
+            if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
+              fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
+              exst.o = INIT_3;
+            }
           }
-          if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
-            fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
-            exst.o = INIT_3;
-          }
-        }
-        __attribute__((fallthrough));
-      OPS_1_3ac
-        if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
-          if(op->addr0_type & ISCONST) {
-            exst.o = CONST_3;
-            exst.p1 = 0;
-            chosenval = lookup_const(eqcontainer, op->addr0_type, op->addr0);
-          } else {
-            exst.p1 = op->addr0.regnum;
-            chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
-          }
-          if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
-            fixedinsert(blk->exp_gen, chosenval->index, genx(&exst));
-            exst.o = INIT_3;
-          }
-        }
-        break;
-      OPS_NOVAR_3ac case DEALOC:
-        break;
-      case ASM:
-        assert(0); //unimplemented
-    }
-    if(destval && !fixedqueryval(blk->leader, destval->index)) {
-      VALUESTRUCT* exs = dapeek(destval->equivs);
-      assert(exs->o == INIT_3 || exs->o == PHI || exs->o == CALL_3 || exs->o == INIT_3 || exs->o == PARAM_3);
-      fixedinsert(blk->leader, destval->index, (void*) (long) exs->p1);
-    }
-  } while(op != blk->lastop && (op = op->nextop));
+          break;
+        OPS_NOVAR_3ac case DEALOC:
+          break;
+        case ASM:
+          assert(0); //unimplemented
+      }
+      if(destval && !fixedqueryval(blk->leader, destval->index)) {
+        VALUESTRUCT* exs = dapeek(destval->equivs);
+        assert(exs->o == INIT_3 || exs->o == PHI || exs->o == CALL_3 || exs->o == INIT_3 || exs->o == PARAM_3);
+        fixedinsert(blk->leader, destval->index, (void*) (long) exs->p1);
+      }
+    } while(op != blk->lastop && (op = op->nextop));
+  }
   if(blk->idominates)
     for(int i = 0; i < blk->idominates->length; i++)
       gensall(prog, eqcontainer, daget(blk->idominates, i));
@@ -1388,8 +1384,6 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                 VALUESTRUCT oex = {op->opcode, n1->index, n2->index};
                 n3 = bigsearch(eq->ophash, (char*) &oex, sizeof(VALUESTRUCT));
                 if(!n3) goto hoistcont;//would have liked to have just held as an invariant that it exists, something's off
-                //printop(op, 1, blk, stdout, prog);
-                //putchar('\n');
                 antil = fixedsearch(blk->antileader_in, n3->index);
               } else {
                 goto hoistcont;
@@ -1473,10 +1467,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                             assert(0);
                           }
                         } else {
-                          //figure out why this would happen
                           assert(0);
-                          free(genop);
-                          goto failure;
                         }
                         __attribute__((fallthrough));
                       OPS_2_3ac
