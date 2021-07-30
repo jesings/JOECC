@@ -77,7 +77,7 @@ static void dfpdt(BBLOCK* root) {
             break;
           }
         }
-        if(flag && kb != root && kb->dom != root) {
+        if(flag && kb->dom != root) {
           dapush(root->df, kb);
         }
       }
@@ -1140,17 +1140,12 @@ static VALUESTRUCT* translate(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk, BBLOCK
 }
 //populate the anticipability of values coming into and going out of a block for GVNPRE
 static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
-  if(!blk->pidominates) return 0;
-  HASHTABLE* oldanticin = blk->antileader_in;
-  HASHTABLE* oldanticout = blk->antileader_out;
-
   if(blk->nextblock && !blk->branchblock) {
     int index = 0;
     BBLOCK* blkn = blk->nextblock;
     for(; daget(blkn->inedges,index) != blk; index++) ;
-    if(blkn->lastop && blkn->firstop->opcode == PHI) {
-      blk->antileader_out = htctor();
-      if(!blk->translator) { //translators will be properly populated the first time
+    if(!blk->translator) { //translators will be properly populated the first time
+      if(blkn->lastop && blkn->firstop->opcode == PHI) {
         OPERATION* op = blkn->firstop;
         blk->translator = htctor(); //would be more efficient to keep dag of references?
         blk->revtranslator = htctor(); //would be more efficient to keep dag of references?
@@ -1162,6 +1157,23 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
           if(op == blkn->lastop) break;
           op = op->nextop;
         }
+      }
+    }
+  }
+  if(!blk->pidominates) {
+    return 0;
+  }
+
+  HASHTABLE* oldanticin = blk->antileader_in;
+  HASHTABLE* oldanticout = blk->antileader_out;
+
+  if(blk->nextblock && !blk->branchblock) {
+    int index = 0;
+    BBLOCK* blkn = blk->nextblock;
+    for(; daget(blkn->inedges,index) != blk; index++) ;
+    if(blkn->lastop && blkn->firstop->opcode == PHI) {
+      blk->antileader_out = htctor();
+      if(!blk->translator) { //translators will be properly populated the first time
         DYNARR* pairs2trans = htfpairs(blkn->antileader_in);
         for(int i = 0; i < pairs2trans->length; i++) {
           HASHPAIR* hp = daget(pairs2trans, i);

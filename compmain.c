@@ -104,6 +104,7 @@ static void filecomp(char* filename) {
       rmunreach(prog);//maybe?
       collatealloc(prog);
       DEBUG(printf("Ops before SSA %d\n", countops(prog)));
+      DEBUG(treeprog(prog, pairthere->key, "pressa"));
       ssa(prog);
       DEBUG(printf("Ops after SSA %d\n", countops(prog)));
       DEBUG(treeprog(prog, pairthere->key, "justssa"));
