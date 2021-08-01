@@ -1452,13 +1452,6 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                   genop->dest_type = op->dest_type & GENREGMASK;
                   genop->dest.regnum = prog->regcnt++;
                   switch(actionable.o) {
-                      case INIT_3: 
-                        joins.joins[j].addr_type = genop->dest_type;
-                        joins.joins[j].addr.regnum = actionable.p1;
-                        free(genop);
-                        //goto failure;
-                        //assert(0);
-                        continue;
                       default:
                         assert(0);
                       OPS_3_3ac
@@ -1484,7 +1477,6 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                               if(equivind >= equivlist->length) assert(0);
                               vs = daget(equivlist, equivind++);
                             } while(vs->o != INIT_3);
-                            while(vs->o != INIT_3) vs = daget(equivlist, equivind++);
                             provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, vs->p1) : 0;
                             if(provisional.regnum) actionable.p2 = nodefromaddr(eq, op->addr1_type &~ISVAR, provisional, prog)->index;
                           }
@@ -1522,15 +1514,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                           genop->addr0.regnum = leadreg;
                         }
                         break;
-
                   }
-
-                  assert(oblk->nextblock == blk && !oblk->branchblock); //assert complex edges separated
-                  switch(genop->opcode) {
-                    default: break;
-                    OPS_NODEST_3ac case BNZ_3: case BEZ_3:
-                        assert(0);
-                  } //similar further assertion, these will be removed later
 
                   if(oblk->lastop) {
                     oblk->lastop = oblk->lastop->nextop = genop;
@@ -1538,6 +1522,15 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                     oblk->firstop = oblk->lastop = genop;
                   }
                   //now update antileader and stuff?
+                  GVNNUM* destlead = nodefromaddr(eq, genop->dest_type, genop->dest, prog);
+                  if(destlead->hasconst != NOCONST) {
+                    if(!fixedsearch(oblk->leader, destlead->index)) {
+                      fixedinsert(oblk->leader, destlead->index, (void*) (long) genop->dest.regnum);
+                      fixedinsert(oblk->revtranslator, phi->dest.regnum, (void*) (long) genop->dest.regnum);
+                    } else {
+                      assert(0);
+                    }
+                  }
 
                   //printop(genop, 1, oblk, stdout, prog);
                   //putchar('\n');
