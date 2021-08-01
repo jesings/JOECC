@@ -1462,12 +1462,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                       default:
                         assert(0);
                       OPS_3_3ac
-                        provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, op->addr1.regnum) : 0;
-                        if(provisional.regnum) actionable.p2 = nodefromaddr(eq, op->addr1_type &~ISVAR, provisional, prog)->index;
-                        if(oblk->leader && (leadreg = (long) fixedsearch(oblk->leader, actionable.p2))) {
-                          genop->addr1_type = genop->dest_type;
-                          genop->addr1.regnum = leadreg;
-                        } else if((constclass = daget(eq->nodes, actionable.p2))->hasconst != NOCONST) {
+                        if((constclass = daget(eq->nodes, actionable.p2))->hasconst != NOCONST) {
                           genop->addr1.intconst_64 = constclass->intconst;
                           if(constclass->hasconst == INTCONST) {
                             genop->addr1_type = genop->dest_type | ISCONST;
@@ -1479,16 +1474,26 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                             assert(0);
                           }
                         } else {
-                          assert(0);
+                          provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, op->addr1.regnum) : 0;
+                          if(provisional.regnum) actionable.p2 = nodefromaddr(eq, op->addr1_type &~ISVAR, provisional, prog)->index;
+                          int equivind = 0;
+                          DYNARR* equivlist = ((GVNNUM*) daget(eq->nodes, actionable.p2))->equivs;
+                          while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p2))) {
+                            VALUESTRUCT* vs;
+                            do {
+                              if(equivind >= equivlist->length) assert(0);
+                              vs = daget(equivlist, equivind++);
+                            } while(vs->o != INIT_3);
+                            while(vs->o != INIT_3) vs = daget(equivlist, equivind++);
+                            provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, vs->p1) : 0;
+                            if(provisional.regnum) actionable.p2 = nodefromaddr(eq, op->addr1_type &~ISVAR, provisional, prog)->index;
+                          }
+                          genop->addr1_type = genop->dest_type;
+                          genop->addr1.regnum = leadreg;
                         }
                         __attribute__((fallthrough));
                       OPS_2_3ac
-                        provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, op->addr0.regnum) : 0;
-                        if(provisional.regnum) actionable.p1 = nodefromaddr(eq, op->addr0_type &~ISVAR, provisional, prog)->index;
-                        if(oblk->leader && (leadreg = (long) fixedsearch(oblk->leader, actionable.p1))) {
-                          genop->addr0_type = genop->dest_type;
-                          genop->addr0.regnum = leadreg;
-                        } else if((constclass = daget(eq->nodes, actionable.p1))->hasconst != NOCONST) {
+                        if((constclass = daget(eq->nodes, actionable.p1))->hasconst != NOCONST) {
                           genop->addr0.intconst_64 = constclass->intconst;
                           if(constclass->hasconst == INTCONST) {
                             genop->addr0_type = genop->dest_type | ISCONST;
@@ -1500,10 +1505,21 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                             assert(0);
                           }
                         } else {
-                          //figure out why this would happen
-                          assert(0);
-                          free(genop);
-                          goto failure;
+                          provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, op->addr0.regnum) : 0;
+                          if(provisional.regnum) actionable.p1 = nodefromaddr(eq, op->addr0_type &~ISVAR, provisional, prog)->index;
+                          int equivind = 0;
+                          DYNARR* equivlist = ((GVNNUM*) daget(eq->nodes, actionable.p1))->equivs;
+                          while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p1))) {
+                            VALUESTRUCT* vs;
+                            do {
+                              if(equivind >= equivlist->length) assert(0);
+                              vs = daget(equivlist, equivind++);
+                            } while(vs->o != INIT_3);
+                            provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, vs->p1) : 0;
+                            if(provisional.regnum) actionable.p1 = nodefromaddr(eq, op->addr0_type &~ISVAR, provisional, prog)->index;
+                          }
+                          genop->addr0_type = genop->dest_type;
+                          genop->addr0.regnum = leadreg;
                         }
                         break;
 
@@ -1532,22 +1548,15 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                 }
               }
               //insert phi at top of block
-              if(0) {
-failure:
-                //this shouldn't have to be handled
-                free(phi);
-                free(joins.joins);
+              if(blk->lastop) {
+                phi->nextop = blk->firstop;
+                blk->firstop = phi;
               } else {
-                if(blk->lastop) {
-                  phi->nextop = blk->firstop;
-                  blk->firstop = phi;
-                } else {
-                  blk->firstop = blk->lastop = phi;
-                }
-
-                //remove previous computation
-                op->opcode = NOP_3;
+                blk->firstop = blk->lastop = phi;
               }
+
+              //remove previous computation
+              op->opcode = NOP_3;
             }
             stubbornblocks->length = 0;
           }
