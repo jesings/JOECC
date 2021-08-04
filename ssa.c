@@ -462,7 +462,7 @@ static GVNNUM* ctgvnnum(EQONTAINER* eqcontainer, int hc) {
 static EQONTAINER* cteq(PROGRAM* prog) {
   EQONTAINER* retval = malloc(sizeof(EQONTAINER));
   retval->nodes = dactor(1024);
-  dapushc(retval->nodes, malloc(1));
+  ctgvnnum(retval, NOCONST); //have a dummy value in the zero position
   retval->intconsthash = htctor();
   retval->floatconsthash = htctor();
   retval->strconsthash = htctor();
@@ -1337,6 +1337,15 @@ static void printeq(EQONTAINER* eq, PROGRAM* prog) {
   puts("-------------------------------------------");
 }
 
+static void recdomins(BBLOCK* blk, long key, void* value) {
+  fixedinsert(blk->leader, key, value);
+  if(blk->idominates) {
+    for(int i = 0; i < blk->idominates->length; i++) {
+      recdomins((BBLOCK*) daget(blk->idominates, i), key, value);
+    }
+  }
+}
+
 //Hoist expressions to their earliest available program point, part of GVNPRE
 static char hoist(PROGRAM* prog, EQONTAINER* eq) {
   char changed = 0;
@@ -1500,9 +1509,9 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                   }
                   //now update antileader and stuff?
                   GVNNUM* destlead = nodefromaddr(eq, genop->dest_type, genop->dest, prog);
-                  if(destlead->hasconst != NOCONST) {
+                  if(destlead->hasconst == NOCONST) {
                     if(!fixedsearch(oblk->leader, destlead->index)) {
-                      fixedinsert(oblk->leader, destlead->index, (void*) (long) genop->dest.regnum);
+                      recdomins(oblk, destlead->index, (void*) (long) genop->dest.regnum);
                       fixedinsert(oblk->revtranslator, phi->dest.regnum, (void*) (long) genop->dest.regnum);
                     } else {
                       assert(0);
