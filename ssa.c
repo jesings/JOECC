@@ -462,6 +462,7 @@ static GVNNUM* ctgvnnum(EQONTAINER* eqcontainer, int hc) {
 static EQONTAINER* cteq(PROGRAM* prog) {
   EQONTAINER* retval = malloc(sizeof(EQONTAINER));
   retval->nodes = dactor(1024);
+  dapushc(retval->nodes, malloc(1));
   retval->intconsthash = htctor();
   retval->floatconsthash = htctor();
   retval->strconsthash = htctor();
@@ -1039,8 +1040,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           __attribute__((fallthrough));
         OPS_1_3ac
           if(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
-            if(op->addr0_type & ISCONST) {
-            } else {
+            if(!(op->addr0_type & ISCONST)) {
               exst.p1 = op->addr0.regnum;
               chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
               if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
@@ -1285,7 +1285,7 @@ static void printfht(DYNARR* da) {
 
 static void printeq(EQONTAINER* eq, PROGRAM* prog) {
   puts("-------------------------------------------");
-  for(int i = 0; i < eq->nodes->length; i++) {
+  for(int i = 1; i < eq->nodes->length; i++) {
     printf("node %d: ", i);
     GVNNUM* eqnode = daget(eq->nodes, i);
     if(eqnode->hasconst == INTCONST) printf("intconst %ld, ", eqnode->intconst);
@@ -1427,7 +1427,10 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                       default:
                         assert(0);
                       case INIT_3:
-                        assert(0);
+                        free(genop);
+                        joins.joins[i].addr_type = op->dest_type;
+                        joins.joins[i].addr.regnum = actionable.p1;
+                        continue;
                       OPS_3_3ac
                         if((constclass = daget(eq->nodes, actionable.p2))->hasconst != NOCONST) {
                           genop->addr1.intconst_64 = constclass->intconst;
@@ -1506,9 +1509,6 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                     }
                   }
 
-                  //printop(genop, 1, oblk, stdout, prog);
-                  //putchar('\n');
-                  //convert antil into operation
                   //insert calculation of value here in predecessor block
                   FULLADDR join = {genop->dest_type, genop->dest};
                   joins.joins[j] = join;
