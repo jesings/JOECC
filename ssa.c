@@ -1437,8 +1437,8 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                         assert(0);
                       case INIT_3:
                         free(genop);
-                        joins.joins[i].addr_type = op->dest_type;
-                        joins.joins[i].addr.regnum = actionable.p1;
+                        joins.joins[j].addr_type = op->dest_type;
+                        joins.joins[j].addr.regnum = actionable.p1;
                         continue;
                       OPS_3_3ac
                         if((constclass = daget(eq->nodes, actionable.p2))->hasconst != NOCONST) {
@@ -1507,6 +1507,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                   } else {
                     oblk->firstop = oblk->lastop = genop;
                   }
+
                   //now update antileader and stuff?
                   GVNNUM* destlead = nodefromaddr(eq, genop->dest_type, genop->dest, prog);
                   if(destlead->hasconst == NOCONST) {
@@ -1563,29 +1564,6 @@ void gvn(PROGRAM* prog) {
   freeq(eqcontainer);
   prog->pdone |= GVN;
   return;
-  for(int i = 0; i < prog->allblocks->length; i++)
-    ((BBLOCK*) prog->allblocks->arr[i])->visited = 0;
-  prog->finalblock->visited = 0;
-  int rplistind = prog->allblocks->length;
-  BBLOCK** rplist = malloc(prog->allblocks->length * sizeof(BBLOCK*));
-  for(int i = 0; i < prog->allblocks->length; i++) {
-    BBLOCK* blk = daget(prog->allblocks, i);
-    blk->visited = 0;
-  } //recalculate to tighten length
-  rplist[0] = first;
-  rpdt(first->nextblock, rplist, &rplistind);
-  rpdt(first->branchblock, rplist, &rplistind);
-
-  //replacenode(first, eqcontainer, prog);
-  //for(int i = 0; i < prog->allblocks->length; i++) {
-  //  BBLOCK* blk = daget(prog->allblocks, i);
-  //  blk->visited = 0;
-  //} //recalculate to tighten length
-
-
-  free(rplist);
-
-  prog->regcnt = eqcontainer->nodes->length;
 }
 //https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/gvn_sas04.pdf
 //https://www.cs.purdue.edu/homes/hosking/papers/cc04.pdf
