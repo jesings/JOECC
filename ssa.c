@@ -1373,27 +1373,21 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                  //perhaps unnecessary to check for dest
               n1 = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
               n2 = nodefromaddr(eq, op->addr1_type, op->addr1, prog);
-              if(n1 && n2) {
-                VALUESTRUCT oex = {op->opcode, n1->index, n2->index};
-                n3 = bigsearch(eq->ophash, (char*) &oex, sizeof(VALUESTRUCT));
-                if(!n3) goto hoistcont;//would have liked to have just held as an invariant that it exists, something's off
-                antil = fixedsearch(blk->antileader_in, n3->index);
-              } else {
-                goto hoistcont;
-              }
+              if(!(n1 && n2))  goto hoistcont;
+              VALUESTRUCT oex3 = {op->opcode, n1->index, n2->index};
+              n3 = bigsearch(eq->ophash, (char*) &oex3, sizeof(VALUESTRUCT));
+              if(!n3) goto hoistcont;//would have liked to have just held as an invariant that it exists, something's off
+              antil = fixedsearch(blk->antileader_in, n3->index);
               break;
             OPS_2_3ac_MUT
               if((op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL)) ||
                  (op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) goto hoistcont;
               n1 = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
-              if(n1) {
-                VALUESTRUCT oex = {op->opcode, n1->index, 0};
-                n3 = bigsearch(eq->ophash, (char*) &oex, sizeof(VALUESTRUCT));
-                if(!n3) goto hoistcont;//would have liked to have just held as an invariant that it exists, something's off
-                antil = fixedsearch(blk->antileader_in, n3->index);
-              } else {
-                goto hoistcont;
-              }
+              if(!n1) goto hoistcont;
+              VALUESTRUCT oex2 = {op->opcode, n1->index, 0};
+              n3 = bigsearch(eq->ophash, (char*) &oex2, sizeof(VALUESTRUCT));
+              if(!n3) goto hoistcont;//would have liked to have just held as an invariant that it exists, something's off
+              antil = fixedsearch(blk->antileader_in, n3->index);
               break;
             OPS_1_ASSIGN_3ac case ADDR_3:
               if(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL)) goto hoistcont;
@@ -1404,6 +1398,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
           }
 
           if(antil) {
+            if(antil->o == INIT_3) goto hoistcont;
             for(int j = 0; j < blk->inedges->length; j++) {
               BBLOCK* oblk = daget(blk->inedges, j);
               if(oblk->leader && fixedqueryval(oblk->leader, n3->index))
