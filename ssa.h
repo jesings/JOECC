@@ -40,7 +40,7 @@ void killreg(PROGRAM* prog);
 #define bfclone(bitfield, length) memcpy(malloc(((length) + 7) >> 3), (bitfield), ((length) + 7) >> 3)
 #define bfget(bitfield, index) ((bitfield)[(index) >> 3] & (1 << ((index) & 7)))
 #define bfset(bitfield, index) ((bitfield)[(index) >> 3] |= (1 << ((index) & 7)))
-#define bfunset(bitfield, index) ((bitfield)[(index) >> 3] & ~(1 << ((index) & 7)))
+#define bfunset(bitfield, index) ((bitfield)[(index) >> 3] &= ~(1 << ((index) & 7)))
 #define BITFIELD char*
 
 static inline VALUESTRUCT* ctvalstruct(enum opcode_3ac o, unsigned int p1, unsigned int p2) {

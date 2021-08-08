@@ -994,7 +994,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           }
           break;
           __attribute__((fallthrough));
-        case CALL_3: case ADDR_3:
+        case PHI: case CALL_3: case ADDR_3:
           if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
             if(!(op->addr0_type & ISCONST)) {
               exst.p1 = op->dest.regnum;
@@ -1011,21 +1011,6 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
           chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
           if(chosenval && !fixedqueryval(blk->leader, chosenval->index))
             dipush(blk->tmp_gen, chosenval->index);
-          break;
-        case PHI:
-          //for(int i = 0; i < blk->inedges->length; i++) {
-          //  if(!(op->addr0.joins[i].addr_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {
-          //    exst.p1 = op->addr0.joins[i].addr.regnum;
-          //    chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
-          //    if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
-          //      VALUESTRUCT* exc = malloc(sizeof(VALUESTRUCT));
-          //      memcpy(exc, &exst, sizeof(VALUESTRUCT));
-          //      fixedinsert(blk->exp_gen, chosenval->index, exc);
-          //    }
-          //  }
-          //}
-          //if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)))
-          //  dipush(blk->phi_gen, op->dest.regnum); phi gen not realy necessary
           break;
         OPS_NODEST_3ac OPS_3_PTRDEST_3ac
           if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
@@ -1252,11 +1237,12 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
       a.regnum = blk->tmp_gen->arr[i];
       GVNNUM* g = nodefromaddr(eq, 0, a, prog);
       //this absolutely removes too much, we should see if the use of that equivalence class is anticipable in other forms
-      VALUESTRUCT* ex2rm = fixedsearch(blk->antileader_in, g->index);
-      VALUESTRUCT compareagainst = {INIT_3, a.regnum, 0};
-      if(ex2rm && !memcmp(ex2rm, &compareagainst, sizeof(VALUESTRUCT))) {
-        void* fr = frmpair(blk->antileader_in, g->index);
-        if(fr) free(fr);
+      if(fixedqueryval(blk->leader, g->index)) {
+        long ex2rm = (long) fixedsearch(blk->leader, g->index);
+        if(a.regnum == ex2rm) {
+          void* fr = frmpair(blk->antileader_in, g->index);
+          if(fr) free(fr);
+        }
       }
     }
   }
@@ -1333,6 +1319,13 @@ static void printeq(EQONTAINER* eq, PROGRAM* prog) {
       printf(") \n");
       dadtor(av);
     }
+    if(blk->translator) {
+      DYNARR* av = htfpairs(blk->translator);
+      printf("translator (");
+      printffht(av);
+      printf(") \n");
+      dadtor(av);
+    }
   }
   puts("-------------------------------------------");
 }
@@ -1362,7 +1355,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
           switch(op->opcode) {
             case ASM:
               assert(0);
-            OPS_NOVAR_3ac OPS_3_PTRDEST_3ac case MOV_3:
+            OPS_NOVAR_3ac OPS_3_PTRDEST_3ac OPS_1_ASSIGN_3ac case MOV_3:
             OPS_NODEST_3ac OPS_1_3ac case CALL_3: case PHI:
             case DEALOC:
               goto hoistcont;
@@ -1373,7 +1366,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                  //perhaps unnecessary to check for dest
               n1 = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
               n2 = nodefromaddr(eq, op->addr1_type, op->addr1, prog);
-              if(!(n1 && n2))  goto hoistcont;
+              if(!(n1 && n2)) goto hoistcont;
               VALUESTRUCT oex3 = {op->opcode, n1->index, n2->index};
               n3 = bigsearch(eq->ophash, (char*) &oex3, sizeof(VALUESTRUCT));
               if(!n3) goto hoistcont;//would have liked to have just held as an invariant that it exists, something's off
@@ -1389,7 +1382,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
               if(!n3) goto hoistcont;//would have liked to have just held as an invariant that it exists, something's off
               antil = fixedsearch(blk->antileader_in, n3->index);
               break;
-            OPS_1_ASSIGN_3ac case ADDR_3:
+            case ADDR_3:
               if(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL)) goto hoistcont;
               n3 = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
               if(!n3) goto hoistcont;
@@ -1401,8 +1394,9 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
             if(antil->o == INIT_3) goto hoistcont;
             for(int j = 0; j < blk->inedges->length; j++) {
               BBLOCK* oblk = daget(blk->inedges, j);
-              if(oblk->leader && fixedqueryval(oblk->leader, n3->index))
+              if(oblk->leader && fixedqueryval(oblk->leader, n3->index)) {
                 dapush(stubbornblocks, oblk);
+              }
             }
             if(stubbornblocks->length > 0 && stubbornblocks->length < blk->inedges->length) {
               int stubbornindex = 0;
@@ -1508,7 +1502,10 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                   if(destlead->hasconst == NOCONST) {
                     if(!fixedsearch(oblk->leader, destlead->index)) {
                       recdomins(oblk, destlead->index, (void*) (long) genop->dest.regnum);
+                      if(!oblk->translator) oblk->translator = htctor();
+                      if(!oblk->revtranslator) oblk->revtranslator = htctor();
                       fixedinsert(oblk->revtranslator, phi->dest.regnum, (void*) (long) genop->dest.regnum);
+                      fixedinsert(oblk->translator, genop->dest.regnum, (void*) (long) phi->dest.regnum);
                     } else {
                       assert(0);
                     }
@@ -1555,7 +1552,6 @@ void gvn(PROGRAM* prog) {
   while(antics(prog->finalblock, prog, eqcontainer)) ;
   //buildsets calculated
   hoist(prog, eqcontainer);
-  //printeq(eqcontainer, prog);
   freeq(eqcontainer);
   prog->pdone |= GVN;
   return;
