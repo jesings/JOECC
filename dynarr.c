@@ -32,8 +32,7 @@ DYNARR* damerge(DYNARR* arr1, DYNARR* arr2) {
   retval->length = arr1->length + arr2->length;
   memcpy(retval->arr + arr1->length, arr2->arr, arr2->length * sizeof(void*));
   free(arr1);
-  free(arr2->arr);
-  free(arr2);
+  dadtor(arr2);
   return retval;
 }
 
@@ -109,12 +108,40 @@ DYNINT* dinctor(int initiallen) {
 }
 void dipush(DYNINT* di, int i) {
   if(di->length == di->maxlength)
-    di->arr = reallocarray(di->arr, di->maxlength *= 1.5, sizeof(void*));
+    di->arr = reallocarray(di->arr, di->maxlength *= 1.5, sizeof(int));
   di->arr[(di->length)++] = i;
+}
+int dipop(DYNINT* di) {
+  return di->arr[--(di->length)];
 }
 void didtor(DYNINT* di) {
   if(di->maxlength) free(di->arr);
   free(di);
+}
+
+DYNINT* dimerge(DYNINT* arr1, DYNINT* arr2) {
+  if(!arr1->length) {
+    if(arr1->maxlength) free(arr1->arr);
+    *arr1 = *arr2;
+    free(arr2);
+    return arr1;
+  } else if(!arr2->length) {
+    didtor(arr2);
+    return arr1;
+  } else if(arr1->length + arr2->length < arr1->maxlength) {
+    memcpy(arr1->arr + arr1->length, arr2->arr, arr2->length * sizeof(int));
+    arr1->length += arr2->length;
+    didtor(arr2);
+    return arr1;
+  }
+  DYNINT* retval = malloc(sizeof(DYNARR));
+  retval->maxlength = arr1->maxlength + arr2->maxlength;
+  retval->arr = realloc(arr1->arr, retval->maxlength * sizeof(int));
+  retval->length = arr1->length + arr2->length;
+  memcpy(retval->arr + arr1->length, arr2->arr, arr2->length * sizeof(int));
+  free(arr1);
+  didtor(arr2);
+  return retval;
 }
 
 void disort(DYNINT* di) {

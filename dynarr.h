@@ -23,9 +23,11 @@ void dadtorcfr(DYNARR* da, void (*freep)(void*));
 
 DYNINT* dinctor(int initiallen);
 void dipush(DYNINT* di, int i);
+int dipop(DYNINT* di);
 void didtor(DYNINT* di);
 void disort(DYNINT* di);
 void didup(DYNINT* di);
+DYNINT* dimerge(DYNINT* arr1, DYNINT* arr2);
 
 void dainsert(DYNARR* da, void* val);
 void dainsertc(DYNARR* da, void* val);

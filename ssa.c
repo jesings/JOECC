@@ -1196,6 +1196,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   } else {
     blk->antileader_out = htctor();
   }
+  HASHTABLE* antiin_users = htctor(); //ht of dynarrs of expressions which would be killed by a kill of the value number
   blk->antileader_in = fhtcclone(blk->antileader_out, (void*(*)(void*)) genx);
   if(blk->exp_gen) {
     DYNARR* expairs = htfpairs(blk->exp_gen);
@@ -1213,13 +1214,28 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
           continue;
         OPS_3_3ac
           n3 = bigsearch(eq->ophash, (char*) exs, sizeof(VALUESTRUCT));
-          if(!fixedqueryval(blk->antileader_in, n3->index))
+          if(!fixedqueryval(blk->antileader_in, n3->index)) {
             fixedinsert(blk->antileader_in, n3->index, genx(exs));
+
+            if(!fixedqueryval(antiin_users, exs->p1)) {
+              fixedinsert(antiin_users, exs->p1, dinctor(4));
+            }
+            dipush(fixedsearch(antiin_users, exs->p1), n3->index);
+            if(!fixedqueryval(antiin_users, exs->p2)) {
+              fixedinsert(antiin_users, exs->p2, dinctor(4));
+            }
+            dipush(fixedsearch(antiin_users, exs->p2), n3->index);
+          }
           break;
         OPS_2_3ac_MUT
           n3 = bigsearch(eq->ophash, (char*) exs, sizeof(VALUESTRUCT));
-          if(!fixedqueryval(blk->antileader_in, n3->index))
+          if(!fixedqueryval(blk->antileader_in, n3->index)) {
             fixedinsert(blk->antileader_in, n3->index, genx(exs));
+            if(!fixedqueryval(antiin_users, exs->p1)) {
+              fixedinsert(antiin_users, exs->p1, dinctor(4));
+            }
+            dipush(fixedsearch(antiin_users, exs->p1), n3->index);
+          }
           break;
         OPS_1_ASSIGN_3ac case ADDR_3:
             a.regnum = exs->p1;
@@ -1232,23 +1248,36 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
     dadtor(expairs);
   }
   if(blk->tmp_gen) {
+    DYNINT* rmstack = dinctor(8);
     for(int i = 0; i < blk->tmp_gen->length; i++) {
       ADDRESS a;
       a.regnum = blk->tmp_gen->arr[i];
       GVNNUM* g = nodefromaddr(eq, 0, a, prog);
-      //this absolutely removes too much, we should see if the use of that equivalence class is anticipable in other forms
+
       if(fixedqueryval(blk->leader, g->index)) {
         long ex2rm = (long) fixedsearch(blk->leader, g->index);
         if(a.regnum == ex2rm) {
-          void* fr = frmpair(blk->antileader_in, g->index);
-          if(fr) free(fr);
+          dipush(rmstack, g->index);
+          while(rmstack->length > 0) {
+            int removalind = dipop(rmstack);
+            void* fr = frmpair(blk->antileader_in, removalind);
+            if(fr) {
+              free(fr);
+              DYNINT* tokill = frmpair(antiin_users, removalind);
+              if(tokill) {
+                rmstack = dimerge(rmstack, tokill);
+              }
+            }
+          }
         }
       }
     }
+    didtor(rmstack);
   }
   char changed = !(fhtequal(blk->antileader_out, oldanticout) && fhtequal(blk->antileader_in, oldanticin));
   if(oldanticin) fhtdtorcfr(oldanticin, free);
   if(oldanticout) fhtdtorcfr(oldanticout, free);
+  fhtdtorcfr(antiin_users, (void(*)(void*)) didtor);
   for(int i = 0; i < blk->pidominates->length; i++)
     changed |= antics(daget(blk->pidominates, i), prog, eq);
   return changed;
