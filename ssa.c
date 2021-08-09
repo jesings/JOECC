@@ -941,12 +941,6 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
               }
             }
           }
-          if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
-            exst.p1 = op->dest.regnum;
-            chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
-            if(chosenval && !fixedqueryval(blk->leader, chosenval->index))
-              dipush(blk->tmp_gen, chosenval->index);
-          }
           if(status == 2) {
             GVNNUM* n0 = nodefromaddr(eqcontainer, op->addr0_type & ~ISVAR, op->addr0, prog);
             GVNNUM* n1 = nodefromaddr(eqcontainer, op->addr1_type & ~ISVAR, op->addr1, prog);
@@ -959,6 +953,10 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
             //assert(chosenval);
             if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
               fixedinsert(blk->exp_gen, chosenval->index, genx(&refex));
+            }
+          } else {
+            if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
+              dipush(blk->tmp_gen, op->dest.regnum);
             }
           }
           break;
@@ -977,12 +975,6 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
               }
             }
           }
-          if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
-            exst.p1 = op->dest.regnum;
-            chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
-            if(chosenval && !fixedqueryval(blk->leader, chosenval->index))
-              dipush(blk->tmp_gen, chosenval->index);
-          }
           if(status == 1) {
             GVNNUM* n0 = nodefromaddr(eqcontainer, op->addr0_type & ~ISVAR, op->addr0, prog);
             if(!n0) break;
@@ -991,26 +983,25 @@ static void gensall(PROGRAM* prog, EQONTAINER* eqcontainer, BBLOCK* blk) {
             if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
               fixedinsert(blk->exp_gen, chosenval->index, genx(&refex));
             }
-          }
-          break;
-          __attribute__((fallthrough));
-        case PHI: case CALL_3: case ADDR_3:
-          if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
-            if(!(op->addr0_type & ISCONST)) {
-              exst.p1 = op->dest.regnum;
-              chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
-              if(chosenval && !fixedqueryval(blk->leader, chosenval->index)) {
-                dipush(blk->tmp_gen, chosenval->index);
-              }
+          } else {
+            if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
+              dipush(blk->tmp_gen, op->dest.regnum);
             }
           }
           break;
+          __attribute__((fallthrough));
+        case PHI: case CALL_3:
+          //we always treat these as black boxes
+          if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
+            dipush(blk->tmp_gen, op->dest.regnum);
+          }
+          break;
+        case ADDR_3:
+          //kill of ADDR_3 only caused by kill of value it's taking the address of
+          break;
         OPS_1_ASSIGN_3ac
           assert(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)));
-          exst.p1 = op->addr0.regnum;
-          chosenval = bigsearch(eqcontainer->ophash, (char*) &exst, sizeof(VALUESTRUCT));
-          if(chosenval && !fixedqueryval(blk->leader, chosenval->index))
-            dipush(blk->tmp_gen, chosenval->index);
+          dipush(blk->tmp_gen, op->addr0.regnum);
           break;
         OPS_NODEST_3ac OPS_3_PTRDEST_3ac
           if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
@@ -1264,9 +1255,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
             if(fr) {
               free(fr);
               DYNINT* tokill = frmpair(antiin_users, removalind);
-              if(tokill) {
-                rmstack = dimerge(rmstack, tokill);
-              }
+              if(tokill) rmstack = dimerge(rmstack, tokill);
             }
           }
         }

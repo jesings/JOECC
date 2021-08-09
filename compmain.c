@@ -103,9 +103,11 @@ static void filecomp(char* filename) {
       blockunblock(prog);//remove unnecessary edges
       rmunreach(prog);//maybe?
       collatealloc(prog);
+      remove_nops(prog);
       DEBUG(printf("Ops before SSA %d\n", countops(prog)));
       DEBUG(treeprog(prog, pairthere->key, "pressa"));
       ssa(prog);
+      remove_nops(prog);
       DEBUG(printf("Ops after SSA %d\n", countops(prog)));
       DEBUG(treeprog(prog, pairthere->key, "justssa"));
       constfold(prog);
@@ -114,7 +116,7 @@ static void filecomp(char* filename) {
       annotateuse(prog);
       //killreg(prog);
       DEBUG(printf("Ops after GVN %d\n", countops(prog)));
-      //DEBUG(treeprog(prog, pairthere->key, "withgvn"));
+      DEBUG(treeprog(prog, pairthere->key, "withgvn"));
       ldstrsep(prog);
       DEBUG(printf("Ops after ldstrsep %d\n", countops(prog)));
       DEBUG(treeprog(prog, pairthere->key, "ldstrsep"));
