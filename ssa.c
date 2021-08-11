@@ -1361,196 +1361,154 @@ static void recdomins(BBLOCK* blk, long key, void* value) {
 static char hoist(PROGRAM* prog, EQONTAINER* eq) {
   char changed = 0;
   DYNARR* stubbornblocks = dactor(8);
+  printeq(eq, prog);
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     if(blk->inedges->length > 1) {
-      //consider hoisting
-      if(blk->lastop) {
-        OPERATION* op = blk->firstop;
-        while(1) {
-          GVNNUM* n1, * n2, * n3;
-          VALUESTRUCT* antil = NULL;
-          switch(op->opcode) {
-            case ASM:
-              assert(0);
-            OPS_NOVAR_3ac OPS_3_PTRDEST_3ac OPS_1_ASSIGN_3ac case MOV_3:
-            OPS_NODEST_3ac OPS_1_3ac case CALL_3: case PHI:
-            case DEALOC:
-              goto hoistcont;
-            OPS_3_3ac
-              if((op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL)) ||
-                 (op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL)) ||
-                 (op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) goto hoistcont;
-                 //perhaps unnecessary to check for dest
-              n1 = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
-              n2 = nodefromaddr(eq, op->addr1_type, op->addr1, prog);
-              if(!(n1 && n2)) goto hoistcont;
-              VALUESTRUCT oex3 = {op->opcode, n1->index, n2->index};
-              n3 = bigsearch(eq->ophash, (char*) &oex3, sizeof(VALUESTRUCT));
-              if(!n3) goto hoistcont;//would have liked to have just held as an invariant that it exists, something's off
-              antil = fixedsearch(blk->antileader_in, n3->index);
-              break;
-            OPS_2_3ac_MUT
-              if((op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL)) ||
-                 (op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) goto hoistcont;
-              n1 = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
-              if(!n1) goto hoistcont;
-              VALUESTRUCT oex2 = {op->opcode, n1->index, 0};
-              n3 = bigsearch(eq->ophash, (char*) &oex2, sizeof(VALUESTRUCT));
-              if(!n3) goto hoistcont;//would have liked to have just held as an invariant that it exists, something's off
-              antil = fixedsearch(blk->antileader_in, n3->index);
-              break;
-            case ADDR_3:
-              if(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL)) goto hoistcont;
-              n3 = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
-              if(!n3) goto hoistcont;
-              antil = fixedsearch(blk->antileader_in, n3->index);
-              break;
-          }
-
-          if(antil) {
-            if(antil->o == INIT_3) goto hoistcont;
-            for(int j = 0; j < blk->inedges->length; j++) {
-              BBLOCK* oblk = daget(blk->inedges, j);
-              if(oblk->leader && fixedqueryval(oblk->leader, n3->index)) {
+      DYNARR* antilead = htpairs(blk->antileader_in);
+      for(int antiind = 0; antiind < antilead->length; antiind++) {
+        HASHPAIR* antipair = daget(antilead, antiind);
+        VALUESTRUCT* antil = antipair->value;
+        if(antil->o == INIT_3) goto hoistcont;
+        for(int j = 0; j < blk->inedges->length; j++) {
+            BBLOCK* oblk = daget(blk->inedges, j);
+            if(oblk->leader && fixedqueryval(oblk->leader, antipair->fixedkey)) {
                 dapush(stubbornblocks, oblk);
-              }
             }
-            if(stubbornblocks->length > 0 && stubbornblocks->length < blk->inedges->length) {
-              int stubbornindex = 0;
-              ADDRESS joins;
-              joins.joins = malloc(blk->inedges->length * sizeof(FULLADDR));
-              OPERATION* phi = ct_3ac_op2(PHI, ISCONST, joins, op->dest_type, op->dest);
-              for(int j = 0; j < blk->inedges->length; j++) {
-                BBLOCK* oblk = daget(blk->inedges, j);
-                if(oblk == daget(stubbornblocks, stubbornindex)) {
-                  int stubbornval = (int) (long) fixedsearch(oblk->leader, n3->index);
-                  FULLADDR join;
-                  join.addr_type = 8 | (op->dest_type & ISFLOAT);
-                  join.addr.regnum = stubbornval;
-                  joins.joins[j] = join;
-                  stubbornindex += 1;
-                } else {
-                  VALUESTRUCT actionable = *antil;
-                  ADDRESS provisional;
-                  OPERATION* genop = malloc(sizeof(OPERATION));
-                  int leadreg;
-                  GVNNUM* constclass;
-                  genop->opcode = actionable.o;
-                  genop->dest_type = op->dest_type & GENREGMASK;
-                  genop->dest.regnum = prog->regcnt++;
-                  switch(actionable.o) {
-                      default:
-                        assert(0);
-                      case INIT_3:
-                        free(genop);
-                        joins.joins[j].addr_type = op->dest_type;
-                        joins.joins[j].addr.regnum = actionable.p1;
-                        continue;
-                      OPS_3_3ac
-                        if((constclass = daget(eq->nodes, actionable.p2))->hasconst != NOCONST) {
-                          genop->addr1.intconst_64 = constclass->intconst;
-                          if(constclass->hasconst == INTCONST) {
-                            genop->addr1_type = genop->dest_type | ISCONST;
-                          } else if(constclass->hasconst == FLOATCONST) {
-                            genop->addr1_type = genop->dest_type | ISCONST | ISFLOAT; //float should be assumed
-                          } else if(constclass->hasconst == STRCONST) {
-                            genop->addr1_type = genop->dest_type | ISSTRCONST | ISCONST;
-                          } else {
-                            assert(0);
-                          }
-                        } else {
-                          provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, op->addr1.regnum) : 0;
-                          if(provisional.regnum) actionable.p2 = nodefromaddr(eq, op->addr1_type &~ISVAR, provisional, prog)->index;
-                          int equivind = 0;
-                          DYNARR* equivlist = ((GVNNUM*) daget(eq->nodes, actionable.p2))->equivs;
-                          while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p2))) {
-                            VALUESTRUCT* vs;
-                            do {
-                              if(equivind >= equivlist->length) assert(0);
-                              vs = daget(equivlist, equivind++);
-                            } while(vs->o != INIT_3);
-                            provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, vs->p1) : 0;
-                            if(provisional.regnum) actionable.p2 = nodefromaddr(eq, op->addr1_type &~ISVAR, provisional, prog)->index;
-                          }
-                          genop->addr1_type = genop->dest_type;
-                          genop->addr1.regnum = leadreg;
-                        }
-                        __attribute__((fallthrough));
-                      OPS_2_3ac
-                        if((constclass = daget(eq->nodes, actionable.p1))->hasconst != NOCONST) {
-                          genop->addr0.intconst_64 = constclass->intconst;
-                          if(constclass->hasconst == INTCONST) {
-                            genop->addr0_type = genop->dest_type | ISCONST;
-                          } else if(constclass->hasconst == FLOATCONST) {
-                            genop->addr0_type = genop->dest_type | ISCONST | ISFLOAT; //float should be assumed
-                          } else if(constclass->hasconst == STRCONST) {
-                            genop->addr0_type = genop->dest_type | ISSTRCONST | ISCONST;
-                          } else {
-                            assert(0);
-                          }
-                        } else {
-                          provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, op->addr0.regnum) : 0;
-                          if(provisional.regnum) actionable.p1 = nodefromaddr(eq, op->addr0_type &~ISVAR, provisional, prog)->index;
-                          int equivind = 0;
-                          DYNARR* equivlist = ((GVNNUM*) daget(eq->nodes, actionable.p1))->equivs;
-                          while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p1))) {
-                            VALUESTRUCT* vs;
-                            do {
-                              if(equivind >= equivlist->length) assert(0);
-                              vs = daget(equivlist, equivind++);
-                            } while(vs->o != INIT_3);
-                            provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, vs->p1) : 0;
-                            if(provisional.regnum) actionable.p1 = nodefromaddr(eq, op->addr0_type &~ISVAR, provisional, prog)->index;
-                          }
-                          genop->addr0_type = genop->dest_type;
-                          genop->addr0.regnum = leadreg;
-                        }
-                        break;
-                  }
-
-                  if(oblk->lastop) {
-                    oblk->lastop = oblk->lastop->nextop = genop;
-                  } else {
-                    oblk->firstop = oblk->lastop = genop;
-                  }
-
-                  //now update antileader and stuff?
-                  GVNNUM* destlead = nodefromaddr(eq, genop->dest_type, genop->dest, prog);
-                  if(destlead->hasconst == NOCONST) {
-                    if(!fixedsearch(oblk->leader, destlead->index)) {
-                      recdomins(oblk, destlead->index, (void*) (long) genop->dest.regnum);
-                      if(!oblk->translator) oblk->translator = htctor();
-                      if(!oblk->revtranslator) oblk->revtranslator = htctor();
-                      fixedinsert(oblk->revtranslator, phi->dest.regnum, (void*) (long) genop->dest.regnum);
-                      fixedinsert(oblk->translator, genop->dest.regnum, (void*) (long) phi->dest.regnum);
+        }
+        if(stubbornblocks->length > 0 && stubbornblocks->length < blk->inedges->length) {
+          int stubbornindex = 0;
+          ADDRESS joins;
+          joins.joins = malloc(blk->inedges->length * sizeof(FULLADDR));
+          OPERATION* phi = ct_3ac_op2(PHI, ISCONST, joins, op->dest_type, op->dest);
+          for(int j = 0; j < blk->inedges->length; j++) {
+            BBLOCK* oblk = daget(blk->inedges, j);
+            if(oblk == daget(stubbornblocks, stubbornindex)) {
+              int stubbornval = (int) (long) fixedsearch(oblk->leader, n3->index);
+              FULLADDR join;
+              join.addr_type = 8 | (op->dest_type & ISFLOAT);
+              join.addr.regnum = stubbornval;
+              joins.joins[j] = join;
+              stubbornindex += 1;
+            } else {
+              VALUESTRUCT actionable = *antil;
+              ADDRESS provisional;
+              OPERATION* genop = malloc(sizeof(OPERATION));
+              int leadreg;
+              GVNNUM* constclass;
+              genop->opcode = actionable.o;
+              genop->dest_type = op->dest_type & GENREGMASK;
+              genop->dest.regnum = prog->regcnt++;
+              switch(actionable.o) {
+                default:
+                  assert(0);
+                case INIT_3:
+                  free(genop);
+                  joins.joins[j].addr_type = op->dest_type;
+                  joins.joins[j].addr.regnum = actionable.p1;
+                  continue;
+                OPS_3_3ac
+                  if((constclass = daget(eq->nodes, actionable.p2))->hasconst != NOCONST) {
+                    genop->addr1.intconst_64 = constclass->intconst;
+                    if(constclass->hasconst == INTCONST) {
+                      genop->addr1_type = genop->dest_type | ISCONST;
+                    } else if(constclass->hasconst == FLOATCONST) {
+                      genop->addr1_type = genop->dest_type | ISCONST | ISFLOAT; //float should be assumed
+                    } else if(constclass->hasconst == STRCONST) {
+                      genop->addr1_type = genop->dest_type | ISSTRCONST | ISCONST;
                     } else {
                       assert(0);
                     }
+                  } else {
+                    provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, op->addr1.regnum) : 0;
+                    if(provisional.regnum) actionable.p2 = nodefromaddr(eq, op->addr1_type &~ISVAR, provisional, prog)->index;
+                    int equivind = 0;
+                    DYNARR* equivlist = ((GVNNUM*) daget(eq->nodes, actionable.p2))->equivs;
+                    while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p2))) {
+                      VALUESTRUCT* vs;
+                      do {
+                        if(equivind >= equivlist->length) assert(0);
+                        vs = daget(equivlist, equivind++);
+                      } while(vs->o != INIT_3);
+                      provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, vs->p1) : 0;
+                      if(provisional.regnum) actionable.p2 = nodefromaddr(eq, op->addr1_type &~ISVAR, provisional, prog)->index;
+                    }
+                    genop->addr1_type = genop->dest_type;
+                    genop->addr1.regnum = leadreg;
                   }
+                __attribute__((fallthrough));
+                OPS_2_3ac
+                  if((constclass = daget(eq->nodes, actionable.p1))->hasconst != NOCONST) {
+                    genop->addr0.intconst_64 = constclass->intconst;
+                    if(constclass->hasconst == INTCONST) {
+                      genop->addr0_type = genop->dest_type | ISCONST;
+                    } else if(constclass->hasconst == FLOATCONST) {
+                      genop->addr0_type = genop->dest_type | ISCONST | ISFLOAT; //float should be assumed
+                    } else if(constclass->hasconst == STRCONST) {
+                      genop->addr0_type = genop->dest_type | ISSTRCONST | ISCONST;
+                    } else {
+                      assert(0);
+                    }
+                  } else {
+                    provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, op->addr0.regnum) : 0;
+                    if(provisional.regnum) actionable.p1 = nodefromaddr(eq, op->addr0_type &~ISVAR, provisional, prog)->index;
+                    int equivind = 0;
+                    DYNARR* equivlist = ((GVNNUM*) daget(eq->nodes, actionable.p1))->equivs;
+                    while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p1))) {
+                      VALUESTRUCT* vs;
+                      do {
+                        if(equivind >= equivlist->length) assert(0);
+                        vs = daget(equivlist, equivind++);
+                      } while(vs->o != INIT_3);
+                      provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, vs->p1) : 0;
+                      if(provisional.regnum) actionable.p1 = nodefromaddr(eq, op->addr0_type &~ISVAR, provisional, prog)->index;
+                    }
+                    genop->addr0_type = genop->dest_type;
+                    genop->addr0.regnum = leadreg;
+                  }
+                  break;
+              }
 
-                  //insert calculation of value here in predecessor block
-                  FULLADDR join = {genop->dest_type, genop->dest};
-                  joins.joins[j] = join;
+              if(oblk->lastop) {
+                oblk->lastop = oblk->lastop->nextop = genop;
+              } else {
+                oblk->firstop = oblk->lastop = genop;
+              }
+
+              GVNNUM* destlead = nodefromaddr(eq, genop->dest_type, genop->dest, prog);
+              if(destlead->hasconst == NOCONST) {
+                if(!fixedsearch(oblk->leader, destlead->index)) {
+                  recdomins(oblk, destlead->index, (void*) (long) genop->dest.regnum);
+                  if(!oblk->translator) oblk->translator = htctor();
+                  if(!oblk->revtranslator) oblk->revtranslator = htctor();
+                  fixedinsert(oblk->revtranslator, phi->dest.regnum, (void*) (long) genop->dest.regnum);
+                  fixedinsert(oblk->translator, genop->dest.regnum, (void*) (long) phi->dest.regnum);
+                } else {
+                  assert(0);
                 }
               }
-              //insert phi at top of block
-              if(blk->lastop) {
-                phi->nextop = blk->firstop;
-                blk->firstop = phi;
-              } else {
-                blk->firstop = blk->lastop = phi;
-              }
 
-              //remove previous computation
-              op->opcode = NOP_3;
+              //insert calculation of value here in predecessor block
+              FULLADDR join = {genop->dest_type, genop->dest};
+              joins.joins[j] = join;
             }
-            stubbornblocks->length = 0;
           }
-hoistcont:
-          if(op == blk->lastop) break;
-            op = op->nextop;
+          //insert phi at top of block
+          if(blk->lastop) {
+            phi->nextop = blk->firstop;
+            blk->firstop = phi;
+          } else {
+            blk->firstop = blk->lastop = phi;
+          }
+
+          //remove previous computation
+          op->opcode = NOP_3;
         }
+        stubbornblocks->length = 0;
+
+hoistcont:
+        if(op == blk->lastop) break;
+          op = op->nextop;
       }
     }
   }
