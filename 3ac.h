@@ -154,10 +154,7 @@ typedef struct {
   DYNARR* dynchars;
   HASHTABLE* labels;
   HASHTABLE* unfilledlabels;
-  union {
-    BBLOCK* curblock;
-    DYNARR* closedblocks;
-  };
+  BBLOCK* curblock;
   BBLOCK* finalblock;
   int* tmpstore;
   enum passes pdone;
@@ -326,7 +323,7 @@ static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
 }
 #define RGBCOLOR(R, G, B) "\033[38;2;" #R ";" #G ";" #B "m"
 #define CLEARCOLOR "\033[39;49m"
-#define GENREGMASK ~(ISCONST | ISLABEL | ISDEREF | ISVAR)
+#define GENREGMASK (0xf | ISFLOAT | ISSIGNED | ISSTRCONST | ISPOINTER)
 #define DEGENERIC(operation, opt) \
     if((operation)->opcode == GENERIC_U) (operation)->opcode = opt ## _U; \
     else if((operation)->opcode == GENERIC_I) (operation)->opcode = opt ## _U; /*for generic'ed, signed and unsigned are the same*/\

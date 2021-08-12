@@ -11,7 +11,7 @@ typedef struct {
   };
   enum {NOCONST, INTCONST, FLOATCONST, STRCONST} hasconst;
   int index;
-  int regno; //-1 if no regno
+  ADDRTYPE commontype;
 } GVNNUM;
 
 typedef struct {
