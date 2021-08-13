@@ -552,19 +552,21 @@ static GVNNUM* nodefromaddr(EQONTAINER* eqcontainer, ADDRTYPE adt, ADDRESS adr, 
 
 //replace operation via gvn
 static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op) {
-  BITFIELD bf = bfalloc(8);
+  HASHTABLE* leader = blk->leader;
   GVNNUM* val;
   switch(op->opcode) {
     OPS_3_3ac_NOCOM OPS_3_3ac_COM
       val = nodefromaddr(eq, op->dest_type, op->dest, prog);
       if(val) {
-        if(val->hasconst != NOCONST || bfget(bf, val->index)) {
+        if(val->hasconst != NOCONST) {
+          op->opcode = NOP_3;
+          break;
+        }
+        if(op->dest.regnum != (long) fixedsearch(leader, val->index)) {
           op->opcode = NOP_3;
           break;
         } else {
-          bfset(bf, val->index);
-          //val->regno = op->dest.regnum;
-          op->dest.gvnind = val->index;
+          //resize based on commontype?
         }
       }
       __attribute__((fallthrough));
@@ -572,15 +574,10 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
       val = nodefromaddr(eq, op->addr1_type, op->addr1, prog);
       if(val) {
         if(val->hasconst != NOCONST) {
-          op->addr1_type &= 0xf | ISSIGNED;
-          op->addr1_type |= ISCONST;
-          if(val->hasconst == STRCONST) op->addr1_type |= ISSTRCONST;
-          else if(val->hasconst == FLOATCONST) op->addr1_type |= ISFLOAT;
+          op->addr1_type = (op->addr1_type & 0xf) | (val->commontype & ~0xf) | ISCONST;
           op->addr1.intconst_64 = val->intconst; //could be anything
         } else {
-          assert(bfget(bf, val->index));
-          //op->addr1.regnum = val->regno;
-          op->addr1.gvnind = val->index;
+          op->addr1.regnum = (long) fixedsearch(leader, val->index);
         }
       }
       __attribute__((fallthrough));
@@ -589,119 +586,83 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
       val = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
       if(val) {
         if(val->hasconst != NOCONST) {
-          op->addr0_type &= 0xf | ISSIGNED;
-          op->addr0_type |= ISCONST;
-          if(val->hasconst == STRCONST) op->addr0_type |= ISSTRCONST;
-          else if(val->hasconst == FLOATCONST) op->addr0_type |= ISFLOAT;
+          op->addr0_type = (op->addr0_type & 0xf) | (val->commontype & ~0xf) | ISCONST;
           op->addr0.intconst_64 = val->intconst; //could be anything
         } else {
-          assert(bfget(bf, val->index));
-          //op->addr0.regnum = val->regno;
-          op->addr0.gvnind = val->index;
+          op->addr0.regnum = (long) fixedsearch(leader, val->index);
         }
       }
       break;
     case DEALOC:
-      {
-      VALUESTRUCT ex2 = {op->opcode, op->addr0.ssaind, 0};
-      val = bigsearch(eq->ophash, (char*) &ex2, sizeof(VALUESTRUCT));
-      if(val) {
-        if(bfget(bf, val->index)) {
-          op->opcode = NOP_3;
-        } else {
-          bfset(bf, val->index);
-        }
-      }
-      }
+      //don't really know how to handle this well
       break;
 
     OPS_2_3ac_MUT case MOV_3: case ADDR_3:
       val = nodefromaddr(eq, op->dest_type, op->dest, prog);
       if(val) {
-        if(val->hasconst != NOCONST || bfget(bf, val->index)) {
+        if(val->hasconst != NOCONST) {
+          op->opcode = NOP_3;
+          break;
+        }
+        if(op->dest.regnum != (long) fixedsearch(leader, val->index)) {
           op->opcode = NOP_3;
           break;
         } else {
-          bfset(bf, val->index);
-          //val->regno = op->dest.regnum;
-          op->dest.gvnind = val->index;
+          //resize based on commontype?
         }
       }
       val = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
       if(val) {
         if(val->hasconst != NOCONST) {
-          op->addr0_type &= 0xf | ISSIGNED;
-          op->addr0_type |= ISCONST;
-          if(val->hasconst == STRCONST) op->addr0_type |= ISSTRCONST;
-          else if(val->hasconst == FLOATCONST) op->addr0_type |= ISFLOAT;
+          op->addr0_type = (op->addr0_type & 0xf) | (val->commontype & ~0xf) | ISCONST;
           op->addr0.intconst_64 = val->intconst; //could be anything
         } else {
-          assert(bfget(bf, val->index));
-          //op->addr0.regnum = val->regno;
-          op->addr0.gvnind = val->index;
+          op->addr0.regnum = (long) fixedsearch(leader, val->index);
         }
       }
       break;
     case CALL_3:
       val = nodefromaddr(eq, op->dest_type, op->dest, prog);
       if(val) {
-        if(val->hasconst != NOCONST || bfget(bf, val->index)) {
-          op->opcode = NOP_3;
-          fprintf(stderr, "Somehow function output is part of an equivalence class\n");
+        if(val->hasconst != NOCONST) {
           assert(0);
-        } else {
-          bfset(bf, val->index);
-          //val->regno = op->dest.regnum;
-          op->dest.gvnind = val->index;
+        }
+        if(op->dest.regnum != (long) fixedsearch(leader, val->index)) {
+          assert(0);
         }
       }
-      break;
-    case PHI:  ;
-      FULLADDR* addrs = op->addr0.joins;
-      void* valcheck = NULL;
-      VALUESTRUCT est = {INIT_3, 0, 0};
-      for(int k = 0; k < blk->inedges->length; k++) {
-        est.p1 = addrs[k].addr.regnum;
-        val = bigsearch(eq->ophash, (char*) &est, sizeof(VALUESTRUCT));
-        if(val) {
-          if(!valcheck) valcheck = val;
-          else if(valcheck != val) valcheck = (void*) -1;
-          if(val->hasconst != NOCONST) {
-            addrs[k].addr_type &= 0xf | ISSIGNED;
-            addrs[k].addr_type |= ISCONST;
-            if(val->hasconst == STRCONST) addrs[k].addr_type |= ISSTRCONST;
-            else if(val->hasconst == FLOATCONST) addrs[k].addr_type |= ISFLOAT;
-            addrs[k].addr.intconst_64 = val->intconst; //could be anything
-          } else {
-            if(bfget(bf, val->index)) { //cannot assert here
-              //addrs[k].addr.regnum = val->regno;
-              addrs[k].addr.gvnind = val->index;
-            }
-          }
-        } else {
-          valcheck = (void*) -1;
-        }
-      }
-      if(valcheck != (void*) -1) {
-        op->opcode = NOP_3;
-        free(op->addr0.joins);
-      }
-      val = nodefromaddr(eq, op->dest_type, op->dest, prog);
-      assert(val->hasconst == NOCONST);
-      assert(!bfget(bf, val->index));
-      bfset(bf, val->index);
-      //val->regno = op->dest.regnum;
-      op->dest.gvnind = val->index;
       break;
     OPS_1_ASSIGN_3ac
       val = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
       if(val) {
-        if(val->hasconst != NOCONST || bfget(bf, val->index)) {
-          op->opcode = NOP_3;
-        } else {
-          bfset(bf, val->index);
-          //val->regno = op->addr0.regnum;
-          op->addr0.gvnind = val->index;
+        if(val->hasconst != NOCONST) {
+          assert(0);
+        }
+        if(op->addr0.regnum != (long) fixedsearch(leader, val->index)) {
+          assert(0);
+        }
+      }
+      break;
+    case PHI: 
+      for(int k = 0; k < blk->inedges->length; k++) {
+        FULLADDR* fadrs = op->addr0.joins;
+        val = nodefromaddr(eq, fadrs[k].addr_type, fadrs[k].addr, prog);
+        if(val) {
+          if(val->hasconst != NOCONST) {
+            fadrs[k].addr_type = (fadrs[k].addr_type & 0xf) | (val->commontype & ~0xf) | ISCONST;
+            fadrs[k].addr.intconst_64 = val->intconst; //could be anything
+          } else {
+            fadrs[k].addr.regnum = (long) fixedsearch(leader, val->index);
+          }
+        }
+      }
+      val = nodefromaddr(eq, op->dest_type, op->dest, prog);
+      if(val) {
+        if(val->hasconst != NOCONST) {
+          assert(0);
+        }
+        if(op->dest.regnum != (long) fixedsearch(leader, val->index)) {
+          assert(0);
         }
       }
       break;
@@ -712,18 +673,16 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
   }
 }
 
-static void replacenode(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog) {
-  if(blk->lastop) {
-    OPERATION* op = blk->firstop;
-    while(1) {
-      replaceop(blk, eq, prog, op);
-      if(op == blk->lastop) break;
-      op = op->nextop;
-    }
-  }
-  if(blk->idominates) {
-    for(int i = 0; i < blk->idominates->length; i++) {
-      replacenode(daget(blk->idominates, i), eq, prog);
+static void replacegvn(EQONTAINER* eq, PROGRAM* prog) {
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    if(blk->lastop) {
+      OPERATION* op = blk->firstop;
+      while(1) {
+        replaceop(blk, eq, prog, op);
+        if(op == blk->lastop) break;
+        op = op->nextop;
+      }
     }
   }
 }
@@ -1511,15 +1470,14 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
 
               GVNNUM* destlead = nodefromaddr(eq, genop->dest_type, genop->dest, prog);
               if(destlead->hasconst == NOCONST) {
-                if(!fixedsearch(oblk->leader, destlead->index)) {
-                  recdomins(oblk, destlead->index, (void*) (long) genop->dest.regnum);
-                  if(!oblk->translator) oblk->translator = htctor();
-                  if(!oblk->revtranslator) oblk->revtranslator = htctor();
-                  fixedinsert(oblk->revtranslator, phi->dest.regnum, (void*) (long) genop->dest.regnum);
-                  fixedinsert(oblk->translator, genop->dest.regnum, (void*) (long) phi->dest.regnum);
-                } else {
+                if(fixedqueryval(oblk->leader, destlead->index))
                   assert(0);
-                }
+
+                recdomins(oblk, destlead->index, (void*) (long) genop->dest.regnum);
+                if(!oblk->translator) oblk->translator = htctor();
+                if(!oblk->revtranslator) oblk->revtranslator = htctor();
+                fixedinsert(oblk->revtranslator, phi->dest.regnum, (void*) (long) genop->dest.regnum);
+                fixedinsert(oblk->translator, genop->dest.regnum, (void*) (long) phi->dest.regnum);
               }
 
               //insert calculation of value here in predecessor block
@@ -1534,7 +1492,12 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
           } else {
             blk->firstop = blk->lastop = phi;
           }
+          changed = 1;
+
+          recdomins(blk, antipair->fixedkey, (void*) (long) phi->dest.regnum);
+          frmpair(blk->antileader_in, antipair->fixedkey);
         }
+
         stubbornblocks->length = 0;
       }
       dadtor(antilead);
@@ -1555,7 +1518,9 @@ void gvn(PROGRAM* prog) {
   first->pidominates = dactor(0);
   while(antics(prog->finalblock, prog, eqcontainer)) ;
   //buildsets calculated
-  hoist(prog, eqcontainer);
+  while(hoist(prog, eqcontainer)) ;
+  printeq(eqcontainer, prog);
+  replacegvn(eqcontainer, prog);
   freeq(eqcontainer);
   prog->pdone |= GVN;
   return;
