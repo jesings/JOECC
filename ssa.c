@@ -624,23 +624,15 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
     case CALL_3:
       val = nodefromaddr(eq, op->dest_type, op->dest, prog);
       if(val) {
-        if(val->hasconst != NOCONST) {
-          assert(0);
-        }
-        if(op->dest.regnum != (long) fixedsearch(leader, val->index)) {
-          assert(0);
-        }
+        assert(val->hasconst == NOCONST);
+        assert(op->dest.regnum == (long) fixedsearch(leader, val->index));
       }
       break;
     OPS_1_ASSIGN_3ac
       val = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
       if(val) {
-        if(val->hasconst != NOCONST) {
-          assert(0);
-        }
-        if(op->addr0.regnum != (long) fixedsearch(leader, val->index)) {
-          assert(0);
-        }
+        assert(val->hasconst == NOCONST);
+        assert(op->addr0.regnum == (long) fixedsearch(leader, val->index));
       }
       break;
     case PHI: 
@@ -658,12 +650,8 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
       }
       val = nodefromaddr(eq, op->dest_type, op->dest, prog);
       if(val) {
-        if(val->hasconst != NOCONST) {
-          assert(0);
-        }
-        if(op->dest.regnum != (long) fixedsearch(leader, val->index)) {
-          assert(0);
-        }
+        assert(val->hasconst == NOCONST);
+        assert(op->dest.regnum == (long) fixedsearch(leader, val->index));
       }
       break;
     OPS_NOVAR_3ac
@@ -1418,7 +1406,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                     while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p2))) {
                       VALUESTRUCT* vs;
                       do {
-                        if(equivind >= equivlist->length) assert(0);
+                        assert(equivind < equivlist->length);
                         vs = daget(equivlist, equivind++);
                       } while(vs->o != INIT_3);
                       provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, vs->p1) : 0;
@@ -1450,7 +1438,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                     while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p1))) {
                       VALUESTRUCT* vs;
                       do {
-                        if(equivind >= equivlist->length) assert(0);
+                        assert(equivind < equivlist->length);
                         vs = daget(equivlist, equivind++);
                       } while(vs->o != INIT_3);
                       provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, vs->p1) : 0;
@@ -1470,8 +1458,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
 
               GVNNUM* destlead = nodefromaddr(eq, genop->dest_type, genop->dest, prog);
               if(destlead->hasconst == NOCONST) {
-                if(fixedqueryval(oblk->leader, destlead->index))
-                  assert(0);
+                assert(!fixedqueryval(oblk->leader, destlead->index));
 
                 recdomins(oblk, destlead->index, (void*) (long) genop->dest.regnum);
                 if(!oblk->translator) oblk->translator = htctor();
@@ -1495,6 +1482,10 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
           changed = 1;
 
           recdomins(blk, antipair->fixedkey, (void*) (long) phi->dest.regnum);
+
+          bigfinsertfr(eq->ophash, (char*) ctvalstruct(INIT_3, phi->dest.regnum, 0), antilnode, sizeof(VALUESTRUCT));
+          dapush(antilnode->equivs, ctvalstruct(INIT_3, phi->dest.regnum, 0));
+
           frmpair(blk->antileader_in, antipair->fixedkey);
         }
 
@@ -1519,7 +1510,6 @@ void gvn(PROGRAM* prog) {
   while(antics(prog->finalblock, prog, eqcontainer)) ;
   //buildsets calculated
   while(hoist(prog, eqcontainer)) ;
-  printeq(eqcontainer, prog);
   replacegvn(eqcontainer, prog);
   freeq(eqcontainer);
   prog->pdone |= GVN;

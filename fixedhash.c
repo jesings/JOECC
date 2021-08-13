@@ -5,9 +5,10 @@ static unsigned long fixedhash(long data) {
   data = data ^ (data >> 31);
   return data % HASHSIZE;
 }
-void fixedinsert(HASHTABLE* ht, long fixedkey, void* value) {
+void* fixedinsert(HASHTABLE* ht, long fixedkey, void* value) {
   unsigned long i = fixedhash(fixedkey);
   HASHPAIR* hp = &(ht->pairs[i]);
+  void* oldval;
   if(!hp->next) {
     hp->fixedkey = fixedkey;
     hp->value = value;
@@ -15,13 +16,15 @@ void fixedinsert(HASHTABLE* ht, long fixedkey, void* value) {
   } else {
     for(; (unsigned long) hp->next > 1; hp = hp->next) {
       if(hp->fixedkey == fixedkey) {
+        oldval = hp->value;
         hp->value = value;
-        return;
+        return oldval;
       }
     }
     if(hp->next && hp->fixedkey == fixedkey) {
+      oldval = hp->value;
       hp->value = value;
-      return;
+      return oldval;
     }
     HASHPAIR* newpair = malloc(sizeof(HASHPAIR));
     newpair->fixedkey = fixedkey;
@@ -30,10 +33,17 @@ void fixedinsert(HASHTABLE* ht, long fixedkey, void* value) {
     hp->next = newpair;
   }
   ++ht->keys;
+  return NULL;
 }
-void fixedinsertint(HASHTABLE* ht, long fixedkey, long value) {
+void* fixedinsertint(HASHTABLE* ht, long fixedkey, long value) {
   return fixedinsert(ht, fixedkey, (void*) value);
 }
+void fixedinsertfr(HASHTABLE* ht, long fixedkey, void* value) {
+  void* v = fixedinsert(ht, fixedkey, value);
+  if(v) free(v);
+}
+
+
 void* fixedsearch(HASHTABLE* ht, long fixedkey) {
   unsigned long i = fixedhash(fixedkey);
   HASHPAIR* hp = &(ht->pairs[i]);
