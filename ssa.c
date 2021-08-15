@@ -1361,7 +1361,8 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
           OPERATION* phi = ct_3ac_op2(PHI, ISCONST, joins, antilnode->commontype, reggie);
           for(int j = 0; j < blk->inedges->length; j++) {
             BBLOCK* oblk = daget(blk->inedges, j);
-            if(oblk == daget(stubbornblocks, stubbornindex++)) {
+            if(oblk == daget(stubbornblocks, stubbornindex)) {
+              stubbornindex++;
               int stubbornval = (int) (long) fixedsearch(oblk->leader, antilnode->index);
               FULLADDR join;
               join.addr_type = antilnode->commontype;
@@ -1486,7 +1487,8 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
           bigfinsertfr(eq->ophash, (char*) ctvalstruct(INIT_3, phi->dest.regnum, 0), antilnode, sizeof(VALUESTRUCT));
           dapush(antilnode->equivs, ctvalstruct(INIT_3, phi->dest.regnum, 0));
 
-          frmpair(blk->antileader_in, antipair->fixedkey);
+          void* prevval = frmpair(blk->antileader_in, antipair->fixedkey);
+          if(prevval) free(prevval);
         }
 
         stubbornblocks->length = 0;

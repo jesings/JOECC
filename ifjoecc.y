@@ -45,7 +45,7 @@
 fullifexpr:
   expression {
     while(foldconst($1)) ;
-    enum ifdefstate* rids;
+    enum ifdefstate* rids = NULL;
     switch($1->type) {
       case INT: case UINT:
         if(!$1->intconst) {
@@ -63,7 +63,8 @@ fullifexpr:
         fprintf(stderr, "ERROR: subsidiary parser reduced if or elif into non-rectifiable expression %s %d.%d-%d.%d\n", dlocprint(yyget_lloc(scanner)));
     }
     rfreexpr($1);
-    dapush(ctx->definestack, rids);
+    if(rids)
+      dapush(ctx->definestack, rids);
     };
 expression:
   est '?' expression ':' est {$$ = ct_ternary_expr($1, $3, $5);}

@@ -16,7 +16,7 @@ NOTE: JOECC is a work-in progress, and currently cannot fully compile code
 - [x] Constant Folding
 - [x] Global Value Numbering
 - [ ] Better Arithmetic Reassociation
-- [ ] GVN Based Partial redundancy elimination (in progress)
+- [x] GVN Based Partial redundancy elimination
 - [ ] Sparse Conditional Constant Propagation
 - [ ] Pointer Analysis
 - [ ] Scalar Replacement of Aggregates

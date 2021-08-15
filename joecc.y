@@ -165,7 +165,7 @@ initializer:
   DYNARR* da = NULL;
   if($2->tb & (STRUCTVAL | UNIONVAL)) {
     if(!$2->structtype->fields) {
-      HASHTABLE* ht;
+      HASHTABLE* ht = NULL;
       if($2->tb & STRUCTVAL) {
         ht = scopepeek(ctx)->forwardstructs;
       } else if($2->tb & UNIONVAL) {
@@ -173,8 +173,10 @@ initializer:
       } else {
         fprintf(stderr, "Error: forward declaration of unknown type %s at %s %d.%d-%d.%d\n", $2->structtype->name, locprint(@$));
       }
-      da = search(ht, $2->structtype->name);
-      if(da) dapop(da); //else opaque struct
+      if(ht) {
+        da = search(ht, $2->structtype->name);
+        if(da) dapop(da); //else opaque struct
+      }
     }
   }
   SCOPE* topscope = dapeek(ctx->scopes);
@@ -390,17 +392,19 @@ param_decl:
       if($1->structtype->fields) {
         $2->type->structtype = $1->structtype;
       } else {
-        HASHTABLE* ht;
+        HASHTABLE* ht = NULL;
         if($1->tb & STRUCTVAL) {
           ht = scopepeek(ctx)->forwardstructs;
         } else if($1->tb & UNIONVAL) {
           ht = scopepeek(ctx)->forwardunions;
         }
-        DYNARR* da = search(ht, $1->structtype->name);
-        if(da) {
-          dapop(da);
-          dapush(da, &($2->type->structtype));
-        } //else opaque struct
+        if(ht) {
+          DYNARR* da = search(ht, $1->structtype->name);
+          if(da) {
+            dapop(da);
+            dapush(da, &($2->type->structtype));
+          } //else opaque struct
+        }
       }
     }
     free($1);
@@ -799,17 +803,19 @@ function:
       if($1->structtype->fields) {
         $2->type->structtype = $1->structtype;
       } else {
-        HASHTABLE* ht;
+        HASHTABLE* ht = NULL;
         if($1->tb & STRUCTVAL) {
           ht = scopepeek(ctx)->forwardstructs;
         } else if($1->tb & UNIONVAL) {
           ht = scopepeek(ctx)->forwardunions;
         }
-        DYNARR* da = search(ht, $1->structtype->name);
-        if(da) {
-          dapop(da);
-          dapush(da, &($2->type->structtype));
-        } //else opaque struct
+        if(ht) {
+          DYNARR* da = search(ht, $1->structtype->name);
+          if(da) {
+            dapop(da);
+            dapush(da, &($2->type->structtype));
+          } //else opaque struct
+        }
       }
     }
     if(!dp->params) {
@@ -1030,7 +1036,7 @@ struct_decl:
     DYNARR* da = NULL;
     if($1->tb & (STRUCTVAL | UNIONVAL)) {
       if(!$1->structtype->fields) {
-        HASHTABLE* ht;
+        HASHTABLE* ht = NULL;
         if($1->tb & STRUCTVAL) {
           ht = scopepeek(ctx)->forwardstructs;
         } else if($1->tb & UNIONVAL) {
@@ -1038,8 +1044,10 @@ struct_decl:
         } else {
           fprintf(stderr, "Error: forward declaration of unknown type %s at %s %d.%d-%d.%d\n", $1->structtype->name, locprint(@$));
         }
-        da = search(ht, $1->structtype->name);
-        if(da) dapop(da); //else opaque struct
+        if(ht) {
+          da = search(ht, $1->structtype->name);
+          if(da) dapop(da); //else opaque struct
+        }
       }
     }
     
