@@ -16,6 +16,8 @@ typedef struct {
 
 typedef struct {
   enum opcode_3ac o;
+  char size1; //bottom 4 bits size, 5th bit sign
+  char size2; //bottom 4 bits size, 5th bit sign
   unsigned int p1;
   unsigned int p2;
 } VALUESTRUCT;
@@ -43,9 +45,14 @@ void killreg(PROGRAM* prog);
 #define bfunset(bitfield, index) ((bitfield)[(index) >> 3] &= ~(1 << ((index) & 7)))
 #define BITFIELD char*
 
-static inline VALUESTRUCT* ctvalstruct(enum opcode_3ac o, unsigned int p1, unsigned int p2) {
+static inline char supersize(ADDRTYPE adt) {
+  return adt & 0xf + (adt & ISSIGNED ? 0x10 : 0);
+}
+static inline VALUESTRUCT* ctvalstruct(enum opcode_3ac o, char size1, char size2, unsigned int p1, unsigned int p2) {
   VALUESTRUCT* irval = malloc(sizeof(VALUESTRUCT));
   irval->o = o;
+  irval->size1 = size1;
+  irval->size2 = size2;
   irval->p1 = p1;
   irval->p2 = p2;
   return irval;
