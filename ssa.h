@@ -46,7 +46,7 @@ void killreg(PROGRAM* prog);
 #define BITFIELD char*
 
 static inline char supersize(ADDRTYPE adt) {
-  return adt & 0xf + (adt & ISSIGNED ? 0x10 : 0);
+  return (adt & 0xf) | (adt & ISSIGNED ? 0x10 : 0);
 }
 static inline VALUESTRUCT* ctvalstruct(enum opcode_3ac o, char size1, char size2, unsigned int p1, unsigned int p2) {
   VALUESTRUCT* irval = malloc(sizeof(VALUESTRUCT));
