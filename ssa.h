@@ -15,10 +15,10 @@ typedef struct {
 
 typedef struct {
   enum opcode_3ac o;
-  char size1; //bottom 4 bits size, 5th bit sign
-  char size2; //bottom 4 bits size, 5th bit sign
   unsigned int p1;
   unsigned int p2;
+  short size1; //bottom 4 bits size, 5th bit sign
+  short size2; //bottom 4 bits size, 5th bit sign
 } VALUESTRUCT;
 
 
@@ -50,13 +50,13 @@ static inline char supersize(ADDRTYPE adt) {
 static inline ADDRTYPE downsize(char super) {
   return (super & 0xf) | (super & 0x10 ? ISSIGNED : 0) | (super & 0x20 ? ISFLOAT : 0);
 }
-static inline VALUESTRUCT* ctvalstruct(enum opcode_3ac o, char size1, char size2, unsigned int p1, unsigned int p2) {
+static inline VALUESTRUCT* ctvalstruct(enum opcode_3ac o, unsigned int p1, unsigned int p2, char size1, char size2) {
   VALUESTRUCT* irval = malloc(sizeof(VALUESTRUCT));
   irval->o = o;
-  irval->size1 = size1;
-  irval->size2 = size2;
   irval->p1 = p1;
   irval->p2 = p2;
+  irval->size1 = size1;
+  irval->size2 = size2;
   return irval;
 }
 #endif
