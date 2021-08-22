@@ -21,7 +21,6 @@ typedef struct {
   short size2; //bottom 4 bits size, 5th bit sign
 } VALUESTRUCT;
 
-
 typedef struct {
   DYNARR* nodes;//of GVNNUMS
   HASHTABLE* intconsthash;

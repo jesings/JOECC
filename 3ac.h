@@ -136,7 +136,7 @@ typedef struct bblock {
   int visited;
   int work;
 
-  DYNINT* tmp_gen;
+  DYNARR* tmp_gen;
   HASHTABLE* leader;
   HASHTABLE* antileader_in;
   HASHTABLE* antileader_out;

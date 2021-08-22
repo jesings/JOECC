@@ -673,7 +673,7 @@ static void replacegvn(EQONTAINER* eq, PROGRAM* prog) {
 static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
   blk->leader = fhtclone(blk->dom->leader);
   if(blk->lastop) {
-    blk->tmp_gen = dinctor(32); //not sure what to do with this
+    blk->tmp_gen = dactor(32);
     blk->exp_gen = htctor();
     blk->antileader_in = htctor();
     blk->antileader_out = htctor();
@@ -863,6 +863,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
           break;
         OPS_1_ASSIGN_3ac
           destval = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
+          finalval = daget(destval->equivs, 0);
           break;
         case ASM:
           assert(0); //unimplemented
@@ -911,15 +912,14 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
             if(!(n0 && n1)) break;
             VALUESTRUCT refex = {op->opcode, n0->index, n1->index, supersize(op->addr0_type), supersize(op->addr1_type)};
             chosenval = bigsearch(eq->ophash, (char*) &refex, sizeof(VALUESTRUCT));
-            //printop(op, 1, blk, stdout, prog);
-            //printf("\n %s %d %d\n", opcode_3ac_names[refex.o], refex.p1, refex.p2);
-            //assert(chosenval);
+
             if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
               fixedinsert(blk->exp_gen, chosenval->index, valdup(&refex));
             }
           } else {
             if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
-              dipush(blk->tmp_gen, op->dest.regnum);
+              long fullval = ((long) supersize(op->dest_type)) << 32 | op->dest.regnum;
+              dapush(blk->tmp_gen, (void*) fullval);
             }
           }
           break;
@@ -949,7 +949,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
             }
           } else {
             if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
-              dipush(blk->tmp_gen, op->dest.regnum);
+              long fullval = ((long) supersize(op->dest_type)) << 32 | op->dest.regnum;
+              dapush(blk->tmp_gen, (void*) fullval);
             }
           }
           break;
@@ -957,7 +958,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
         case PHI: case CALL_3:
           //we always treat these as black boxes
           if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
-            dipush(blk->tmp_gen, op->dest.regnum);
+            long fullval = ((long) supersize(op->dest_type)) << 32 | op->dest.regnum;
+            dapush(blk->tmp_gen, (void*) fullval);
           }
           break;
         case ADDR_3:
@@ -965,7 +967,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
           break;
         OPS_1_ASSIGN_3ac
           assert(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)));
-          dipush(blk->tmp_gen, op->addr0.regnum);
+          long fullval = ((long) supersize(op->addr0_type)) << 32 | op->addr0.regnum;
+          dapush(blk->tmp_gen, (void*) fullval);
           break;
         OPS_NODEST_3ac OPS_3_PTRDEST_3ac
           if(!(op->addr1_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
@@ -1210,9 +1213,10 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   if(blk->tmp_gen) {
     DYNINT* rmstack = dinctor(8);
     for(int i = 0; i < blk->tmp_gen->length; i++) {
+      long fullval = blk->tmp_gen->arr[i];
       ADDRESS a;
-      a.regnum = blk->tmp_gen->arr[i];
-      GVNNUM* g = nodefromaddr(eq, 0, a, prog);
+      a.regnum = (unsigned int) fullval;
+      GVNNUM* g = nodefromaddr(eq, downsize(fullval >> 32), a, prog);
 
       if(fixedqueryval(blk->leader, g->index)) {
         long ex2rm = (long) fixedsearch(blk->leader, g->index);
@@ -1221,11 +1225,10 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
           while(rmstack->length > 0) {
             int removalind = dipop(rmstack);
             void* fr = frmpair(blk->antileader_in, removalind);
-            if(fr) {
+            if(fr)
               free(fr);
-              DYNINT* tokill = frmpair(antiin_users, removalind);
-              if(tokill) rmstack = dimerge(rmstack, tokill);
-            }
+            DYNINT* tokill = frmpair(antiin_users, removalind);
+            if(tokill) rmstack = dimerge(rmstack, tokill);
           }
         }
       }
@@ -1291,6 +1294,14 @@ static void printeq(EQONTAINER* eq, PROGRAM* prog) {
       printffht(av);
       printf(") \n");
       dadtor(av);
+    }
+    if(blk->tmp_gen) {
+      printf("tmp_gen (");
+      for(int j = 0; j < blk->tmp_gen->length; j++) {
+        long l = (long) daget(blk->tmp_gen, j);
+        printf("%d.%d%c, ", (int) l, (int) (l >> 32) & 0xf, ((l >> 32) & 0x10) ? 's' : 'u');
+      }
+      printf(")\n");
     }
     if(blk->antileader_in) {
       DYNARR* av = htfpairs(blk->antileader_in);
@@ -1505,6 +1516,7 @@ void gvn(PROGRAM* prog) {
   first->pidominates = dactor(0);
   while(antics(prog->finalblock, prog, eq)) ;
   //buildsets calculated
+  //printeq(eq, prog);
   while(hoist(prog, eq)) ;
   replacegvn(eq, prog);
   freeq(eq);
