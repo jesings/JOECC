@@ -684,6 +684,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
       GVNNUM* val2;
       GVNNUM* destval = NULL;
       GVNNUM* otherval = NULL;
+      VALUESTRUCT* finalval;
       BIGHASHTABLE* ophash = eq->ophash;
       switch(op->opcode) {
         OPS_NOVAR_3ac
@@ -701,14 +702,15 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
               destval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
               if(!destval) {
                 destval = ctgvnnum(eq, NOCONST);
+                dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0));
                 dapush(destval->equivs, valdup(&combind));
                 bigfinsertfr(ophash, (char*) valdup(&combind), destval, sizeof(VALUESTRUCT));
               } //destination type need not factor into largest use
             } else {
               destval = ctgvnnum(eq, NOCONST);
+              dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0));
             }
-            dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0));
-            bigfinsertfr(ophash, (char*) ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0), destval, sizeof(VALUESTRUCT));
+            bigfinsertfr(ophash, (char*) (finalval = ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0)), destval, sizeof(VALUESTRUCT));
           } else if(val1 && val2) {
             VALUESTRUCT combind = {op->opcode, val1->index, val2->index, supersize(op->addr0_type), supersize(op->addr1_type)};
             otherval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
@@ -732,6 +734,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
               destval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
               if(!destval) {
                 destval = ctgvnnum(eq, NOCONST);
+                dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0));
                 dapush(destval->equivs, valdup(&combind));
                 bigfinsertfr(ophash, (char*) valdup(&combind), destval, sizeof(VALUESTRUCT));
                 VALUESTRUCT* combind2 = ctvalstruct(op->opcode, val2->index, val1->index, supersize(op->addr1_type), supersize(op->addr0_type));
@@ -739,9 +742,9 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
               }
             } else {
               destval = ctgvnnum(eq, NOCONST);
+              dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0));
             }
-            dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0));
-            bigfinsertfr(ophash, (char*) ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0), destval, sizeof(VALUESTRUCT));
+            bigfinsertfr(ophash, (char*) (finalval = ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0)), destval, sizeof(VALUESTRUCT));
           } else if(val1 && val2) {
             VALUESTRUCT combind = {op->opcode, val1->index, val2->index, supersize(op->addr0_type), supersize(op->addr1_type)};
             otherval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
@@ -766,14 +769,16 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
               destval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
               if(!destval) {
                 destval = ctgvnnum(eq, NOCONST);
+                dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0));
                 dapush(destval->equivs, valdup(&combind));
                 bigfinsertfr(ophash, (char*) valdup(&combind), destval, sizeof(VALUESTRUCT));
+              } else {
+                dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0));
               }
             } else {
               destval = ctgvnnum(eq, NOCONST);
             }
-            dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0));
-            bigfinsertfr(ophash, (char*) ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0), destval, sizeof(VALUESTRUCT));
+            bigfinsertfr(ophash, (char*) (finalval = ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0)), destval, sizeof(VALUESTRUCT));
           } else if(val1) {
             VALUESTRUCT combind = {op->opcode, val1->index, 0, supersize(op->addr0_type), 0};
             otherval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
@@ -791,13 +796,14 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
               FULLADDR* adstore = daget(prog->dynvars, op->dest.varnum);
               if(adstore->addr_type & ADDRSVAR) break;
             }
+            //hmm this should be fine to keep this way as size can't increase at mov?
             if(val1) {
               destval = val1;
             } else {
               destval = ctgvnnum(eq, NOCONST);
             }
             dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0));
-            bigfinsertfr(ophash, (char*) ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0), destval, sizeof(VALUESTRUCT));
+            bigfinsertfr(ophash, (char*) (finalval = ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0)), destval, sizeof(VALUESTRUCT));
           }
           break;
         case ADDR_3:
@@ -810,14 +816,15 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
               destval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
               if(!destval) {
                 destval = ctgvnnum(eq, NOCONST);
+                dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0));
                 dapush(destval->equivs, valdup(&combind));
                 bigfinsertfr(ophash, (char*) valdup(&combind), destval, sizeof(VALUESTRUCT));
               }
             } else {
+              dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0));
               destval = ctgvnnum(eq, NOCONST);
             }
-            dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0));
-            bigfinsertfr(ophash, (char*) ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0), destval, sizeof(VALUESTRUCT));
+            bigfinsertfr(ophash, (char*) (finalval = ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0)), destval, sizeof(VALUESTRUCT));
           } else if(val1) {
             VALUESTRUCT combind = {op->opcode, val1->index, 0, supersize(op->addr0_type), 0};
             otherval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
@@ -830,6 +837,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
           break;
         case PHI:
           destval = nodefromaddr(eq, op->dest_type, op->dest, prog);
+          finalval = daget(destval->equivs, 0);
           break;
         case DEALOC:
           {
@@ -851,6 +859,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
           break;
         case CALL_3: //no pure functions for now
           destval = nodefromaddr(eq, op->dest_type, op->dest, prog);
+          finalval = daget(destval->equivs, 0);
           break;
         OPS_1_ASSIGN_3ac
           destval = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
@@ -988,9 +997,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
           assert(0); //unimplemented
       }
       if(destval && !fixedqueryval(blk->leader, destval->index)) {
-        VALUESTRUCT* exs = dapeek(destval->equivs);
-        assert(exs->o == INIT_3 || exs->o == PHI || exs->o == CALL_3 || exs->o == INIT_3 || exs->o == PARAM_3);
-        fixedinsert(blk->leader, destval->index, (void*) (long) exs->p1);
+        assert(finalval->o == INIT_3);
+        fixedinsert(blk->leader, destval->index, (void*) (long) finalval->p1);
       }
     } while(op != blk->lastop && (op = op->nextop));
   }
