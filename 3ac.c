@@ -383,7 +383,7 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
   if(!pointerqual && (sf->type->tb & (STRUCTVAL | UNIONVAL))) {
     if(offaddr.intconst_64) {
       FILLREG(retaddr, ISPOINTER | 8);
-      opn(prog, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, retaddr.addr_type, retaddr.addr));
+      opn(prog, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST | 0x8, offaddr, retaddr.addr_type, retaddr.addr));
     } else {
       if(sead.addr_type & ISDEREF) {
         FILLREG(retaddr, ISPOINTER | 8);
@@ -396,7 +396,7 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
     FULLADDR intermediate;
     if(offaddr.intconst_64) {
       FILLREG(intermediate, ISPOINTER | 8);
-      opn(prog, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST, offaddr, intermediate.addr_type, intermediate.addr));
+      opn(prog, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST | 0x8, offaddr, intermediate.addr_type, intermediate.addr));
     } else {
       if(sead.addr_type & ISDEREF) {
         FILLREG(intermediate, ISPOINTER | 8);
@@ -1176,7 +1176,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
         caseval.intconst_64 = (long) daget(cll, i);
         caselbl.labelname = fixedsearch(htl, caseval.intconst_64);
         //maybe signed is unnecessary
-        opn(prog, ct_3ac_op3(JEQ_I, fad.addr_type, fad.addr, ISCONST | ISSIGNED, caseval,
+        opn(prog, ct_3ac_op3(JEQ_I, fad.addr_type, fad.addr, ISCONST | ISSIGNED | 0x8, caseval,
                                      ISCONST | ISLABEL, caselbl));
         lbljmp(caselbl.labelname, prog->curblock, &prog->curblock->branchblock, prog);
         prog->curblock = NULL;
@@ -1267,7 +1267,7 @@ PROGRAM* linefunc(FUNC* f) {
         tmpaddr.intconst_64 = pdec->type->structtype->size;
         tmpaddr2.regnum = prog->regcnt++;
         opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 8, tmpaddr, newa->addr_type & ~ISVAR, tmpaddr2));
-        opn(prog, ct_3ac_op3(COPY_3, newa->addr_type | ISDEREF, newa->addr, ISCONST, tmpaddr, (newa->addr_type & ~ISVAR) | ISDEREF, tmpaddr2));
+        opn(prog, ct_3ac_op3(COPY_3, newa->addr_type | ISDEREF, newa->addr, ISCONST | 0x8, tmpaddr, (newa->addr_type & ~ISVAR) | ISDEREF, tmpaddr2));
         opn(prog, ct_3ac_op2(MOV_3, newa->addr_type & ~ISVAR, tmpaddr2, newa->addr_type, newa->addr));
       }
     } else {
@@ -1611,7 +1611,7 @@ void freeblock(void* blk) {
   if(blk2->pidominates) dadtor(blk2->pidominates);
   if(blk2->df) dadtor(blk2->df);
   if(blk2->lastop) freeop(blk2->firstop, blk2->lastop);
-  if(blk2->tmp_gen) didtor(blk2->tmp_gen);
+  if(blk2->tmp_gen) dadtor(blk2->tmp_gen);
   if(blk2->exp_gen) fhtdtorcfr(blk2->exp_gen, free);
   if(blk2->leader) fhtdtor(blk2->leader);
   if(blk2->antileader_in) fhtdtorcfr(blk2->antileader_in, free);

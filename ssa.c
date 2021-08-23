@@ -859,11 +859,11 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
           break;
         case CALL_3: //no pure functions for now
           destval = nodefromaddr(eq, op->dest_type, op->dest, prog);
-          finalval = daget(destval->equivs, 0);
+          if(destval) finalval = daget(destval->equivs, 0);
           break;
         OPS_1_ASSIGN_3ac
           destval = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
-          finalval = daget(destval->equivs, 0);
+          if(destval) finalval = daget(destval->equivs, 0);
           break;
         case ASM:
           assert(0); //unimplemented

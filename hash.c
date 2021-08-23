@@ -238,15 +238,15 @@ void bigfinsertfr(BIGHASHTABLE* ht, char* key, void* value, int len) {
   } else {
     for(; hp->next; hp = hp->next) {
       if(!memcmp(hp->key, key, len)) {
-        //free(hp->value);
-        free(key);
+        free(hp->key);
+        hp->key = key;
         hp->value = value;
         return;
       }
     }
     if(!memcmp(hp->key, key, len)) {
-      //free(hp->value);
-      free(key);
+      free(hp->key);
+      hp->key = key;
       hp->value = value;
       return;
     }
