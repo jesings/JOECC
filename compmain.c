@@ -88,6 +88,11 @@ static void filecomp(char* filename) {
   dadtor(lctx->ls->locs);
   dadtor(lctx->ls->argpp);
   DYNARR* funcky = htpairs(lctx->funcs);
+
+  char* newname = explainjoke(filename);
+  FILE* objf = fopen(newname, "w");
+  startgenfile(objf, lctx);
+
   DEBUG(pthread_mutex_lock(&printlock));
   puts("Functions defined:");
   for(int i = 0; i < funcky->length; i++) {
@@ -121,21 +126,14 @@ static void filecomp(char* filename) {
       DEBUG(printf("Ops after ldstrsep %d\n", countops(prog)));
       DEBUG(treeprog(prog, pairthere->key, "ldstrsep"));
 
-      //ssaout(prog);
-      //DEBUG(printf("Ops destructed SSA %d\n", countops(prog)));
-      //DEBUG(treeprog(prog, pairthere->key, "destroyed"));
-
+      genprogfile(objf, pairthere->key, prog);
       freeprog(prog);
     }
   }
+  fclose(objf);
+  free(newname);
+
   DEBUG(pthread_mutex_unlock(&printlock));
-  {
-    char* newname = explainjoke(filename);
-    FILE* objf = fopen(newname, "w");
-    startgenfile(objf, lctx);
-    fclose(objf);
-    free(newname);
-  }
   scopepop(lctx);
   dadtorcfr(funcky, freev);
   dadtor(lctx->scopes);
@@ -165,12 +163,20 @@ static void* ldeleg(void* arg) {
 }
 
 static void linkall(char const* outfile, char** argv) {
-  FILE* f = fopen(outfile, "w");
+  DYNARR* fnames = dactor(8);
+  dapush(fnames, strdup("/bin/as"));
   char* humorless;
-  while((humorless = *(argv++))) {
+  //++ to skip first element
+  while((humorless = *(++argv))) {
     char* humored = explainjoke(humorless);
-    free(humored);
+    dapush(fnames, humored);
   }
+  dapush(fnames, strdup("-o"));
+  dapush(fnames, strdup(outfile));
+  dapush(fnames, NULL);
+  execv("/bin/as", (char* const*) fnames->arr);
+  dapop(fnames);
+  dadtorfr(fnames);
 }
 
 int main(int argc, char** argv) {

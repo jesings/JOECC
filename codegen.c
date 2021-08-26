@@ -203,7 +203,8 @@ static void cgblock(FILE* outputfile, BBLOCK* blk) {
           //ucomisd or ucomiss
           break;
         default:
-          assert(0);
+          //assert(0);
+          break;
       }
       if(op == blk->lastop) break;
     } while((op = op->nextop));
@@ -231,6 +232,7 @@ static void cgblock(FILE* outputfile, BBLOCK* blk) {
           case BGT_I:
             fprintf(outputfile, "jg .L%d\n", blk->branchblock->work);
             break;
+          case JEQ_I: break;
           default:
             assert(0);
         }
@@ -268,9 +270,10 @@ static void cgblock(FILE* outputfile, BBLOCK* blk) {
     fprintf(outputfile, "jmp .L%d\n", blk->nextblock->work);//changed to index
 }
 
-static void codegen(FILE* outputfile, PROGRAM* prog) {
+void genprogfile(FILE* outputfile, char* funcname, PROGRAM* prog) {
+  fprintf(outputfile, "%s:\n", funcname);
   for(int i = 0; i < prog->allblocks->length; i++) {
-    fprintf(outputfile, ".L%d\n", i);
+    fprintf(outputfile, ".L%d:\n", i);
     cgblock(outputfile, daget(prog->allblocks, i));
   }
 }
