@@ -1212,7 +1212,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
           break;
       }
     }
-    free(expairs);
+    dadtor(expairs);
   }
 
   if(blk->tmp_gen) {

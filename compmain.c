@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <getopt.h>
+#include <sys/wait.h>
 #include "compintern.h"
 #include "printree.h"
 #include "3ac.h"
@@ -34,7 +35,7 @@ static void freev(void* v) {
   rfreefunc(v2->value);
 }
 
-static char* explainjoke(char* filename) {
+static char* explainjoke(char* filename, char lastchar) {
   char* lastind = strrchr(filename, '.');
   int len;
   if(lastind) {
@@ -44,7 +45,9 @@ static char* explainjoke(char* filename) {
   }
   char* newname = malloc(len + 8);
   strncpy(newname, filename, len);
-  strcpy(newname + len, ".joecco");
+  strcpy(newname + len, ".joecc");
+  newname[len + 6] = lastchar;
+  newname[len + 7] = '\0';
   return newname;
 }
 
@@ -89,7 +92,7 @@ static void filecomp(char* filename) {
   dadtor(lctx->ls->argpp);
   DYNARR* funcky = htpairs(lctx->funcs);
 
-  char* newname = explainjoke(filename);
+  char* newname = explainjoke(filename, 's');
   FILE* objf = fopen(newname, "w");
   startgenfile(objf, lctx);
 
@@ -167,14 +170,36 @@ static void linkall(char const* outfile, char** argv) {
   dapush(fnames, strdup("/bin/as"));
   char* humorless;
   //++ to skip first element
+  int forkpid;
   while((humorless = *(++argv))) {
-    char* humored = explainjoke(humorless);
-    dapush(fnames, humored);
+    char* humored = explainjoke(humorless, 's');
+    char* humored2 = explainjoke(humorless, 'o');
+    switch((forkpid = fork())) {
+      case -1:
+        exit(-1);
+      case 0:
+        execl("/bin/as", "/bin/as", humored, "-o", humored2, NULL);
+        break;
+      default:
+        waitpid(forkpid, NULL, 0);
+        break;
+    }
+    dapush(fnames, humored2);
+    free(humored);
   }
   dapush(fnames, strdup("-o"));
   dapush(fnames, strdup(outfile));
   dapush(fnames, NULL);
-  execv("/bin/as", (char* const*) fnames->arr);
+  switch((forkpid = fork())) {
+    case -1:
+      exit(-1);
+    case 0:
+      execv("/bin/ld", (char* const*) fnames->arr);
+      break;
+    default:
+      waitpid(forkpid, NULL, 0);
+      break;
+  }
   dapop(fnames);
   dadtorfr(fnames);
 }
