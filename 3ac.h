@@ -49,7 +49,6 @@ enum opcode_3ac {
 #define GENERIC_U ASM+1
 #define GENERIC_I ASM+2
 #define GENERIC_F ASM+3
-#define CONST_3 ASM+4
 extern const char* opcode_3ac_names[];
 
 enum passes {

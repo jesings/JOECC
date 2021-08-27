@@ -1155,7 +1155,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
       switch((int) exs->o) {
         OPS_NOVAR_3ac OPS_3_PTRDEST_3ac case MOV_3:
         OPS_NODEST_3ac OPS_1_3ac case CALL_3: case PHI:
-        case ASM: case CONST_3:
+        case ASM:
           assert(0);
         case DEALOC:
           continue;
@@ -1163,25 +1163,12 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
           n3 = bigsearch(eq->ophash, (char*) exs, sizeof(VALUESTRUCT));
           if(!fixedqueryval(blk->antileader_in, n3->index)) {
             fixedinsert(blk->antileader_in, n3->index, valdup(exs));
-
-            if(!fixedqueryval(antiin_users, exs->p1)) {
-              fixedinsert(antiin_users, exs->p1, dinctor(4));
-            }
-            dipush(fixedsearch(antiin_users, exs->p1), n3->index);
-            if(!fixedqueryval(antiin_users, exs->p2)) {
-              fixedinsert(antiin_users, exs->p2, dinctor(4));
-            }
-            dipush(fixedsearch(antiin_users, exs->p2), n3->index);
           }
           break;
         OPS_2_3ac_MUT
           n3 = bigsearch(eq->ophash, (char*) exs, sizeof(VALUESTRUCT));
           if(!fixedqueryval(blk->antileader_in, n3->index)) {
             fixedinsert(blk->antileader_in, n3->index, valdup(exs));
-            if(!fixedqueryval(antiin_users, exs->p1)) {
-              fixedinsert(antiin_users, exs->p1, dinctor(4));
-            }
-            dipush(fixedsearch(antiin_users, exs->p1), n3->index);
           }
           break;
         OPS_1_ASSIGN_3ac case ADDR_3:
@@ -1194,6 +1181,40 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
     }
     dadtor(expairs);
   }
+
+  if(blk->antileader_in->keys != 0) {
+    DYNARR* expairs = htfpairs(blk->antileader_in);
+    for(int i = 0; i < expairs->length; i++) {
+      HASHPAIR* hp = expairs->arr[i];
+      VALUESTRUCT* exs = hp->value;
+      GVNNUM* n3 = bigsearch(eq->ophash, (char*) exs, sizeof(VALUESTRUCT));
+      switch(exs->o) {
+        default:
+          assert(0);
+        case DEALOC:
+          continue;
+        OPS_3_3ac
+          if(!fixedqueryval(antiin_users, exs->p1)) {
+            fixedinsert(antiin_users, exs->p1, dinctor(4));
+          }
+          dipush(fixedsearch(antiin_users, exs->p1), n3->index);
+          if(!fixedqueryval(antiin_users, exs->p2)) {
+            fixedinsert(antiin_users, exs->p2, dinctor(4));
+          }
+          dipush(fixedsearch(antiin_users, exs->p2), n3->index);
+          break;
+        OPS_2_3ac
+        OPS_1_ASSIGN_3ac case ADDR_3: //these also should be killed?
+          if(!fixedqueryval(antiin_users, exs->p1)) {
+            fixedinsert(antiin_users, exs->p1, dinctor(4));
+          }
+          dipush(fixedsearch(antiin_users, exs->p1), n3->index);
+          break;
+      }
+    }
+    free(expairs);
+  }
+
   if(blk->tmp_gen) {
     DYNINT* rmstack = dinctor(8);
     for(int i = 0; i < blk->tmp_gen->length; i++) {

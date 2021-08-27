@@ -4,7 +4,7 @@
 #define X(s) #s,
 const char* opcode_3ac_names[] = {
   OPS_3AC
-  "GENERIC_U", "GENERIC_I", "GENERIC_F", "CONST_3"
+  "GENERIC_U", "GENERIC_I", "GENERIC_F"
 };
 extern const char* name_EXPRTYPE[];
 extern const char* name_STMTTYPE[];

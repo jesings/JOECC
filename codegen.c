@@ -148,7 +148,7 @@ static void addrgen(FILE* of, ADDRTYPE adt, ADDRESS addr) {
   }
 }
 
-static void cgblock(FILE* outputfile, BBLOCK* blk) {
+static void cgblock(FILE* outputfile, char* fname, BBLOCK* blk) {
   if(blk->lastop) {
     OPERATION* op = blk->firstop;
     int iparamno = 0;
@@ -212,25 +212,25 @@ static void cgblock(FILE* outputfile, BBLOCK* blk) {
       if(blk->branchblock->work != blk->work + 1) {
         switch(op->opcode) {
           case BNZ_3:
-            fprintf(outputfile, "jnz .L%d\n", blk->branchblock->work);
+            fprintf(outputfile, "jnz .%sL%d\n", fname, blk->branchblock->work);
             break;
           case BEZ_3:
-            fprintf(outputfile, "jz .L%d\n", blk->branchblock->work);
+            fprintf(outputfile, "jz .%sL%d\n", fname, blk->branchblock->work);
             break;
           case BEQ_U: case BEQ_F:
-            fprintf(outputfile, "je .L%d\n", blk->branchblock->work);
+            fprintf(outputfile, "je .%sL%d\n", fname, blk->branchblock->work);
             break;
           case BGE_U: case BGE_F:
-            fprintf(outputfile, "jae .L%d\n", blk->branchblock->work);
+            fprintf(outputfile, "jae .%sL%d\n", fname, blk->branchblock->work);
             break;
           case BGE_I:
-            fprintf(outputfile, "jge .L%d\n", blk->branchblock->work);
+            fprintf(outputfile, "jge .%sL%d\n", fname, blk->branchblock->work);
             break;
           case BGT_U: case BGT_F:
-            fprintf(outputfile, "ja .L%d\n", blk->branchblock->work);
+            fprintf(outputfile, "ja .%sL%d\n", fname, blk->branchblock->work);
             break;
           case BGT_I:
-            fprintf(outputfile, "jg .L%d\n", blk->branchblock->work);
+            fprintf(outputfile, "jg .%sL%d\n", fname, blk->branchblock->work);
             break;
           case JEQ_I: break;
           default:
@@ -239,25 +239,25 @@ static void cgblock(FILE* outputfile, BBLOCK* blk) {
       } else {
         switch(op->opcode) {
           case BNZ_3:
-            fprintf(outputfile, "jz .L%d\n", blk->nextblock->work);
+            fprintf(outputfile, "jz .%sL%d\n", fname, blk->nextblock->work);
             break;
           case BEZ_3:
-            fprintf(outputfile, "jnz .L%d\n", blk->nextblock->work);
+            fprintf(outputfile, "jnz .%sL%d\n", fname, blk->nextblock->work);
             break;
           case BEQ_U: case BEQ_F:
-            fprintf(outputfile, "jne .L%d\n", blk->nextblock->work);
+            fprintf(outputfile, "jne .%sL%d\n", fname, blk->nextblock->work);
             break;
           case BGE_U: case BGE_F:
-            fprintf(outputfile, "jb .L%d\n", blk->nextblock->work);
+            fprintf(outputfile, "jb .%sL%d\n", fname, blk->nextblock->work);
             break;
           case BGE_I:
-            fprintf(outputfile, "jl .L%d\n", blk->nextblock->work);
+            fprintf(outputfile, "jl .%sL%d\n", fname, blk->nextblock->work);
             break;
           case BGT_U: case BGT_F:
-            fprintf(outputfile, "jbe .L%d\n", blk->nextblock->work);
+            fprintf(outputfile, "jbe .%sL%d\n", fname, blk->nextblock->work);
             break;
           case BGT_I:
-            fprintf(outputfile, "jle .L%d\n", blk->nextblock->work);
+            fprintf(outputfile, "jle .%sL%d\n", fname, blk->nextblock->work);
             break;
           default:
             assert(0);
@@ -267,14 +267,14 @@ static void cgblock(FILE* outputfile, BBLOCK* blk) {
     }
   }
   if(blk->nextblock && blk->nextblock->work != blk->work + 1)
-    fprintf(outputfile, "jmp .L%d\n", blk->nextblock->work);//changed to index
+    fprintf(outputfile, "jmp .%sL%d\n", fname, blk->nextblock->work);//changed to index
 }
 
 void genprogfile(FILE* outputfile, char* funcname, PROGRAM* prog) {
   fprintf(outputfile, "%s:\n", funcname);
   for(int i = 0; i < prog->allblocks->length; i++) {
-    fprintf(outputfile, ".L%d:\n", i);
-    cgblock(outputfile, daget(prog->allblocks, i));
+    fprintf(outputfile, ".%sL%d:\n", funcname, i);
+    cgblock(outputfile, funcname, daget(prog->allblocks, i));
   }
 }
 static void stringconsty(FILE* outputfile, char* string) {
