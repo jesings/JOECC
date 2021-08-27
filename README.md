@@ -23,9 +23,8 @@ NOTE: JOECC is a work-in progress, and currently cannot fully compile code
 - [ ] Other Optimizations (to be enumerated further later)
 - [ ] Register Allocation (in progress)
 - [ ] Assembly generation
-- [ ] Machine code generation
-- [ ] Machine code optimization
-- [ ] Linker backend
+- [x] Assembler backend
+- [x] Linker backend
 
 # Headers
 By default, JOECC attempts to use the system's gcc headers which it looks for at /usr/lib/gcc/x86\_64-pc-linux-gnu/(GCC VERSION). You can change this in joecc.lex in case you want to make it use a different directory.
