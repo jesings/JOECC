@@ -271,7 +271,6 @@ static void cgblock(FILE* outputfile, char* fname, BBLOCK* blk) {
 }
 
 void genprogfile(FILE* outputfile, char* funcname, PROGRAM* prog) {
-  printf("%s %p\n", funcname, outputfile);
   //fprintf(outputfile, "%s:\n", funcname);
   for(int i = 0; i < prog->allblocks->length; i++) {
     fprintf(outputfile, ".L%s%d:\n", funcname, i);

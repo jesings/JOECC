@@ -1544,14 +1544,10 @@ void printop(OPERATION* op, char term, BBLOCK* blk, FILE* f, PROGRAM* prog) {
 }
 
 void printprog(PROGRAM* prog) {
-  for(int i = 0; i < prog->allblocks->length; i++) {
-    BBLOCK* blk = daget(prog->allblocks, i);
-    if(!blk->lastop) continue;
-    for(OPERATION* op = blk->firstop; op != blk->lastop->nextop; op = op->nextop) {
-      printop(op, 1, blk, stdout, prog);
-      fputc('\n', stdout);
-    }
-  }
+  LOOPALLBLOCKS(
+    printop(op, 1, blk, stdout, prog);
+    fputc('\n', stdout);
+  )
 }
 
 void treeprog(PROGRAM* prog, char* fname, const char* pass) {
@@ -1573,9 +1569,10 @@ void treeprog(PROGRAM* prog, char* fname, const char* pass) {
       continue;
     }
     fprintf(f, "\"%p\" [label=<<TABLE BORDER=\"0\" CELLBORDER=\"1\" BGCOLOR=\"#353632\"><TR><TD><FONT COLOR=\"#e3f2e6\">", blk);
-    for(OPERATION* op = blk->firstop; op != blk->lastop->nextop; op = op->nextop) {
+    for(OPERATION* op = blk->firstop; ; op = op->nextop) {
       printop(op, 0, blk, f, prog);
       fprintf(f, "<BR ALIGN=\"LEFT\"/>");
+      if(op == blk->lastop) break;
     }
     fprintf(f, "</FONT></TD></TR></TABLE>> fontcolor=white xlabel=\"%d, %d\"]\n", blk->domind, blk->dom ? blk->dom->domind : -1);
   }
