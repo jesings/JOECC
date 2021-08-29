@@ -1296,7 +1296,6 @@ PROGRAM* linefunc(FUNC* f) {
 }
 
 static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char term, FILE* f, PROGRAM* prog) {
-  if(addr_type & LASTUSE) fprintf(f, "@");
   if(addr_type & ISLABEL) {
     if(term) fprintf(f, RGBCOLOR(255,200,10));
     else fprintf(f, "<FONT COLOR=\"#%.2hhx%.2hhx%.2hhx\">", 255, 200, 10);

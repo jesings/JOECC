@@ -51,6 +51,20 @@ enum opcode_3ac {
 #define GENERIC_F ASM+3
 extern const char* opcode_3ac_names[];
 
+
+#define LOOPALLBLOCKS(body) \
+  for(int blockind = 0; blockind < prog->allblocks->length; blockind++) { \
+    BBLOCK* blk = daget(prog->allblocks, blockind); \
+    if(blk->lastop) { \
+      OPERATION* op = blk->firstop; \
+      while(1) { \
+        body \
+        if(op == blk->lastop) break; \
+        op = op->nextop; \
+      } \
+    } \
+  }
+
 enum passes {
   SSA = 1,
   GVN = 2,
@@ -99,7 +113,6 @@ typedef enum {
   ISVAR = 0x800,
   ADDRSVAR = 0x1000,
   GARBAGEVAL = 0x2000,
-  LASTUSE = 0x4000, //blockwise the last use, may not be globally
 } ADDRTYPE;
 
 typedef struct op {

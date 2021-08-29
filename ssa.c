@@ -353,39 +353,31 @@ void ssa(PROGRAM* prog) {
   for(int i = 0; i < varas->maxlength; i++)
     dapushc(varas, dactor(16)); //initialize array for blocks that modify var
   //variable modification annotation, pass 1
-  for(int i = 0; i < blocks->length; i++) {
-    BBLOCK* cb = daget(blocks, i);
-    if(cb->lastop) {
-      OPERATION* op = cb->firstop;
-      while(1) {
-        switch(op->opcode) {
-          case ADDR_3:
-            if((op->addr0_type & (ISVAR | ISDEREF)) == ISVAR) {
-              FULLADDR* fad = daget(prog->dynvars, op->addr0.varnum);
-              fad->addr_type |= ADDRSVAR;
-            }
-            __attribute__((fallthrough));
-          OPS_3_3ac OPS_2_3ac case CALL_3:
-          //ARRMOV, MTP_OFF, COPY_3 must have pointer dest
-            if((op->dest_type & (ISVAR | ISDEREF | ADDRSVAR)) == ISVAR) {
-              DYNARR* dda = daget(varas, op->dest.varnum);
-              if(!dda->length || dapeek(dda) != cb)
-                dapush(dda, cb);
-            }
-            break;
-          OPS_1_ASSIGN_3ac
-            if(!(op->addr0_type & ADDRSVAR)) {
-              DYNARR* dda = daget(varas, op->addr0.varnum);
-              dapush(dda, cb);
-            }
-          default:
-            break; //no possible correct destination
+  LOOPALLBLOCKS(
+    switch(op->opcode) {
+      case ADDR_3:
+        if((op->addr0_type & (ISVAR | ISDEREF)) == ISVAR) {
+          FULLADDR* fad = daget(prog->dynvars, op->addr0.varnum);
+          fad->addr_type |= ADDRSVAR;
         }
-        if(op == cb->lastop) break;
-        op = op->nextop;
-      }
+        __attribute__((fallthrough));
+      OPS_3_3ac OPS_2_3ac case CALL_3:
+      //ARRMOV, MTP_OFF, COPY_3 must have pointer dest
+        if((op->dest_type & (ISVAR | ISDEREF | ADDRSVAR)) == ISVAR) {
+          DYNARR* dda = daget(varas, op->dest.varnum);
+          if(!dda->length || dapeek(dda) != blk)
+            dapush(dda, blk);
+        }
+        break;
+      OPS_1_ASSIGN_3ac
+        if(!(op->addr0_type & ADDRSVAR)) {
+          DYNARR* dda = daget(varas, op->addr0.varnum);
+          dapush(dda, blk);
+        }
+      default:
+        break; //no possible correct destination
     }
-  }
+  )
 
   //join node insertion, pass 2
   DYNARR* W = dactor(blocks->length);
@@ -645,17 +637,9 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
 }
 
 static void replacegvn(EQONTAINER* eq, PROGRAM* prog) {
-  for(int i = 0; i < prog->allblocks->length; i++) {
-    BBLOCK* blk = daget(prog->allblocks, i);
-    if(blk->lastop) {
-      OPERATION* op = blk->firstop;
-      while(1) {
-        replaceop(blk, eq, prog, op);
-        if(op == blk->lastop) break;
-        op = op->nextop;
-      }
-    }
-  }
+  LOOPALLBLOCKS(
+    replaceop(blk, eq, prog, op);
+  )
 }
 
 //number values
@@ -1565,93 +1549,4 @@ void ssaout(PROGRAM* prog) {
     }
   }
 }
-
-//Annotate the last use of a regnum in a block with the LASTUSE flag, this will allow us to figure out kills
-void annotateuse(PROGRAM* prog) {
-  DYNARR* pda = dactor(64);
-  HASHTABLE* pht = htctor();
-  for(int i = 0; i < prog->allblocks->length; i++) {
-    BBLOCK* blk = daget(prog->allblocks, i);
-    if(!blk->lastop) continue;
-    OPERATION* op = blk->firstop;
-    while(1) {
-      //a deref is still a use
-      switch(op->opcode) {
-        OPS_3_3ac OPS_3_PTRDEST_3ac
-          if(!(op->addr0_type & (ISCONST | ISLABEL))) {
-            int oldk = pht->keys;
-            fixedinsert(pht, op->addr0.regnum, &op->addr0_type);
-            if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr0.regnum);
-          }
-          if(!(op->addr1_type & (ISCONST | ISLABEL))) {
-            int oldk = pht->keys;
-            fixedinsert(pht, op->addr1.regnum, &op->addr1_type);
-            if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr1.regnum);
-          }
-          if(!(op->dest_type & (ISCONST | ISLABEL))) {
-            int oldk = pht->keys;
-            fixedinsert(pht, op->dest.regnum, &op->dest_type);
-            if(oldk != pht->keys) dapush(pda, (void*) (long) op->dest.regnum);
-          }
-          break;
-        OPS_NODEST_3ac
-          if(!(op->addr1_type & (ISCONST | ISLABEL))) {
-            int oldk = pht->keys;
-            fixedinsert(pht, op->addr1.regnum, &op->addr1_type);
-            if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr1.regnum);
-          }
-          __attribute__((fallthrough));
-        OPS_1_3ac OPS_1_ASSIGN_3ac case DEALOC:
-          if(!(op->addr0_type & (ISCONST | ISLABEL))) {
-            int oldk = pht->keys;
-            fixedinsert(pht, op->addr0.regnum, &op->addr0_type);
-            if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr0.regnum);
-          }
-          break;
-        OPS_2_3ac case ADDR_3:
-          if(!(op->addr0_type & (ISCONST | ISLABEL))) {
-            int oldk = pht->keys;
-            fixedinsert(pht, op->addr0.regnum, &op->addr0_type);
-            if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr0.regnum);
-          }
-          __attribute__((fallthrough));
-        case CALL_3:
-          if(!(op->dest_type & (ISCONST | ISLABEL))) {
-            int oldk = pht->keys;
-            fixedinsert(pht, op->dest.regnum, &op->dest_type);
-            if(oldk != pht->keys) dapush(pda, (void*) (long) op->dest.regnum);
-          }
-          break;
-        case PHI:
-          for(int j = 0; j < blk->inedges->length; j++) {
-            if(!(op->addr0.joins[j].addr_type & (ISCONST | ISLABEL))) {
-              int oldk = pht->keys;
-              fixedinsert(pht, op->addr0.joins[j].addr.regnum, &op->addr0.joins[j].addr_type);
-              if(oldk != pht->keys) dapush(pda, (void*) (long) op->addr0.joins[j].addr.regnum);
-            }
-          }
-          if(!(op->dest_type & (ISCONST | ISLABEL))) {
-            int oldk = pht->keys;
-            fixedinsert(pht, op->dest.regnum, &op->dest_type);
-            if(oldk != pht->keys) dapush(pda, (void*) (long) op->dest.regnum);
-          }
-          break;
-        OPS_NOVAR_3ac case ASM:
-          break;
-      }
-      if(op == blk->lastop) break;
-      op = op->nextop;
-    }
-    for(int j = 0; j < pda->length; j++) {
-      unsigned int val = (unsigned long) pda->arr[j];
-      ADDRTYPE* l = (ADDRTYPE*) fixedsearch(pht, val);
-      *l |= LASTUSE;
-      frmpair(pht, val);
-    }
-    pda->length = 0;
-  }
-  dadtor(pda);
-  fhtdtor(pht);
-}
-
 #undef X

@@ -107,6 +107,15 @@ struct opinfo op2op[] = {
   [ADDR_3] = {"lea", 2, 0, 0, 0}, //most likely nop?
   [ASM] = {"", 0, 0, 0, 0}, //figure it out
 };
+
+void liveness(PROGRAM* prog) {
+  HASHTABLE* definedblocks = htctor();
+  LOOPALLBLOCKS(
+  )
+  htdtor(definedblocks);
+}
+
+
 //handle long doubles same as doubles
 //https://compilers.cs.uni-saarland.de/projects/ssara/hack_ssara_ssa09.pdf
 //https://www.rw.cdl.uni-saarland.de/people/grund/private/papers/cgo08-liveness.pdf

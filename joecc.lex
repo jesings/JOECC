@@ -597,7 +597,10 @@ struct arginfo {
   ([[:digit:]]+|[[:digit:]]*"."?|[[:digit:]]+"."?)[[:digit:]]*({EXP})?{FLOATSIZE}? {
     dscat(lctx->ls->dstrdly, yytext, yyleng);
     }
-  [^\(\)\",[:alnum:]_\0]*[^[:space:]\(\)\",[:alnum:]_\0] {/*"*/
+  [^\(\)\",[:alnum:]_\0]*[^[:space:]\(\)\",[:alnum:]_\0\/\\] {/*"*/
+    dscat(lctx->ls->dstrdly, yytext, yyleng);
+    }
+  [\/\\] {
     dscat(lctx->ls->dstrdly, yytext, yyleng);
     }
   \"(\\.|[^\\"]|{SKIPNEWL})*\" {/*"*/
