@@ -271,7 +271,6 @@ static void cgblock(FILE* outputfile, char* fname, BBLOCK* blk) {
 }
 
 void genprogfile(FILE* outputfile, char* funcname, PROGRAM* prog) {
-  //fprintf(outputfile, "%s:\n", funcname);
   for(int i = 0; i < prog->allblocks->length; i++) {
     fprintf(outputfile, ".L%s%d:\n", funcname, i);
     cgblock(outputfile, funcname, daget(prog->allblocks, i));
@@ -422,7 +421,7 @@ void startgenfile(FILE* outputfile, struct lexctx* lctx) {
     INITIALIZER* in = daget(lctx->globals, i);
     if(ispointer(in->decl->type) && (((struct declarator_part*) dapeek(in->decl->type->pointerstack))->type == PARAMSSPEC || ((struct declarator_part*) dapeek(in->decl->type->pointerstack))->type == NAMELESS_PARAMSSPEC)) {
       if(!(in->decl->type->tb & STATICNUM)) {
-        if(search(lctx->funcs, in->decl->varname)) {
+        if(queryval(lctx->funcs, in->decl->varname)) {
           fprintf(outputfile, ".global %s\n", in->decl->varname);
         } else {
           fprintf(outputfile, ".extern %s\n", in->decl->varname);
@@ -431,7 +430,9 @@ void startgenfile(FILE* outputfile, struct lexctx* lctx) {
     } else if(in->decl->type->tb & EXTERNNUM) {
       fprintf(outputfile, ".extern %s\n", in->decl->varname);
     } else {
-      fprintf(outputfile, ".global %s\n", in->decl->varname);
+      if(!(in->decl->type->tb & STATICNUM)) {
+        fprintf(outputfile, ".global %s\n", in->decl->varname);
+      }
       fprintf(outputfile, "%s:\n", in->decl->varname);
       procinlit(outputfile, in->decl->type, in->expr);
     }

@@ -2,6 +2,7 @@
 #define REG_C
 #include "3ac.h"
 //Separate things for floats, ints
+void liveness(PROGRAM* prog);
 typedef struct {
   DYNARR* neighbors; //array of REGINF pointers
   short banneighbors; //clobbers, inputs, output to go elsewhere

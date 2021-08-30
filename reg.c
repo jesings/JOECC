@@ -1,13 +1,14 @@
 #include "reg.h"
+#define X(op) case op:
 
 enum reguse {
   DI = 1, 
   SI = 2, 
   DX = 4,
   CX = 8,
-  AX = 0x10,
   R8 = 0x20,
   R9 = 0x40,
+  AX = 0x10,
   R10 = 0x80,
   R11 = 0x100,
   R12 = 0x200,
@@ -21,15 +22,15 @@ enum reguse {
 
 enum reguse callreg[6] = {DI, SI, DX, CX, R8, R9};
 
-char* ireg64[] = {"rax", "rbx", "rcx", "rdx", "rdi", "rsi", "rbp", "rsp", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"};
-char* ireg32[] = {"eax", "ebx", "ecx", "edx", "edi", "esi", "ebp", "esp", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d"};
-char* ireg16[] = {"ax", "bx", "cx", "dx", "di", "si", "bp", "sp", "r8w", "r9w", "r10w", "r11w", "r12w", "r13w", "r14w", "r15w"};
-char* ireg8[] = {"al", "bl", "cl", "dl", "dil", "sil", "bpl", "spl", "r8b", "r9b", "r10b", "r11b", "r12b", "r13b", "r14b", "r15b"};
-char* freg128[] = {"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"};
-char* freg256[] = {"ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7", "ymm8", "ymm9", "ymm10", "ymm11", "ymm12", "ymm13", "ymm14", "ymm15"};
+const char* ireg64[] = {"rax", "rbx", "rcx", "rdx", "rdi", "rsi", "rbp", "rsp", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"};
+const char* ireg32[] = {"eax", "ebx", "ecx", "edx", "edi", "esi", "ebp", "esp", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d"};
+const char* ireg16[] = {"ax", "bx", "cx", "dx", "di", "si", "bp", "sp", "r8w", "r9w", "r10w", "r11w", "r12w", "r13w", "r14w", "r15w"};
+const char* ireg8[] = {"al", "bl", "cl", "dl", "dil", "sil", "bpl", "spl", "r8b", "r9b", "r10b", "r11b", "r12b", "r13b", "r14b", "r15b"};
+const char* freg128[] = {"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"};
+const char* freg256[] = {"ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7", "ymm8", "ymm9", "ymm10", "ymm11", "ymm12", "ymm13", "ymm14", "ymm15"};
 
 struct opinfo {
-  char* opname;
+  const char* opname;
   int numargs;
   int fixedclobbers;
   enum reguse retloc;
@@ -111,6 +112,16 @@ struct opinfo op2op[] = {
 void liveness(PROGRAM* prog) {
   HASHTABLE* definedblocks = htctor();
   LOOPALLBLOCKS(
+    switch(op->opcode) {
+      OPS_3_3ac OPS_2_3ac 
+        if(!(op->dest_type & (ISDEREF | ISLABEL))) fixedinsert(definedblocks, op->dest.regnum, blk);
+        break;
+      OPS_1_ASSIGN_3ac
+        fixedinsert(definedblocks, op->addr0.regnum, blk);
+        break;
+      default:
+        break;
+    }
   )
   htdtor(definedblocks);
 }
@@ -122,3 +133,4 @@ void liveness(PROGRAM* prog) {
 
 void regalloc(PROGRAM* prog) {
 }
+#undef X

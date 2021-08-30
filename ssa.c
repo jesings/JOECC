@@ -515,7 +515,6 @@ static GVNNUM* nodefromaddr(EQONTAINER* eq, ADDRTYPE adt, ADDRESS adr, PROGRAM* 
     cn = bigsearch(eq->ophash, (char*) &valst, sizeof(VALUESTRUCT));
     if(!cn) {
       cn = ctgvnnum(eq, NOCONST);
-      ADDRESS badr = adr;
       VALUESTRUCT* exn = ctvalstruct(INIT_3, adr.regnum, 0, supersize(adt), 0);
       bigfinsertfr(eq->ophash, (char*) valdup(exn), cn, sizeof(VALUESTRUCT));
       dapush(cn->equivs, exn);
@@ -1202,7 +1201,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   if(blk->tmp_gen) {
     DYNINT* rmstack = dinctor(8);
     for(int i = 0; i < blk->tmp_gen->length; i++) {
-      long fullval = blk->tmp_gen->arr[i];
+      long fullval = (long) blk->tmp_gen->arr[i];
       ADDRESS a;
       a.regnum = (unsigned int) fullval;
       GVNNUM* g = nodefromaddr(eq, downsize(fullval >> 32), a, prog);
@@ -1231,90 +1230,6 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   for(int i = 0; i < blk->pidominates->length; i++)
     changed |= antics(daget(blk->pidominates, i), prog, eq);
   return changed;
-}
-
-static void printffht(DYNARR* da) {
-  for(int i = 0; i < da->length; i++) {
-    HASHPAIR* hp = daget(da, i);
-    printf("{%ld: %ld}, ", hp->fixedkey, hp->ivalue);
-  }
-}
-
-static void printfht(DYNARR* da) {
-  for(int i = 0; i < da->length; i++) {
-    HASHPAIR* hp = daget(da, i);
-    VALUESTRUCT* ex = hp->value;
-    printf("{%ld: [%s %d.%hd %d.%hd]}, ", hp->fixedkey, opcode_3ac_names[ex->o], ex->p1, ex->size1, ex->p2, ex->size2);
-  }
-}
-
-static void printeq(EQONTAINER* eq, PROGRAM* prog) {
-  puts("-------------------------------------------");
-  for(int i = 1; i < eq->nodes->length; i++) {
-    printf("node %d: ", i);
-    GVNNUM* eqnode = daget(eq->nodes, i);
-    if(eqnode->hasconst == INTCONST) printf("intconst %ld, ", eqnode->intconst);
-    else if(eqnode->hasconst == FLOATCONST) printf("floatconst %lf, ", eqnode->floatconst);
-    else if(eqnode->hasconst == STRCONST) printf("strconst \"%s\", ", eqnode->strconst);
-    for(int j = 0; j < eqnode->equivs->length; j++) {
-      VALUESTRUCT* exs = daget(eqnode->equivs, j);
-      if(exs->o != INIT_3) {
-        printf("[%s %d.%d %d.%d], ", opcode_3ac_names[exs->o], exs->p1, exs->size1, exs->p2, exs->size2);
-      } else {
-        printf("%d.%d, ", exs->p1, exs->size1);
-      }
-    } 
-    printf("\n");
-  }
-  puts("-------------------------------------------");
-  for(int i = 0; i < prog->allblocks->length; i++) {
-    BBLOCK* blk = daget(prog->allblocks, i);
-    printf("BLOCK %d:\n", blk->domind);
-    if(blk->exp_gen) {
-      DYNARR* av = htfpairs(blk->exp_gen);
-      printf("exp_gen: (");
-      printfht(av);
-      printf(") \n");
-      dadtor(av);
-    }
-    if(blk->leader) {
-      DYNARR* av = htfpairs(blk->leader);
-      printf("leader: (");
-      printffht(av);
-      printf(") \n");
-      dadtor(av);
-    }
-    if(blk->tmp_gen) {
-      printf("tmp_gen (");
-      for(int j = 0; j < blk->tmp_gen->length; j++) {
-        long l = (long) daget(blk->tmp_gen, j);
-        printf("%d.%d%c, ", (int) l, (int) (l >> 32) & 0xf, ((l >> 32) & 0x10) ? 's' : 'u');
-      }
-      printf(")\n");
-    }
-    if(blk->antileader_in) {
-      DYNARR* av = htfpairs(blk->antileader_in);
-      printf("antileader in: (");
-      printfht(av);
-      printf(") \n");
-      dadtor(av);
-    }
-    if(blk->antileader_out) {
-      DYNARR* av = htfpairs(blk->antileader_out);
-      printf("antileader out: (");
-      printfht(av);
-      printf(") \n");
-      dadtor(av);
-    }
-    if(blk->translator) {
-      DYNARR* av = htfpairs(blk->translator);
-      printf("translator (");
-      printffht(av);
-      printf(") \n");
-      dadtor(av);
-    }
-  }
-  puts("-------------------------------------------");
 }
 
 static void recdomins(BBLOCK* blk, long key, void* value) {

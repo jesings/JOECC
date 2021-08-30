@@ -16,8 +16,8 @@ perftest: CFLAGS = -O2 -D NODEBUG -ggdb -g3 -march=native -D HEADERS_VERSION=\"$
 perftest: LEXFLAGS = -Cfer -p -p
 perftest: profile
 CFLAGS += -D HEADERS_VERSION=\"$(VERSION)\"
-compiler: joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o  dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o opt.o ssa.o codegen.o
-	$(CC) joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o opt.o ssa.o codegen.o -o compiler $(LDFLAGS)
+compiler: joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o  dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o opt.o ssa.o reg.o codegen.o
+	$(CC) joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o opt.o ssa.o reg.o codegen.o -o compiler $(LDFLAGS)
 gotest: compiler
 	./compiler dynarr.c
 lex.yy.c: joecc.lex
@@ -56,6 +56,8 @@ ssa.o: ssa.c
 	$(CC) ssa.c -c $(CFLAGS)
 codegen.o: codegen.c
 	$(CC) codegen.c -c $(CFLAGS)
+reg.o: reg.c
+	$(CC) reg.c -c $(CFLAGS)
 
 profile: compiler
 	perf record ./compiler treeduce.c
@@ -63,8 +65,8 @@ profile: compiler
 
 
 clean:
-	-rm *.o
-	-rm ./dstest
+	-rm *.o *.joecco *.joeccs
+	-rm ./dstest ./functions
 	-rm *.tab.*
 
 dstest.o: dstest.c
