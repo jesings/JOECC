@@ -94,7 +94,14 @@ struct arginfo {
     YYLTYPE* ylt = i ? daget(lctx->ls->locs, lctx->ls->locs->length - i) : yylloc;
     int bsize = sprintf(linebuf, "\"%s\"", ylt->filename);
     yypush_stringbuffer(linebuf, bsize, "__FILE__", YY_CURRENT_BUFFER, yyscanner);
-    yy_push_state(yy_top_state(yyscanner), yyscanner);
+    int t = yy_top_state(yyscanner);
+    yy_push_state(t, yyscanner);
+    if(t == CALLMACRO) {
+      struct arginfo* argi = calloc(1, sizeof(struct arginfo));
+      argi->defname = lctx->ls->defname;
+      dapush(lctx->ls->argpp, argi);
+      lctx->ls->defname = strdup("__FILE__");
+    }
   }
   "__LINE__" {
     char linebuf[16]; 
@@ -102,7 +109,14 @@ struct arginfo {
     YYLTYPE* ylt = i ? daget(lctx->ls->locs, lctx->ls->locs->length - i) : yylloc;
     int bsize = sprintf(linebuf, "%d", ylt->last_line);
     yypush_stringbuffer(linebuf, bsize, "__LINE__", YY_CURRENT_BUFFER, yyscanner);
-    yy_push_state(yy_top_state(yyscanner), yyscanner);
+    int t = yy_top_state(yyscanner);
+    yy_push_state(t, yyscanner);
+    if(t == CALLMACRO) {
+      struct arginfo* argi = calloc(1, sizeof(struct arginfo));
+      argi->defname = lctx->ls->defname;
+      dapush(lctx->ls->argpp, argi);
+      lctx->ls->defname = strdup("__LINE__");
+    }
   }
   "__DATE__" {
     time_t tim = time(NULL); 
@@ -112,6 +126,14 @@ struct arginfo {
     size_t datesize = strftime(datebuf, 16, "\"%b %e %Y\"", &tms);
     yypush_stringbuffer(datebuf, datesize, "__DATE__", YY_CURRENT_BUFFER, yyscanner);
     yy_push_state(yy_top_state(yyscanner), yyscanner);
+    int t = yy_top_state(yyscanner);
+    yy_push_state(t, yyscanner);
+    if(t == CALLMACRO) {
+      struct arginfo* argi = calloc(1, sizeof(struct arginfo));
+      argi->defname = lctx->ls->defname;
+      dapush(lctx->ls->argpp, argi);
+      lctx->ls->defname = strdup("__DATE__");
+    }
   }
   "__TIME__" {
     time_t tim = time(NULL); 
@@ -121,12 +143,28 @@ struct arginfo {
     size_t timesize = strftime(timebuf, 13, "\"%T\"", &tms);
     yypush_stringbuffer(timebuf, timesize, "__TIME__", YY_CURRENT_BUFFER, yyscanner);
     yy_push_state(yy_top_state(yyscanner), yyscanner);
+    int t = yy_top_state(yyscanner);
+    yy_push_state(t, yyscanner);
+    if(t == CALLMACRO) {
+      struct arginfo* argi = calloc(1, sizeof(struct arginfo));
+      argi->defname = lctx->ls->defname;
+      dapush(lctx->ls->argpp, argi);
+      lctx->ls->defname = strdup("__TIME__");
+    }
   }
   "__func__" {
     char linebuf[300];
     int bsize = sprintf(linebuf, "\"%s\"", lctx->func->name);
     yypush_stringbuffer(linebuf, bsize, "__func__", YY_CURRENT_BUFFER, yyscanner);
     yy_push_state(yy_top_state(yyscanner), yyscanner);
+    int t = yy_top_state(yyscanner);
+    yy_push_state(t, yyscanner);
+    if(t == CALLMACRO) {
+      struct arginfo* argi = calloc(1, sizeof(struct arginfo));
+      argi->defname = lctx->ls->defname;
+      dapush(lctx->ls->argpp, argi);
+      lctx->ls->defname = strdup("__func__");
+    }
   }
 }
 
@@ -1101,10 +1139,10 @@ int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) 
         c = input(yyscanner);
         ++yltg->last_column;
         switch(c) {
-          case '\n': 
+          case '\n': case '\v':
             yltg->last_column = 0;
             ++yltg->last_line;
-          case ' ': case '\t': case '\v':
+          case ' ': case '\t':
           	break;
           case '(':
           	goto whiledone;

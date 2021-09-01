@@ -1,6 +1,7 @@
 #ifndef REG_C
 #define REG_C
 #include "3ac.h"
+#include <assert.h>
 //Separate things for floats, ints
 void liveness(PROGRAM* prog);
 typedef struct {
