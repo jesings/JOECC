@@ -97,6 +97,10 @@ struct arginfo {
     int t = yy_top_state(yyscanner);
     yy_push_state(t, yyscanner);
     if(t == CALLMACRO) {
+      YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
+      *ylt = *yylloc;
+      ylt->filename = strdup(ylt->filename);
+      dapush(lctx->ls->locs, ylt);
       struct arginfo* argi = calloc(1, sizeof(struct arginfo));
       argi->defname = lctx->ls->defname;
       dapush(lctx->ls->argpp, argi);
@@ -112,6 +116,10 @@ struct arginfo {
     int t = yy_top_state(yyscanner);
     yy_push_state(t, yyscanner);
     if(t == CALLMACRO) {
+      YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
+      *ylt = *yylloc;
+      dapush(lctx->ls->locs, ylt);
+      ylt->filename = strdup(ylt->filename);
       struct arginfo* argi = calloc(1, sizeof(struct arginfo));
       argi->defname = lctx->ls->defname;
       dapush(lctx->ls->argpp, argi);
@@ -129,6 +137,10 @@ struct arginfo {
     int t = yy_top_state(yyscanner);
     yy_push_state(t, yyscanner);
     if(t == CALLMACRO) {
+      YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
+      *ylt = *yylloc;
+      dapush(lctx->ls->locs, ylt);
+      ylt->filename = strdup(ylt->filename);
       struct arginfo* argi = calloc(1, sizeof(struct arginfo));
       argi->defname = lctx->ls->defname;
       dapush(lctx->ls->argpp, argi);
@@ -146,6 +158,10 @@ struct arginfo {
     int t = yy_top_state(yyscanner);
     yy_push_state(t, yyscanner);
     if(t == CALLMACRO) {
+      YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
+      *ylt = *yylloc;
+      dapush(lctx->ls->locs, ylt);
+      ylt->filename = strdup(ylt->filename);
       struct arginfo* argi = calloc(1, sizeof(struct arginfo));
       argi->defname = lctx->ls->defname;
       dapush(lctx->ls->argpp, argi);
@@ -160,9 +176,13 @@ struct arginfo {
     int t = yy_top_state(yyscanner);
     yy_push_state(t, yyscanner);
     if(t == CALLMACRO) {
+      YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
+      *ylt = *yylloc;
+      dapush(lctx->ls->locs, ylt);
       struct arginfo* argi = calloc(1, sizeof(struct arginfo));
       argi->defname = lctx->ls->defname;
       dapush(lctx->ls->argpp, argi);
+      ylt->filename = strdup(ylt->filename);
       lctx->ls->defname = strdup("__func__");
     }
   }
