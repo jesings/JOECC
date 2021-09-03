@@ -143,16 +143,16 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
           }
           break;
         OPS_1_ASSIGN_3ac
-          if(op->addr0_type & ISVAR) {
-            FULLADDR* fad = daget(prog->dynvars, op->addr0.varnum);
+          if(op->dest_type & ISVAR) {
+            FULLADDR* fad = daget(prog->dynvars, op->dest.varnum);
             if(!(fad->addr_type & ADDRSVAR)) {
-              bdarr = daget(S, op->addr0.varnum);
-              assert(!(op->addr0_type & ISDEREF));
-              assert(!C[op->addr0.varnum]);
-              C[op->addr0.varnum] = prog->regcnt++;
-              op->addr0.ssaind = C[op->addr0.varnum];
-              dapush(bdarr, (void*)(long) C[op->addr0.varnum]);
-              dapush(assigns, (void*)(long)op->addr0.varnum);
+              bdarr = daget(S, op->dest.varnum);
+              assert(!(op->dest_type & ISDEREF));
+              assert(!C[op->dest.varnum]);
+              C[op->dest.varnum] = prog->regcnt++;
+              op->dest.ssaind = C[op->dest.varnum];
+              dapush(bdarr, (void*)(long) C[op->dest.varnum]);
+              dapush(assigns, (void*)(long)op->dest.varnum);
             }
           }
           break;
@@ -370,8 +370,8 @@ void ssa(PROGRAM* prog) {
         }
         break;
       OPS_1_ASSIGN_3ac
-        if(!(op->addr0_type & ADDRSVAR)) {
-          DYNARR* dda = daget(varas, op->addr0.varnum);
+        if(!(op->dest_type & ADDRSVAR)) {
+          DYNARR* dda = daget(varas, op->dest.varnum);
           dapush(dda, blk);
         }
       default:
@@ -603,10 +603,10 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
       }
       break;
     OPS_1_ASSIGN_3ac
-      val = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
+      val = nodefromaddr(eq, op->dest_type, op->dest, prog);
       if(val) {
         assert(val->hasconst == NOCONST);
-        assert(op->addr0.regnum == (long) fixedsearch(leader, val->index));
+        assert(op->dest.regnum == (long) fixedsearch(leader, val->index));
       }
       break;
     case PHI: 
@@ -829,7 +829,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
           if(destval) finalval = daget(destval->equivs, 0);
           break;
         OPS_1_ASSIGN_3ac
-          destval = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
+          destval = nodefromaddr(eq, op->dest_type, op->dest, prog);
           if(destval) finalval = daget(destval->equivs, 0);
           break;
         case ASM:
@@ -933,8 +933,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
           //kill of ADDR_3 only caused by kill of value it's taking the address of
           break;
         OPS_1_ASSIGN_3ac
-          assert(!(op->addr0_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)));
-          long fullval = ((long) supersize(op->addr0_type)) << 32 | op->addr0.regnum;
+          assert(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST)));
+          long fullval = ((long) supersize(op->dest_type)) << 32 | op->dest.regnum;
           dapush(blk->tmp_gen, (void*) fullval);
           break;
         OPS_NODEST_3ac OPS_3_PTRDEST_3ac

@@ -114,56 +114,44 @@ void liveness(PROGRAM* prog) {
   for(int i = 0; i < usedefchains->length; i++) 
     dapush(usedefchains, NULL);
   LOOPALLBLOCKS(
-    switch(op->opcode) {
-      OPS_3_3ac 
-        if(!(op->addr1_type & (ISDEREF | ISLABEL | ISCONST))) {
-          DYNARR* chain;
-          int reg = op->addr1.regnum;
-          assert(reg < usedefchains->length);
-          assert((chain = daget(usedefchains, reg))); //forward use that is not a phi
-          if(dapeek(chain) != blk)
-            dapush(chain, blk); //prevent adjacent duplicates
+    OPARGCASES(
+      if(!(op->addr0_type & (ISDEREF | ISLABEL | ISCONST))) {
+        DYNARR* chain;
+        int reg = op->addr0.regnum;
+        assert(reg < usedefchains->length);
+        assert((chain = daget(usedefchains, reg))); //forward use that is not a phi
+        if(dapeek(chain) != blk)
+          dapush(chain, blk); //prevent adjacent duplicates
+      },
+      if(!(op->addr1_type & (ISDEREF | ISLABEL | ISCONST))) {
+        DYNARR* chain;
+        int reg = op->addr1.regnum;
+        assert(reg < usedefchains->length);
+        assert((chain = daget(usedefchains, reg))); //forward use that is not a phi
+        if(dapeek(chain) != blk)
+          dapush(chain, blk); //prevent adjacent duplicates
+      },
+      if(!(op->dest_type & (ISDEREF | ISLABEL))) {
+        DYNARR* chain;
+        int reg = op->dest.regnum;
+        assert(reg < usedefchains->length);
+        if(!(chain = daget(usedefchains, reg))) {
+          assert(daget(chain, 0) == NULL);
+        } else {
+          chain = usedefchains->arr[reg] = dactor(8);
+          chain->length = 1;
         }
-        __attribute__((fallthrough));
-      OPS_2_3ac 
-        if(!(op->addr0_type & (ISDEREF | ISLABEL | ISCONST))) {
-          DYNARR* chain;
-          int reg = op->addr0.regnum;
-          assert(reg < usedefchains->length);
-          assert((chain = daget(usedefchains, reg))); //forward use that is not a phi
-          if(dapeek(chain) != blk)
-            dapush(chain, blk); //prevent adjacent duplicates
-        }
-        if(!(op->dest_type & (ISDEREF | ISLABEL))) {
-          DYNARR* chain;
-          int reg = op->dest.regnum;
-          assert(reg < usedefchains->length);
-          if(!(chain = daget(usedefchains, reg))) {
-            assert(daget(chain, 0) == NULL);
-          } else {
-            chain = usedefchains->arr[reg] = dactor(8);
-            chain->length = 1;
-          }
-          chain->arr[0] = blk;
-        }
-        break;
-      OPS_1_ASSIGN_3ac
-        if(!(op->addr0_type & (ISDEREF | ISLABEL))) {
-          DYNARR* chain;
-          int reg = op->addr0.regnum;
-          assert(reg < usedefchains->length);
-          if(!(chain = daget(usedefchains, reg))) {
-            assert(daget(chain, 0) == NULL);
-          } else {
-            chain = usedefchains->arr[reg] = dactor(8);
-            chain->length = 1;
-          }
-          chain->arr[0] = blk;
-        }
-        break;
-      default:
-        break;
-    }
+        chain->arr[0] = blk;
+      },
+      if(!(phijoinaddr->addr_type & (ISDEREF | ISLABEL | ISCONST))) {
+        DYNARR* chain;
+        int reg = phijoinaddr->addr.regnum;
+        assert(reg < usedefchains->length);
+        assert((chain = daget(usedefchains, reg))); //forward use that is not a phi
+        if(dapeek(chain) != blk)
+          dapush(chain, blk); //prevent adjacent duplicates
+      }
+    )
   )
   dadtorcfr(usedefchains, (void(*)(void*)) dadtorfr);
 }

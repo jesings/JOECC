@@ -22,6 +22,13 @@ OPERATION* ct_3ac_op1(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
   retval->addr0 = addr0;
   return retval;
 }
+OPERATION* ct_3ac_op1_assign(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0) {
+  OPERATION* retval = malloc(sizeof(OPERATION));
+  retval->opcode = opcode;
+  retval->dest_type = addr0_type;
+  retval->dest = addr0;
+  return retval;
+}
 OPERATION* ct_3ac_op2(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0, ADDRTYPE dest_type, ADDRESS dest) {
   OPERATION* retval = malloc(sizeof(OPERATION));
   retval->opcode = opcode;
@@ -949,7 +956,7 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
   newa->addr_type = addrconv(i->decl->type) | ISVAR;
   newa->addr.varnum = i->decl->varid;
   newa->addr.regnum = prog->regcnt++;
-  opn(prog, ct_3ac_op1(INIT_3, newa->addr_type, newa->addr));
+  opn(prog, ct_3ac_op1_assign(INIT_3, newa->addr_type, newa->addr));
   if(i->decl->type->tb & (STRUCTVAL | UNIONVAL)) {
     if(i->expr) {
       FULLADDR lastemp = linearitree(i->expr, prog);
@@ -1260,7 +1267,7 @@ PROGRAM* linefunc(FUNC* f) {
     newa->addr_type = addrconv(pdec->type) | ISVAR;
     newa->addr.varnum = pdec->varid;
     newa->addr.regnum = prog->regcnt++;
-    opn(prog, ct_3ac_op1(PARAM_3, newa->addr_type, newa->addr));
+    opn(prog, ct_3ac_op1_assign(PARAM_3, newa->addr_type, newa->addr));
     if(!ispointer(pdec->type)) {
       if((pdec->type->tb & (STRUCTVAL | UNIONVAL) )) {
         ADDRESS tmpaddr, tmpaddr2;
@@ -1406,6 +1413,9 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char term, FILE* f, PROG
 #define PRINTOP1() do { \
     printaddr(op->addr0, op->addr0_type, term, f, prog); \
   } while(0)
+#define PRINTOP1ASSIGN() do { \
+    printaddr(op->dest, op->dest_type, term, f, prog); \
+  } while(0)
 
 void printop(OPERATION* op, char term, BBLOCK* blk, FILE* f, PROGRAM* prog) {
   fprintf(f, "%s", opcode_3ac_names[op->opcode]);
@@ -1492,9 +1502,12 @@ void printop(OPERATION* op, char term, BBLOCK* blk, FILE* f, PROGRAM* prog) {
       if(term) PRINTBROP2(>);
       else PRINTBROP2(&gt;);
       break;
-    case BNZ_3: case BEZ_3: case ARG_3: case PARAM_3: 
-    case INIT_3: case DEALOC:
+    case BNZ_3: case BEZ_3: case ARG_3:
+    case DEALOC:
       PRINTOP1( );
+      break;
+    case INIT_3: case PARAM_3:
+      PRINTOP1ASSIGN( );
       break;
     case RET_3: 
       if(!(op->addr0_type & GARBAGEVAL)) PRINTOP1( );

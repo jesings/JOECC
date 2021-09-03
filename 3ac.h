@@ -65,6 +65,43 @@ extern const char* opcode_3ac_names[];
     } \
   }
 
+#define OPARGCASES(addr0case, addr1case, destcase, phiaddrcase) \
+  switch(op->opcode) { \
+    OPS_3_3ac \
+      addr0case \
+      addr1case \
+      destcase \
+      break; \
+    OPS_3_PTRDEST_3ac OPS_NODEST_3ac \
+      addr0case \
+      addr1case \
+      break; \
+    OPS_2_3ac \
+    case ADDR_3: /*maybe this doesn't belong here*/\
+      addr0case \
+      destcase \
+      break;\
+    OPS_1_3ac \
+      addr0case \
+      break; \
+    OPS_1_ASSIGN_3ac \
+    case CALL_3: \
+      destcase \
+      break; \
+    OPS_NOVAR_3ac \
+    case DEALOC: \
+      break; \
+    case PHI: \
+      for(int phiindex = 0; phiindex < blk->inedges->length; phiindex++) { \
+        FULLADDR* phijoinaddr = &op->addr0.joins[phiindex]; \
+        phiaddrcase \
+      } \
+      destcase \
+      break; \
+    case ASM: \
+      assert(0); \
+  }
+
 enum passes {
   SSA = 1,
   GVN = 2,
@@ -174,6 +211,7 @@ typedef struct {
 
 OPERATION* ct_3ac_op0(enum opcode_3ac opcode);
 OPERATION* ct_3ac_op1(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0);
+OPERATION* ct_3ac_op1_assign(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0);
 OPERATION* ct_3ac_op2(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0, ADDRTYPE dest_type, ADDRESS dest);
 OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0,
                       ADDRTYPE addr1_type, ADDRESS addr1, ADDRTYPE dest_type, ADDRESS dest);
