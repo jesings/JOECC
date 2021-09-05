@@ -109,6 +109,23 @@ struct opinfo op2op[] = {
   [ASM] = {"", 0, 0, 0, 0}, //figure it out
 };
 
+static void rrblk(BBLOCK* blk) {
+  blk->visited = 1;
+  if(blk->nextblock && blk->nextblock->domind > blk->domind) {
+  }
+  if(blk->branchblock && blk->branchblock->domind > blk->domind) {
+  }
+}
+
+static void reducedreachable(PROGRAM* prog) {
+  BBLOCK* b = daget(prog->allblocks, 0);
+  rrblk(b);
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    blk->visited = 0;
+  }
+}
+
 void liveness(PROGRAM* prog) {
   DYNARR* usedefchains = dactor(prog->regcnt); //could be reduced by renaming registers downwards first
   for(int i = 0; i < usedefchains->length; i++) 
