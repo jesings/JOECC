@@ -130,6 +130,14 @@ static void rrblk(BBLOCK* blk) {
     }
   }
   if(!blk->simply_reachable) blk->simply_reachable = htctor();
+  fixedinsert(blk->simply_reachable, blk->domind, blk);
+}
+static void calcbackblocks(BBLOCK* blk, PROGRAM* prog) {
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* possbackblock = daget(prog->allblocks, i);
+    if(possbackblock != blk) continue;
+    //fixedqueryval(possbackblock->simply_reachable
+  }
 }
 
 static void reducedreachable(PROGRAM* prog) {
@@ -138,6 +146,7 @@ static void reducedreachable(PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     blk->visited = 0;
+    calcbackblocks(b, prog);
   }
 }
 
