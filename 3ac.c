@@ -1627,6 +1627,7 @@ void freeblock(void* blk) {
   if(blk2->antileader_out) fhtdtorcfr(blk2->antileader_out, free);
   if(blk2->translator) fhtdtor(blk2->translator);
   if(blk2->revtranslator) fhtdtor(blk2->revtranslator);
+  if(blk2->simply_reachable) fhtdtor(blk2->simply_reachable);
   free(blk);
 }
 

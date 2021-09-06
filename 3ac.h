@@ -192,6 +192,7 @@ typedef struct bblock {
   HASHTABLE* exp_gen;
   HASHTABLE* translator;
   HASHTABLE* revtranslator;
+  HASHTABLE* simply_reachable;
 } BBLOCK;
 
 typedef struct {

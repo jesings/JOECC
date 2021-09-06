@@ -110,11 +110,26 @@ struct opinfo op2op[] = {
 };
 
 static void rrblk(BBLOCK* blk) {
+  if(blk->visited) return;
   blk->visited = 1;
   if(blk->nextblock && blk->nextblock->domind > blk->domind) {
+    rrblk(blk->nextblock);
+    blk->simply_reachable = htclone(blk->nextblock->simply_reachable);
   }
   if(blk->branchblock && blk->branchblock->domind > blk->domind) {
+    rrblk(blk->branchblock);
+    if(!blk->simply_reachable) {
+      blk->simply_reachable = htclone(blk->branchblock->simply_reachable);
+    } else {
+      DYNARR* da = htpairs(blk->branchblock->simply_reachable);
+      for(int i = 0; i < da->length; i++) {
+        HASHPAIR* hp = daget(da, i);
+        fixedinsert(blk->simply_reachable, hp->fixedkey, hp->value);
+      }
+      dadtor(da);
+    }
   }
+  if(!blk->simply_reachable) blk->simply_reachable = htctor();
 }
 
 static void reducedreachable(PROGRAM* prog) {
@@ -170,6 +185,7 @@ void liveness(PROGRAM* prog) {
       }
     )
   )
+  reducedreachable(prog);
   dadtorcfr(usedefchains, (void(*)(void*)) dadtorfr);
 }
 
