@@ -129,7 +129,7 @@ static void rrblk(BBLOCK* blk, int blkcnt) {
   bfset(blk->simply_reachable, blk->domind);
 }
 static void calcbackblocks(BBLOCK* blk, PROGRAM* prog) {
-  blk->back_reachable = bfalloc(prog->allblocks->length);
+  blk->back_reachable = bfalloc(prog->allblocks->length + 1);
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* possbackblock = daget(prog->allblocks, i);
     if(possbackblock != blk) continue;
@@ -141,8 +141,8 @@ static void calcbackblocks(BBLOCK* blk, PROGRAM* prog) {
 
 static void reducedreachable(PROGRAM* prog) {
   BBLOCK* b = daget(prog->allblocks, 0);
-  rrblk(b, prog->allblocks->length);
-  for(int i = 0; i < prog->allblocks->length; i++) {
+  rrblk(b, prog->allblocks->length + 1);
+  for(int i = 1; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     blk->visited = 0;
     calcbackblocks(b, prog);
@@ -151,7 +151,7 @@ static void reducedreachable(PROGRAM* prog) {
 
 void liveness(PROGRAM* prog) {
   DYNARR* usedefchains = dactor(prog->regcnt); //could be reduced by renaming registers downwards first
-  for(int i = 0; i < usedefchains->length; i++) 
+  for(int i = 0; i < usedefchains->maxlength; i++)
     dapush(usedefchains, NULL);
   LOOPALLBLOCKS(
     OPARGCASES(
@@ -175,7 +175,7 @@ void liveness(PROGRAM* prog) {
         DYNARR* chain;
         int reg = op->dest.regnum;
         assert(reg < usedefchains->length);
-        if(!(chain = daget(usedefchains, reg))) {
+        if((chain = daget(usedefchains, reg))) {
           assert(daget(chain, 0) == NULL);
         } else {
           chain = usedefchains->arr[reg] = dactor(8);
@@ -187,14 +187,22 @@ void liveness(PROGRAM* prog) {
         DYNARR* chain;
         int reg = phijoinaddr->addr.regnum;
         assert(reg < usedefchains->length);
-        assert((chain = daget(usedefchains, reg))); //forward use that is not a phi
-        if(dapeek(chain) != blk)
-          dapush(chain, blk); //prevent adjacent duplicates
+        //forward use is not a phi
+        if((chain = daget(usedefchains, reg))) {
+          if(dapeek(chain) != blk) {
+            dapush(chain, blk); //prevent adjacent duplicates
+          }
+        } else {
+          chain = usedefchains->arr[reg] = dactor(8);
+          chain->length = 2;
+          chain->arr[0] = NULL;
+          chain->arr[1] = blk;
+        }
       }
     )
   )
   reducedreachable(prog);
-  dadtorcfr(usedefchains, (void(*)(void*)) dadtorfr);
+  dadtorcfr(usedefchains, (void(*)(void*)) dadtor);
 }
 
 

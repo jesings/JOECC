@@ -10,6 +10,7 @@
 #include "ssa.h"
 #include "opt.h"
 #include "codegen.h"
+#include "reg.h"
 
 #ifdef NODEBUG
 #define DEBUG(a)
@@ -126,6 +127,9 @@ static void filecomp(char* filename) {
       ldstrsep(prog);
       DEBUG(printf("Ops after ldstrsep %d\n", countops(prog)));
       DEBUG(treeprog(prog, pairthere->key, "ldstrsep"));
+
+      renumber(prog);
+      liveness(prog);
 
       genprogfile(objf, pairthere->key, prog);
       freeprog(prog);

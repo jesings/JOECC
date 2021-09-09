@@ -733,3 +733,14 @@ void collatealloc(PROGRAM* prog) {
 #endif
   }
 }
+
+static int compar(const void* blk1, const void* blk2) {
+  return (*(BBLOCK* const*) blk1)->domind < (*(BBLOCK* const*) blk2)->domind;
+}
+void renumber(PROGRAM* prog) {
+  qsort(prog->allblocks->arr, prog->allblocks->length, sizeof(BBLOCK*), compar);
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    blk->domind = i;
+  }
+}

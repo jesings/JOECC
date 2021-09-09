@@ -93,7 +93,7 @@ extern const char* opcode_3ac_names[];
       break; \
     case PHI: \
       for(int phiindex = 0; phiindex < blk->inedges->length; phiindex++) { \
-        FULLADDR* phijoinaddr = &op->addr0.joins[phiindex]; \
+        FULLADDR* phijoinaddr = op->addr0.joins + phiindex; \
         phiaddrcase \
       } \
       destcase \
@@ -154,7 +154,6 @@ typedef enum {
 
 typedef struct op {
   enum opcode_3ac opcode;
-  //int oprank;
   ADDRTYPE addr0_type;
   ADDRESS addr0;
   ADDRTYPE addr1_type;
