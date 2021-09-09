@@ -109,40 +109,39 @@ struct opinfo op2op[] = {
   [ASM] = {"", 0, 0, 0, 0}, //figure it out
 };
 
-static void rrblk(BBLOCK* blk) {
+static void rrblk(BBLOCK* blk, int blkcnt) {
   if(blk->visited) return;
   blk->visited = 1;
   if(blk->nextblock && blk->nextblock->domind > blk->domind) {
-    rrblk(blk->nextblock);
-    blk->simply_reachable = htclone(blk->nextblock->simply_reachable);
+    rrblk(blk->nextblock, blkcnt);
+    blk->simply_reachable = bfclone(blk->nextblock->simply_reachable, blkcnt);
   }
   if(blk->branchblock && blk->branchblock->domind > blk->domind) {
-    rrblk(blk->branchblock);
+    rrblk(blk->branchblock, blkcnt);
     if(!blk->simply_reachable) {
-      blk->simply_reachable = htclone(blk->branchblock->simply_reachable);
+      blk->simply_reachable = bfclone(blk->branchblock->simply_reachable, blkcnt);
     } else {
-      DYNARR* da = htpairs(blk->branchblock->simply_reachable);
-      for(int i = 0; i < da->length; i++) {
-        HASHPAIR* hp = daget(da, i);
-        fixedinsert(blk->simply_reachable, hp->fixedkey, hp->value);
-      }
-      dadtor(da);
+      for(int i = 0; i < (blkcnt + 7) >> 3; i++)
+        blk->simply_reachable[i] |= blk->branchblock->simply_reachable[i];
     }
   }
-  if(!blk->simply_reachable) blk->simply_reachable = htctor();
-  fixedinsert(blk->simply_reachable, blk->domind, blk);
+  if(!blk->simply_reachable) blk->simply_reachable = bfalloc(blkcnt);
+  bfset(blk->simply_reachable, blk->domind);
 }
 static void calcbackblocks(BBLOCK* blk, PROGRAM* prog) {
+  blk->back_reachable = bfalloc(prog->allblocks->length);
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* possbackblock = daget(prog->allblocks, i);
     if(possbackblock != blk) continue;
-    //fixedqueryval(possbackblock->simply_reachable
+    if(bfget(blk->simply_reachable, possbackblock->domind) && !bfget(possbackblock->simply_reachable, blk->domind)) {
+      bfset(blk->back_reachable, possbackblock->domind);
+    }
   }
 }
 
 static void reducedreachable(PROGRAM* prog) {
   BBLOCK* b = daget(prog->allblocks, 0);
-  rrblk(b);
+  rrblk(b, prog->allblocks->length);
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     blk->visited = 0;
