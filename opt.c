@@ -735,7 +735,7 @@ void collatealloc(PROGRAM* prog) {
 }
 
 static int compar(const void* blk1, const void* blk2) {
-  return (*(BBLOCK* const*) blk1)->domind < (*(BBLOCK* const*) blk2)->domind;
+  return (*(BBLOCK* const*) blk1)->domind > (*(BBLOCK* const*) blk2)->domind;
 }
 void renumber(PROGRAM* prog) {
   qsort(prog->allblocks->arr, prog->allblocks->length, sizeof(BBLOCK*), compar);

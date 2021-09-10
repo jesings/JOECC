@@ -142,10 +142,10 @@ static void calcbackblocks(BBLOCK* blk, PROGRAM* prog) {
 static void reducedreachable(PROGRAM* prog) {
   BBLOCK* b = daget(prog->allblocks, 0);
   rrblk(b, prog->allblocks->length + 1);
-  for(int i = 1; i < prog->allblocks->length; i++) {
+  for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     blk->visited = 0;
-    calcbackblocks(b, prog);
+    calcbackblocks(blk, prog);
   }
 }
 
@@ -155,7 +155,7 @@ void liveness(PROGRAM* prog) {
     dapush(usedefchains, NULL);
   LOOPALLBLOCKS(
     OPARGCASES(
-      if(!(op->addr0_type & (ISDEREF | ISLABEL | ISCONST))) {
+      if(!(op->addr0_type & (ISDEREF | ISLABEL | ISCONST | GARBAGEVAL))) {
         DYNARR* chain;
         int reg = op->addr0.regnum;
         assert(reg < usedefchains->length);
