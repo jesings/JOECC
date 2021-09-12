@@ -1355,7 +1355,7 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char term, FILE* f, PROG
     } else {
       if(term) fprintf(f, RGBCOLOR(250,60,60));
       else fprintf(f, "<FONT COLOR=\"#%.2hhx%.2hhx%.2hhx\">", 250, 60, 60);
-      if(addr_type & ISFLOAT) 
+      if(addr_type & ISFLOAT)
         fprintf(f, "%lf", addr.floatconst_64);
       else if(addr_type & ISSIGNED) 
         fprintf(f, "%ld", addr.intconst_64);
@@ -1368,6 +1368,7 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char term, FILE* f, PROG
     int sz = (addr_type & 0xf) * 8;
     if(term) fprintf(f, RGBCOLOR(60,220,60));
     else fprintf(f, "<FONT COLOR=\"#%.2hhx%.2hhx%.2hhx\">", 60, 220, 60);
+    if(addr_type & ADDRSVAR) fprintf(f, "`");
     if(addr_type & ISVAR && !(prog->pdone & GVN)) {
       char* adname = daget(prog->dynchars, addr.varnum);
       if(prog->pdone & SSA && !(addr_type & ADDRSVAR)) {

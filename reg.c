@@ -158,28 +158,40 @@ void liveness(PROGRAM* prog) {
         unsigned int reg = op->addr0.regnum;
         assert(reg < prog->regcnt);
         assert((chain = usedefchains[reg])); //forward use that is not a phi
-        if(dapeek(chain) != blk)
-          dapush(chain, blk); //prevent adjacent duplicates
+        if(chain != (DYNARR*) -1) {
+          if(dapeek(chain) != blk)
+            dapush(chain, blk); //prevent adjacent duplicates
+        }
       },
       if(!(op->addr1_type & (ISDEREF | ISLABEL | ISCONST))) {
         DYNARR* chain;
         unsigned int reg = op->addr1.regnum;
         assert(reg < prog->regcnt);
         assert((chain = usedefchains[reg])); //forward use that is not a phi
-        if(dapeek(chain) != blk)
-          dapush(chain, blk); //prevent adjacent duplicates
+        if(chain != (DYNARR*) -1) {
+          if(dapeek(chain) != blk)
+            dapush(chain, blk); //prevent adjacent duplicates
+        }
       },
       if(!(op->dest_type & (ISDEREF | ISLABEL))) {
         DYNARR* chain;
         unsigned int reg = op->dest.regnum;
         assert(reg < prog->regcnt);
-        if((chain = usedefchains[reg])) {
-          assert(daget(chain, 0) == NULL);
+
+        if(op->dest_type & ADDRSVAR) {
+          usedefchains[reg] = (DYNARR*) -1;
         } else {
-          chain = usedefchains[reg] = dactor(8);
-          chain->length = 1;
+          chain = usedefchains[reg];
+          if(chain != (DYNARR*) -1) {
+            if(chain) {
+              assert(daget(chain, 0) == NULL);
+            } else {
+              chain = usedefchains[reg] = dactor(8);
+              chain->length = 1;
+            }
+            chain->arr[0] = blk;
+          }
         }
-        chain->arr[0] = blk;
       },
       if(!(phijoinaddr->addr_type & (ISDEREF | ISLABEL | ISCONST))) {
         DYNARR* chain;
@@ -187,8 +199,10 @@ void liveness(PROGRAM* prog) {
         assert(reg < prog->regcnt);
         //forward use is not a phi
         if((chain = usedefchains[reg])) {
-          if(dapeek(chain) != blk) {
-            dapush(chain, blk); //prevent adjacent duplicates
+          if(chain != (DYNARR*) -1) {
+            if(dapeek(chain) != blk) {
+              dapush(chain, blk); //prevent adjacent duplicates
+            }
           }
         } else {
           chain = usedefchains[reg] = dactor(8);
@@ -201,7 +215,7 @@ void liveness(PROGRAM* prog) {
   )
   reducedreachable(prog);
   for(unsigned int i = 0; i < prog->regcnt; i++)
-    if(usedefchains[i]) dadtor(usedefchains[i]);
+    if(usedefchains[i] && usedefchains[i] != (DYNARR*) -1) dadtor(usedefchains[i]);
   free(usedefchains);
 }
 

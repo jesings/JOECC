@@ -153,6 +153,8 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
               op->dest.ssaind = C[op->dest.varnum];
               dapush(bdarr, (void*)(long) C[op->dest.varnum]);
               dapush(assigns, (void*)(long)op->dest.varnum);
+            } else {
+              op->dest_type |= ADDRSVAR;
             }
           }
           break;
