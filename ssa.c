@@ -1277,10 +1277,8 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
             if(oblk == daget(stubbornblocks, stubbornindex)) {
               stubbornindex++;
               int stubbornval = (int) (long) fixedsearch(oblk->leader, antilnode->index);
-              FULLADDR join;
-              join.addr_type = phi->dest_type;
-              join.addr.regnum = stubbornval;
-              joins.joins[j] = join;
+              joins.joins[j].addr_type = phi->dest_type;
+              joins.joins[j].addr.regnum = stubbornval;
             } else {
               VALUESTRUCT actionable = *antil;
               ADDRESS provisional;
