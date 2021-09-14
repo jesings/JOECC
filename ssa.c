@@ -553,7 +553,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
         if(val->hasconst != NOCONST) {
           op->addr1_type = (op->addr1_type & GENREGMASK) | ISCONST;
           op->addr1.intconst_64 = val->intconst; //could be anything
-        } else {
+        } else if(fixedqueryval(leader, val->index)) {
           op->addr1.regnum = (long) fixedsearch(leader, val->index);
         }
       }
@@ -566,6 +566,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           op->addr0_type = (op->addr0_type & GENREGMASK) | ISCONST;
           op->addr0.intconst_64 = val->intconst; //could be anything
         } else {
+          if(fixedqueryval(leader, val->index))
           op->addr0.regnum = (long) fixedsearch(leader, val->index);
         }
       }
@@ -584,7 +585,6 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
         if(op->dest.regnum != (long) fixedsearch(leader, val->index)) {
           op->opcode = NOP_3;
           break;
-        } else {
         }
       }
       val = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
@@ -592,8 +592,8 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
         if(val->hasconst != NOCONST) {
           op->addr0_type = (op->addr0_type & GENREGMASK) | ISCONST;
           op->addr0.intconst_64 = val->intconst; //could be anything
-        } else {
-          op->addr0.regnum = (long) fixedsearch(leader, val->index);
+        } else if(fixedqueryval(leader, val->index)) {
+            op->addr0.regnum = (long) fixedsearch(leader, val->index);
         }
       }
       break;
@@ -619,8 +619,8 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           if(val->hasconst != NOCONST) {
             fadrs[k].addr_type = (fadrs[k].addr_type & GENREGMASK) | ISCONST;
             fadrs[k].addr.intconst_64 = val->intconst; //could be anything
-          } else {
-            fadrs[k].addr.regnum = (long) fixedsearch(leader, val->index);
+          } else if(fixedqueryval(leader, val->index)) {
+              fadrs[k].addr.regnum = (long) fixedsearch(leader, val->index);
           }
         }
       }
@@ -1424,7 +1424,6 @@ void gvn(PROGRAM* prog) {
   first->pidominates = dactor(0);
   while(antics(prog->finalblock, prog, eq)) ;
   //buildsets calculated
-  //printeq(eq, prog);
   while(hoist(prog, eq)) ;
   replacegvn(eq, prog);
   freeq(eq);
