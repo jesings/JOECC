@@ -149,6 +149,15 @@ static void reducedreachable(PROGRAM* prog) {
   }
 }
 
+static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, int varnum) {
+  BBLOCK* defblock = usedefchains[varnum]->arr[0];
+  for(int index = 1; index <= usedefchains[varnum]->length; index++) {
+    BBLOCK* otherblock = daget(usedefchains[varnum], index);
+    //if otherblock is reachable from blk without passing through defblock
+  }
+  return 0;
+}
+
 void liveness(PROGRAM* prog) {
   DYNARR** usedefchains = calloc(prog->regcnt, sizeof(DYNARR*)); //could be reduced by renaming registers downwards first
   LOOPALLBLOCKS(
