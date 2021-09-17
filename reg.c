@@ -174,7 +174,23 @@ static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, int var
     BBLOCK* otherblock = daget(usedefchains[varnum], index);
     bfzero(visited, prog->allblocks->length);
     bfset(visited, defblock->domind);
-    char c = isreachable(blk, otherblock, visited);
+    if(isreachable(blk, otherblock, visited))
+      return 1;
+  }
+  return 0;
+}
+static char islive_out(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, int varnum) {
+  BBLOCK* defblock = usedefchains[varnum]->arr[0];
+  BITFIELD visited = bfalloc(prog->allblocks->length);
+  for(int index = 1; index <= usedefchains[varnum]->length; index++) {
+    BBLOCK* otherblock = daget(usedefchains[varnum], index);
+    bfzero(visited, prog->allblocks->length);
+    bfset(visited, defblock->domind);
+    bfset(visited, blk->domind);
+    if(blk->nextblock && isreachable(blk->nextblock, otherblock, visited))
+      return 1;
+    if(blk->branchblock && isreachable(blk->branchblock, otherblock, visited))
+      return 1;
   }
   return 0;
 }
@@ -189,7 +205,7 @@ void liveness(PROGRAM* prog) {
         assert(reg < prog->regcnt);
         assert((chain = usedefchains[reg])); //forward use that is not a phi
         if(chain != (DYNARR*) -1) {
-          if(dapeek(chain) != blk)
+          if(chain->length > 1 && dapeek(chain) != blk)
             dapush(chain, blk); //prevent adjacent duplicates
         }
       },
@@ -199,7 +215,7 @@ void liveness(PROGRAM* prog) {
         assert(reg < prog->regcnt);
         assert((chain = usedefchains[reg])); //forward use that is not a phi
         if(chain != (DYNARR*) -1) {
-          if(dapeek(chain) != blk)
+          if(chain->length > 1 && dapeek(chain) != blk)
             dapush(chain, blk); //prevent adjacent duplicates
         }
       },
@@ -230,7 +246,7 @@ void liveness(PROGRAM* prog) {
         //forward use is not a phi
         if((chain = usedefchains[reg])) {
           if(chain != (DYNARR*) -1) {
-            if(dapeek(chain) != blk) {
+            if(chain->length > 1 && dapeek(chain) != blk) {
               dapush(chain, blk); //prevent adjacent duplicates
             }
           }
@@ -244,6 +260,14 @@ void liveness(PROGRAM* prog) {
     )
   )
   reducedreachable(prog);
+
+  for(unsigned int varnum = 0; varnum < prog->regcnt; varnum++) {
+    for(int blknum = 0; blknum < prog->allblocks->length; blknum++) {
+      BBLOCK* blk = daget(prog->allblocks, blknum);
+      //if(islive
+    }
+  }
+
   for(unsigned int i = 0; i < prog->regcnt; i++)
     if(usedefchains[i] && usedefchains[i] != (DYNARR*) -1) dadtor(usedefchains[i]);
   free(usedefchains);
