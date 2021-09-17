@@ -149,11 +149,32 @@ static void reducedreachable(PROGRAM* prog) {
   }
 }
 
+static char isreachable(BBLOCK* src, BBLOCK* dest, BITFIELD bf) {
+  if(bfget(bf, src->domind))
+    return 0;
+  //DFS because I'm lazy
+  bfset(bf, src->domind);
+  if(src == dest) 
+    return 1;
+  if(src->nextblock) {
+    if(isreachable(src->nextblock, dest, bf))
+      return 1;
+  }
+  if(src->branchblock) {
+    if(isreachable(src->branchblock, dest, bf))
+      return 1;
+  }
+  return 0;
+}
+
 static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, int varnum) {
   BBLOCK* defblock = usedefchains[varnum]->arr[0];
+  BITFIELD visited = bfalloc(prog->allblocks->length);
   for(int index = 1; index <= usedefchains[varnum]->length; index++) {
     BBLOCK* otherblock = daget(usedefchains[varnum], index);
-    //if otherblock is reachable from blk without passing through defblock
+    bfzero(visited, prog->allblocks->length);
+    bfset(visited, defblock->domind);
+    char c = isreachable(blk, otherblock, visited);
   }
   return 0;
 }
