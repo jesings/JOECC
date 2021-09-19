@@ -262,9 +262,12 @@ void liveness(PROGRAM* prog) {
   reducedreachable(prog);
 
   for(unsigned int varnum = 0; varnum < prog->regcnt; varnum++) {
+    if(!usedefchains[varnum]) continue;
     for(int blknum = 0; blknum < prog->allblocks->length; blknum++) {
       BBLOCK* blk = daget(prog->allblocks, blknum);
-      //if(islive
+      if(islive_in(prog, blk, usedefchains, varnum) && !islive_out(prog, blk, usedefchains, varnum)) {
+        printf("Multiblock scope reg %d killed in block %d\n", varnum, blk->domind);
+      }
     }
   }
 
