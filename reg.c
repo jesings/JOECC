@@ -174,24 +174,19 @@ static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, int var
     BBLOCK* otherblock = daget(usedefchains[varnum], index);
     bfzero(visited, prog->allblocks->length);
     bfset(visited, defblock->domind);
-    if(isreachable(blk, otherblock, visited))
+    if(isreachable(blk, otherblock, visited)) {
+      free(visited);
       return 1;
+    }
   }
+  free(visited);
   return 0;
 }
 static char islive_out(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, int varnum) {
-  BBLOCK* defblock = usedefchains[varnum]->arr[0];
-  BITFIELD visited = bfalloc(prog->allblocks->length);
-  for(int index = 1; index <= usedefchains[varnum]->length; index++) {
-    BBLOCK* otherblock = daget(usedefchains[varnum], index);
-    bfzero(visited, prog->allblocks->length);
-    bfset(visited, defblock->domind);
-    bfset(visited, blk->domind);
-    if(blk->nextblock && isreachable(blk->nextblock, otherblock, visited))
-      return 1;
-    if(blk->branchblock && isreachable(blk->branchblock, otherblock, visited))
-      return 1;
-  }
+  if(blk->nextblock && islive_in(prog, blk->nextblock, usedefchains, varnum))
+    return 1;
+  if(blk->branchblock && islive_in(prog, blk->branchblock, usedefchains, varnum))
+    return 1;
   return 0;
 }
 
@@ -265,7 +260,7 @@ void liveness(PROGRAM* prog) {
     if(!usedefchains[varnum]) continue;
     for(int blknum = 0; blknum < prog->allblocks->length; blknum++) {
       BBLOCK* blk = daget(prog->allblocks, blknum);
-      if(islive_in(prog, blk, usedefchains, varnum) && !islive_out(prog, blk, usedefchains, varnum)) {
+      if(usedefchains[varnum]->arr[0] && islive_in(prog, blk, usedefchains, varnum) && !islive_out(prog, blk, usedefchains, varnum)) {
         printf("Multiblock scope reg %d killed in block %d\n", varnum, blk->domind);
       }
     }
