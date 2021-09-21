@@ -156,15 +156,7 @@ static char isreachable(BBLOCK* src, BBLOCK* dest, BITFIELD bf) {
   bfset(bf, src->domind);
   if(src == dest) 
     return 1;
-  if(src->nextblock) {
-    if(isreachable(src->nextblock, dest, bf))
-      return 1;
-  }
-  if(src->branchblock) {
-    if(isreachable(src->branchblock, dest, bf))
-      return 1;
-  }
-  return 0;
+  return (src->nextblock && isreachable(src->nextblock, dest, bf)) || (src->branchblock && isreachable(src->branchblock, dest, bf));
 }
 
 static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, int varnum) {
