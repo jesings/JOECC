@@ -1365,6 +1365,9 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char term, FILE* f, PROG
       else fprintf(f, "</FONT>");
     }
   } else {
+    if(addr_type & LASTUSE) {
+      fprintf(f, "@");
+    }
     int sz = (addr_type & 0xf) * 8;
     if(term) fprintf(f, RGBCOLOR(60,220,60));
     else fprintf(f, "<FONT COLOR=\"#%.2hhx%.2hhx%.2hhx\">", 60, 220, 60);

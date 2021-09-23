@@ -160,6 +160,7 @@ static char isreachable(BBLOCK* src, BBLOCK* dest, BITFIELD bf) {
 }
 
 static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, int varnum) {
+  if(!usedefchains[varnum] || usedefchains[varnum] == (void*) -1 || !usedefchains[varnum]->arr[0]) return 0;
   BBLOCK* defblock = usedefchains[varnum]->arr[0];
   BITFIELD visited = bfalloc(prog->allblocks->length);
   for(int index = 1; index <= usedefchains[varnum]->length; index++) {
@@ -175,12 +176,15 @@ static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, int var
   return 0;
 }
 static char islive_out(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, int varnum) {
+  if(!usedefchains[varnum] || usedefchains[varnum] == (void*) -1 || !usedefchains[varnum]->arr[0]) return 0;
   if(blk->nextblock && islive_in(prog, blk->nextblock, usedefchains, varnum))
     return 1;
   if(blk->branchblock && islive_in(prog, blk->branchblock, usedefchains, varnum))
     return 1;
   return 0;
 }
+
+void lastuse(PROGRAM* prog, DYNARR** chains);
 
 void liveness(PROGRAM* prog) {
   DYNARR** usedefchains = calloc(prog->regcnt, sizeof(DYNARR*)); //could be reduced by renaming registers downwards first
@@ -248,19 +252,35 @@ void liveness(PROGRAM* prog) {
   )
   reducedreachable(prog);
 
-  for(unsigned int varnum = 0; varnum < prog->regcnt; varnum++) {
-    if(!usedefchains[varnum]) continue;
-    for(int blknum = 0; blknum < prog->allblocks->length; blknum++) {
-      BBLOCK* blk = daget(prog->allblocks, blknum);
-      if(usedefchains[varnum]->arr[0] && islive_in(prog, blk, usedefchains, varnum) && !islive_out(prog, blk, usedefchains, varnum)) {
-        printf("Multiblock scope reg %d killed in block %d\n", varnum, blk->domind);
-      }
-    }
-  }
+  lastuse(prog, usedefchains);
 
   for(unsigned int i = 0; i < prog->regcnt; i++)
     if(usedefchains[i] && usedefchains[i] != (DYNARR*) -1) dadtor(usedefchains[i]);
   free(usedefchains);
+}
+
+void lastuse(PROGRAM* prog, DYNARR** chains) {
+  LOOPALLBLOCKS(
+    HASHTABLE* reglasts = htctor();
+    OPARGCASES(
+      if(!(op->addr0_type & (ISDEREF | ISLABEL | ISCONST | GARBAGEVAL)) && islive_out(prog, blk, chains, op->addr0.regnum))
+        fixedinsert(reglasts, op->addr0.regnum, &op->addr0_type);
+      ,
+      if(!(op->addr1_type & (ISDEREF | ISLABEL | ISCONST | GARBAGEVAL)) && islive_out(prog, blk, chains, op->addr1.regnum))
+        fixedinsert(reglasts, op->addr1.regnum, &op->addr1_type);
+      ,
+      if(!(op->dest_type & (ISDEREF | ISLABEL | ISCONST | GARBAGEVAL)) && !islive_out(prog, blk, chains, op->dest.regnum))
+        fixedinsert(reglasts, op->dest.regnum, &op->dest_type); //uh oh
+      ,
+      if(!(phijoinaddr->addr_type & (ISDEREF | ISLABEL | ISCONST)) && islive_out(prog, blk, chains, phijoinaddr->addr.regnum))
+        fixedinsert(reglasts, phijoinaddr->addr.regnum, &phijoinaddr->addr_type); //uh oh
+    )
+    DYNARR* da = htfpairs(reglasts);
+    for(int i = 0; i < da->length; i++)
+      *((ADDRTYPE*) daget(da, i)) |= LASTUSE;
+    dadtor(da);
+    fhtdtor(reglasts);
+  )
 }
 
 

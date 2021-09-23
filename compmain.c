@@ -129,8 +129,8 @@ static void filecomp(char* filename) {
       DEBUG(treeprog(prog, pairthere->key, "ldstrsep"));
 
       renumber(prog);
-      DEBUG(treeprog(prog, pairthere->key, "renumber"));
       liveness(prog);
+      DEBUG(treeprog(prog, pairthere->key, "liveness"));
 
       genprogfile(objf, pairthere->key, prog);
       freeprog(prog);

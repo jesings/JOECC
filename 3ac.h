@@ -150,6 +150,7 @@ typedef enum {
   ISVAR = 0x800,
   ADDRSVAR = 0x1000,
   GARBAGEVAL = 0x2000,
+  LASTUSE = 0x4000,
 } ADDRTYPE;
 
 typedef struct op {
