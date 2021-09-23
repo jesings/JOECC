@@ -163,7 +163,7 @@ static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, int var
   if(!usedefchains[varnum] || usedefchains[varnum] == (void*) -1 || !usedefchains[varnum]->arr[0]) return 0;
   BBLOCK* defblock = usedefchains[varnum]->arr[0];
   BITFIELD visited = bfalloc(prog->allblocks->length);
-  for(int index = 1; index <= usedefchains[varnum]->length; index++) {
+  for(int index = 1; index < usedefchains[varnum]->length; index++) {
     BBLOCK* otherblock = daget(usedefchains[varnum], index);
     bfzero(visited, prog->allblocks->length);
     bfset(visited, defblock->domind);
@@ -260,27 +260,32 @@ void liveness(PROGRAM* prog) {
 }
 
 void lastuse(PROGRAM* prog, DYNARR** chains) {
-  LOOPALLBLOCKS(
+  for(int blockind = 0; blockind < prog->allblocks->length; blockind++) {
+    BBLOCK* blk = daget(prog->allblocks, blockind);
     HASHTABLE* reglasts = htctor();
-    OPARGCASES(
-      if(!(op->addr0_type & (ISDEREF | ISLABEL | ISCONST | GARBAGEVAL)) && islive_out(prog, blk, chains, op->addr0.regnum))
-        fixedinsert(reglasts, op->addr0.regnum, &op->addr0_type);
-      ,
-      if(!(op->addr1_type & (ISDEREF | ISLABEL | ISCONST | GARBAGEVAL)) && islive_out(prog, blk, chains, op->addr1.regnum))
-        fixedinsert(reglasts, op->addr1.regnum, &op->addr1_type);
-      ,
-      if(!(op->dest_type & (ISDEREF | ISLABEL | ISCONST | GARBAGEVAL)) && !islive_out(prog, blk, chains, op->dest.regnum))
-        fixedinsert(reglasts, op->dest.regnum, &op->dest_type); //uh oh
-      ,
-      if(!(phijoinaddr->addr_type & (ISDEREF | ISLABEL | ISCONST)) && islive_out(prog, blk, chains, phijoinaddr->addr.regnum))
-        fixedinsert(reglasts, phijoinaddr->addr.regnum, &phijoinaddr->addr_type); //uh oh
+    LOOPOPS(
+      OPARGCASES(
+        if(!(op->addr0_type & (ISLABEL | ISCONST | GARBAGEVAL)) && !islive_out(prog, blk, chains, op->addr0.regnum))
+          fixedinsert(reglasts, op->addr0.regnum, &op->addr0_type);
+        ,
+        if(!(op->addr1_type & (ISLABEL | ISCONST | GARBAGEVAL)) && !islive_out(prog, blk, chains, op->addr1.regnum))
+          fixedinsert(reglasts, op->addr1.regnum, &op->addr1_type);
+        ,
+        if(!(op->dest_type & (ISLABEL | ISCONST | GARBAGEVAL)) && !islive_out(prog, blk, chains, op->dest.regnum))
+          fixedinsert(reglasts, op->dest.regnum, &op->dest_type); //uh oh
+        ,
+        if(!(phijoinaddr->addr_type & (ISLABEL | ISCONST)) && !islive_out(prog, blk, chains, phijoinaddr->addr.regnum))
+          fixedinsert(reglasts, phijoinaddr->addr.regnum, &phijoinaddr->addr_type); //uh oh
+      )
     )
     DYNARR* da = htfpairs(reglasts);
-    for(int i = 0; i < da->length; i++)
-      *((ADDRTYPE*) daget(da, i)) |= LASTUSE;
+    for(int i = 0; i < da->length; i++) {
+      HASHPAIR* hp = daget(da, i);
+      *((ADDRTYPE*) hp->value) |= LASTUSE;
+    }
     dadtor(da);
     fhtdtor(reglasts);
-  )
+  }
 }
 
 

@@ -51,10 +51,7 @@ enum opcode_3ac {
 #define GENERIC_F ASM+3
 extern const char* opcode_3ac_names[];
 
-
-#define LOOPALLBLOCKS(body) \
-  for(int blockind = 0; blockind < prog->allblocks->length; blockind++) { \
-    BBLOCK* blk = daget(prog->allblocks, blockind); \
+#define LOOPOPS(body) \
     if(blk->lastop) { \
       OPERATION* op = blk->firstop; \
       while(1) { \
@@ -62,7 +59,12 @@ extern const char* opcode_3ac_names[];
         if(op == blk->lastop) break; \
         op = op->nextop; \
       } \
-    } \
+    }
+
+#define LOOPALLBLOCKS(body) \
+  for(int blockind = 0; blockind < prog->allblocks->length; blockind++) { \
+    BBLOCK* blk = daget(prog->allblocks, blockind); \
+    LOOPOPS(body) \
   }
 
 #define OPARGCASES(addr0case, addr1case, destcase, phiaddrcase) \
