@@ -196,7 +196,7 @@ void liveness(PROGRAM* prog) {
         assert(reg < prog->regcnt);
         assert((chain = usedefchains[reg])); //forward use that is not a phi
         if(chain != (DYNARR*) -1) {
-          if(chain->length > 1 && dapeek(chain) != blk)
+          if(dapeek(chain) != blk)
             dapush(chain, blk); //prevent adjacent duplicates
         }
       },
@@ -206,7 +206,7 @@ void liveness(PROGRAM* prog) {
         assert(reg < prog->regcnt);
         assert((chain = usedefchains[reg])); //forward use that is not a phi
         if(chain != (DYNARR*) -1) {
-          if(chain->length > 1 && dapeek(chain) != blk)
+          if(dapeek(chain) != blk)
             dapush(chain, blk); //prevent adjacent duplicates
         }
       },
@@ -234,10 +234,9 @@ void liveness(PROGRAM* prog) {
         DYNARR* chain;
         unsigned int reg = phijoinaddr->addr.regnum;
         assert(reg < prog->regcnt);
-        //forward use is not a phi
         if((chain = usedefchains[reg])) {
           if(chain != (DYNARR*) -1) {
-            if(chain->length > 1 && dapeek(chain) != blk) {
+            if(dapeek(chain) != blk) {
               dapush(chain, blk); //prevent adjacent duplicates
             }
           }
@@ -253,6 +252,19 @@ void liveness(PROGRAM* prog) {
   reducedreachable(prog);
 
   lastuse(prog, usedefchains);
+
+  LOOPALLBLOCKS(
+    OPARGCASES(
+      ,
+      ,
+      if(!(op->dest_type & (ISLABEL | ISCONST | GARBAGEVAL | ISDEREF)) && op->dest_type & LASTUSE &&  op->opcode != CALL_3) {
+        if(op->opcode == PHI) free(op->addr0.joins);
+        op->opcode = NOP_3;
+      }
+      ,
+      (void) phijoinaddr;
+    )
+  )
 
   for(unsigned int i = 0; i < prog->regcnt; i++)
     if(usedefchains[i] && usedefchains[i] != (DYNARR*) -1) dadtor(usedefchains[i]);

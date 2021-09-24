@@ -130,6 +130,7 @@ static void filecomp(char* filename) {
 
       renumber(prog);
       liveness(prog);
+      remove_nops(prog);
       DEBUG(treeprog(prog, pairthere->key, "liveness"));
 
       genprogfile(objf, pairthere->key, prog);
