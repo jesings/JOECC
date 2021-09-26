@@ -300,6 +300,16 @@ void lastuse(PROGRAM* prog, DYNARR** chains) {
   }
 }
 
+static void adjmatrixset(BITFIELD bf, int dim, int reg1, int reg2) {
+  bfset(bf, reg1 * dim + reg2);
+  bfset(bf, reg2 * dim + reg1);
+}
+
+BITFIELD liveadjmatrix(PROGRAM* prog) {
+  int dim = prog->regcnt;
+  BITFIELD bf = bfalloc(dim * dim);
+
+}
 
 //handle long doubles same as doubles
 //https://compilers.cs.uni-saarland.de/projects/ssara/hack_ssara_ssa09.pdf
