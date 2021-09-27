@@ -309,6 +309,15 @@ BITFIELD liveadjmatrix(PROGRAM* prog) {
   int dim = prog->regcnt;
   BITFIELD bf = bfalloc(dim * dim);
 
+  for(int blockindex = 0; blockindex < prog->allblocks->length; blockindex++) {
+    BBLOCK* blk = daget(prog->allblocks, blockindex);
+    for(unsigned int bfiterval = 0; bfiterval < prog->regcnt; bfiterval++) {
+      if(bfget(bf, bfiterval)) {
+      }
+    }
+
+  }
+  return bf;
 }
 
 //handle long doubles same as doubles
