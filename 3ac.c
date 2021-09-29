@@ -10,11 +10,13 @@ extern const char* name_EXPRTYPE[];
 extern const char* name_STMTTYPE[];
 #undef X
 
+//Construct an operation that takes 0 args
 OPERATION* ct_3ac_op0(enum opcode_3ac opcode) {
   OPERATION* retval = malloc(sizeof(OPERATION));
   retval->opcode = opcode;
   return retval;
 }
+//Construct an operation that takes 1 arg which is a source
 OPERATION* ct_3ac_op1(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0) {
   OPERATION* retval = malloc(sizeof(OPERATION));
   retval->opcode = opcode;
@@ -22,6 +24,7 @@ OPERATION* ct_3ac_op1(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
   retval->addr0 = addr0;
   return retval;
 }
+//Construct an operation that takes 1 arg which is a destination
 OPERATION* ct_3ac_op1_assign(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0) {
   OPERATION* retval = malloc(sizeof(OPERATION));
   retval->opcode = opcode;
@@ -29,6 +32,7 @@ OPERATION* ct_3ac_op1_assign(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRES
   retval->dest = addr0;
   return retval;
 }
+//Construct an operation that takes 2 args--one source and one destination
 OPERATION* ct_3ac_op2(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0, ADDRTYPE dest_type, ADDRESS dest) {
   OPERATION* retval = malloc(sizeof(OPERATION));
   retval->opcode = opcode;
@@ -38,6 +42,7 @@ OPERATION* ct_3ac_op2(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
   retval->dest = dest;
   return retval;
 }
+//Construct an operation that takes 3 args--two source and one destination
 OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0, 
                      ADDRTYPE addr1_type, ADDRESS addr1, ADDRTYPE dest_type, ADDRESS dest) {
   OPERATION* retval = malloc(sizeof(OPERATION));
@@ -51,6 +56,8 @@ OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
   return retval;
 }
 
+//Parses and creates operations from binary expression, doing implicit type casts (e.g. upgrading ints to floats
+//when multiplying an int by a float) and using the proper opcode for the types (i.e. MUL_I or ADD_F)
 OPERATION* implicit_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
   FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog);
@@ -100,6 +107,7 @@ OPERATION* implicit_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* pro
   return ct_3ac_op3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, desta.addr_type, desta.addr);
 }
 
+//Parses and creates operations for binary bitwise operation
 OPERATION* implicit_bitwise_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
   FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog);
@@ -110,6 +118,8 @@ OPERATION* implicit_bitwise_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* pr
   return ct_3ac_op3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, desta.addr_type, desta.addr);
 }
 
+//Parses and creates operations for a compound assignment expression from the source code, performing implicit type upgrading
+//And whatever other type fiddling is necessary
 FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srcexpr, PROGRAM* prog) {
   IDTYPE destidt = typex(destexpr);
   IDTYPE srcidt = typex(srcexpr);
@@ -168,6 +178,8 @@ FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srce
   return destaddr;
 }
 
+//Parses and creates operations for a compound assignment expression from the source code, performing implicit type upgrading
+//And whatever other type fiddling is necessary, this is the special case for add/subtract, which can accept pointer left hand sides
 static FULLADDR cmpnd_assign_addsub(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srcexpr, PROGRAM* prog) {
   IDTYPE destidt = typex(destexpr);
   IDTYPE srcidt = typex(srcexpr);
@@ -206,6 +218,7 @@ static FULLADDR cmpnd_assign_addsub(enum opcode_3ac op, EXPRESSION* destexpr, EX
   return destaddr;
 }
 
+//shared code for both pre and post inc/dec
 static inline ADDRESS stepty(EXPRESSION* cexpr) {
   IDTYPE rid = typex(cexpr);
   ADDRESS addr;
@@ -220,12 +233,14 @@ static inline ADDRESS stepty(EXPRESSION* cexpr) {
   }
   return addr;
 }
+//Parses and creates operations for a pre-increment expression
 static FULLADDR prestep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR destaddr = linearitree(daget(cexpr->params, 0), prog);
   char baseness = destaddr.addr_type & ISFLOAT ? 2 : 0;
   opn(prog, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, destaddr.addr_type, destaddr.addr, ISCONST | 0x8, stepty(cexpr), destaddr.addr_type, destaddr.addr));
   return destaddr;
 }
+//Parses and creates operations for a post-increment expression
 static FULLADDR poststep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR destaddr, actualaddr;
   destaddr = linearitree(daget(cexpr->params, 0), prog);
