@@ -251,6 +251,7 @@ static FULLADDR poststep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
   return actualaddr;
 }
 
+//Parses and creates operations for an assignment to a pointer, including implicitly casting ints to floats and vice versa
 OPERATION* implicit_mtp_2(EXPRESSION* destexpr, EXPRESSION* fromexpr, FULLADDR a1, FULLADDR a2, PROGRAM* prog) {
   IDTYPE destidt = typex(destexpr);
   IDTYPE srcidt = typex(fromexpr);
@@ -274,6 +275,7 @@ OPERATION* implicit_mtp_2(EXPRESSION* destexpr, EXPRESSION* fromexpr, FULLADDR a
   return ct_3ac_op2(MOV_3, a2.addr_type, a2.addr, a1.addr_type | ISDEREF, a1.addr);
 }
 
+//Parses and creates operations for a unary expression
 OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
   IDTYPE arg1id = typex(daget(cexpr->params, 0));
@@ -300,6 +302,7 @@ OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog
   return ct_3ac_op2(op, a1.addr_type, a1.addr, desta.addr_type, desta.addr);
 }
 
+//Parses and creates operations for a short circuiting operation, however one that need not return any value (as in the body of if statements)
 void implicit_shortcircuit_noret(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, BBLOCK* branchto, PROGRAM* prog) {
   FULLADDR addr2use;
   for(int i = 0; i < cexpr->params->length; i++) {
@@ -312,6 +315,7 @@ void implicit_shortcircuit_noret(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, B
   prog->curblock = dapeek(prog->allblocks);
 }
 
+//Parses and creates operations for a short circuiting operation, yielding a reg set to 1 if the condition is met, and 0 if it is not
 FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, ADDRESS complete_val, ADDRESS shortcircuit_val, PROGRAM* prog) {
   BBLOCK* failblock,* finalblock;
   finalblock = mpblk();
@@ -335,6 +339,7 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
   return addr2use;
 }
 
+//Parses and creates operations for a binary comparison expression, doing whatever casts are necessary
 OPERATION* cmpret_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
   FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog);
@@ -374,6 +379,7 @@ OPERATION* cmpret_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog)
   return ct_3ac_op3(op, a1.addr_type, a1.addr, a2.addr_type, a2.addr, desta.addr_type, desta.addr);
 }
 
+//Parses and creates operations for a binary bit shift operation
 OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
   FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog);
@@ -384,6 +390,7 @@ OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRA
   return ct_3ac_op3(shlop, a1.addr_type, a1.addr, a2.addr_type, a2.addr, adr.addr_type, adr.addr);
 }
 
+//Parses and creates operations for the accessing of a struct/union field, performing necessary casts
 FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR sead = linearitree(daget(cexpr->params, 0), prog);
   IDTYPE seaty = typex(daget(cexpr->params, 0));
@@ -434,6 +441,7 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
   return retaddr;
 }
 
+//Returns an address containing a register which holds in it the size of the VLA of the given type
 static FULLADDR execvla(IDTYPE* idt, PROGRAM* prog) {
    FULLADDR curaddr, otheraddr, scratchaddr;
    struct declarator_part* dclp = dapeek(idt->pointerstack);
@@ -457,6 +465,7 @@ static FULLADDR execvla(IDTYPE* idt, PROGRAM* prog) {
    return otheraddr;
 }
 
+//Recursively parses and creates operations for an arbitrary expression
 FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR curaddr, otheraddr, destaddr;
   IDTYPE varty;
