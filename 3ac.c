@@ -920,6 +920,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   return curaddr;
 }
 
+//Parses and creates operations for if/while condition, including where to jump when the condition is/is not met
 void cmptype(EXPRESSION* cmpexpr, BBLOCK* failblock, BBLOCK* successblock, PROGRAM* prog) {
   OPERATION* dest_op;
   FULLADDR destaddr;
@@ -975,6 +976,7 @@ void cmptype(EXPRESSION* cmpexpr, BBLOCK* failblock, BBLOCK* successblock, PROGR
   prog->curblock = NULL;
 }
 
+//Parses and creates operations for an initialization statement. Little work needs to be done here except for arrays and especially VLAs
 void initializestate(INITIALIZER* i, PROGRAM* prog) {
   FULLADDR* newa = malloc(sizeof(FULLADDR));
   newa->addr_type = addrconv(i->decl->type) | ISVAR;
@@ -1049,6 +1051,8 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
   dapush(prog->dynchars, i->decl->varname);
 }
 
+//Does necessary actions for jumping to a named label, this might involve 
+//forward defining the label for later resolution or connecting 2 basic blocks
 static void lbljmp(char* lblname, BBLOCK* block, BBLOCK** loc, PROGRAM* prog) {
   if(!(*loc = search(prog->labels, lblname))) {
     DYNARR* pushto,* inedges;
@@ -1068,6 +1072,7 @@ static void lbljmp(char* lblname, BBLOCK* block, BBLOCK** loc, PROGRAM* prog) {
   }
 }
 
+//Recursively parses and creates operations for an arbitrary statement
 void solidstate(STATEMENT* cst, PROGRAM* prog) {
   FULLADDR ret_op;
   BBLOCK* topblock,* breakblock,* contblock,* otherblock;
@@ -1271,6 +1276,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
   fprintf(stderr, "Error: reduction of statement %s to 3 address code failed\n", name_STMTTYPE[cst->type]);
 }
 
+//Parses and creates operations for an entire function
 PROGRAM* linefunc(FUNC* f) {
   PROGRAM* prog = calloc(sizeof(PROGRAM), 1);
   prog->breaklabels = dactor(8);
@@ -1326,6 +1332,8 @@ PROGRAM* linefunc(FUNC* f) {
   return prog;
 }
 
+//Formats and writes to a file an address (with type), term specifies whether the file should be formatted with ANSI
+//coloring or output as a graphviz snippet with that coloring
 static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char term, FILE* f, PROGRAM* prog) {
   if(addr_type & ISLABEL) {
     if(term) fprintf(f, RGBCOLOR(255,200,10));
@@ -1413,22 +1421,26 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char term, FILE* f, PROG
   }
 }
 
+//Prints a binary infix operation with no dest
 #define PRINTBROP2(opsymb) do { \
     printaddr(op->addr0, op->addr0_type, term, f, prog); \
     fprintf(f, " %s ", #opsymb); \
     printaddr(op->addr1, op->addr1_type, term, f, prog); \
   } while(0)
 
+//Prints a binary infix operation with one dest
 #define PRINTOP3(opsymb) do { \
     PRINTBROP2(opsymb); \
     fprintf(f, " →  "); \
     printaddr(op->dest, op->dest_type, term, f, prog); \
   } while(0)
+//Prints a binary infix operation with one dest, does one thing if it's a term, the other if it's not
 #define PRINTOP3OPT(opsymb1, opsymb2) do { \
     if(term) PRINTOP3(opsymb1); \
     else PRINTOP3(opsymb2); \
   } while (0);
 
+//Prints a unary prefix operation with one dest
 #define PRINTOP2(opsymb) do { \
     fprintf(f, "%s", #opsymb); \
     printaddr(op->addr0, op->addr0_type, term, f, prog); \
@@ -1436,13 +1448,16 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char term, FILE* f, PROG
     printaddr(op->dest, op->dest_type, term, f, prog); \
   } while(0)
 
+//Prints a unary prefix operation without a dest
 #define PRINTOP1() do { \
     printaddr(op->addr0, op->addr0_type, term, f, prog); \
   } while(0)
+//Prints a 0ary prefix operation without a source
 #define PRINTOP1ASSIGN() do { \
     printaddr(op->dest, op->dest_type, term, f, prog); \
   } while(0)
 
+//Formats and prints an operation, either to the terminal, or to graphviz
 void printop(OPERATION* op, char term, BBLOCK* blk, FILE* f, PROGRAM* prog) {
   fprintf(f, "%s", opcode_3ac_names[op->opcode]);
   if(term) fprintf(f, "\t");
@@ -1582,6 +1597,7 @@ void printop(OPERATION* op, char term, BBLOCK* blk, FILE* f, PROGRAM* prog) {
   }
 }
 
+//Formats and prints a whole function to the terminal
 void printprog(PROGRAM* prog) {
   LOOPALLBLOCKS(
     printop(op, 1, blk, stdout, prog);
@@ -1589,6 +1605,7 @@ void printprog(PROGRAM* prog) {
   )
 }
 
+//Formats and prints a whole function to graphviz, connecting up basic blocks into a graph structure
 void treeprog(PROGRAM* prog, char* fname, const char* pass) {
   mkdir("functions", 0777);
   char filen[256];
@@ -1619,6 +1636,7 @@ void treeprog(PROGRAM* prog, char* fname, const char* pass) {
   fclose(f);
 }
 
+//Frees memory for all operations from op to stop
 static void freeop(OPERATION* op, OPERATION* stop) {
   while(1) {
     switch(op->opcode) {
@@ -1639,6 +1657,7 @@ static void freeop(OPERATION* op, OPERATION* stop) {
   free(op);
 }
 
+//Frees any memory used in a block
 void freeblock(void* blk) {
   BBLOCK* blk2 = blk;
   dadtor(blk2->inedges);
@@ -1674,6 +1693,7 @@ inline void rectifinal(PROGRAM* prog) {
   }
 }
 
+//Frees all memory used in a PROGRAM
 void freeprog(PROGRAM* prog) {
   rectifinal(prog);
   dadtorcfr(prog->allblocks, freeblock);
