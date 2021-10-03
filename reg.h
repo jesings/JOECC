@@ -22,8 +22,6 @@ enum reguse {
 
 #define callermask BX | R12 | R13 | R14 | R15
 
-enum reguse callreg[6] = {DI, SI, DX, CX, R8, R9};
-
 extern const char* ireg64[];
 extern const char* ireg32[];
 extern const char* ireg16[];

@@ -139,12 +139,37 @@ static void addrgen(FILE* of, ADDRTYPE adt, ADDRESS addr) {
   if(adt & ISCONST) {
     assert(!(adt & ISSTRCONST)); //handle strconsts beforehand (address)
     assert(!(adt & ISFLOAT)); //handle floatconsts beforehand (address)
+    fprintf(of, "$%ld", addr.uintconst_64);
   } else if(adt & ISDEREF) {
     if(adt & ISLABEL) {
       fprintf(of, "%s(%%rip)", addr.labelname);
     } else {
+      //signal base pointer offset somehow?
+      fprintf(of, "(%%%s)", ireg64[addr.regnum]);
     }
   } else {
+    if(adt & ISFLOAT) {
+      fprintf(of, "%%%s", freg128[addr.regnum]); //xmm register
+    } else {
+      const char* const* reginald;
+      switch(adt & 0xf) {
+        case 1:
+          reginald = ireg8;
+          break;
+        case 2:
+          reginald = ireg16;
+          break;
+        case 4:
+          reginald = ireg32;
+          break;
+        case 8:
+          reginald = ireg64;
+          break;
+        default:
+          assert(0);
+      }
+      fprintf(of, "%%%s", reginald[addr.regnum]); //xmm register
+    }
   }
 }
 

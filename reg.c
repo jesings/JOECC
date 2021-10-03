@@ -1,6 +1,8 @@
 #include "reg.h"
 #define X(op) case op:
 
+enum reguse callreg[6] = {DI, SI, DX, CX, R8, R9};
+
 
 const char* ireg64[] = {"rax", "rbx", "rcx", "rdx", "rdi", "rsi", "rbp", "rsp", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"};
 const char* ireg32[] = {"eax", "ebx", "ecx", "edx", "edi", "esi", "ebp", "esp", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d"};
