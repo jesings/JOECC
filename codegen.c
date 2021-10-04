@@ -2,6 +2,78 @@
 #include "3ac.h"
 #include "codegen.h"
 
+struct opinfo op2op[] = {
+  [NOP_3] = {"nop", 0, 0, 0, 0},
+  [LBL_3] = {"", 1, 0, 0, 0}, //not sure?
+  [ADD_U] = {"add", 2, 0, 0, 1},
+  [ADD_F] = {"vadds", 3, 0, 0, 0},
+  [MULT_U] = {"mul", 1, 0, DX, AX}, //multiplies ax by operand, places result in dx:ax ax is low part
+  [MULT_I] = {"imul", 2, 0, 0, 1},
+  [MULT_F] = {"vmuls", 3, 0, 0, 0},
+  [AND_U] = {"and", 2, 0, 0, 1},
+  [OR_U] = {"or", 2, 0, 0, 1},
+  [XOR_U] = {"xor", 2, 0, 0, 1},
+  [EQ_U] = {"setz", 1, 0, 0, 0}, //precede this by a cmp
+  [EQ_F] = {"setz", 1, 0, 0, 0}, //precede this by a cmp
+  [NE_U] = {"setnz", 2, 0, 0, 0}, //precede this by a cmp
+  [NE_F] = {"setnz", 2, 0, 0, 0}, //precede this by a cmp
+  [SUB_U] = {"sub", 2, 0, 0, 1},
+  [SUB_F] = {"vsubs", 3, 0, 0, 0},
+  [DIV_U] = {"div", 1, DX, AX, 0}, //divides dx:ax by operand, places result in ax dx is remainder?
+  [DIV_I] = {"idiv", 2, 0, 0, 1},
+  [DIV_F] = {"vdivs", 3, 0, 0, 0},
+  [MOD_U] = {"div", 1, AX, DX, 0}, //divides dx:ax by operand, places result in ax dx is remainder?
+  [MOD_I] = {"idiv", 1, AX, DX, 0}, //single operand division, use cqo or cdq or cwd or cbw before, does same as above
+  [SHL_U] = {"shl", 2, CX, 0, 1}, //if right hand side is immediate, CX need not be clobbered
+  [SHL_I] = {"sal", 2, CX, 0, 1},
+  [SHR_U] = {"shr", 2, CX, 0, 1},
+  [SHR_I] = {"sar", 2, CX, 0, 1},
+  [GE_U] = {"setae", 1, 0, 0, 0}, //precede this by a cmp
+  [GE_I] = {"setge", 1, 0, 0, 0}, //precede this by a cmp
+  [GE_F] = {"setae", 1, 0, 0, 0}, //precede this by a cmp
+  [LE_U] = {"setbe", 1, 0, 0, 0}, //precede this by a cmp
+  [LE_I] = {"setle", 1, 0, 0, 0}, //precede this by a cmp
+  [LE_F] = {"setbe", 1, 0, 0, 0}, //precede this by a cmp
+  [GT_U] = {"seta", 1, 0, 0, 0}, //precede this by a cmp
+  [GT_I] = {"setg", 1, 0, 0, 0}, //precede this by a cmp
+  [GT_F] = {"seta", 1, 0, 0, 0}, //precede this by a cmp
+  [LT_U] = {"setb", 1, 0, 0, 0}, //precede this by a cmp
+  [LT_I] = {"setl", 1, 0, 0, 0}, //precede this by a cmp
+  [LT_F] = {"setb", 1, 0, 0, 0}, //precede this by a cmp
+  [COPY_3] = {"repnz movs", 0, SI | DI | CX, 0, 0}, //clobbers si, di, move count into cx
+  [ARROFF] = {"lea", 2, 0, 0, 0}, //not sure?
+  [ARRMOV] = {"mov", 2, 0, 0, 0}, //not sure?
+  [MTP_OFF] = {"mov", 2, 0, 0, 0}, //not sure?
+  [NOT_U] = {"not", 2, 0, 0, 0},
+  [NEG_I] = {"neg", 2, 0, 0, 0},
+  [NEG_F] = {"xorps", 2, 0, 0, 0}, //cmpeqd reg (packed op), reg/pslld $31 (packed op), reg/xorps reg, dest
+  [F2I] = {"cvtsd2si", 2, 0, 0, 0}, //many choices from cvtss2sd, etc.
+  [I2F] = {"cvtsi2sd", 2, 0, 0, 0}, //many choices from cvtsd2ss, etc.
+  [F2F] = {"cvtss2sd", 2, 0, 0, 0}, //many choices from cvtsd2ss, etc.
+  [ALOC_3] = {"sub", 2, 0, 0, 0}, //subtract from rsp
+  [MOV_3] = {"mov", 2, 0, 0, 0}, //vmovsd etc.
+  [BEQ_U] = {"jeq", 2, 0, 0, 0}, //cmp
+  [BEQ_F] = {"jeq", 2, 0, 0, 0}, //cmp
+  [BGE_U] = {"jae", 2, 0, 0, 0}, //cmp
+  [BGE_I] = {"jge", 2, 0, 0, 0}, //cmp
+  [BGE_F] = {"jae", 2, 0, 0, 0}, //cmp
+  [BGT_U] = {"ja", 2, 0, 0, 0}, //cmp
+  [BGT_I] = {"jg", 2, 0, 0, 0}, //cmp
+  [BGT_F] = {"ja", 2, 0, 0, 0}, //cmp
+  [JEQ_I] = {"jeq", 2, 0, 0, 0}, //cmp
+  [BNZ_3] = {"jnz", 2, 0, 0, 0}, //test
+  [BEZ_3] = {"jez", 2, 0, 0, 0}, //test
+  [ARG_3] = {"mov", 2, 0, 0, 0}, //decide where/when to put, push too
+  [RET_3] = {"ret", 0, 0, 0, 0}, //put it in rax
+  [INIT_3] = {"", 0, 0, 0, 0}, //not sure
+  [PARAM_3] = {"mov", 2, 0, 0, 0}, //not sure
+  [CALL_3] = {"call", 1, DI | SI | DX | CX | R8 | R9 | R10 , AX, 0}, //call, may clobber any/all of these
+  [PHI] = {"", 0, 0, 0, 0}, //no phi nodes by this point
+  [DEALOC] = {"sub", 2, 0, 0, 0},
+  [ADDR_3] = {"lea", 2, 0, 0, 0}, //most likely nop?
+  [ASM] = {"", 0, 0, 0, 0}, //figure it out
+};
+
 #define X(x) case x:
 void ldstrsep(PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
