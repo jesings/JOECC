@@ -68,6 +68,7 @@ clean:
 	-rm *.o *.joecco *.joeccs
 	-rm ./dstest ./functions
 	-rm *.tab.*
+	-rm ./compiler
 
 dstest.o: dstest.c
 	$(CC) dstest.c -c $(CFLAGS)
