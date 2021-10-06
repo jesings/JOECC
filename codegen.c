@@ -2,6 +2,8 @@
 #include "3ac.h"
 #include "codegen.h"
 
+#define X(x) case x:
+
 struct opinfo op2op[] = {
   [NOP_3] = {"nop", 0, 0, 0, 0},
   [LBL_3] = {"", 1, 0, 0, 0}, //not sure?
@@ -74,7 +76,9 @@ struct opinfo op2op[] = {
   [ASM] = {"", 0, 0, 0, 0}, //figure it out
 };
 
-#define X(x) case x:
+//assumptions we make before codegen: only 1 deref'ed arg in the expression
+//string constants are factored out to further globals, as are float consts
+//loads and stores are inserted before and after so that these assumptions hold
 void ldstrsep(PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
@@ -105,33 +109,47 @@ void ldstrsep(PROGRAM* prog) {
         OPS_3_3ac
         //shouldn't really work for float operations!
           inplace = 0;
-          if(op->addr0_type & ISDEREF && op->dest_type & ISDEREF) {
-            if((op->addr0_type & (ISLABEL | ISFLOAT)) == (op->dest_type & (ISLABEL | ISFLOAT)) &&
-               (op->addr0_type & ISLABEL ? strcmp(op->addr0.labelname, op->dest.labelname): op->addr0.regnum == op->dest.regnum)) {
-              inplace = 1;
-            } else {
-              ADDRESS adr;
-              adr.regnum = prog->regcnt++;
-              ADDRTYPE adrt = op->addr0_type & GENREGMASK;
-              *prevptr = ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr);
-              (*prevptr)->nextop = op;
-              op->addr0_type = adrt;
-              op->addr0 = adr;
+          char addr0badness = (op->addr0_type & ISDEREF) ? 1 : (((op->addr0_type & (ISFLOAT | ISCONST)) == (ISFLOAT | ISCONST)) ? 2 : (op->addr0_type & ISSTRCONST ? 3 : 0));
+          char addr1badness = (op->addr1_type & ISDEREF) ? 1 : (((op->addr1_type & (ISFLOAT | ISCONST)) == (ISFLOAT | ISCONST)) ? 2 : (op->addr1_type & ISSTRCONST ? 3 : 0));
+          if(op->dest_type & ISDEREF) {
+            if(addr0badness) {
+              if((op->addr0_type & (ISLABEL | ISFLOAT)) == (op->dest_type & (ISLABEL | ISFLOAT)) &&
+                 (op->addr0_type & ISLABEL ? strcmp(op->addr0.labelname, op->dest.labelname): op->addr0.regnum == op->dest.regnum)) {
+                inplace = 1;
+              } else {
+                ADDRESS adr;
+                adr.regnum = prog->regcnt++;
+                ADDRTYPE adrt = op->addr0_type & GENREGMASK & ~(ISCONST | ISSTRCONST);
+                *prevptr = ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr);
+                (*prevptr)->nextop = op;
+                op->addr0_type = adrt;
+                op->addr0 = adr;
+              }
             }
-          }
-          if(op->addr1_type & ISDEREF && op->dest_type & ISDEREF) {
-            if(!inplace && (op->addr1_type & (ISLABEL | ISFLOAT)) == (op->dest_type & (ISLABEL | ISFLOAT)) &&
-               (op->addr1_type & ISLABEL ? strcmp(op->addr1.labelname, op->dest.labelname): op->addr1.regnum == op->dest.regnum)) {
-               //do nothing?
-            } else {
-              ADDRESS adr;
-              adr.regnum = prog->regcnt++;
-              ADDRTYPE adrt = op->addr1_type & GENREGMASK;
-              *prevptr = ct_3ac_op2(MOV_3, op->addr1_type, op->addr1, adrt, adr);
-              (*prevptr)->nextop = op;
-              op->addr1_type = adrt;
-              op->addr1 = adr;
+            if(addr1badness) {
+              if((op->addr1_type & (ISLABEL | ISFLOAT)) == (op->dest_type & (ISLABEL | ISFLOAT)) &&
+                 (op->addr1_type & ISLABEL ? strcmp(op->addr1.labelname, op->dest.labelname): op->addr1.regnum == op->dest.regnum)) {
+                inplace = 1;
+              } else {
+                ADDRESS adr;
+                adr.regnum = prog->regcnt++;
+                ADDRTYPE adrt = op->addr1_type & GENREGMASK & ~(ISCONST | ISSTRCONST);
+                *prevptr = ct_3ac_op2(MOV_3, op->addr1_type, op->addr1, adrt, adr);
+                (*prevptr)->nextop = op;
+                op->addr1_type = adrt;
+                op->addr1 = adr;
+              }
             }
+          } else if(addr0badness && addr1badness) {
+            //if deref then both badnesses must have been rectified
+            //instead, for this case we arbitrarily choose addr 0
+            ADDRESS adr;
+            adr.regnum = prog->regcnt++;
+            ADDRTYPE adrt = op->addr0_type & GENREGMASK & ~(ISCONST | ISSTRCONST);
+            *prevptr = ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr);
+            (*prevptr)->nextop = op;
+            op->addr0_type = adrt;
+            op->addr0 = adr;
           }
           break;
         case MTP_OFF: case ARRMOV:
@@ -183,10 +201,6 @@ void ldstrsep(PROGRAM* prog) {
 #undef X
 
 
-//assumptions we make before codegen--aside from copy(?) expressions, addr,
-//alloc (anything else?) , only 1 deref'ed arg in the expression
-//string constants are factored out to further globals, as are float consts(maybe just for x86_64?)
-//loads and stores are inserted before and after so that these assumptions hold
 static void addrgen(FILE* of, ADDRTYPE adt, ADDRESS addr) {
   if(adt & ISCONST) {
     if(adt & ISSTRCONST) {
