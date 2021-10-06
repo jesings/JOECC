@@ -86,28 +86,8 @@ void ldstrsep(PROGRAM* prog) {
       switch(op->opcode) {
         OPS_NOVAR_3ac OPS_1_3ac OPS_1_ASSIGN_3ac case COPY_3: case ARROFF: case CALL_3: case DEALOC: case ASM:
           break;
-        case PHI:
-          if(op->dest_type & ISDEREF) {
-            for(int i = 0; i < blk->inedges->length; i++) {
-              if((op->addr0.joins[i].addr_type & (ISLABEL | ISFLOAT)) == (op->dest_type & (ISLABEL | ISFLOAT)) &&
-                 (op->addr0.joins[i].addr_type & ISLABEL ? strcmp(op->addr0.joins[i].addr.labelname, op->dest.labelname): op->addr0.joins[i].addr.regnum == op->dest.regnum)) {
-                //do nothing
-              } else {
-                BBLOCK* inblk = daget(blk->inedges, i);
-                ADDRESS adr;
-                adr.regnum = prog->regcnt++;
-                ADDRTYPE adrt = op->addr0_type & GENREGMASK;
-                if(inblk->lastop) {
-                  inblk->lastop = inblk->lastop->nextop = ct_3ac_op2(MOV_3, op->addr0.joins[i].addr_type, op->addr0.joins[i].addr, adrt, adr);
-                } else {
-                  inblk->firstop = inblk->lastop = ct_3ac_op2(MOV_3, op->addr0.joins[i].addr_type, op->addr0.joins[i].addr, adrt, adr);
-                }
-                op->addr0.joins[i].addr_type = adrt;
-                op->addr0.joins[i].addr = adr;
-              }
-            }
-          }
-          break; //maybe handle phi
+        case PHI: //all phis should be gone by this point
+          break;
         case ADDR_3:
           if(op->addr0_type & ISDEREF && op->dest_type & ISDEREF) {
             ADDRESS adr;
@@ -209,9 +189,17 @@ void ldstrsep(PROGRAM* prog) {
 //loads and stores are inserted before and after so that these assumptions hold
 static void addrgen(FILE* of, ADDRTYPE adt, ADDRESS addr) {
   if(adt & ISCONST) {
-    assert(!(adt & ISSTRCONST)); //handle strconsts beforehand (address)
-    assert(!(adt & ISFLOAT)); //handle floatconsts beforehand (address)
-    fprintf(of, "$%ld", addr.uintconst_64);
+    if(adt & ISSTRCONST) {
+      //stringconsty, but to some buffer, retrieve label as well?
+    } else if(adt & ISFLOAT) {
+      if((adt & 0xf) == 4) {
+        //fprintf(outputfile, ".single %f\n", (float) addr.floatconst_64); but to some buffer, retrieve label as well?
+      } else {
+        //fprintf(outputfile, ".double %lf\n", addr.floatconst_64); but to some buffer, retrieve label as well?
+      }
+    } else {
+      fprintf(of, "$%ld", addr.uintconst_64);
+    }
   } else if(adt & ISDEREF) {
     if(adt & ISLABEL) {
       fprintf(of, "%s(%%rip)", addr.labelname);
