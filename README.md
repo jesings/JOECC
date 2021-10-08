@@ -1,10 +1,24 @@
 # JOECC
-Jonathan's Optimizing and Extensible C Compiler (pronounced "joke"), called as such because the name, just like any attempt to use the compiler in place of an industrial strength one like gcc or clang, is a poorly written joke.
-
-JOECC is intended to be ANSI-opinionated, mostly conforming to C99, C11, etc. however it is not intended to be completely ANSI compliant or even to necessarily implement any defined subset of ANSI functionality. It is intended to compile most pre-existing well defined C99 compliant code.
-
 NOTE: JOECC is a work-in progress, and currently cannot fully compile code
 
+Jonathan's Optimizing and Extensible C Compiler (pronounced "joke"), called as such because the name, just like any attempt to use the compiler in place of an industrial strength one like gcc or clang, is a poorly written joke.
+
+## Goals
+JOECC is intended to be ANSI-opinionated, mostly conforming to C99, C11, etc. however it is not intended to be completely ANSI compliant or even to necessarily implement any defined subset of ANSI functionality. 
+It is intended to compile to x86\_64 most pre-existing well defined C99 compliant code.
+It currently supports reasonably advanced C features such as variable length arrays, compound and designated initializers, and anonymous struct/union members.
+It still lacks support for certain features such as alloca, \_Generic, and flexible struct members.
+JOECC is designed to be self-hosting, and to not require any special software or setup to run other than another C compiler, as it uses the system headers, and has been tested with both GCC and Clang's.
+
+The other major design goal of JOECC is to be an amateur project--despite the focus on optimization--and not necessarily go by-the-book. While this most likely will make for an inferior compiler, as often things are standard for a reason, however I hope should make for a more interesting program, and perhaps can explore some novel techniques.
+One such technique is having the preprocessor embedded into the lexer. This allows for the tokenization step to happen lazily, while the code is compiling, and additionally will prevent the need for even tokenizing sections of code which are in false #ifdef or #if statements, as is common with cross-platform code.
+Other such techniques largely involve taking optimization techniques from papers and playing around with them before or during implementation.
+
+Another design goal is to compile with optimizations very fast, and without optimizations to compile even faster, and in general to be relatively light on system resources/memory uses otherwise..
+
+A further minor design goal is transparency: for optimization debugging purposes I have implemented visual representations of the code--of the AST and of the 3 address code--which can be generated for later perusal at nearly any stage of the compilation process between parsing and assembly generation.
+
+## Progress
 - [x] Lexer
 - [x] Parser
 - [x] Preprocessor (part of lexer)
@@ -26,7 +40,7 @@ NOTE: JOECC is a work-in progress, and currently cannot fully compile code
 - [x] Assembler backend
 - [x] Linker backend
 
-# Headers
+# Setup
 By default, JOECC attempts to use the system's gcc headers which it looks for at /usr/lib/gcc/x86\_64-pc-linux-gnu/(GCC VERSION). You can change this in joecc.lex in case you want to make it use a different directory.
 If you specify that JOECC should use clang headers (by running make useclang or by defining the USECLANG preprocessor macros, it looks for headers at /usr/lib/clang/(CLANG VERSION). This can be changed in the same location.
 
