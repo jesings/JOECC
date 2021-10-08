@@ -127,7 +127,7 @@ void ldstrsep(PROGRAM* prog) {
               }
             }
             if(addr1badness) {
-              if((op->addr1_type & (ISLABEL | ISFLOAT)) == (op->dest_type & (ISLABEL | ISFLOAT)) &&
+              if(!inplace && (op->addr1_type & (ISLABEL | ISFLOAT)) == (op->dest_type & (ISLABEL | ISFLOAT)) &&
                  (op->addr1_type & ISLABEL ? strcmp(op->addr1.labelname, op->dest.labelname): op->addr1.regnum == op->dest.regnum)) {
                 inplace = 1;
               } else {
@@ -153,10 +153,10 @@ void ldstrsep(PROGRAM* prog) {
           }
           break;
         case MTP_OFF: case ARRMOV:
-          if(op->addr0_type & ISDEREF) {
+          if(op->addr0_type & (ISDEREF | ISSTRCONST) || (op->addr0_type & (ISFLOAT | ISCONST)) == (ISFLOAT | ISCONST)) {
             ADDRESS adr;
             adr.regnum = prog->regcnt++;
-            ADDRTYPE adrt = op->addr0_type & GENREGMASK;
+            ADDRTYPE adrt = op->addr0_type & GENREGMASK & ~(ISCONST | ISSTRCONST);
             *prevptr = ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr);
             (*prevptr)->nextop = op;
             op->addr0_type = adrt;
@@ -165,14 +165,14 @@ void ldstrsep(PROGRAM* prog) {
           break;
         OPS_2_3ac
         //shouldn't really work for F2F, NEG_F
-          if(op->addr0_type & ISDEREF && op->dest_type & ISDEREF) {
+          if(op->addr0_type & (ISDEREF | ISSTRCONST) || (op->addr0_type & (ISFLOAT | ISCONST)) == (ISFLOAT | ISCONST)) {
             if((op->addr0_type & (ISLABEL | ISFLOAT)) == (op->dest_type & (ISLABEL | ISFLOAT)) &&
                (op->addr0_type & ISLABEL ? strcmp(op->addr0.labelname, op->dest.labelname): op->addr0.regnum == op->dest.regnum)) {
               //do nothing?
             } else {
               ADDRESS adr;
               adr.regnum = prog->regcnt++;
-              ADDRTYPE adrt = op->addr0_type & GENREGMASK;
+              ADDRTYPE adrt = op->addr0_type & GENREGMASK & ~(ISCONST | ISSTRCONST);
               *prevptr = ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr);
               (*prevptr)->nextop = op;
               op->addr0_type = adrt;
