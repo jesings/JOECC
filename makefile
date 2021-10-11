@@ -1,7 +1,7 @@
 VERSION = $(shell gcc --version | grep "[0-9]\+\.[0-9]\+\.[0-9]\+" -o)
 CC = gcc
 LDFLAGS = -lpthread
-CFLAGS = -ggdb -g3 -Wall -Wextra -Wwrite-strings -Winit-self -Wcast-align -Wcast-qual -Wpointer-arith -Wstrict-aliasing -Wformat=2 -Wmissing-declarations -Wmissing-include-dirs -Wno-unused-parameter -Wuninitialized -Wold-style-definition -Wstrict-prototypes -Wmissing-prototypes -march=native
+CFLAGS = -ggdb -g3 -Wall -Wextra -Wwrite-strings -Winit-self -Wcast-align -Wcast-qual -Wpointer-arith -Wstrict-aliasing -Wformat=2 -Wmissing-declarations -Wmissing-include-dirs -Wno-unused-parameter -Wuninitialized -Wold-style-definition -Wstrict-prototypes -Wmissing-prototypes -march=native -D USEGCC
 LEXFLAGS = -d -Cfe --yylineno
 compilerasan: CFLAGS += -fsanitize=address
 compilerasan: LDFLAGS += -fsanitize=address
@@ -12,6 +12,9 @@ nodebug: compiler
 useclang: VERSION = $(shell clang --version | grep "[0-9]\+\.[0-9]\+\.[0-9]\+" -o)
 useclang: CFLAGS += -D USECLANG
 useclang: compiler
+usemusl: VERSION = $(shell clang --version | grep "[0-9]\+\.[0-9]\+\.[0-9]\+" -o)
+usemusl: CFLAGS += -D USEMUSL
+usemusl: compiler
 perftest: CFLAGS = -O2 -D NODEBUG -ggdb -g3 -march=native -D HEADERS_VERSION=\"$(VERSION)\"
 perftest: LEXFLAGS = -Cfer -p -p
 perftest: profile

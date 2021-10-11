@@ -12,9 +12,9 @@ JOECC is designed to be self-hosting, and to not require any special software or
 
 The other major design goal of JOECC is to be an amateur project--despite the focus on optimization--and not necessarily go by-the-book. While this most likely will make for an inferior compiler, as often things are standard for a reason, however I hope should make for a more interesting program, and perhaps can explore some novel techniques.
 One such technique is having the preprocessor embedded into the lexer. This allows for the tokenization step to happen lazily, while the code is compiling, and additionally will prevent the need for even tokenizing sections of code which are in false #ifdef or #if statements, as is common with cross-platform code.
-Other such techniques largely involve taking optimization techniques from papers and playing around with them before or during implementation.
+Other such techniques largely involve taking optimization techniques from papers and playing around with them before and during implementation.
 
-Another design goal is to compile with optimizations very fast, and without optimizations to compile even faster, and in general to be relatively light on system resources/memory uses otherwise..
+Another design goal is to compile with optimizations very fast, and without optimizations to compile even faster, and in general to be relatively light on system resources/memory use otherwise.
 
 A further minor design goal is transparency: for optimization debugging purposes I have implemented visual representations of the code--of the AST and of the 3 address code--which can be generated for later perusal at nearly any stage of the compilation process between parsing and assembly generation.
 

@@ -19,6 +19,7 @@
 %token BREAK "break" RETURN "return" SIZEOF "sizeof" UNSIGNED "unsigned"
 %token STRUCTTK "struct" ENUMTK "enum" UNIONTK "union" SIGNED "signed"
 %token CONST "const" VOLATILE "volatile" RESTRICT "restrict" INLINE "inline" ASM "asm"
+%token NORETURN "_Noreturn"
 
 %right THEN "else"
 /*probably could do this smarter with redesign*/
@@ -490,6 +491,7 @@ typem:
     };
 types1:
   "const" {$$ = CONSTNUM;}
+| "_Noreturn" {$$ = 0;/*does nothing*/}
 | "volatile" {$$ = VOLATILENUM;}
 | "restrict" {$$ = RESTRICTNUM;};
 types2:

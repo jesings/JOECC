@@ -38,6 +38,10 @@ MSTRING \"(\\.|[^\\"]|{SKIPNEWL})*\"
 #define unput(c, yyscanner) yyunput(c, ((struct yyguts_t*) yyscanner)->yytext_ptr, yyscanner) //fix your damn program flex
 #define lctx ((struct lexctx*) yyget_extra(yyscanner))
 
+#if !defined(USECLANG) && !defined(USEMUSL) && !defined(USEGCC)
+#define USEGCC
+#endif
+
 int zzparse(yyscan_t scanner);
 int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner);
 void yypush_stringbuffer(char* str, int length, const char* macname, YY_BUFFER_STATE ybs, yyscan_t yyscanner);
@@ -45,11 +49,15 @@ void yypush_stringbuffer(char* str, int length, const char* macname, YY_BUFFER_S
 const char* searchpath[] = {
 #ifdef USECLANG
   "/usr/lib/clang/" HEADERS_VERSION "/include",
-#else
+#elif defined(USEMUSL)
+  "/usr/lib/musl/include",
+#elif defined(USEGCC)
   "/usr/lib/gcc/x86_64-pc-linux-gnu/" HEADERS_VERSION "/include/",
+#else
+#error
 #endif
   "/usr/local/include/",
-#ifndef USECLANG
+#ifdef USEGCC
   "/usr/lib/gcc/x86_64-pc-linux-gnu/" HEADERS_VERSION "/include-fixed/",
 #endif
   "/usr/include/",
@@ -275,7 +283,7 @@ struct arginfo {
   }
 }
 <ERROR>{
-    {MSTRING} {/*"*/
+  {MSTRING} {/*"*/
     yy_pop_state(yyscanner); 
     yy_push_state(KILLUNTIL, yyscanner); 
     yytext[yyleng - 1] = '\0'; 
@@ -291,7 +299,7 @@ struct arginfo {
     yylloc->first_line = yylloc->last_line = i;
   }
 
-  {MSTRING} {
+  {MSTRING}? {
     free(yylloc->filename);
     yytext[yyleng - 1] = '\0';
     yylloc->filename = strdup(yytext + 1);
@@ -869,6 +877,7 @@ enum {return ENUMTK;}
 union {return UNIONTK;}
 asm {return ASM;}
 __asm__ {return ASM;}
+_Noreturn {return NORETURN;}
 
 <INITIAL,WITHINIF>{
   "<<" {return SHLTK;}
