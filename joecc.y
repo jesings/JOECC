@@ -151,8 +151,15 @@ program:
             id->type->tb &= ~EXTERNNUM;
             dapush(ctx->globals, a2);
           } else {
-            //TODO: allow redefinitions that are function prototypes
-            fprintf(stderr, "Error: redefinition of non-extern global identifier in %s %d.%d-%d.%d\n", locprint(@$));
+            char errorstatus = 1;
+            if(id->type->pointerstack) {
+              struct declarator_part* dp = dapop(id->type->pointerstack);
+              if(dp->type == PARAMSSPEC || dp->type == NAMELESS_PARAMSSPEC)
+                errorstatus = 0;
+              //TODO: confirm compatibility of prototypes
+            }
+            if(errorstatus)
+              fprintf(stderr, "Error: redefinition of non-extern global identifier in %s %d.%d-%d.%d\n", locprint(@$));
             freeinit(a2);
           }
         }
