@@ -983,7 +983,42 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
   newa->addr.varnum = i->decl->varid;
   newa->addr.regnum = prog->regcnt++;
   opn(prog, ct_3ac_op1_assign(INIT_3, newa->addr_type, newa->addr));
-  if(i->decl->type->tb & (STRUCTVAL | UNIONVAL)) {
+  if(ispointer(i->decl->type)) {
+    struct declarator_part* dclp = dapeek(i->decl->type->pointerstack);
+    if(dclp->type == ARRAYSPEC) {
+      if(i->expr) {
+        assert(i->expr->type == ARRAY_LIT);
+        FULLADDR lastemp = linearitree(i->expr, prog);
+        opn(prog, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
+      } else {
+        ADDRESS tmpaddr;
+        tmpaddr.intconst_64 = 1;
+        int origlen = i->decl->type->pointerstack->length;
+        int index = i->decl->type->pointerstack->length - 1;
+        for(; index >= 0; index--) {
+          struct declarator_part* sdclp = daget(i->decl->type->pointerstack, index);
+          if(sdclp->type != ARRAYSPEC) break;
+          tmpaddr.intconst_64 *= sdclp->arrmaxind;
+        }
+        if(index < 0) index = 0;
+        i->decl->type->pointerstack->length = index;
+        tmpaddr.intconst_64 *= lentype(i->decl->type);
+        i->decl->type->pointerstack->length = origlen;
+        opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 8, tmpaddr, newa->addr_type, newa->addr));
+      }
+    } else if(dclp->type == VLASPEC) {
+      assert(!i->expr); //vlas are not allowed to have expressions
+      FULLADDR scratchaddr = execvla(i->decl->type, prog);
+      dclp->addrun = scratchaddr.addr.garbage; //may we need the non-top level pointerstack entries to be correct?
+      dclp->addrty = scratchaddr.addr_type;
+      opn(prog, ct_3ac_op2(ALOC_3, scratchaddr.addr_type, scratchaddr.addr, newa->addr_type, newa->addr));
+    } else {
+      if(i->expr) {
+        FULLADDR curaddr = linearitree(i->expr, prog);
+        opn(prog, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, newa->addr_type, newa->addr));
+      }
+    }
+  } else if(i->decl->type->tb & (STRUCTVAL | UNIONVAL)) {
     if(i->expr) {
       FULLADDR lastemp = linearitree(i->expr, prog);
       opn(prog, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
@@ -994,54 +1029,17 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
       opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 8, tmpaddr, newa->addr_type, newa->addr));
     }
   } else {
-    if(ispointer(i->decl->type)) {
-      struct declarator_part* dclp = dapeek(i->decl->type->pointerstack);
-      if(dclp->type == ARRAYSPEC) {
-        if(i->expr) {
-          assert(i->expr->type == ARRAY_LIT);
-          FULLADDR lastemp = linearitree(i->expr, prog);
-          opn(prog, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
-        } else {
-          ADDRESS tmpaddr;
-          tmpaddr.intconst_64 = 1;
-          int origlen = i->decl->type->pointerstack->length;
-          int index = i->decl->type->pointerstack->length - 1;
-          for(; index >= 0; index--) {
-            struct declarator_part* sdclp = daget(i->decl->type->pointerstack, index);
-            if(sdclp->type != ARRAYSPEC) break;
-            tmpaddr.intconst_64 *= sdclp->arrmaxind;
-          }
-          if(index < 0) index = 0;
-          i->decl->type->pointerstack->length = index;
-          tmpaddr.intconst_64 *= lentype(i->decl->type);
-          i->decl->type->pointerstack->length = origlen;
-          opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 8, tmpaddr, newa->addr_type, newa->addr));
-        }
-      } else if(dclp->type == VLASPEC) {
-        assert(!i->expr); //vlas are not allowed to have expressions
-        FULLADDR scratchaddr = execvla(i->decl->type, prog);
-        dclp->addrun = scratchaddr.addr.garbage; //may we need the non-top level pointerstack entries to be correct?
-        dclp->addrty = scratchaddr.addr_type;
-        opn(prog, ct_3ac_op2(ALOC_3, scratchaddr.addr_type, scratchaddr.addr, newa->addr_type, newa->addr));
+    if(i->expr) {
+      FULLADDR lastemp = linearitree(i->expr, prog);
+      if((lastemp.addr_type & ISFLOAT) && !(newa->addr_type & ISFLOAT)) {
+        opn(prog, ct_3ac_op2(F2I, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
+      } else if(!(lastemp.addr_type & ISFLOAT) && (newa->addr_type & ISFLOAT)) {
+        opn(prog, ct_3ac_op2(I2F, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
       } else {
-        if(i->expr) {
-          FULLADDR curaddr = linearitree(i->expr, prog);
-          opn(prog, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, newa->addr_type, newa->addr));
-        }
-      }
-    } else {
-      if(i->expr) {
-        FULLADDR lastemp = linearitree(i->expr, prog);
-        if((lastemp.addr_type & ISFLOAT) && !(newa->addr_type & ISFLOAT)) {
-          opn(prog, ct_3ac_op2(F2I, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
-        } else if(!(lastemp.addr_type & ISFLOAT) && (newa->addr_type & ISFLOAT)) {
-          opn(prog, ct_3ac_op2(I2F, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
+        if((lastemp.addr_type & ISFLOAT) && (newa->addr_type & ISFLOAT) && (lastemp.addr_type & 0xf) != (newa->addr_type & 0xf)) {
+          opn(prog, ct_3ac_op2(F2F, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
         } else {
-          if((lastemp.addr_type & ISFLOAT) && (newa->addr_type & ISFLOAT) && (lastemp.addr_type & 0xf) != (newa->addr_type & 0xf)) {
-            opn(prog, ct_3ac_op2(F2F, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
-          } else {
-            opn(prog, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
-          }
+          opn(prog, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
         }
       }
     }

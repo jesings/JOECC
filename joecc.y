@@ -154,8 +154,10 @@ program:
             char errorstatus = 1;
             if(id->type->pointerstack) {
               struct declarator_part* dp = dapop(id->type->pointerstack);
-              if(dp->type == PARAMSSPEC || dp->type == NAMELESS_PARAMSSPEC)
+              if(dp->type == PARAMSSPEC || dp->type == NAMELESS_PARAMSSPEC) {
+                dapush(id->type->pointerstack, dp);
                 errorstatus = 0;
+              }
               //TODO: confirm compatibility of prototypes
             }
             if(errorstatus)
