@@ -12,8 +12,9 @@ nodebug: compiler
 useclang: VERSION = $(shell clang --version | grep "[0-9]\+\.[0-9]\+\.[0-9]\+" -o)
 useclang: CFLAGS += -D USECLANG
 useclang: compiler
-usemusl: VERSION = $(shell clang --version | grep "[0-9]\+\.[0-9]\+\.[0-9]\+" -o)
 usemusl: CFLAGS += -D USEMUSL
+usemusl: CFLAGS += -fsanitize=address
+usemusl: LDFLAGS += -fsanitize=address
 usemusl: compiler
 perftest: CFLAGS = -O2 -D NODEBUG -ggdb -g3 -march=native -D HEADERS_VERSION=\"$(VERSION)\"
 perftest: LEXFLAGS = -Cfer -p -p

@@ -260,7 +260,7 @@ static void cgblock(FILE* outputfile, char* fname, BBLOCK* blk) {
           fprintf(outputfile, "%s:\n", op->addr0.labelname);
           break;
         case PARAM_3:
-          if(op->addr0_type & ISFLOAT) {
+          if(op->dest_type & ISFLOAT) {
             switch(fparamno++) {
               case 0: case 1: case 2: case 3:
               case 4: case 5: case 6: case 7:

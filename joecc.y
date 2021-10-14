@@ -1180,7 +1180,7 @@ cs_decls:
 sdecl: 
   declarator {$$ = $1;}
 | declarator ':' esc {$$ = $1; /*dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $3));*/}
-| ':' esc {$$ = mkdeclaration(NULL); /*dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $2));*/};
+| ':' esc {$$ = mkdeclaration(NULL); rfreexpr($2);/*dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $2));*/};
 fullenum:
   "enum" generic_symbol {
     if(scopesearch(ctx, M_ENUM, $2)) {

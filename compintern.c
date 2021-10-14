@@ -522,6 +522,8 @@ static void fpdecl2(DECLARATION* dc) {
 
 //recursively frees idtype
 void freetype(IDTYPE* id) {
+  if(!id)
+    return;
   if(id->pointerstack) {
     for(int i = 0; i < id->pointerstack->length; i++) {
       struct declarator_part* dclp = id->pointerstack->arr[i];
