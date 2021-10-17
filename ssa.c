@@ -1251,14 +1251,18 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
     BBLOCK* blk = daget(prog->allblocks, i);
     if(blk->inedges->length > 1) {
       DYNARR* antilead = htfpairs(blk->antileader_in);
-      for(int antiind = 0; antiind < antilead->length; antiind++) {
-        HASHPAIR* antipair = daget(antilead, antiind);
-        GVNNUM* antilnode = daget(eq->nodes, antipair->fixedkey);
-        VALUESTRUCT* antil = antipair->value;
+      DYNINT* antiints = dinctor(antilead->length);
+      for(int i = 0; i < antilead->length; i++)
+        dipush(antiints, ((HASHPAIR*) antilead->arr[i])->fixedkey);
+      dadtor(antilead);
+      for(int antiind = 0; antiind < antiints->length; antiind++) {
+        int antiint = antiints->arr[antiind];
+        GVNNUM* antilnode = daget(eq->nodes, antiint);
+        VALUESTRUCT* antil = fixedsearch(blk->antileader_in, antiint);
         if(antil->o == INIT_3) continue;
         for(int j = 0; j < blk->inedges->length; j++) {
             BBLOCK* oblk = daget(blk->inedges, j);
-            if(oblk->leader && fixedqueryval(oblk->leader, antipair->fixedkey)) {
+            if(oblk->leader && fixedqueryval(oblk->leader, antiint)) {
                 dapush(stubbornblocks, oblk);
             }
         }
@@ -1395,18 +1399,18 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
           }
           changed = 1;
 
-          recdomins(blk, antipair->fixedkey, (void*) (long) phi->dest.regnum);
+          recdomins(blk, antiint, (void*) (long) phi->dest.regnum);
 
           bigfinsertfr(eq->ophash, (char*) ctvalstruct(INIT_3, phi->dest.regnum, 0, supersize(phi->dest_type), 0), antilnode, sizeof(VALUESTRUCT));
           dapush(antilnode->equivs, ctvalstruct(INIT_3, phi->dest.regnum, 0, supersize(phi->dest_type), 0));
 
-          void* prevval = frmpair(blk->antileader_in, antipair->fixedkey);
+          void* prevval = frmpair(blk->antileader_in, antiint);
           if(prevval) free(prevval);
         }
 
         stubbornblocks->length = 0;
       }
-      dadtor(antilead);
+      didtor(antiints);
     }
   }
   dadtor(stubbornblocks);
