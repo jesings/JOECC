@@ -71,6 +71,7 @@
   USTRUCT* structvariant;
   ENUM* enumvariant;
   DECLARATION* declvariant;
+  struct declarator_part* declpartvariant;
   FUNC* funcvariant;
   PARALLEL* paravariant;
   void* vvar;
@@ -100,6 +101,7 @@
 %type<structvariant> struct fullstruct union fullunion
 %type<enumvariant> enum fullenum
 %type<declvariant> declarator declname param_decl sdecl
+%type<declpartvariant> paramparen
 %type<funcvariant> function
 %type<firforvariant> dee
 %type<vvar> program
@@ -325,6 +327,18 @@ cs_minutes:
 declarator:
   abstract_ptr declname {$$ = $2; $2->type->pointerstack = damerge($1, $2->type->pointerstack);}
 | declname {$$ = $1;};
+paramparen:
+  '(' ')' {$$ = mkdeclpart(NAMELESS_PARAMSSPEC, NULL);}
+| '(' nameless ')' {$$ = mkdeclpart(NAMELESS_PARAMSSPEC, $2);}
+| '(' params ')' {$$ = mkdeclpart(PARAMSSPEC, $2);}
+| '(' nameless ',' "..." ')' {
+    dapush($2, NULL);
+    $$ = mkdeclpart(NAMELESS_PARAMSSPEC, $2);
+    }
+| '(' params ',' "..." ')' {
+    dapush($2, NULL);
+    $$ = mkdeclpart(PARAMSSPEC, $2);
+    };
 declname:
   SYMBOL {$$ = mkdeclaration($1);}
 | '(' abstract_ptr spefptr ')' {$$ = mkdeclaration($3); $$->type->pointerstack = damerge($$->type->pointerstack, $2);}
@@ -332,17 +346,7 @@ declname:
 | '(' declname ')' {$$ = $2;}
 | declname '[' ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, NULL));}
 | declname '[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpartarr(ARRAYSPEC, $3));}
-| declname'(' ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(NAMELESS_PARAMSSPEC, NULL));}
-| declname '(' nameless ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(NAMELESS_PARAMSSPEC, $3));}
-| declname '(' params ')' {$$ = $1; dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));}
-| declname '(' nameless ',' "..." ')' {$$ = $1; 
-    dapush($3, NULL);
-    dapush($$->type->pointerstack, mkdeclpart(NAMELESS_PARAMSSPEC, $3));
-    }
-| declname '(' params ',' "..." ')' {$$ = $1; 
-    dapush($3, NULL);
-    dapush($$->type->pointerstack, mkdeclpart(PARAMSSPEC, $3));
-    };
+| declname paramparen {$$ = $1; dapush($$->type->pointerstack, $2);};
 spefptr:
   '(' abstract_ptr SYMBOL ')' {$$ = $2; free($3);}
 | '(' '(' abstract_ptr ')' SYMBOL ')' {$$ = $3; free($5);}
@@ -350,34 +354,12 @@ spefptr:
 | '(' spefptr ')' {$$ = $2;}
 | '[' ']' {$$ = dactor(2); dapush($$, mkdeclpart(ARRAYSPEC, NULL));}
 | '[' expression ']' {$$ = dactor(2); dapush($$, mkdeclpartarr(ARRAYSPEC, $2));}
-| spefptr'[' ']' {$$ = $1; dapush($$, mkdeclpart(ARRAYSPEC, NULL));}
-| spefptr'[' expression ']' {$$ = $1; dapush($$, mkdeclpart(ARRAYSPEC, $3));}
-| spefptr'(' ')' {$$ = $1;
+| spefptr '[' ']' {$$ = $1; dapush($$, mkdeclpart(ARRAYSPEC, NULL));}
+| spefptr '[' expression ']' {$$ = $1; dapush($$, mkdeclpart(ARRAYSPEC, $3));}
+| spefptr paramparen {
     DYNARR* da = dactor(1 + $$->length);
-    dapushc(da, mkdeclpart(NAMELESS_PARAMSSPEC, NULL));
-    $$ = damerge(da, $$);
-    }
-| spefptr '(' nameless ')' {$$ = $1; 
-    DYNARR* da = dactor(1 + $$->length);
-    dapushc(da, mkdeclpart(NAMELESS_PARAMSSPEC, $3));
-    $$ = damerge(da, $$);
-    }
-| spefptr '(' params ')' {$$ = $1; 
-    DYNARR* da = dactor(1 + $$->length);
-    dapushc(da, mkdeclpart(PARAMSSPEC, $3));
-    $$ = damerge(da, $$);
-    }
-| spefptr '(' nameless ',' "..." ')' {$$ = $1; 
-    DYNARR* da = dactor(1 + $$->length);
-    dapush($3, NULL);
-    dapushc(da, mkdeclpart(PARAMSSPEC, $3));
-    $$ = damerge(da, $$);
-    }
-| spefptr '(' params ',' "..." ')' {$$ = $1;
-    DYNARR* da = dactor(1 + $$->length);
-    dapush($3, NULL); 
-    dapushc(da, mkdeclpart(PARAMSSPEC, $3));
-    $$ = damerge(da, $$);
+    dapushc(da, $2);
+    $$ = damerge(da, $1);
     };
 params:
   param_decl {
