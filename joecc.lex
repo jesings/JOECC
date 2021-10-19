@@ -1000,6 +1000,11 @@ _Noreturn {return NORETURN;}
     sscanf(yytext + 3, "%x", &result);
     GOC((char) result);
     }
+  \\x[[:xdigit:]]{1,2}\' {
+    unsigned int result;
+    sscanf(yytext + 2, "%x", &result);
+    GOC((char) result);
+    }
   \\.\' {
     fprintf(stderr, "Warning: Unknown escape sequence \\%c %x in character literal %s %d.%d-%d.%d\n", *(yytext + 1), *(yytext + 1), locprint2(yylloc));
     GOC(yytext[1]);

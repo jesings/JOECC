@@ -341,16 +341,14 @@ paramparen:
     };
 declname:
   SYMBOL {$$ = mkdeclaration($1);}
-| '(' abstract_ptr spefptr ')' {$$ = mkdeclaration($3); $$->type->pointerstack = damerge($$->type->pointerstack, $2);}
-| '(' '(' abstract_ptr ')' spefptr ')' {$$ = mkdeclaration($5); $$->type->pointerstack = damerge($$->type->pointerstack, $3);}
+| SYMBOL paramparen {$$ = mkdeclaration($1); dapush($$->type->pointerstack, $2);}
+| '(' abstract_ptr declname ')' paramparen {$$ = $3; $$->type->pointerstack = damerge($$->type->pointerstack, $2); dapush($$->type->pointerstack, $5);}
 | '(' declname ')' {$$ = $2;}
 | declname '[' ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, NULL));}
-| declname '[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpartarr(ARRAYSPEC, $3));}
-| declname paramparen {$$ = $1; dapush($$->type->pointerstack, $2);};
+| declname '[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpartarr(ARRAYSPEC, $3));};
 spefptr:
-  '(' abstract_ptr SYMBOL ')' {$$ = $2; free($3);}
-| '(' '(' abstract_ptr ')' SYMBOL ')' {$$ = $3; free($5);}
-| '(' abstract_ptr ')' {$$ = $2;}
+/*  '(' abstract_ptr SYMBOL ')' {$$ = $2; free($3);}*/
+  '(' abstract_ptr ')' {$$ = $2;}
 | '(' spefptr ')' {$$ = $2;}
 | '[' ']' {$$ = dactor(2); dapush($$, mkdeclpart(ARRAYSPEC, NULL));}
 | '[' expression ']' {$$ = dactor(2); dapush($$, mkdeclpartarr(ARRAYSPEC, $2));}
