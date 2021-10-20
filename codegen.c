@@ -311,25 +311,25 @@ static void cgblock(FILE* outputfile, char* fname, BBLOCK* blk) {
       if(blk->branchblock->work != blk->work + 1) {
         switch(op->opcode) {
           case BNZ_3:
-            fprintf(outputfile, "jnz .L%s%d\n", fname, blk->branchblock->work);
+            fprintf(outputfile, "jnz .L%s.%d\n", fname, blk->branchblock->domind);
             break;
           case BEZ_3:
-            fprintf(outputfile, "jz .L%s%d\n", fname, blk->branchblock->work);
+            fprintf(outputfile, "jz .L%s.%d\n", fname, blk->branchblock->domind);
             break;
           case BEQ_U: case BEQ_F:
-            fprintf(outputfile, "je .L%s%d\n", fname, blk->branchblock->work);
+            fprintf(outputfile, "je .L%s.%d\n", fname, blk->branchblock->domind);
             break;
           case BGE_U: case BGE_F:
-            fprintf(outputfile, "jae .L%s%d\n", fname, blk->branchblock->work);
+            fprintf(outputfile, "jae .L%s.%d\n", fname, blk->branchblock->domind);
             break;
           case BGE_I:
-            fprintf(outputfile, "jge .L%s%d\n", fname, blk->branchblock->work);
+            fprintf(outputfile, "jge .L%s.%d\n", fname, blk->branchblock->domind);
             break;
           case BGT_U: case BGT_F:
-            fprintf(outputfile, "ja .L%s%d\n", fname, blk->branchblock->work);
+            fprintf(outputfile, "ja .L%s.%d\n", fname, blk->branchblock->domind);
             break;
           case BGT_I:
-            fprintf(outputfile, "jg .L%s%d\n", fname, blk->branchblock->work);
+            fprintf(outputfile, "jg .L%s.%d\n", fname, blk->branchblock->domind);
             break;
           case JEQ_I: break;
           default:
@@ -338,25 +338,25 @@ static void cgblock(FILE* outputfile, char* fname, BBLOCK* blk) {
       } else {
         switch(op->opcode) {
           case BNZ_3:
-            fprintf(outputfile, "jz .L%s%d\n", fname, blk->nextblock->work);
+            fprintf(outputfile, "jz .L%s.%d\n", fname, blk->nextblock->domind);
             break;
           case BEZ_3:
-            fprintf(outputfile, "jnz .L%s%d\n", fname, blk->nextblock->work);
+            fprintf(outputfile, "jnz .L%s.%d\n", fname, blk->nextblock->domind);
             break;
           case BEQ_U: case BEQ_F:
-            fprintf(outputfile, "jne .L%s%d\n", fname, blk->nextblock->work);
+            fprintf(outputfile, "jne .L%s.%d\n", fname, blk->nextblock->domind);
             break;
           case BGE_U: case BGE_F:
-            fprintf(outputfile, "jb .L%s%d\n", fname, blk->nextblock->work);
+            fprintf(outputfile, "jb .L%s.%d\n", fname, blk->nextblock->domind);
             break;
           case BGE_I:
-            fprintf(outputfile, "jl .L%s%d\n", fname, blk->nextblock->work);
+            fprintf(outputfile, "jl .L%s.%d\n", fname, blk->nextblock->domind);
             break;
           case BGT_U: case BGT_F:
-            fprintf(outputfile, "jbe .L%s%d\n", fname, blk->nextblock->work);
+            fprintf(outputfile, "jbe .L%s.%d\n", fname, blk->nextblock->domind);
             break;
           case BGT_I:
-            fprintf(outputfile, "jle .L%s%d\n", fname, blk->nextblock->work);
+            fprintf(outputfile, "jle .L%s.%d\n", fname, blk->nextblock->domind);
             break;
           default:
             assert(0);
@@ -366,12 +366,17 @@ static void cgblock(FILE* outputfile, char* fname, BBLOCK* blk) {
     }
   }
   if(blk->nextblock && blk->nextblock->work != blk->work + 1)
-    fprintf(outputfile, "jmp .L%s%d\n", fname, blk->nextblock->work);//changed to index
+    fprintf(outputfile, "jmp .L%s.%d\n", fname, blk->nextblock->domind);//changed to index
 }
 
 void genprogfile(FILE* outputfile, char* funcname, PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
-    fprintf(outputfile, ".L%s%d:\n", funcname, i);
+    BBLOCK* blk = daget(prog->allblocks, i);
+    blk->visited = i;
+  }
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    fprintf(outputfile, ".L%s.%d:\n", funcname, blk->domind);
     cgblock(outputfile, funcname, daget(prog->allblocks, i));
   }
 }
