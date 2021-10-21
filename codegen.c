@@ -545,3 +545,20 @@ void startgenfile(FILE* outputfile, struct lexctx* lctx) {
   //float literals
   fprintf(outputfile, ".text\n");
 }
+
+void outstart(FILE* outputfile) {
+  fprintf(outputfile, "_start:\n"
+          "xorl %%rbp, %%rbp\n" //clear base pointer at base frame, as ABI specifies
+          "movq %%rdx, %%r9\n" //address of termination function by default in rdx, we put it in r9
+          "popq %%rsi\n" //pops argc into rsi
+          "mov1 %%rsp, %%rdx\n" //moves address of argv to rdx
+          "andq $-16, %%rsp\n" //align the stack by 16 bytes for function call, as C specifies
+          "pushq %%rax\n" //add garbage to the stack... why? To pad it for the pointer to rsp!
+          "pushq %%rsp\n" //push stack pointer to stack, as an argument for libc_start_main, address again 16 bit aligned
+          "leaq _libc_csu_fini(%%rip), %%r8\n" //cleanup function as argument
+          "leaq _libc_csu_init(%%rip), %%rcx\n" //initialization function as argument
+          "leaq main(%%rip), %%rdi\n" //main function as further argument
+          "hlt\n" //if we return from libc start main, panic!
+         );
+
+}
