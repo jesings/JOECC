@@ -560,5 +560,4 @@ void outstart(FILE* outputfile) {
           "leaq main(%%rip), %%rdi\n" //main function as further argument
           "hlt\n" //if we return from libc start main, panic!
          );
-
 }

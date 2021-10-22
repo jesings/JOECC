@@ -52,15 +52,15 @@ const char* searchpath[] = {
 #elif defined(USEMUSL)
   "/usr/lib/musl/include",
 #elif defined(USEGCC)
-  "/usr/lib/gcc/x86_64-pc-linux-gnu/" HEADERS_VERSION "/include/",
+  "/usr/lib/gcc/x86_64-pc-linux-gnu/" HEADERS_VERSION "/include",
 #else
 #error
 #endif
-  "/usr/local/include/",
+  "/usr/local/include",
 #ifdef USEGCC
-  "/usr/lib/gcc/x86_64-pc-linux-gnu/" HEADERS_VERSION "/include-fixed/",
+  "/usr/lib/gcc/x86_64-pc-linux-gnu/" HEADERS_VERSION "/include-fixed",
 #endif
-  "/usr/include/",
+  "/usr/include",
 };
 
 struct arginfo {

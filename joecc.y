@@ -1127,7 +1127,7 @@ cs_decls:
 | sdecl {$$ = dactor(8); dapushc($$, $1);};
 sdecl: 
   declarator {$$ = $1;}
-| declarator ':' esc {$$ = $1; /*dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $3));*/}
+| declarator ':' esc {$$ = $1; rfreexpr($3);/*dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $3));*/}
 | ':' esc {$$ = mkdeclaration(NULL); rfreexpr($2);/*dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $2));*/};
 fullenum:
   "enum" generic_symbol {
