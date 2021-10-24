@@ -220,6 +220,7 @@ int main(int argc, char** argv) {
     {"version", no_argument, NULL, 'v'},
     {NULL, 0, NULL, 0},
   };
+  DYNARR* defaultdefs = dactor(8);
   while((opt = getopt_long(argc, argv, "cl:o:hv", long_options, &opt_ind)) != -1) {
     switch(opt) {
       case 'l':
@@ -228,6 +229,10 @@ int main(int argc, char** argv) {
         break;
       case 'o':
         filedest = optarg;
+        if(!filedest) {
+          fprintf(stderr, "No output file specified\n");
+          exit(-1);
+        }
         break;
       case 'h':
         printf("JOECC Compiler version 0.0.1-alpha\n");
@@ -236,6 +241,14 @@ int main(int argc, char** argv) {
         return 0;
       case 'v':
         printf("JOECC Compiler version 0.0.1-alpha\n");
+        break;
+      case 'D':
+        //figure this out
+        if(optarg) {
+        } else {
+        }
+        break;
+      case 'I': //figure out how to add to include path
         break;
       case 0:
         break;
