@@ -646,10 +646,10 @@ static void replacegvn(EQONTAINER* eq, PROGRAM* prog) {
 //number values
 static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
   blk->leader = fhtclone(blk->dom->leader);
+  blk->antileader_in = htctor();
   if(blk->lastop) {
     blk->tmp_gen = dactor(32);
     blk->exp_gen = htctor();
-    blk->antileader_in = htctor();
     blk->antileader_out = htctor();
     OPERATION* op = blk->firstop;
     VALUESTRUCT valst = {INIT_3, 0, 0, 0, 0};

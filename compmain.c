@@ -21,6 +21,7 @@
 const char magic[16] = {0x7f, 0x45, 0x4c, 0x46, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 pthread_mutex_t printlock, listlock;
 int listptr;
+int predefines;
 
 struct yyltype {int first_line, last_line, first_column, last_column; char* filename;};
 
@@ -220,7 +221,8 @@ int main(int argc, char** argv) {
     {"version", no_argument, NULL, 'v'},
     {NULL, 0, NULL, 0},
   };
-  DYNARR* defaultdefs = dactor(8);
+  char tmpname[] = "precompilationXXXXXX";
+  predefines = mkstemp(tmpname);
   while((opt = getopt_long(argc, argv, "cl:o:hv", long_options, &opt_ind)) != -1) {
     switch(opt) {
       case 'l':
@@ -245,7 +247,12 @@ int main(int argc, char** argv) {
       case 'D':
         //figure this out
         if(optarg) {
+          char* c = strchr(optarg, '=');
+          if(c != NULL)
+            *c = ' ';
+          dprintf(predefines, "#define %s\n", c);
         } else {
+          //error
         }
         break;
       case 'I': //figure out how to add to include path
@@ -288,5 +295,6 @@ int main(int argc, char** argv) {
       break;
   }
   linkall(filedest, argv);
+  close(predefines);
   return 0;
 }

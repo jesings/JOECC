@@ -1152,7 +1152,7 @@ struct lexctx* ctxinit(void) {
   declmacro(lct->defines, "_XOPEN_SOURCE", "700"); 
   declmacro(lct->defines, "_DEFAULT_SOURCE", "700"); 
   declmacro(lct->defines, "_POSIX_C_SOURCE", "200809L"); 
-  declmacro(lct->defines, "_XOPEN_SOURCE_EXTENDED", "1"); 
+  declmacro(lct->defines, "_XOPEN_SOURCE_EXTENDED", "1");
   declmacro(lct->defines, "_USE_XOPEN_EXTENDED", "1");
   declmacro(lct->defines, "__FILE__", NULL); 
   declmacro(lct->defines, "__LINE__", NULL); 

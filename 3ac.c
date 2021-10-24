@@ -987,9 +987,13 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
     struct declarator_part* dclp = dapeek(i->decl->type->pointerstack);
     if(dclp->type == ARRAYSPEC) {
       if(i->expr) {
-        assert(i->expr->type == ARRAY_LIT);
-        FULLADDR lastemp = linearitree(i->expr, prog);
-        opn(prog, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
+        if(i->expr->type == ARRAY_LIT) {
+          FULLADDR lastemp = linearitree(i->expr, prog);
+          opn(prog, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
+        } else if(i->expr->type == STRING) {
+        } else {
+          assert(0);
+        }
       } else {
         ADDRESS tmpaddr;
         tmpaddr.intconst_64 = 1;
