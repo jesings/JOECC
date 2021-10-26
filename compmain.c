@@ -296,5 +296,6 @@ int main(int argc, char** argv) {
   }
   linkall(filedest, argv);
   close(predefines);
+  unlink(tmpname);
   return 0;
 }

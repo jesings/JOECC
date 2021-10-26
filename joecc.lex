@@ -17,6 +17,7 @@ MSTRING \"(\\.|[^\\"]|{SKIPNEWL})*\"
 #include <math.h>
 #include <time.h>
 #include <assert.h>
+#include <libgen.h>
 #include "joecc.tab.h"
 #include "compintern.h"
 #include "treeduce.h"
@@ -338,7 +339,7 @@ struct arginfo {
           break;
         }
       } 
-      if(i == sizeof(searchpath) / sizeof(char*)){
+      if(i >= sizeof(searchpath) / sizeof(char*)){
         fprintf(stderr, "Invalid system file %s included!\n", yytext + 1);
       }
     }
@@ -394,11 +395,17 @@ struct arginfo {
       char pathbuf[256];
       yy_pop_state(yyscanner);
       unsigned int i = 0;
-      for(; i < sizeof(searchpath) / sizeof(char*) - 1 && strncmp(yylloc->filename, searchpath[i], strlen(searchpath[i])); ++i) ;
+      char* strpardir = strdup(yylloc->filename);
+      char* pardir = dirname(strpardir);
+      for(; i < sizeof(searchpath) / sizeof(char*); ++i) {
+        if(!strcmp(pardir, searchpath[i])) break;
+      }
+      free(strpardir);
+      int j = i;
       ++i;
       for(; i < sizeof(searchpath) / sizeof(char*); ++i) {
         FILE* newbuf;
-        snprintf(pathbuf, 256, "%s%s", searchpath[i], yytext + 1); //ignore opening
+        snprintf(pathbuf, 256, "%s/%s", searchpath[i], yytext + 1); //ignore opening
         if((newbuf = fopen(pathbuf, "r")) != NULL) {
           YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
           *ylt = *yylloc;
@@ -412,8 +419,8 @@ struct arginfo {
           break;
         }
       } 
-      if(i == 4){
-        fprintf(stderr, "Invalid system file %s included next!\n", yytext + 1);
+      if(i >= sizeof(searchpath) / sizeof(char*)){
+        fprintf(stderr, "Invalid system file %s included next from directory %s!\n", yytext + 1, searchpath[j]);
       }
     }
     }
@@ -786,7 +793,7 @@ struct arginfo {
     ++i;
     for(; i < sizeof(searchpath) / sizeof(char*) /*sizeof searchpath*/; ++i) {
       FILE* newbuf;
-      snprintf(pathbuf, 256, "%s%s", searchpath[i], yytext + 1);
+      snprintf(pathbuf, 256, "%s/%s", searchpath[i], yytext + 1);
       if((newbuf = fopen(pathbuf, "r")) != NULL) {
         yylval_param->unum = 1;
         break;
