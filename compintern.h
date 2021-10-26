@@ -9,6 +9,8 @@
 
 #define PPDEBUG 0
 
+extern DYNARR* includepath;
+
 typedef enum {
   FLOATNUM    = 0x10,
   UNSIGNEDNUM = 0x20,

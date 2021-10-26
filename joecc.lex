@@ -39,30 +39,9 @@ MSTRING \"(\\.|[^\\"]|{SKIPNEWL})*\"
 #define unput(c, yyscanner) yyunput(c, ((struct yyguts_t*) yyscanner)->yytext_ptr, yyscanner) //fix your damn program flex
 #define lctx ((struct lexctx*) yyget_extra(yyscanner))
 
-#if !defined(USECLANG) && !defined(USEMUSL) && !defined(USEGCC)
-#define USEGCC
-#endif
-
 int zzparse(yyscan_t scanner);
 int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner);
 void yypush_stringbuffer(char* str, int length, const char* macname, YY_BUFFER_STATE ybs, yyscan_t yyscanner);
-
-const char* searchpath[] = {
-#ifdef USECLANG
-  "/usr/lib/clang/" HEADERS_VERSION "/include",
-#elif defined(USEMUSL)
-  "/usr/lib/musl/include",
-#elif defined(USEGCC)
-  "/usr/lib/gcc/x86_64-pc-linux-gnu/" HEADERS_VERSION "/include",
-#else
-#error
-#endif
-  "/usr/local/include",
-#ifdef USEGCC
-  "/usr/lib/gcc/x86_64-pc-linux-gnu/" HEADERS_VERSION "/include-fixed",
-#endif
-  "/usr/include",
-};
 
 struct arginfo {
   DYNSTR* argi;
@@ -322,10 +301,10 @@ struct arginfo {
       yytext[yyleng - 1] = '\0'; //ignore closing >
       char pathbuf[256];
       yy_pop_state(yyscanner);
-      unsigned int i;
-      for(i = 0; i < sizeof(searchpath) / sizeof(char*) ; i++) {
+      int i;
+      for(i = 0; i < includepath->length; i++) {
         FILE* newbuf;
-        snprintf(pathbuf, 256, "%s/%s", searchpath[i], yytext + 1); //ignore opening <
+        snprintf(pathbuf, 256, "%s/%s", (char*) daget(includepath, i), yytext + 1); //ignore opening <
         if((newbuf = fopen(pathbuf, "r")) != NULL) {
           YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
           *ylt = *yylloc;
@@ -339,7 +318,7 @@ struct arginfo {
           break;
         }
       } 
-      if(i >= sizeof(searchpath) / sizeof(char*)){
+      if(i >= includepath->length){
         fprintf(stderr, "Invalid system file %s included!\n", yytext + 1);
       }
     }
@@ -394,18 +373,18 @@ struct arginfo {
       yytext[yyleng - 1] = '\0'; //ignore closing >
       char pathbuf[256];
       yy_pop_state(yyscanner);
-      unsigned int i = 0;
+      int i = 0;
       char* strpardir = strdup(yylloc->filename);
       char* pardir = dirname(strpardir);
-      for(; i < sizeof(searchpath) / sizeof(char*); ++i) {
-        if(!strcmp(pardir, searchpath[i])) break;
+      for(; i < includepath->length; ++i) {
+        if(!strcmp(pardir, daget(includepath, i))) break;
       }
       free(strpardir);
       int j = i;
       ++i;
-      for(; i < sizeof(searchpath) / sizeof(char*); ++i) {
+      for(; i < includepath->length; ++i) {
         FILE* newbuf;
-        snprintf(pathbuf, 256, "%s/%s", searchpath[i], yytext + 1); //ignore opening
+        snprintf(pathbuf, 256, "%s/%s", (char*) daget(includepath, i), yytext + 1); //ignore opening
         if((newbuf = fopen(pathbuf, "r")) != NULL) {
           YYLTYPE* ylt = malloc(sizeof(YYLTYPE));
           *ylt = *yylloc;
@@ -419,8 +398,8 @@ struct arginfo {
           break;
         }
       } 
-      if(i >= sizeof(searchpath) / sizeof(char*)){
-        fprintf(stderr, "Invalid system file %s included next from directory %s!\n", yytext + 1, searchpath[j]);
+      if(i >= includepath->length){
+        fprintf(stderr, "Invalid system file %s included next from directory %s!\n", yytext + 1, (char*) daget(includepath, j));
       }
     }
     }
@@ -785,15 +764,20 @@ struct arginfo {
   [[:blank:]]*\) {yy_pop_state(yyscanner);}
   [<"][^">]*[">] {
     //maybe check completion
-    unsigned int i = 0;
+    int i = 0;
     char pathbuf[256];
     yytext[yyleng - 1] = 0;
     yylval_param->unum = 0;
-    for(; i < sizeof(searchpath) / sizeof(char*) && strncmp(yylloc->filename, searchpath[i], strlen(searchpath[i])); ++i) ;
+    char* strpardir = strdup(yylloc->filename);
+    char* pardir = dirname(strpardir);
+    for(; i < includepath->length; ++i) {
+      if(!strcmp(pardir, daget(includepath, i))) break;
+    }
+    free(strpardir);
     ++i;
-    for(; i < sizeof(searchpath) / sizeof(char*) /*sizeof searchpath*/; ++i) {
+    for(; i < includepath->length; ++i) {
       FILE* newbuf;
-      snprintf(pathbuf, 256, "%s/%s", searchpath[i], yytext + 1);
+      snprintf(pathbuf, 256, "%s/%s", (char*) daget(includepath, i), yytext + 1);
       if((newbuf = fopen(pathbuf, "r")) != NULL) {
         yylval_param->unum = 1;
         break;

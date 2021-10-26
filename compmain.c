@@ -17,11 +17,16 @@
 #else
 #define DEBUG(a) a
 #endif
+#if !defined(USECLANG) && !defined(USEMUSL) && !defined(USEGCC)
+#define USEGCC
+#endif
+
 
 const char magic[16] = {0x7f, 0x45, 0x4c, 0x46, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 pthread_mutex_t printlock, listlock;
 int listptr;
 int predefines;
+DYNARR* includepath;
 
 struct yyltype {int first_line, last_line, first_column, last_column; char* filename;};
 
@@ -208,6 +213,23 @@ static void linkall(char const* outfile, char** argv) {
   dapop(fnames);
   dadtorfr(fnames);
 }
+const char* searchpath[] = {
+#ifdef USECLANG
+  "/usr/lib/clang/" HEADERS_VERSION "/include",
+#elif defined(USEMUSL)
+  "/usr/lib/musl/include",
+#elif defined(USEGCC)
+  "/usr/lib/gcc/x86_64-pc-linux-gnu/" HEADERS_VERSION "/include",
+#else
+#error
+#endif
+  "/usr/local/include",
+#ifdef USEGCC
+  "/usr/lib/gcc/x86_64-pc-linux-gnu/" HEADERS_VERSION "/include-fixed",
+#endif
+  "/usr/include",
+};
+
 
 int main(int argc, char** argv) {
   if(argc <= 1) {
@@ -223,7 +245,11 @@ int main(int argc, char** argv) {
   };
   char tmpname[] = "precompilationXXXXXX";
   predefines = mkstemp(tmpname);
-  while((opt = getopt_long(argc, argv, "cl:o:hv", long_options, &opt_ind)) != -1) {
+  includepath = dactor(8);
+  for(unsigned int i = 0; i < sizeof(searchpath) / sizeof(char*); i++)
+      dapush(includepath, strdup(searchpath[i]));
+  while((opt = getopt_long(argc, argv, "cl:o:hvI:D:", long_options, &opt_ind)) != -1) {
+    char* c;
     switch(opt) {
       case 'l':
         break;
@@ -244,18 +270,17 @@ int main(int argc, char** argv) {
       case 'v':
         printf("JOECC Compiler version 0.0.1-alpha\n");
         break;
-      case 'D':
-        //figure this out
-        if(optarg) {
-          char* c = strchr(optarg, '=');
-          if(c != NULL)
-            *c = ' ';
-          dprintf(predefines, "#define %s\n", c);
-        } else {
-          //error
-        }
+      case 'D': ;
+        //figure out how to actually use predefines
+        c = strchr(optarg, '=');
+        if(c != NULL)
+          *c = ' ';
+        dprintf(predefines, "#define %s\n", c);
         break;
       case 'I': //figure out how to add to include path
+        c = realpath(optarg, NULL);
+        //handle errno
+        dapush(includepath,c);
         break;
       case 0:
         break;
@@ -294,8 +319,9 @@ int main(int argc, char** argv) {
     case 0:
       break;
   }
-  linkall(filedest, argv);
+  dadtorfr(includepath);
   close(predefines);
   unlink(tmpname);
+  linkall(filedest, argv);
   return 0;
 }
