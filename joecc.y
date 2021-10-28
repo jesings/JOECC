@@ -342,8 +342,9 @@ paramparen:
 declname:
   SYMBOL {$$ = mkdeclaration($1);}
 | SYMBOL paramparen {$$ = mkdeclaration($1); dapush($$->type->pointerstack, $2);}
+| '(' SYMBOL ')' paramparen {$$ = mkdeclaration($2); dapush($$->type->pointerstack, $4);/*for function type*/}
 | '(' abstract_ptr declname ')' paramparen {$$ = $3; $$->type->pointerstack = damerge($$->type->pointerstack, $2); dapush($$->type->pointerstack, $5);}
-| '(' declname ')' {$$ = $2;}
+/*| '(' declname ')' {$$ = $2;}*/
 | declname '[' ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpart(ARRAYSPEC, NULL));}
 | declname '[' expression ']' {$$ = $1; dapush($$->type->pointerstack,mkdeclpartarr(ARRAYSPEC, $3));};
 spefptr:

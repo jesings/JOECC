@@ -255,11 +255,11 @@ struct arginfo {
 
 <WARNING>{
   {MSTRING} {
-    /*WARNING, ERROR, only support single string const*/
+    /*WARNING, ERROR, only supports single string const*/
     yy_pop_state(yyscanner); 
     yy_push_state(KILLUNTIL, yyscanner); 
     yytext[yyleng - 1] = '\0'; 
-    fprintf(stderr, "WARNING: %s\n", yytext + 1);
+    fprintf(stderr, "Preprocessor WARNING: %s\n", yytext + 1);
   }
 }
 <ERROR>{
@@ -267,7 +267,7 @@ struct arginfo {
     yy_pop_state(yyscanner); 
     yy_push_state(KILLUNTIL, yyscanner); 
     yytext[yyleng - 1] = '\0'; 
-    fprintf(stderr, "ERROR: %s\n", yytext + 1);
+    fprintf(stderr, "Preprocessor ERROR: %s\n", yytext + 1);
     exit(0);
   }
 }
