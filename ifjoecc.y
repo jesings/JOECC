@@ -108,10 +108,10 @@ esas:
 | esas '%' esca {$$ = ct_binary_expr(MOD, $1, $3);}
 | esca {$$ = $1;};
 esca:
-  '+' esu {$$ = ct_unary_expr(IDENT, $2);}
-| '-' esu {$$ = ct_unary_expr(NEG, $2);}
-| '!' esu {$$ = ct_unary_expr(L_NOT, $2);}
-| '~' esu {$$ = ct_unary_expr(B_NOT, $2);}
+  '+' esca {$$ = ct_unary_expr(IDENT, $2);}
+| '-' esca {$$ = ct_unary_expr(NEG, $2);}
+| '!' esca {$$ = ct_unary_expr(L_NOT, $2);}
+| '~' esca {$$ = ct_unary_expr(B_NOT, $2);}
 | esu {$$ = $1;};
 esu:
   '(' expression ')' {$$ = $2;}

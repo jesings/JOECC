@@ -1174,6 +1174,8 @@ struct lexctx* ctxinit(void) {
   declmacro(lct->defines, "__UINT16_TYPE__", "unsigned short");
   declmacro(lct->defines, "__INT8_TYPE__", "char");
   declmacro(lct->defines, "__UINT8_TYPE__", "unsigned char");
+  declmacro(lct->defines, "__UINTPTR_TYPE__", "unsigned long int");
+  declmacro(lct->defines, "__UINTPTR_MAX__", "((unsigned long int) -1L)");
   char headv[256];
   snprintf(headv, 256, "\"%s\"", HEADERS_VERSION);
   declmacro(lct->defines, "HEADERS_VERSION", headv); //it's just convenient to do it here rather then when running tests for now, this will be removed before a larger release
