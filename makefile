@@ -73,6 +73,7 @@ clean:
 	-rm ./dstest ./functions
 	-rm *.tab.*
 	-rm ./compiler
+	-rm precompilation*
 
 dstest.o: dstest.c
 	$(CC) dstest.c -c $(CFLAGS)

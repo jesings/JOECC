@@ -25,7 +25,7 @@
 const char magic[16] = {0x7f, 0x45, 0x4c, 0x46, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 pthread_mutex_t printlock, listlock;
 int listptr;
-int predefines;
+DYNARR* predefines;
 DYNARR* includepath;
 
 struct yyltype {int first_line, last_line, first_column, last_column; char* filename;};
@@ -244,8 +244,8 @@ int main(int argc, char** argv) {
     {NULL, 0, NULL, 0},
   };
   char tmpname[] = "precompilationXXXXXX";
-  predefines = mkstemp(tmpname);
-  includepath = dactor(8);
+  includepath = dactor(16);
+  predefines = dactor(32);
   for(unsigned int i = 0; i < sizeof(searchpath) / sizeof(char*); i++)
       dapush(includepath, strdup(searchpath[i]));
   while((opt = getopt_long(argc, argv, "cl:o:hvI:D:", long_options, &opt_ind)) != -1) {
@@ -274,8 +274,8 @@ int main(int argc, char** argv) {
         //figure out how to actually use predefines
         c = strchr(optarg, '=');
         if(c != NULL)
-          *c = ' ';
-        dprintf(predefines, "#define %s\n", c);
+          *c = '\0';
+        //dapush somehow
         break;
       case 'I': //figure out how to add to include path
         c = realpath(optarg, NULL);
@@ -320,7 +320,7 @@ int main(int argc, char** argv) {
       break;
   }
   dadtorfr(includepath);
-  close(predefines);
+  dadtor(predefines);
   unlink(tmpname);
   linkall(filedest, argv);
   return 0;
