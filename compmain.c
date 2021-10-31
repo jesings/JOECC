@@ -25,7 +25,7 @@
 const char magic[16] = {0x7f, 0x45, 0x4c, 0x46, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 pthread_mutex_t printlock, listlock;
 int listptr;
-DYNARR* predefines;
+int predefines;
 DYNARR* includepath;
 
 struct yyltype {int first_line, last_line, first_column, last_column; char* filename;};
@@ -59,6 +59,7 @@ static char* explainjoke(char* filename, char lastchar) {
 }
 
 static void filecomp(char* filename) {
+  FILE* precontext = fdopen(dup(predefines), "r");
   FILE* yyin = fopen(filename, "r");
   if(yyin == NULL)
     return;
@@ -84,10 +85,10 @@ static void filecomp(char* filename) {
     rewind(yyin);
   }
   void* scanner;
-  struct lexctx* lctx = ctxinit();
+  struct lexctx* lctx = ctxinit(yyin);
   yylex_init_extra(lctx, &scanner);
-  yyset_in(yyin, scanner);
   DEBUG(yyset_debug(0, scanner));//not debugging lexer for now
+  yyset_in(precontext, scanner);
   yyparse(scanner, strdup(filename));
   free(yyget_lloc(scanner)->filename);
   yylex_destroy(scanner);
@@ -244,8 +245,8 @@ int main(int argc, char** argv) {
     {NULL, 0, NULL, 0},
   };
   char tmpname[] = "precompilationXXXXXX";
-  includepath = dactor(16);
-  predefines = dactor(32);
+  predefines = mkstemp(tmpname);
+  includepath = dactor(8);
   for(unsigned int i = 0; i < sizeof(searchpath) / sizeof(char*); i++)
       dapush(includepath, strdup(searchpath[i]));
   while((opt = getopt_long(argc, argv, "cl:o:hvI:D:", long_options, &opt_ind)) != -1) {
@@ -274,8 +275,8 @@ int main(int argc, char** argv) {
         //figure out how to actually use predefines
         c = strchr(optarg, '=');
         if(c != NULL)
-          *c = '\0';
-        //dapush somehow
+          *c = ' ';
+        dprintf(predefines, "#define %s\n", c);
         break;
       case 'I': //figure out how to add to include path
         c = realpath(optarg, NULL);
@@ -320,7 +321,7 @@ int main(int argc, char** argv) {
       break;
   }
   dadtorfr(includepath);
-  dadtor(predefines);
+  close(predefines);
   unlink(tmpname);
   linkall(filedest, argv);
   return 0;

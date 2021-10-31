@@ -167,6 +167,7 @@ struct lexctx {
   DYNARR* globals;
   DYNARR* externglobals;
   struct lstate* ls;
+  FILE* actualroot;
 };
 
 typedef struct {
@@ -364,7 +365,7 @@ struct declarator_part* mkdeclpart(enum declpart_info typ, void* d);
 struct declarator_part* mkdeclpartarr(enum declpart_info typ, EXPRESSION* d);
 struct declarator_part* mkdeclptr(TYPEBITS d);
 FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, IDTYPE* retrn);
-struct lexctx* ctxinit(void);
+struct lexctx* ctxinit(FILE *);
 SCOPE* mkscope(void);
 SCOPE* mkfakescope(void);
 void scopepush(struct lexctx* lct);

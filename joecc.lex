@@ -1069,7 +1069,15 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); lctx->ls->strcur = strctor(mallo
   if(YY_CURRENT_BUFFER->yy_input_file) fclose(YY_CURRENT_BUFFER->yy_input_file);
   yypop_buffer_state(yyscanner);
   if ( !YY_CURRENT_BUFFER ) {
-    yyterminate();
+    if(lctx->actualroot) {
+      YY_BUFFER_STATE ybs = yy_create_buffer(lctx->actualroot, YY_BUF_SIZE, yyscanner);
+      yypush_buffer_state(ybs, yyscanner);
+      lctx->actualroot = NULL;
+      yylloc->first_line = yylloc->last_line = 1;
+      yylloc->first_column = yylloc->last_column = 0;
+    } else {
+        yyterminate();
+    }
   } else {
     yy_pop_state(yyscanner);
     YYLTYPE* ylt = dapop(lctx->ls->locs);

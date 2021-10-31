@@ -1133,7 +1133,7 @@ static void declfmacro(BIGHASHTABLE* ht, const char* macroname, const char* para
   biginsert(ht, macroname, md);
 }
 
-struct lexctx* ctxinit(void) {
+struct lexctx* ctxinit(FILE* ar) {
   struct lexctx* lct =  malloc(sizeof(struct lexctx));
   lct->funcs = htctor();
   lct->definestack = dactor(64);
@@ -1146,6 +1146,7 @@ struct lexctx* ctxinit(void) {
   lct->externglobals = dactor(128);
   lct->defines = bightctor();
   lct->withindefines = htctor();
+  lct->actualroot = ar;
   declmacro(lct->defines, "__STDC__", "1");
   declmacro(lct->defines, "__STDC_VERSION__", "201710L");
   declmacro(lct->defines, "__STDC_HOSTED__", "1"); 
