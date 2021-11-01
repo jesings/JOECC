@@ -24,7 +24,7 @@
 
 const char magic[16] = {0x7f, 0x45, 0x4c, 0x46, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 pthread_mutex_t printlock, listlock;
-int listptr;
+int listptr, linkallstart;
 int predefines;
 DYNARR* includepath;
 
@@ -178,11 +178,12 @@ static void* ldeleg(void* arg) {
 
 static void linkall(char const* outfile, char** argv) {
   DYNARR* fnames = dactor(8);
-  dapush(fnames, strdup("/bin/as"));
+  dapush(fnames, strdup("/bin/ld"));
   char* humorless;
   //++ to skip first element
   int forkpid;
-  while((humorless = *(++argv))) {
+  char** newargy = argv + linkallstart;
+  while((humorless = *(++newargy))) {
     char* humored = explainjoke(humorless, 's');
     char* humored2 = explainjoke(humorless, 'o');
     switch((forkpid = fork())) {
@@ -249,7 +250,7 @@ int main(int argc, char** argv) {
   includepath = dactor(8);
   for(unsigned int i = 0; i < sizeof(searchpath) / sizeof(char*); i++)
       dapush(includepath, strdup(searchpath[i]));
-  while((opt = getopt_long(argc, argv, "cl:o:hvI:D:", long_options, &opt_ind)) != -1) {
+  while((opt = getopt_long(argc, argv, "D:cl:o:hvI:", long_options, &opt_ind)) != -1) {
     char* c;
     switch(opt) {
       case 'l':
@@ -271,12 +272,12 @@ int main(int argc, char** argv) {
       case 'v':
         printf("JOECC Compiler version 0.0.1-alpha\n");
         break;
-      case 'D': ;
+      case 'D':
         //figure out how to actually use predefines
         c = strchr(optarg, '=');
         if(c != NULL)
           *c = ' ';
-        dprintf(predefines, "#define %s\n", c);
+        dprintf(predefines, "#define %s\n", optarg);
         break;
       case 'I': //figure out how to add to include path
         c = realpath(optarg, NULL);
@@ -290,6 +291,7 @@ int main(int argc, char** argv) {
     }
   }
   listptr = optind;
+  linkallstart = optind;
   pthread_mutex_init(&printlock, NULL);
   pthread_mutex_init(&listlock, NULL);
   switch(argc - optind) {

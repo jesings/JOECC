@@ -1076,7 +1076,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); lctx->ls->strcur = strctor(mallo
       yylloc->first_line = yylloc->last_line = 1;
       yylloc->first_column = yylloc->last_column = 0;
     } else {
-        yyterminate();
+      yyterminate();
     }
   } else {
     yy_pop_state(yyscanner);
