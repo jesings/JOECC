@@ -117,15 +117,18 @@ EXPRESSION* ct_unary_expr(EXPRTYPE t, EXPRESSION* param) {
 
 EXPRESSION* ct_sztype(IDTYPE* whichtype) {
   if(!(whichtype->tb & (STRUCTVAL | ENUMVAL | UNIONVAL))) {
-    EXPRESSION* ic =  ct_intconst_expr(whichtype->tb & 0xf);
+    EXPRESSION* ic = ct_intconst_expr(whichtype->tb & 0xf);
     //if(whichtype->pointerstack) dadtor(whichtype->pointerstack);
     free(whichtype);
     return ic;
   }
+  IDTYPE* nt = malloc(sizeof(IDTYPE));
+  memcpy(nt, whichtype, sizeof(IDTYPE));
+  if(nt->pointerstack) nt->pointerstack = ptrdaclone(nt->pointerstack);
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = SZOF;
   retval->rettype = NULL;
-  retval->vartype = whichtype;
+  retval->vartype = nt;
   return retval;
 }
 

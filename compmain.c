@@ -183,7 +183,7 @@ static void linkall(char const* outfile, char** argv) {
   //++ to skip first element
   int forkpid;
   char** newargy = argv + linkallstart;
-  while((humorless = *(++newargy))) {
+  while((humorless = *(newargy++))) {
     char* humored = explainjoke(humorless, 's');
     char* humored2 = explainjoke(humorless, 'o');
     switch((forkpid = fork())) {

@@ -641,7 +641,7 @@ esca:
       free($3);
       $$ = ct_uintconst_expr(sizeof(uintptr_t));
     } else {
-    $$ = ct_sztype($3);
+      $$ = ct_sztype($3);
     }
     }
 | "sizeof" esca {$$ = ct_unary_expr(SZOFEXPR,$2);}
