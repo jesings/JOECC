@@ -18,6 +18,8 @@ enum reguse {
   R14 = 0x800,
   R15 = 0x1000,
   BX = 0x2000,
+  //missing BP and SP
+  //This is because we don't allow them to be used in that way
 };
 
 #define callermask BX | R12 | R13 | R14 | R15

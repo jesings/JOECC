@@ -207,6 +207,8 @@ static void adjmatrixset(BITFIELD bf, int dim, int reg1, int reg2) {
   bfset(bf, reg2 * dim + reg1);
 }
 
+//treat multiple consecutive phi statements as if they copy at the same time for the sake of liveness, register allocation
+//this is because there's much more flexibility if we do this
 BITFIELD liveadjmatrix(PROGRAM* prog) {
   int dim = prog->regcnt;
   BITFIELD bf = bfalloc(dim * dim);
@@ -227,5 +229,8 @@ BITFIELD liveadjmatrix(PROGRAM* prog) {
 //https://www.rw.cdl.uni-saarland.de/people/grund/private/papers/cgo08-liveness.pdf
 
 void regalloc(PROGRAM* prog) {
+  //attempt color
+  //spill if fail--where/how to spill, with belady's algorithm?
+  //how coalesce and retry?
 }
 #undef X
