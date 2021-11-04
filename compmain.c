@@ -21,6 +21,10 @@
 #define USEGCC
 #endif
 
+#ifndef LIBDIR
+#define LIBDIR "/usr/lib/"
+#endif
+
 
 const char magic[16] = {0x7f, 0x45, 0x4c, 0x46, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 pthread_mutex_t printlock, listlock;
@@ -199,6 +203,10 @@ static void linkall(char const* outfile, char** argv) {
     dapush(fnames, humored2);
     free(humored);
   }
+  dapush(fnames, strdup(LIBDIR "crt1.o"));
+  dapush(fnames, strdup(LIBDIR "libc.a"));
+  dapush(fnames, strdup(LIBDIR "crti.o"));
+  dapush(fnames, strdup(LIBDIR "crtn.o"));
   dapush(fnames, strdup("-o"));
   dapush(fnames, strdup(outfile));
   dapush(fnames, NULL);

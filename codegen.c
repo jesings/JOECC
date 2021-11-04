@@ -4,6 +4,7 @@
 
 #define X(x) case x:
 
+//format is: opcode, explicit operand number, implicit operands, clobbers, whether input is dest
 struct opinfo op2op[] = {
   [NOP_3] = {"nop", 0, 0, 0, 0},
   [LBL_3] = {"", 1, 0, 0, 0}, //not sure?
@@ -76,9 +77,10 @@ struct opinfo op2op[] = {
   [ASM] = {"", 0, 0, 0, 0}, //figure it out
 };
 
-//assumptions we make before codegen: only 1 deref'ed arg in the expression
-//string constants are factored out to further globals, as are float consts
-//loads and stores are inserted before and after so that these assumptions hold
+//assumptions we make before reg allocation and later codegen: only 1 deref'ed 
+//arg in the expression string constants are factored out to further globals, as
+//are float consts loads and stores are inserted before and after so that these 
+//assumptions hold
 void ldstrsep(PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
@@ -374,6 +376,8 @@ void genprogfile(FILE* outputfile, char* funcname, PROGRAM* prog) {
     BBLOCK* blk = daget(prog->allblocks, i);
     blk->visited = i;
   }
+  //not if static or inline, do this
+  fprintf(outputfile, ".global %s\n", funcname);
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     fprintf(outputfile, ".L%s.%d:\n", funcname, blk->domind);
@@ -544,20 +548,4 @@ void startgenfile(FILE* outputfile, struct lexctx* lctx) {
   //string literals
   //float literals
   fprintf(outputfile, ".text\n");
-}
-
-void outstart(FILE* outputfile) {
-  fprintf(outputfile, "_start:\n"
-          "xorl %%rbp, %%rbp\n" //clear base pointer at base frame, as ABI specifies
-          "movq %%rdx, %%r9\n" //address of termination function by default in rdx, we put it in r9
-          "popq %%rsi\n" //pops argc into rsi
-          "mov1 %%rsp, %%rdx\n" //moves address of argv to rdx
-          "andq $-16, %%rsp\n" //align the stack by 16 bytes for function call, as C specifies
-          "pushq %%rax\n" //add garbage to the stack... why? To pad it for the pointer to rsp!
-          "pushq %%rsp\n" //push stack pointer to stack, as an argument for libc_start_main, address again 16 bit aligned
-          "leaq _libc_csu_fini(%%rip), %%r8\n" //cleanup function as argument
-          "leaq _libc_csu_init(%%rip), %%rcx\n" //initialization function as argument
-          "leaq main(%%rip), %%rdi\n" //main function as further argument
-          "hlt\n" //if we return from libc start main, panic!
-         );
 }
