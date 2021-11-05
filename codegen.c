@@ -371,13 +371,14 @@ static void cgblock(FILE* outputfile, char* fname, BBLOCK* blk) {
     fprintf(outputfile, "jmp .L%s.%d\n", fname, blk->nextblock->domind);//changed to index
 }
 
-void genprogfile(FILE* outputfile, char* funcname, PROGRAM* prog) {
+void genprogfile(FILE* outputfile, IDTYPE* rettype, char* funcname, PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     blk->visited = i;
   }
   //not if static or inline, do this
-  fprintf(outputfile, ".global %s\n", funcname);
+  if(!(rettype->tb & (STATICNUM | INLINED)))
+    fprintf(outputfile, ".global %s\n", funcname);
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     fprintf(outputfile, ".L%s.%d:\n", funcname, blk->domind);

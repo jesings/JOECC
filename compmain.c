@@ -144,7 +144,7 @@ static void filecomp(char* filename) {
       remove_nops(prog);
       DEBUG(treeprog(prog, pairthere->key, "liveness"));
 
-      genprogfile(objf, pairthere->key, prog);
+      genprogfile(objf, f->retrn, pairthere->key, prog);
       freeprog(prog);
     }
   }
@@ -204,9 +204,9 @@ static void linkall(char const* outfile, char** argv) {
     free(humored);
   }
   dapush(fnames, strdup(LIBDIR "crt1.o"));
-  dapush(fnames, strdup(LIBDIR "libc.a"));
   dapush(fnames, strdup(LIBDIR "crti.o"));
   dapush(fnames, strdup(LIBDIR "crtn.o"));
+  dapush(fnames, strdup(LIBDIR "libc.a"));
   dapush(fnames, strdup("-o"));
   dapush(fnames, strdup(outfile));
   dapush(fnames, NULL);
