@@ -205,11 +205,8 @@ static void linkall(char const* outfile, char** argv) {
   }
   dapush(fnames, strdup(LIBDIR "crt1.o"));
   dapush(fnames, strdup(LIBDIR "crti.o"));
-  dapush(fnames, strdup(LIBDIR "crtn.o"));
   dapush(fnames, strdup(LIBDIR "libc.a"));
-  dapush(fnames, strdup("/usr/lib/gcc/x86_64-pc-linux-gnu/11.1.0/libgcc.a"));
-  dapush(fnames, strdup("/usr/lib/gcc/x86_64-pc-linux-gnu/11.1.0/libgcc_eh.a"));
-  dapush(fnames, strdup(LIBDIR "libdl.so"));
+  dapush(fnames, strdup(LIBDIR "libgcc_s.so.1"));
   dapush(fnames, strdup("-o"));
   dapush(fnames, strdup(outfile));
   dapush(fnames, NULL);

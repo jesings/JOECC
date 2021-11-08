@@ -44,6 +44,7 @@ A further minor design goal is transparency: for optimization debugging purposes
 By default, JOECC attempts to use the system's gcc headers which it looks for at /usr/lib/gcc/x86\_64-pc-linux-gnu/(GCC VERSION). You can change this in compmain.c in case you want to make it use a different directory.
 If you specify that JOECC should use clang headers (by running make useclang or by defining the USECLANG preprocessor macros, it looks for headers at /usr/lib/clang/(CLANG VERSION). This can be changed in the same location.
 Additionally, the c runtime library locations should be specified as well. It is currently looked for at /usr/lib/, which can be respecified by changing the define at the top of compmain.c, or by defining LIBDIR at compile time with a -D.
+Unfortunately, as I use the system c runtime .so files, libgcc must be linked as well. This is probably unnecessary and undesirable.for people who'd rather use clang, and your luck may vary on your system.
 
 # JOECCIR
 
