@@ -39,4 +39,5 @@ typedef struct {
   short color; //which register
 } REGINF;
 void regalloc(PROGRAM* prog);
+BITFIELD liveadjmatrix(PROGRAM* prog, DYNARR** usedefs);
 #endif

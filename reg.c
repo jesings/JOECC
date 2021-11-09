@@ -168,6 +168,8 @@ void liveness(PROGRAM* prog) {
     )
   )
 
+  //liveadjmatrix(prog, usedefchains);
+
   for(unsigned int i = 0; i < prog->regcnt; i++)
     if(usedefchains[i] && usedefchains[i] != (DYNARR*) -1) dadtor(usedefchains[i]);
   free(usedefchains);
@@ -209,17 +211,19 @@ static void adjmatrixset(BITFIELD bf, int dim, int reg1, int reg2) {
 
 //treat multiple consecutive phi statements as if they copy at the same time for the sake of liveness, register allocation
 //this is because there's much more flexibility if we do this
-BITFIELD liveadjmatrix(PROGRAM* prog) {
+BITFIELD liveadjmatrix(PROGRAM* prog, DYNARR** usedefs) {
   int dim = prog->regcnt;
   BITFIELD bf = bfalloc(dim * dim);
 
   for(int blockindex = 0; blockindex < prog->allblocks->length; blockindex++) {
+    BITFIELD curbf = bfalloc(dim);
     BBLOCK* blk = daget(prog->allblocks, blockindex);
-    for(unsigned int bfiterval = 0; bfiterval < prog->regcnt; bfiterval++) {
-      if(bfget(bf, bfiterval)) {
+    for(int i = 0; i < dim; i++) {
+      if(islive_in(prog, blk, usedefs, i)) {
+        bfset(curbf, i);
       }
+      //each new declaration add collision
     }
-
   }
   return bf;
 }
