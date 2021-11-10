@@ -4,6 +4,9 @@
 
 #define X(x) case x:
 
+//suffixes: f for 4 byte float, d for eight byte double precision float
+//suffixes: b for 1 byte, w for 2 byte, l for four byte, q for eight byte
+
 //format is: opcode, explicit operand number, implicit operands, clobbers, whether input is dest
 struct opinfo op2op[] = {
   [NOP_3] = {"nop", 0, 0, 0, 0},
@@ -16,10 +19,10 @@ struct opinfo op2op[] = {
   [AND_U] = {"and", 2, 0, 0, 1},
   [OR_U] = {"or", 2, 0, 0, 1},
   [XOR_U] = {"xor", 2, 0, 0, 1},
-  [EQ_U] = {"setz", 1, 0, 0, 0}, //precede this by a cmp
-  [EQ_F] = {"setz", 1, 0, 0, 0}, //precede this by a cmp
-  [NE_U] = {"setnz", 2, 0, 0, 0}, //precede this by a cmp
-  [NE_F] = {"setnz", 2, 0, 0, 0}, //precede this by a cmp
+  [EQ_U] = {"cmp", 1, 0, 0, 0}, //then do a setz
+  [EQ_F] = {"comis", 1, 0, 0, 0}, //then do a setz
+  [NE_U] = {"cmp", 2, 0, 0, 0}, //then do a setnz
+  [NE_F] = {"comis", 2, 0, 0, 0}, //then do a setnz
   [SUB_U] = {"sub", 2, 0, 0, 1},
   [SUB_F] = {"vsubs", 3, 0, 0, 0},
   [DIV_U] = {"div", 1, DX, AX, 0}, //divides dx:ax by operand, places result in ax dx is remainder?
@@ -31,18 +34,18 @@ struct opinfo op2op[] = {
   [SHL_I] = {"sal", 2, CX, 0, 1},
   [SHR_U] = {"shr", 2, CX, 0, 1},
   [SHR_I] = {"sar", 2, CX, 0, 1},
-  [GE_U] = {"cmp", 2, 0, 0, 0}, //{"setae", 2, 0, 0, 0}, //precede this by a cmp
-  [GE_I] = {"cmp", 2, 0, 0, 0}, //{"setge", 2, 0, 0, 0}, //precede this by a cmp
-  [GE_F] = {"comis", 2, 0, 0, 0}, //{"setae", 2, 0, 0, 0}, //precede this by a cmp
-  [LE_U] = {"cmp", 2, 0, 0, 0}, //{"setbe", 2, 0, 0, 0}, //precede this by a cmp
-  [LE_I] = {"cmp", 2, 0, 0, 0}, //{"setle", 2, 0, 0, 0}, //precede this by a cmp
-  [LE_F] = {"comis", 2, 0, 0, 0}, //{"setbe", 2, 0, 0, 0}, //precede this by a cmp
-  [GT_U] = {"cmp", 2, 0, 0, 0}, //{"seta", 2, 0, 0, 0}, //precede this by a cmp
-  [GT_I] = {"cmp", 2, 0, 0, 0}, //{"setg", 2, 0, 0, 0}, //precede this by a cmp
-  [GT_F] = {"comis", 2, 0, 0, 0}, //{"seta", 2, 0, 0, 0}, //precede this by a cmp
-  [LT_U] = {"cmp", 2, 0, 0, 0}, //{"setb", 2, 0, 0, 0}, //precede this by a cmp
-  [LT_I] = {"cmp", 2, 0, 0, 0}, //{"setl", 2, 0, 0, 0}, //precede this by a cmp
-  [LT_F] = {"comis", 2, 0, 0, 0}, //{"setb", k, 0, 0, 0}, //precede this by a cmp
+  [GE_U] = {"cmp", 2, 0, 0, 0}, //then do a setae
+  [GE_I] = {"cmp", 2, 0, 0, 0}, //then do a setge
+  [GE_F] = {"comis", 2, 0, 0, 0}, //then do a setae
+  [LE_U] = {"cmp", 2, 0, 0, 0}, //then do a setbe
+  [LE_I] = {"cmp", 2, 0, 0, 0}, //then do a setle
+  [LE_F] = {"comis", 2, 0, 0, 0}, //then do a setbe
+  [GT_U] = {"cmp", 2, 0, 0, 0}, //then do a seta
+  [GT_I] = {"cmp", 2, 0, 0, 0}, //then do a setg
+  [GT_F] = {"comis", 2, 0, 0, 0}, //then do a seta
+  [LT_U] = {"cmp", 2, 0, 0, 0}, //then do a setb
+  [LT_I] = {"cmp", 2, 0, 0, 0}, //then do a setl
+  [LT_F] = {"comis", 2, 0, 0, 0}, //then do a setb
   [COPY_3] = {"repnz movs", 0, SI | DI | CX, 0, 0}, //clobbers si, di, move count into cx
   [ARROFF] = {"lea", 2, 0, 0, 0}, //not sure?
   [ARRMOV] = {"mov", 2, 0, 0, 0}, //not sure, either way args are the same
