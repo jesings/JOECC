@@ -667,24 +667,6 @@ struct arginfo {
       free(ai);
     }
     }
-  <<EOF>> {
-    if(YY_CURRENT_BUFFER->yy_input_file) fclose(YY_CURRENT_BUFFER->yy_input_file);
-    yypop_buffer_state(yyscanner);
-    if ( !YY_CURRENT_BUFFER ) {
-      yyterminate();
-    } else {
-      yy_pop_state(yyscanner);
-      YYLTYPE* ylt = dapop(lctx->ls->locs);
-      free(yylloc->filename);
-      *yylloc = *ylt;
-      free(ylt);
-      struct arginfo* ai = dapop(lctx->ls->argpp);
-      rmpair(lctx->withindefines, lctx->ls->defname);
-      free(lctx->ls->defname);
-      lctx->ls->defname = ai->defname;
-      free(ai);
-    }
-    }
   . {fprintf(stderr, "Error: unexpected character in function macro call %s %d.%d-%d.%d\n", locprint2(yylloc));}
 }
 
