@@ -257,6 +257,7 @@ initializer:
       }
     }
     if(!ctx->func) {
+        //uhh... what?
     }
     if(ac->expr && ac->expr->type == ARRAY_LIT) {
       DYNARR* pointy = ac->decl->type->pointerstack;

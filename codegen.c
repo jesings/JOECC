@@ -459,8 +459,7 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
         ty->pointerstack->length++;
       } else {
         fprintf(outputfile, ".align 8\n");//overkill alignment
-        if(lentype(ty))
-          fprintf(outputfile, ".zero %d\n", lentype(ty));//overkill alignment
+        fprintf(outputfile, ".zero %d\n", lentype(ty));//overkill alignment
       }
     } else {
       if(ex) {

@@ -454,6 +454,7 @@ static FULLADDR execvla(IDTYPE* idt, PROGRAM* prog) {
      opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, scratchaddr.addr_type, scratchaddr.addr, otheraddr.addr_type, otheraddr.addr));
      curaddr = otheraddr;
    }
+   if(psentry < 0) psentry = 0;
    int lenstore = idt->pointerstack->length;
    idt->pointerstack->length = psentry;
    scratchaddr.addr.uintconst_64 = lentype(idt);

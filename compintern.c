@@ -958,6 +958,7 @@ struct declarator_part* mkdeclpartarr(enum declpart_info typ, EXPRESSION* d) {
   switch(d->type) {
     case INT: case UINT:
       retval->arrmaxind = d->intconst;
+      retval->arrlen = -1;
       break;
     default:
       retval->type = VLASPEC;

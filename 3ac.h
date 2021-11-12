@@ -338,6 +338,12 @@ static inline int lentype(IDTYPE* idt) {
     } else if(pointtop->type != ARRAYSPEC) {
       return 0x8;
     } else {
+      if(pointtop->arrlen == -1) {
+          idt->pointerstack->length--;
+          pointtop->arrlen = lentype(idt) * pointtop->arrmaxind;
+          idt->pointerstack->length++;
+          assert(pointtop->arrlen > 0);
+      }
       return pointtop->arrlen;
     }
   } else if(idt->tb & (STRUCTVAL | UNIONVAL)) {
