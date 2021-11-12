@@ -510,6 +510,8 @@ typews1:
     IDTYPE* idt = scopesearch(ctx, M_TYPEDEF, $1);
     if(idt) {
       memcpy($$, idt, sizeof(IDTYPE));
+      if($$->pointerstack)
+          idt->pointerstack = ptrdaclone($$->pointerstack);
     } else {
       fprintf(stderr, "Error: use of unknown type name %s in %s %d.%d-%d.%d\n", $1, locprint(@$));
     }
