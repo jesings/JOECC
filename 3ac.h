@@ -329,29 +329,6 @@ static inline FULLADDR op2ret(PROGRAM* prog, OPERATION* op) {
   return fa;
 }
 
-//gets size of IDTYPE in bytes
-static inline int lentype(IDTYPE* idt) {
-  if(ispointer(idt)) {
-    struct declarator_part* pointtop = dapeek(idt->pointerstack);
-    if(pointtop->type == VLASPEC) {
-      return -1;
-    } else if(pointtop->type != ARRAYSPEC) {
-      return 0x8;
-    } else {
-      if(pointtop->arrlen == -1) {
-          idt->pointerstack->length--;
-          pointtop->arrlen = lentype(idt) * pointtop->arrmaxind;
-          idt->pointerstack->length++;
-          assert(pointtop->arrlen > 0);
-      }
-      return pointtop->arrlen;
-    }
-  } else if(idt->tb & (STRUCTVAL | UNIONVAL)) {
-    return idt->structtype->size;
-  }
-  return idt->tb & 0xf;
-}
-
 //gets numeric increment for pointer arithmetic from IDTYPE, i.e. if you have an int* type + 4, it's in reality +16. Perform that conversion here
 static inline FULLADDR ptarith(IDTYPE retidt, FULLADDR fadt, PROGRAM* prog) {
   FULLADDR destad;

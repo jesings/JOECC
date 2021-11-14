@@ -510,8 +510,6 @@ typews1:
     IDTYPE* idt = scopesearch(ctx, M_TYPEDEF, $1);
     if(idt) {
       memcpy($$, idt, sizeof(IDTYPE));
-      if($$->pointerstack)
-          idt->pointerstack = ptrdaclone($$->pointerstack);
     } else {
       fprintf(stderr, "Error: use of unknown type name %s in %s %d.%d-%d.%d\n", $1, locprint(@$));
     }
@@ -640,6 +638,7 @@ esca:
 | '&' esm {$$ = ct_unary_expr(ADDR, $2);}
 | "sizeof" '(' type abstract_ptr ')' {$$ = ct_uintconst_expr(sizeof(uintptr_t)); free($3); dadtorfr($4);}
 | "sizeof" '(' type ')' {
+    //exclude arrays from pointer check
     if(ispointer($3)) {
       free($3);
       $$ = ct_uintconst_expr(sizeof(uintptr_t));

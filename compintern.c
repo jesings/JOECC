@@ -121,7 +121,6 @@ EXPRESSION* ct_sztype(IDTYPE* whichtype) {
     free(whichtype);
     return ic;
   }
-  if(whichtype->pointerstack && whichtype->pointerstack->length) whichtype->pointerstack = ptrdaclone(whichtype->pointerstack);
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = SZOF;
   retval->rettype = NULL;

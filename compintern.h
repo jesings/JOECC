@@ -2,6 +2,7 @@
 #define COMPINTERN_H
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include "hash.h"
 #include "dynarr.h"
 #include "dynstr.h"
@@ -309,6 +310,32 @@ struct macrodef {
   DYNARR* args;//NULL if not function like
 };
 
+#define ispointer(x) ((x)->pointerstack && (x)->pointerstack->length)
+#define ispointer2(x) ((x).pointerstack && (x).pointerstack->length)
+//gets size of IDTYPE in bytes
+static inline int lentype(IDTYPE* idt) {
+  if(ispointer(idt)) {
+    struct declarator_part* pointtop = dapeek(idt->pointerstack);
+    if(pointtop->type == VLASPEC) {
+      return -1;
+    } else if(pointtop->type != ARRAYSPEC) {
+      return 0x8;
+    } else {
+      if(pointtop->arrlen == -1) {
+          idt->pointerstack->length--;
+          pointtop->arrlen = lentype(idt) * pointtop->arrmaxind;
+          idt->pointerstack->length++;
+          assert(pointtop->arrlen > 0);
+      }
+      return pointtop->arrlen;
+    }
+  } else if(idt->tb & (STRUCTVAL | UNIONVAL)) {
+    return idt->structtype->size;
+  }
+  return idt->tb & 0xf;
+}
+
+
 USTRUCT* ustructor(char* name, DYNARR* fields, struct lexctx* lct);
 ENUM* enumctor(char* name, DYNARR* fields, struct lexctx* lct);
 IDTYPE* fcid2(IDTYPE* idt);
@@ -385,8 +412,6 @@ int unionlen(USTRUCT* u);
 #define dlocprint(lv) yyget_lloc(scanner)->filename, lv->first_line, lv->first_column, lv->last_line, lv->last_column
 #define locprint2(lv) yyget_lloc(yyscanner)->filename, lv->first_line, lv->first_column, lv->last_line, lv->last_column
 #define ctx ((struct lexctx*) yyget_extra(scanner))
-#define ispointer(x) ((x)->pointerstack && (x)->pointerstack->length)
-#define ispointer2(x) ((x).pointerstack && (x).pointerstack->length)
 
 #define bfalloc(length) calloc(1, ((length) + 7) >> 3)
 #define bfclone(bitfield, length) memcpy(malloc(((length) + 7) >> 3), (bitfield), ((length) + 7) >> 3)
