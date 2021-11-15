@@ -881,7 +881,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       if(-1 == destaddr.addr.intconst_64)
         return execvla(cexpr->vartype, prog);
       return destaddr;
-    case FCALL: ;
+    case FCALL:
       if(cexpr->params->length > 1) {
         OPERATION* fparam,* lparam;
         curaddr = linearitree(daget(cexpr->params, 1), prog);

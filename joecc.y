@@ -196,7 +196,7 @@ initializer:
     dc = dget($3, i);
     if(!queryval(topscope->typesdef, dc->varname)) {
       dc->type->tb |= $2->tb;
-      if($2->pointerstack) {
+      if(ispointer($2)) {
         DYNARR* nptr = ptrdaclone($2->pointerstack);
         if(dc->type->pointerstack)
           dc->type->pointerstack = damerge(nptr, dc->type->pointerstack);
@@ -242,7 +242,7 @@ initializer:
   for(int i = 0; i < $$->length; i++) {
     ac = aget($$, i);
     ac->decl->type->tb |= $1->tb; 
-    if($1->pointerstack) {
+    if(ispointer($1)) {
       DYNARR* nptrst = ptrdaclone($1->pointerstack);
       if(ac->decl->type->pointerstack)
         ac->decl->type->pointerstack = damerge(nptrst, ac->decl->type->pointerstack);
@@ -373,9 +373,9 @@ params:
 param_decl:
   type declarator {
     $2->type->tb |= $1->tb;
-    if($1->pointerstack) {
+    if(ispointer($1)) {
       DYNARR* nptr = ptrdaclone($1->pointerstack);
-      if($1->pointerstack)
+      if($2->type->pointerstack)
         $2->type->pointerstack = damerge(nptr, $2->type->pointerstack); 
       else 
         $2->type->pointerstack = nptr;
@@ -418,21 +418,21 @@ nameless:
     }
 | nameless ',' param_decl {$$ = $1; dapush($$, $3->type); free($3->varname); free($3);};
 namelesstype:
-  type {$$ = $1; if($$->pointerstack) $$->pointerstack = ptrdaclone($$->pointerstack);}
+  type {$$ = $1; if(ispointer($$)) $$->pointerstack = ptrdaclone($$->pointerstack); else $$->pointerstack = NULL;}
 | type abstract_ptr {$$ = $1;
-    if($$->pointerstack) {
+    if(ispointer($$)) {
       $$->pointerstack = damerge(ptrdaclone($1->pointerstack), $2);
     } else {
       $$->pointerstack = $2;
     }}
 | type spefptr {$$ = $1;
-    if($$->pointerstack) {
+    if(ispointer($$)) {
       $$->pointerstack = damerge(ptrdaclone($1->pointerstack), $2);
     } else {
       $$->pointerstack = $2;
     }}
 | type abstract_ptr spefptr {$$ = $1;
-    if($$->pointerstack) {
+    if(ispointer($$)) {
       $$->pointerstack = damerge(ptrdaclone($1->pointerstack), $2);
     } else {
       $$->pointerstack = $2;
@@ -530,23 +530,23 @@ abstract_ptr:
 | '*' types1o {$$ = dactor(2); dapushc($$,mkdeclptr(sizeof(intptr_t) | $2));}
 | '*' types1o abstract_ptr {$$ = $3; dapush($$, mkdeclptr(sizeof(intptr_t) | $2));};
 arbitrary_cast:
-  '(' type ')' {if($2->pointerstack) $2->pointerstack = ptrdaclone($2->pointerstack); $$ = $2;}
+  '(' type ')' {if(ispointer($2)) $2->pointerstack = ptrdaclone($2->pointerstack); else $2->pointerstack = NULL; $$ = $2;}
 | '(' type abstract_ptr ')' {
-  if($2->pointerstack) {
+  if(ispointer($2)) {
     $2->pointerstack = damerge(ptrdaclone($2->pointerstack), $3);
   } else {
     $2->pointerstack = $3;
   }
   $$ = $2;}
 | '(' type spefptr ')' {
-  if($2->pointerstack) {
+  if(ispointer($2)) {
     $2->pointerstack = damerge(ptrdaclone($2->pointerstack), $3);
   } else {
     $2->pointerstack = $3;
   }
   $$ = $2;}
 | '(' type abstract_ptr spefptr ')' {
-  if($2->pointerstack) {
+  if(ispointer($2)) {
     $2->pointerstack = damerge(ptrdaclone($2->pointerstack), $3);
   } else {
     $2->pointerstack = $3;
@@ -805,7 +805,7 @@ function:
     DYNARR* parammemb;
     struct declarator_part* dp = dapop($2->type->pointerstack);
     $2->type->tb |= $1->tb;
-    if($1->pointerstack) {
+    if(ispointer($1)) {
       $2->type->pointerstack = damerge(ptrdaclone($1->pointerstack), $2->type->pointerstack);
     }
     if($1->tb & (STRUCTVAL | UNIONVAL)) {
@@ -1063,7 +1063,7 @@ struct_decl:
     for(int i = 0; i < $2->length; i++) {
       DECLARATION* dc = dget($$, i);
       dc->type->tb |= $1->tb; 
-      if($1->pointerstack) {
+      if(ispointer($1)) {
         DYNARR* nptr = ptrdaclone($1->pointerstack);
         if(dc->type->pointerstack) {
           dc->type->pointerstack = damerge(nptr, dc->type->pointerstack);
