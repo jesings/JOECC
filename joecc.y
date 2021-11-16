@@ -202,6 +202,11 @@ initializer:
           dc->type->pointerstack = damerge(nptr, dc->type->pointerstack);
         else
           dc->type->pointerstack = nptr;
+      } else {
+        if(!ispointer(dc->type)) {
+          dadtor(dc->type->pointerstack);
+          dc->type->pointerstack = NULL;
+        }
       }
       if($2->tb & (STRUCTVAL | UNIONVAL)) {
         if(da) {
@@ -213,7 +218,7 @@ initializer:
       }
       add2scope(ctx, dc->varname, M_TYPEDEF, dc->type);
     } else {
-      //error
+      assert(0);
     }
     free(dc->varname);
     free(dc);
