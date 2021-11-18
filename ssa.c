@@ -650,6 +650,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
   if(blk->lastop) {
     blk->tmp_gen = dactor(32);
     blk->exp_gen = htctor();
+    blk->exp_gen_list = dinctor(64);
     blk->antileader_out = htctor();
     OPERATION* op = blk->firstop;
     VALUESTRUCT valst = {INIT_3, 0, 0, 0, 0};
@@ -855,6 +856,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
                 //however it might be worse to have to re-free the value struct if not used
                 if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
                   fixedinsert(blk->exp_gen, chosenval->index, valdup(&valst));
+                  dipush(blk->exp_gen_list, chosenval->index);
                 }
               }
             }
@@ -870,6 +872,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
                 status++;
                 if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
                   fixedinsert(blk->exp_gen, chosenval->index, valdup(&valst));
+                  dipush(blk->exp_gen_list, chosenval->index);
                 }
               }
             }
@@ -884,6 +887,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
 
             if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
               fixedinsert(blk->exp_gen, chosenval->index, valdup(&refex));
+              dipush(blk->exp_gen_list, chosenval->index);
             }
           } else {
             if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
@@ -904,6 +908,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
                 status++;
                 if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
                   fixedinsert(blk->exp_gen, chosenval->index, valdup(&valst));
+                  dipush(blk->exp_gen_list, chosenval->index);
                 }
               }
             }
@@ -915,6 +920,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
             chosenval = bigsearch(eq->ophash, (char*) &refex, sizeof(VALUESTRUCT));
             if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
               fixedinsert(blk->exp_gen, chosenval->index, valdup(&refex));
+              dipush(blk->exp_gen_list, chosenval->index);
             }
           } else {
             if(!(op->dest_type & (ISDEREF | GARBAGEVAL | ISLABEL))) {
@@ -947,6 +953,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
               chosenval = bigsearch(eq->ophash, (char*) &valst, sizeof(VALUESTRUCT));
               if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
                 fixedinsert(blk->exp_gen, chosenval->index, valdup(&valst));
+                dipush(blk->exp_gen_list, chosenval->index);
               }
             }
           }
@@ -959,6 +966,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
               chosenval = bigsearch(eq->ophash, (char*) &valst, sizeof(VALUESTRUCT));
               if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
                 fixedinsert(blk->exp_gen, chosenval->index, valdup(&valst));
+                dipush(blk->exp_gen_list, chosenval->index);
               }
             }
           }
@@ -1131,10 +1139,8 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   HASHTABLE* antiin_users = htctor(); //ht of dynarrs of expressions which would be killed by a kill of the value number
   blk->antileader_in = fhtcclone(blk->antileader_out, (void*(*)(void*)) valdup);
   if(blk->exp_gen) {
-    DYNARR* expairs = htfpairs(blk->exp_gen);
-    for(int i = 0; i < expairs->length; i++) {
-      HASHPAIR* hp = expairs->arr[i];
-      VALUESTRUCT* exs = hp->value;
+    for(int i = 0; i < blk->exp_gen_list->length; i++) {
+      VALUESTRUCT* exs = fixedsearch(blk->exp_gen, blk->exp_gen_list->arr[i]);
       ADDRESS a;
       GVNNUM* n3;
       switch((int) exs->o) {
@@ -1164,7 +1170,6 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
           break;
       }
     }
-    dadtor(expairs);
   }
 
   if(blk->antileader_in->keys != 0) {
@@ -1355,6 +1360,10 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                     DYNARR* equivlist = ((GVNNUM*) daget(eq->nodes, actionable.p1))->equivs;
                     while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p1))) {
                       VALUESTRUCT* vs;
+                      //This is currently subject to a bug
+                      //The bug occurs when a computation that depends on a computation is part of the same antileader_in
+                      //What happens then is that the unordered nature of the hash map makes it so that the variable may
+                      //Not be accessible at the right program point. Aborting to redo does not seem too good either, too much state to store.
                       do {
                         assert(equivind < equivlist->length);
                         vs = daget(equivlist, equivind++);

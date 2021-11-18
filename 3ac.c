@@ -1491,7 +1491,7 @@ void printop(OPERATION* op, char term, BBLOCK* blk, FILE* f, PROGRAM* prog) {
       PRINTOP3(/);
       break;
     case MOD_U: case MOD_I: 
-      PRINTOP3(%%);
+      PRINTOP3(%);
       break;
     case SHL_U: case SHL_I: 
       PRINTOP3OPT(<<, &lt;&lt;);
@@ -1670,6 +1670,7 @@ void freeblock(void* blk) {
   if(blk2->lastop) freeop(blk2->firstop, blk2->lastop);
   if(blk2->tmp_gen) dadtor(blk2->tmp_gen);
   if(blk2->exp_gen) fhtdtorcfr(blk2->exp_gen, free);
+  if(blk2->exp_gen_list) didtor(blk2->exp_gen_list);
   if(blk2->leader) fhtdtor(blk2->leader);
   if(blk2->antileader_in) fhtdtorcfr(blk2->antileader_in, free);
   if(blk2->antileader_out) fhtdtorcfr(blk2->antileader_out, free);
