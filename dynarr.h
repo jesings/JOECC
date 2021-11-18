@@ -28,6 +28,7 @@ void didtor(DYNINT* di);
 void disort(DYNINT* di);
 void didup(DYNINT* di);
 DYNINT* dimerge(DYNINT* arr1, DYNINT* arr2);
+DYNINT* diclone(DYNINT* di);
 
 void dainsert(DYNARR* da, void* val);
 void dainsertc(DYNARR* da, void* val);

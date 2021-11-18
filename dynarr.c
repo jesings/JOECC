@@ -182,3 +182,13 @@ void didup(DYNINT* di) {
   }
   di->length = wrind;
 }
+
+DYNINT* diclone(DYNINT* di) {
+  DYNINT* newdi = dinctor(di->maxlength);
+  int* diarr = newdi->arr;
+  int* diarro = di->arr;
+  for(int i = 0; i < di->length; i++)
+    diarr[i] = diarro[i];
+  newdi->length = di->length;
+  return newdi;
+}

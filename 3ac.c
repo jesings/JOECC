@@ -1673,6 +1673,7 @@ void freeblock(void* blk) {
   if(blk2->exp_gen_list) didtor(blk2->exp_gen_list);
   if(blk2->leader) fhtdtor(blk2->leader);
   if(blk2->antileader_in) fhtdtorcfr(blk2->antileader_in, free);
+  if(blk2->antileader_in_list) didtor(blk2->antileader_in_list);
   if(blk2->antileader_out) fhtdtorcfr(blk2->antileader_out, free);
   if(blk2->translator) fhtdtor(blk2->translator);
   if(blk2->revtranslator) fhtdtor(blk2->revtranslator);
