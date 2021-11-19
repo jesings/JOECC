@@ -1252,13 +1252,8 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     if(blk->inedges->length > 1) {
-      DYNARR* antilead = htfpairs(blk->antileader_in);
-      DYNINT* antiints = dinctor(antilead->length);
-      for(int i = 0; i < antilead->length; i++)
-        dipush(antiints, ((HASHPAIR*) antilead->arr[i])->fixedkey);
-      dadtor(antilead);
-      for(int antiind = 0; antiind < antiints->length; antiind++) {
-        int antiint = antiints->arr[antiind];
+      for(int antiind = 0; antiind < blk->antileader_in_list->length; antiind++) {
+        int antiint = blk->antileader_in_list->arr[antiind];
         GVNNUM* antilnode = daget(eq->nodes, antiint);
         VALUESTRUCT* antil = fixedsearch(blk->antileader_in, antiint);
         if(antil->o == INIT_3) continue;
@@ -1411,12 +1406,12 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
           dapush(antilnode->equivs, ctvalstruct(INIT_3, phi->dest.regnum, 0, supersize(phi->dest_type), 0));
 
           void* prevval = frmpair(blk->antileader_in, antiint);
+          blk->antileader_in_list->arr[antiind] = -1;
           if(prevval) free(prevval);
         }
 
         stubbornblocks->length = 0;
       }
-      didtor(antiints);
     }
   }
   dadtor(stubbornblocks);
