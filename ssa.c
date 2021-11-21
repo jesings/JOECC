@@ -653,6 +653,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
     blk->exp_gen = htctor();
     blk->exp_gen_list = dinctor(64);
     blk->antileader_out = htctor();
+    blk->antileader_out_list = dinctor(64);
     OPERATION* op = blk->firstop;
     VALUESTRUCT valst = {INIT_3, 0, 0, 0, 0};
     do {
@@ -1076,6 +1077,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
     for(; daget(blkn->inedges,index) != blk; index++) ;
     if(blkn->lastop && blkn->firstop->opcode == PHI) {
       blk->antileader_out = htctor();
+      blk->antileader_out_list = dinctor(64);
       if(!blk->translator) { //translators will be properly populated the first time
         for(int i = 0; i < blkn->antileader_in_list->length; i++) {
           void* value = fixedsearch(blkn->antileader_in, blkn->antileader_in_list->arr[i]);
@@ -1096,6 +1098,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
             void* storage;
             if((storage = fixedsearch(blk->antileader_out, valnum))) free(storage);//inefficient
             fixedinsert(blk->antileader_out, valnum, translated);
+            dipush(blk->antileader_out_list, valnum);
           }
         }
       }
@@ -1118,6 +1121,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
           }
           blk->antileader_out_list->arr[i] = -1;
         }
+        //replace -1s
       }
     } else if(blk->branchblock->antileader_in) {
       blk->antileader_out = fhtcclone(blk->branchblock->antileader_in, (void*(*)(void*)) valdup);
@@ -1130,6 +1134,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
     //>1 succ
   } else {
     blk->antileader_out = htctor();
+    blk->antileader_out_list = dinctor(32);
   }
   HASHTABLE* antiin_users = htctor(); //ht of dynarrs of expressions which would be killed by a kill of the value number
   blk->antileader_in = fhtcclone(blk->antileader_out, (void*(*)(void*)) valdup);
@@ -1407,6 +1412,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
 
           void* prevval = frmpair(blk->antileader_in, antiint);
           blk->antileader_in_list->arr[antiind] = -1;
+          //replace -1s
           if(prevval) free(prevval);
         }
 
