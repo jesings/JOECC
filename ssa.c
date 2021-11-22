@@ -1121,7 +1121,15 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
           }
           blk->antileader_out_list->arr[i] = -1;
         }
-        //replace -1s
+
+        int newlen = 0;
+        int aoindex;
+        for(aoindex = 0; aoindex < blk->antileader_out_list->length; aoindex++)  {
+            if(blk->antileader_out_list->arr[aoindex] == -1)
+                continue;
+            blk->antileader_out_list->arr[newlen++] = blk->antileader_out_list->arr[aoindex];
+        }
+        blk->antileader_out_list->length = aoindex;
       }
     } else if(blk->branchblock->antileader_in) {
       blk->antileader_out = fhtcclone(blk->branchblock->antileader_in, (void*(*)(void*)) valdup);
@@ -1412,7 +1420,16 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
 
           void* prevval = frmpair(blk->antileader_in, antiint);
           blk->antileader_in_list->arr[antiind] = -1;
-          //replace -1s
+
+          int newlen = 0;
+          int aiindex;
+          for(aiindex = 0; aiindex < blk->antileader_in_list->length; aiindex++)  {
+              if(blk->antileader_in_list->arr[aiindex] == -1)
+                  continue;
+              blk->antileader_in_list->arr[newlen++] = blk->antileader_in_list->arr[aiindex];
+          }
+          blk->antileader_in_list->length = aiindex;
+
           if(prevval) free(prevval);
         }
 
