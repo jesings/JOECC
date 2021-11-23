@@ -1070,6 +1070,8 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
 
   HASHTABLE* oldanticin = blk->antileader_in;
   HASHTABLE* oldanticout = blk->antileader_out;
+  DYNINT* oldanticinlist = blk->antileader_in_list;
+  DYNINT* oldanticoutlist = blk->antileader_out_list;
 
   if(blk->nextblock && !blk->branchblock) {
     int index = 0;
@@ -1096,21 +1098,24 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
               valnum = translated->p1;
             }
             void* storage;
-            if((storage = fixedsearch(blk->antileader_out, valnum))) free(storage);//inefficient
+            if((storage = fixedsearch(blk->antileader_out, valnum))) {
+                free(storage);
+            } else {
+                dipush(blk->antileader_out_list, valnum); //only add to list if it wasn't already there
+            }
             fixedinsert(blk->antileader_out, valnum, translated);
-            dipush(blk->antileader_out_list, valnum);
           }
         }
       }
     } else {
       blk->antileader_out = fhtcclone(blkn->antileader_in, (void*(*)(void*)) valdup);
-      blk->antileader_out_list = diclone(blk->antileader_in_list);
+      blk->antileader_out_list = diclone(blkn->antileader_in_list);
     }
   } else if(blk->branchblock) {
     //the first block isn't populated here if next block has phi
     if(blk->nextblock->antileader_in) {
       blk->antileader_out = fhtcclone(blk->nextblock->antileader_in, (void*(*)(void*)) valdup);
-      blk->antileader_out_list = diclone(blk->antileader_in_list);
+      blk->antileader_out_list = diclone(blk->nextblock->antileader_in_list);
       if(blk->branchblock->antileader_in) {
         for(int i = 0; i < blk->antileader_out_list->length; i++) {
           int key = blk->antileader_out_list->arr[i];
@@ -1118,8 +1123,8 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
           if((val = fixedsearch(blk->branchblock->antileader_in, key))) {
             free(val);
             frmpair(blk->antileader_out, key);
+            blk->antileader_out_list->arr[i] = -1;
           }
-          blk->antileader_out_list->arr[i] = -1;
         }
 
         int newlen = 0;
@@ -1129,11 +1134,11 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
                 continue;
             blk->antileader_out_list->arr[newlen++] = blk->antileader_out_list->arr[aoindex];
         }
-        blk->antileader_out_list->length = aoindex;
+        blk->antileader_out_list->length = newlen;
       }
     } else if(blk->branchblock->antileader_in) {
       blk->antileader_out = fhtcclone(blk->branchblock->antileader_in, (void*(*)(void*)) valdup);
-      blk->antileader_out_list = diclone(blk->antileader_in_list);
+      blk->antileader_out_list = diclone(blk->branchblock->antileader_in_list);
     } else {
       blk->antileader_out = htctor();
       blk->antileader_out_list = dinctor(32);
@@ -1232,17 +1237,36 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
             void* fr = frmpair(blk->antileader_in, removalind);
             if(fr)
               free(fr);
+            //remove instance of removalind! more efficient way to do this?
+            for(int i = 0; i < blk->antileader_in_list->length; i++) {
+                if(blk->antileader_in_list->arr[i] == removalind) {
+                    blk->antileader_in_list->arr[i] = -1;
+                    break;
+                }
+            }
             DYNINT* tokill = frmpair(antiin_users, removalind);
             if(tokill) rmstack = dimerge(rmstack, tokill);
           }
         }
       }
     }
+
+    int aiindex;
+    int newlen = 0;
+    for(aiindex = 0; aiindex < blk->antileader_in_list->length; aiindex++)  {
+        if(blk->antileader_in_list->arr[aiindex] == -1)
+            continue;
+        blk->antileader_in_list->arr[newlen++] = blk->antileader_in_list->arr[aiindex];
+    }
+    blk->antileader_in_list->length = newlen;
+
     didtor(rmstack);
   }
   char changed = !(fhtequal(blk->antileader_out, oldanticout) && fhtequal(blk->antileader_in, oldanticin));
   if(oldanticin) fhtdtorcfr(oldanticin, free);
   if(oldanticout) fhtdtorcfr(oldanticout, free);
+  if(oldanticinlist) didtor(oldanticinlist);
+  if(oldanticoutlist) didtor(oldanticoutlist);
   fhtdtorcfr(antiin_users, (void(*)(void*)) didtor);
   for(int i = 0; i < blk->pidominates->length; i++)
     changed |= antics(daget(blk->pidominates, i), prog, eq);
@@ -1421,20 +1445,20 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
           void* prevval = frmpair(blk->antileader_in, antiint);
           blk->antileader_in_list->arr[antiind] = -1;
 
-          int newlen = 0;
-          int aiindex;
-          for(aiindex = 0; aiindex < blk->antileader_in_list->length; aiindex++)  {
-              if(blk->antileader_in_list->arr[aiindex] == -1)
-                  continue;
-              blk->antileader_in_list->arr[newlen++] = blk->antileader_in_list->arr[aiindex];
-          }
-          blk->antileader_in_list->length = aiindex;
-
           if(prevval) free(prevval);
         }
 
         stubbornblocks->length = 0;
       }
+
+      int newlen = 0;
+      int aiindex;
+      for(aiindex = 0; aiindex < blk->antileader_in_list->length; aiindex++)  {
+          if(blk->antileader_in_list->arr[aiindex] == -1)
+              continue;
+          blk->antileader_in_list->arr[newlen++] = blk->antileader_in_list->arr[aiindex];
+      }
+      blk->antileader_in_list->length = newlen;
     }
   }
   dadtor(stubbornblocks);
