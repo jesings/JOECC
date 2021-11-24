@@ -447,14 +447,14 @@ static GVNNUM* ctgvnnum(EQONTAINER* eq, int hc) {
   GVNNUM* retval = malloc(sizeof(GVNNUM));
   retval->hasconst = hc;
   retval->equivs = dactor(8);
-  retval->index = eq->nodes->length;
-  dapush(eq->nodes, retval);
+  retval->index = eq->uniq_vals->length;
+  dapush(eq->uniq_vals, retval);
   return retval;
 }
 
 static EQONTAINER* cteq(PROGRAM* prog) {
   EQONTAINER* retval = malloc(sizeof(EQONTAINER));
-  retval->nodes = dactor(1024);
+  retval->uniq_vals = dactor(1024);
   ctgvnnum(retval, NOCONST); //have a dummy value in the zero position
   retval->intconsthash = htctor();
   retval->floatconsthash = htctor();
@@ -469,7 +469,7 @@ static void fregvnnum(GVNNUM* eqnode) {
 }
 
 static void freeq(EQONTAINER* eq) {
-  dadtorcfr(eq->nodes, (void(*)(void*)) fregvnnum);
+  dadtorcfr(eq->uniq_vals, (void(*)(void*)) fregvnnum);
   fhtdtor(eq->intconsthash);
   fhtdtor(eq->floatconsthash);
   htdtor(eq->strconsthash);
@@ -1291,7 +1291,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
     if(blk->inedges->length > 1) {
       for(int antiind = 0; antiind < blk->antileader_in_list->length; antiind++) {
         int antiint = blk->antileader_in_list->arr[antiind];
-        GVNNUM* antilnode = daget(eq->nodes, antiint);
+        GVNNUM* antilnode = daget(eq->uniq_vals, antiint);
         VALUESTRUCT* antil = fixedsearch(blk->antileader_in, antiint);
         if(antil->o == INIT_3) continue;
         for(int j = 0; j < blk->inedges->length; j++) {
@@ -1337,7 +1337,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                   joins.joins[j].addr.regnum = actionable.p1;
                   continue;
                 OPS_3_3ac
-                  operandnode = daget(eq->nodes, actionable.p2);
+                  operandnode = daget(eq->uniq_vals, actionable.p2);
                   if(operandnode->hasconst != NOCONST) {
                     genop->addr1.intconst_64 = operandnode->intconst;
                     if(operandnode->hasconst == INTCONST) {
@@ -1354,7 +1354,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                     provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, prevleader) : 0;
                     if(provisional.regnum) actionable.p2 = nodefromaddr(eq, phi->dest_type, provisional, prog)->index;
                     int equivind = 0;
-                    DYNARR* equivlist = ((GVNNUM*) daget(eq->nodes, actionable.p2))->equivs;
+                    DYNARR* equivlist = ((GVNNUM*) daget(eq->uniq_vals, actionable.p2))->equivs;
                     while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p2))) {
                       VALUESTRUCT* vs;
                       do {
@@ -1369,7 +1369,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                   }
                 __attribute__((fallthrough));
                 OPS_2_3ac
-                  operandnode = daget(eq->nodes, actionable.p1);
+                  operandnode = daget(eq->uniq_vals, actionable.p1);
                   if(operandnode->hasconst != NOCONST) {
                     genop->addr0.intconst_64 = operandnode->intconst;
                     if(operandnode->hasconst == INTCONST) {
@@ -1386,7 +1386,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                     provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, prevleader) : 0;
                     if(provisional.regnum) actionable.p1 = nodefromaddr(eq, phi->dest_type, provisional, prog)->index;
                     int equivind = 0;
-                    DYNARR* equivlist = ((GVNNUM*) daget(eq->nodes, actionable.p1))->equivs;
+                    DYNARR* equivlist = ((GVNNUM*) daget(eq->uniq_vals, actionable.p1))->equivs;
                     while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p1))) {
                       VALUESTRUCT* vs;
                       //This is currently subject to a bug

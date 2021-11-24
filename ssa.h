@@ -2,6 +2,11 @@
 #define SSA_H
 #include "3ac.h"
 
+/**
+ * Represents a number as in global value numbering. This number contains a list of
+ * equivalent values (VALUESTRUCTs), the equivalent constant and tag information, and
+ * the index in the list to prevent unnecesary storage of the index.
+**/
 typedef struct {
   DYNARR* equivs;
   union {
@@ -13,6 +18,14 @@ typedef struct {
   int index;
 } GVNNUM;
 
+/**
+ * Represents an instance of a value as in global value numbering, Primarily used
+ * for GVNPRE, to represent anticipable expressions. Typically p1 (and p2 if binary) 
+ * are the indices of the values of the operands, however in the special case of
+ * INIT_3 (PARAM_3 is replaced with INIT_3 for simplicity), the value p1 refers to
+ * the actual regnum of the variable. This is done to allow for operand replacement
+ * in GVNPRE
+**/
 typedef struct {
   enum opcode_3ac o;
   unsigned int p1;
@@ -21,8 +34,13 @@ typedef struct {
   short size2; //bottom 4 bits size, 5th bit sign
 } VALUESTRUCT;
 
+/**
+ * Contains all of the equivalence information for a PROGRAM. These are the GVNNUMS,
+ * the information about which regnums map to which constants, and the information
+ * about which operations map to which values.
+**/
 typedef struct {
-  DYNARR* nodes;//of GVNNUMS
+  DYNARR* uniq_vals;//of GVNNUMS
   HASHTABLE* intconsthash;
   HASHTABLE* floatconsthash;
   HASHTABLE* strconsthash;
