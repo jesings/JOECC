@@ -113,6 +113,10 @@ struct op;
 struct bblock;
 struct fulladdr;
 
+/**
+ * A union representing an address as in 3 address code
+ * Note, this union is tagged by an ADDRTYPE enum
+**/
 typedef union {
   struct {
     union {
@@ -140,6 +144,9 @@ typedef union {
   void* garbage;
 } ADDRESS;
 
+/**
+ * An enum to tag and add identifying information to the ADDRTYPE union
+**/
 typedef enum {
   //bottom 4 bits used for size
   ISCONST = 0x10,
@@ -155,6 +162,10 @@ typedef enum {
   LASTUSE = 0x4000,
 } ADDRTYPE;
 
+/**
+ * Represents an operation in 3 address code, i.e. a 3 address tuple, with the opcode
+ * Contains the tag (ADDRTYPE) and value (ADDRESS), as well as a linked list pointer
+**/
 typedef struct op {
   enum opcode_3ac opcode;
   ADDRTYPE addr0_type;
@@ -166,11 +177,18 @@ typedef struct op {
   struct op* nextop;
 } OPERATION;
 
+/**
+ * Represents a single address w/ tag pair, useful when we don't want a whole operation
+**/
 typedef struct fulladdr {
   ADDRTYPE addr_type;
   ADDRESS addr;
 } FULLADDR;
 
+/**
+ * Represents a basic block in the CFG, contains a bunch of information for the optimization
+ * passes as well as information about the operations and the block's place in the CFG
+**/
 typedef struct bblock {
   OPERATION* firstop;
   OPERATION* lastop;
@@ -205,6 +223,11 @@ typedef struct bblock {
   BITFIELD back_reachable;
 } BBLOCK;
 
+/**
+ * Contains the data for the whole compilation unit (function)
+ * Some of this data is used for translation from the AST representation
+ * Others involve CFG information
+**/
 typedef struct {
   unsigned long regcnt;
   DYNARR* breaklabels;
