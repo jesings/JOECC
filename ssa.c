@@ -88,26 +88,26 @@ static void dfpdt(BBLOCK* root) {
 //rename all registers in block based on SSA
 static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
   if(!block || block->visited) return;
-  DYNARR* assigns = NULL;
+  DYNINT* assigns = NULL;
   block->visited = 1;
   if(block->lastop) {
-    assigns = dactor(32);
+    assigns = dinctor(32);
     OPERATION* op = block->firstop;
-    DYNARR* bdarr;
+    DYNINT* bdarr;
     while(1) {
       switch(op->opcode) {
         OPS_3_3ac OPS_3_PTRDEST_3ac
           if(op->addr1_type & ISVAR) {
             bdarr = daget(S, op->addr1.varnum);
             if(bdarr->length) //in case of addrsvar
-              op->addr1.ssaind =  (long) dapeek(bdarr);
+              op->addr1.ssaind = dipeek(bdarr);
           }
           __attribute__((fallthrough));
         OPS_2_3ac case ADDR_3:
           if(op->addr0_type & ISVAR) {
             bdarr = daget(S, op->addr0.varnum);
             if(bdarr->length) 
-              op->addr0.ssaind =  (long) dapeek(bdarr);
+              op->addr0.ssaind = dipeek(bdarr);
           }
           __attribute__((fallthrough));
         case CALL_3: case PHI: /*must have constant input in alloc_3*/
@@ -115,12 +115,12 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
             bdarr = daget(S, op->dest.varnum);
             if(bdarr->length) {
               if(op->dest_type & ISDEREF) {
-                op->dest.ssaind =  (long) dapeek(bdarr);
+                op->dest.ssaind = dipeek(bdarr);
               } else {
                 C[op->dest.varnum] = prog->regcnt++;
                 op->dest.ssaind = C[op->dest.varnum];
-                dapush(bdarr, (void*)(long) C[op->dest.varnum]);
-                dapush(assigns, (void*)(long) op->dest.varnum);
+                dipush(bdarr, C[op->dest.varnum]);
+                dipush(assigns, op->dest.varnum);
               }
             }
           }
@@ -129,7 +129,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
           if(op->addr1_type & ISVAR) {
             bdarr = daget(S, op->addr1.varnum);
             if(bdarr->length) //in case of addrsvar
-              op->addr1.ssaind =  (long) dapeek(bdarr);
+              op->addr1.ssaind = dipeek(bdarr);
           }
           __attribute__((fallthrough));
         OPS_1_3ac
@@ -139,7 +139,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
           if(op->addr0_type & ISVAR) {
             bdarr = daget(S, op->addr0.varnum);
             if(bdarr->length) 
-              op->addr0.ssaind =  (long) dapeek(bdarr);
+              op->addr0.ssaind = dipeek(bdarr);
           }
           break;
         OPS_1_ASSIGN_3ac
@@ -151,8 +151,8 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
               assert(!C[op->dest.varnum]);
               C[op->dest.varnum] = prog->regcnt++;
               op->dest.ssaind = C[op->dest.varnum];
-              dapush(bdarr, (void*)(long) C[op->dest.varnum]);
-              dapush(assigns, (void*)(long)op->dest.varnum);
+              dipush(bdarr, C[op->dest.varnum]);
+              dipush(assigns, op->dest.varnum);
             } else {
               op->dest_type |= ADDRSVAR;
             }
@@ -173,9 +173,9 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
     OPERATION* op = block->nextblock->firstop;
     while(op->opcode == PHI) {
       if(!(op->addr0_type & GARBAGEVAL)) {
-        DYNARR* bdarr = daget(S, op->dest.varnum);
+        DYNINT* bdarr = daget(S, op->dest.varnum);
         if(bdarr->length) {
-          op->addr0.joins[i].addr.ssaind = (int) (long) dapeek(bdarr);
+          op->addr0.joins[i].addr.ssaind = dipeek(bdarr);
         }
         op->addr0.joins[i].addr.varnum = op->dest.varnum;
         op->addr0.joins[i].addr_type = op->dest_type;
@@ -190,7 +190,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
     OPERATION* op = block->branchblock->firstop;
     while(op->opcode == PHI) {
       assert(!(op->addr0_type & GARBAGEVAL)); //no ternaries can join at a branch block
-      op->addr0.joins[i].addr.ssaind = (int) (long) dapeek((DYNARR*) daget(S, op->dest.varnum));
+      op->addr0.joins[i].addr.ssaind = dipeek((DYNINT*) daget(S, op->dest.varnum));
       op->addr0.joins[i].addr.varnum = op->dest.varnum;
       op->addr0.joins[i].addr_type = op->dest_type;
       if(op == block->branchblock->lastop) break;
@@ -201,10 +201,10 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
   rrename(block->branchblock, C, S, prog);
   if(assigns) {
     for(int i = 0; i < assigns->length; i++) {
-      long l = (long) daget(assigns, i);
-      dapop((DYNARR*) daget(S, l));
+      int l = diget(assigns, i);
+      dipop((DYNINT*) daget(S, l));
     }
-    dadtor(assigns);
+    didtor(assigns);
   }
 }
 
@@ -429,7 +429,9 @@ void ssa(PROGRAM* prog) {
   int* C = calloc(sizeof(int), varas->length);
   for(int i = 0; i < varas->length; i++) {
     DYNARR* da = daget(varas, i);
+    //convert each DYNARR* into a DYNINT*
     da->length = 0;
+    da->maxlength *= sizeof(void*) / sizeof(int);
   }
   rrename(first, C, varas, prog);
   for(int i = 0; i < blocks->length; i++) {
@@ -437,7 +439,7 @@ void ssa(PROGRAM* prog) {
     cb->visited = 0;
   }
 
-  dadtorcfr(varas, (void(*)(void*))dadtor);
+  dadtorcfr(varas, (void(*)(void*))didtor);
   free(C);
   prog->pdone |= SSA;
 }

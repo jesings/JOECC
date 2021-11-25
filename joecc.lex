@@ -1115,6 +1115,9 @@ int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) 
         //don't push callmacro yet
         break;
     }
+    //Note: this actually doesn't handle when a macro call spans across buffers
+    //This actually does matter if we define a non function-like macro to the name
+    //of a function like macro and try to invoke the non function-like macro
     if(macdef->args) {
       char c;
       while(1) {

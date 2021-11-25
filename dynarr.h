@@ -1,10 +1,17 @@
 #ifndef DYNARR_H
 #define DYNARR_H
+/**
+ * Represents a dynamically resizable array of pointers
+**/
 typedef struct {
   void** arr;
   int length;
   int maxlength;
 } DYNARR;
+
+/**
+ * Represents a dynamically resizable array of integers
+**/
 typedef struct {
   union {
     int* arr;
@@ -38,6 +45,8 @@ void* dapop(DYNARR* da);
 void* dharma(DYNARR* da, void* val);
 void darpa(DYNARR* da, void* val, void* rpval);
 #define dapeek(A) ((A)->arr[(A)->length-1])
+#define dipeek(A) ((A)->arr[(A)->length-1])
 #define daget(A,I) ((A)->arr[(I)])
+#define diget(A,I) ((A)->arr[(I)])
 // vim: set ft=c:
 #endif
