@@ -42,6 +42,7 @@ MSTRING \"(\\.|[^\\"]|{SKIPNEWL})*\"
 int zzparse(yyscan_t scanner);
 int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner);
 void yypush_stringbuffer(char* str, int length, const char* macname, YY_BUFFER_STATE ybs, yyscan_t yyscanner);
+char handle_eof(yyscan_t yyscanner);
 
 struct arginfo {
   DYNSTR* argi;
@@ -1048,6 +1049,21 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); lctx->ls->strcur = strctor(mallo
 [[:space:]] {/*Whitespace, ignored*/}
 
 <<EOF>> {
+  if(!handle_eof(yyscanner))
+    yyterminate();
+}
+
+<*>\0 {//same as EOF
+  if(!handle_eof(yyscanner))
+    yyterminate();
+}
+
+<*>. {fprintf(stderr, "Unexpected character encountered: '%c' %d %s %d.%d-%d.%d\n", *yytext, *yytext, locprint2(yylloc));}
+<*>\n {fprintf(stderr, "Unexpected newline encountered:  %s %d.%d-%d.%d\n", locprint2(yylloc));}
+%%
+
+char handle_eof(yyscan_t yyscanner) {
+  struct yyguts_t* yyg = (struct yyguts_t*) yyscanner;
   if(YY_CURRENT_BUFFER->yy_input_file) fclose(YY_CURRENT_BUFFER->yy_input_file);
   yypop_buffer_state(yyscanner);
   if ( !YY_CURRENT_BUFFER ) {
@@ -1058,7 +1074,7 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); lctx->ls->strcur = strctor(mallo
       yylloc->first_line = yylloc->last_line = 1;
       yylloc->first_column = yylloc->last_column = 0;
     } else {
-      yyterminate();
+      return 0;
     }
   } else {
     yy_pop_state(yyscanner);
@@ -1073,31 +1089,8 @@ L?\" {/*"*/yy_push_state(STRINGLIT, yyscanner); lctx->ls->strcur = strctor(mallo
     }
     //rmpair is a no-op if not in hash
   }
+  return 1;
 }
-
-<*>\0 {//same as EOF
-  if(YY_CURRENT_BUFFER->yy_input_file) fclose(YY_CURRENT_BUFFER->yy_input_file);
-  yypop_buffer_state(yyscanner);
-  if ( !YY_CURRENT_BUFFER ) {
-    yyterminate();
-  } else {
-    yy_pop_state(yyscanner);
-    YYLTYPE* ylt = dapop(lctx->ls->locs);
-    rmpair(lctx->withindefines, yylloc->filename);
-    free(yylloc->filename);
-    *yylloc = *ylt;
-    free(ylt);
-    if(lctx->ls->defname) {
-      free(lctx->ls->defname);
-      lctx->ls->defname = NULL;
-    }
-    //rmpair is a no-op if not in hash
-  }
-}
-
-<*>. {fprintf(stderr, "Unexpected character encountered: '%c' %d %s %d.%d-%d.%d\n", *yytext, *yytext, locprint2(yylloc));}
-<*>\n {fprintf(stderr, "Unexpected newline encountered:  %s %d.%d-%d.%d\n", locprint2(yylloc));}
-%%
 
 int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) {
   struct macrodef* macdef = bigsearch(lctx->defines, symb, 0);
@@ -1115,7 +1108,7 @@ int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) 
         //don't push callmacro yet
         break;
     }
-    //Note: this actually doesn't handle when a macro call spans across buffers
+    //Note/TODO: this doesn't correctly handle when a macro call spans across buffers
     //This actually does matter if we define a non function-like macro to the name
     //of a function like macro and try to invoke the non function-like macro
     if(macdef->args) {
@@ -1131,6 +1124,11 @@ int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) 
           	break;
           case '(':
           	goto whiledone;
+          case EOF:
+          case 0:
+            if(!handle_eof(yyscanner))
+              yyterminate();
+            break;
           default:
             --yltg->last_column;
             unput(c, yyscanner);
