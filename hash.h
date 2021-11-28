@@ -6,6 +6,13 @@
 #include <string.h>
 #include "dynarr.h"
 
+/**
+ * Represents a key/value pair in the hashmap. 
+ * Can store values either as ints or pointers.
+ * Keys are typically string pointers. 
+ * Also contains a pointer to the next hash pair for this hashed index,
+ * this is because we use a linked-list for excess items in an index.
+**/
 typedef struct hp {
   union {
     char* key;
@@ -17,10 +24,19 @@ typedef struct hp {
   };
   struct hp* next;
 } HASHPAIR;
+
+/**
+ * Represents a normal hash table. Contains an array of the keys, and a count of how many keys there are.
+**/
 typedef struct {
   int keys;
   HASHPAIR pairs[HASHSIZE];
 } HASHTABLE;
+
+/**
+ * Represents a large hash table. The same as the above struct but with a greater 
+ * hash space. Useful for the symbol table to reduce the number of collisions.
+**/
 typedef struct {
   int keys;
   HASHPAIR pairs[BIGHASHSIZE];

@@ -76,11 +76,13 @@ static void hpdtor(HASHPAIR* hp) {
 }
 
 void htdtor(HASHTABLE* ht) {
-  for(int i = 0; i < HASHSIZE; i++) {
-    if(ht->pairs[i].key) {
-      free(ht->pairs[i].key);
-      if(ht->pairs[i].next)
-        hpdtor(ht->pairs[i].next);
+  if(ht->keys != 0) {
+    for(int i = 0; i < HASHSIZE; i++) {
+      if(ht->pairs[i].key) {
+        free(ht->pairs[i].key);
+        if(ht->pairs[i].next)
+          hpdtor(ht->pairs[i].next);
+      }
     }
   }
   free(ht);
