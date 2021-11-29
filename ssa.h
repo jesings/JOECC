@@ -55,9 +55,11 @@ char fixedintersect(const BBLOCK* fb, BBLOCK* gb);
 void annotateuse(PROGRAM* prog);
 void killreg(PROGRAM* prog);
 
+//yield the 1 byte VALUESTRUCT type information from the 4 byte ADDRTYPE information
 static inline char supersize(ADDRTYPE adt) {
   return (adt & 0xf) | (adt & ISSIGNED ? 0x10 : 0) | (adt & ISFLOAT ? 0x20 : 0);
 }
+//yield the simplest 4 byte ADDRTYPE information that meets the 1 byte VALUESTRUCT informtion
 static inline ADDRTYPE downsize(char super) {
   return (super & 0xf) | (super & 0x10 ? ISSIGNED : 0) | (super & 0x20 ? ISFLOAT : 0);
 }
