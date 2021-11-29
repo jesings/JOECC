@@ -12,6 +12,10 @@
 
 extern DYNARR* includepath;
 
+/**
+ * An enum describing a bitfield with a bunch of information about the type of an AST value.
+ * The lowest 4 bits in this enum are not listed here, they describe the number of bytes of the value.
+**/
 typedef enum {
   FLOATNUM    = 0x10,
   UNSIGNEDNUM = 0x20,
@@ -44,6 +48,10 @@ typedef enum {
   X(ADDR), X(DEREF), \
   X(FCALL), \
   X(TERNARY) 
+
+/**
+ * An enum describing the type of an expression in the AST.
+**/
 #define X(name) name
 typedef enum {
   EXPRTYPELIST
@@ -60,6 +68,9 @@ typedef enum {
   X(EXPR), X(NOPSTMT), \
   X(ASMSTMT), \
   X(DEFAULT)
+/**
+ * An enum describing the type of a statement in the AST.
+**/
 #define X(name) name
 enum stmttype {
   STMTTYPE_LIST
@@ -67,6 +78,9 @@ enum stmttype {
 #undef X
 
 #define DECLPART_TYPE X(POINTERSPEC), X(ARRAYSPEC), X(VLASPEC), X(PARAMSSPEC), X(BITFIELDSPEC), X(NAMELESS_PARAMSSPEC)
+/**
+ * An enum describing the type of an element of the pointerstack, whether it's a generic pointer, an array, a function pointer, a VLA, or something else
+**/
 #define X(name) name
 enum declpart_info {
   DECLPART_TYPE
@@ -75,17 +89,26 @@ enum declpart_info {
 
 struct stmt;
 
+/**
+ * A struct containing the information to describe a struct or union: most imporatntly the fields, their byte offsets from the base location of the struct
+**/
 typedef struct {
   DYNARR* fields;//Each entry is a struct that contains a full identifier
   char* name;
   HASHTABLE* offsets; //each entry is a struct that contains a full identifier and offset
   int size;
 } USTRUCT;
+/**
+ * A struct containing the information necessary to describe an enum
+**/
 typedef struct {
   DYNARR* fields;
   char* name;
 } ENUM;
 
+/**
+ * A struct containing the information to describe a type, whether it contains a struct, has multiple pointer indirection, or not.
+**/
 typedef struct {
   DYNARR* pointerstack;
   TYPEBITS tb;
@@ -96,19 +119,23 @@ typedef struct {
   };
 } IDTYPE;
 
+/**
+ * A struct containing the information to describe a single field of a struct
+**/
 typedef struct {
   long offset;
   IDTYPE* type;
 } STRUCTFIELD;
 
+/**
+ * A struct describing a single operand in the operands portion of an asm statement
+**/
 typedef struct {
   char* constraint;
   struct expr* varin;
 } OPERAND;
 
 typedef struct {
-  //int index;//index of type within scope (i.e. parameter index)
-  //value perhaps?
   IDTYPE* type;
   char* name;
   long index;
