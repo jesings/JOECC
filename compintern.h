@@ -135,12 +135,25 @@ typedef struct {
   struct expr* varin;
 } OPERAND;
 
+/**
+ * A struct describing the information associated with a single identifier
+ * An index of -1 refers to a not yet specified index and an index of -2 refers to a function with global scope.
+**/
 typedef struct {
   IDTYPE* type;
   char* name;
   long index;
 } IDENTIFIERINFO;
 
+/**
+ * A struct containing all the information necessary to process/describe a compilation unit (function), in AST form.
+ * The body field contains the root of the actual AST in a compound statement.
+ * The params, retrn, lbls, and numvars fields should be self-evident.
+ * The switchstack field is necessary during compilation, it contains a stack of the switch statements that enclose
+ * the currently compiling statement/expression. This is needed to convert switch cases into labels to clarify the
+ * AST representation of switches. The caseindex is used to generate unique label names for each case in a function.
+ * is currently 
+**/
 typedef struct {
   char* name;
   struct stmt* body; //compound statement
@@ -152,6 +165,10 @@ typedef struct {
   int numvars;
 } FUNC;
 
+/**
+ * A struct containing all the information necessary to describe an expression in the AST representation.
+ * Type tags which anonymous union member is used, the id member is used only for sizeof.
+**/
 typedef struct expr {
   EXPRTYPE type;
   DYNARR* params;
@@ -167,11 +184,29 @@ typedef struct expr {
   };
 } EXPRESSION;
 
+
+/**
+ * A struct storing state necessary for the processing of an array with designated initializers. Curpt
+ * is the last number designator that we have seen, and non designated elements increment that.
+**/
 typedef struct {
   DYNARR* inits;
   int curpt;
 } DESIGNARR;
 
+/**
+ * Stores some "global" state information for the lexer, which we need in a struct for the reentrant parser.
+ * argpp is the array of arguments passed to the current macro that is being called
+ * locs is the stack of location information structs
+ * parg is the array of arguments that we have parsed so far to the current macro call
+ * stmtover, argeaten are simple status flags
+ * defname is the name of hte macro currently being defined
+ * defargs are the arguments of the macro currently being called, i.e. which things to replace
+ * paren_depth is the number of nested parens while lexing macro arguments, to tell when a comma ends an arg.
+ * md is the macro currently being defined
+ * dstrdly is the dynamic string currently being parsed, mdstrdly is the same but for a macro dynstring
+ * strcur is the same but for an actual string literal.
+ **/
 struct lstate {
   DYNARR* argpp;
   DYNARR* locs;
@@ -183,6 +218,10 @@ struct lstate {
   struct macrodef* md;
   DYNSTR* dstrdly, * mdstrdly, * strcur;
 };
+
+/**
+ * Stores some "global" state information for the parser and lexer, which we need to struct wrap for a reentrant parser.
+**/
 struct lexctx {
   HASHTABLE* funcs;
   DYNARR* scopes;
