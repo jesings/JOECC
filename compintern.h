@@ -221,6 +221,16 @@ struct lstate {
 
 /**
  * Stores some "global" state information for the parser and lexer, which we need to struct wrap for a reentrant parser.
+ * funcs stores the already declared functions.
+ * scopes is a stack of the scopes within which we are currently parsing, useful for variable definitions
+ * definestack is the stack of macros that we are currently in the process of parsing
+ * withindefines takes all the names of the macros from definestack into a hashmap, used for disallowing recursive macro execution
+ * enstruct2free allows STRUCT structs and UNION structs to be lazily freed rather than doing any complex reference counting
+ * enumerat2free is the same but for enums
+ * globals, externglobals, ls should be evident
+ * actualroot holds the actual file that we want to start parsing/lexing at. We start the lexer off looking at a file which
+ * we have constructed which contains the -D definitions passed on the command line, and switch to this new actualroot and 
+ * reassign it to null when that is done.
 **/
 struct lexctx {
   HASHTABLE* funcs;
@@ -237,6 +247,9 @@ struct lexctx {
   FILE* actualroot;
 };
 
+/**
+ * Stores an expression or initializer, tagged, used for stuff before the first semicolon in a for loop head.
+**/
 typedef struct {
   char isE;
   union {
@@ -245,6 +258,9 @@ typedef struct {
   };
 } EOI;
 
+/**
+ * Stores a (surprise, surprise) statement, type tags which element of the anonymous enum is used.
+**/
 typedef struct stmt {
   enum stmttype type;
   union {
@@ -276,12 +292,14 @@ typedef struct stmt {
       DYNARR* inputs;
       DYNARR* clobbers;
     };
-    //IDENTIFIERINFO* label; //case or label, maybe also goto?
     char* glabel; //for label and goto
     DYNARR* stmtsandinits; //compound
   };
 } STATEMENT;
 
+/**
+ * Stores a statement or initializer, used as a generic list element for i.e. a compound statement.
+**/
 typedef struct {
   char isstmt;
   union {
