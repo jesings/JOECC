@@ -365,11 +365,17 @@ typedef struct {
   EXPRESSION* expr;
 } INITIALIZER;
 
+/**
+ * Contains the info for constructing a switch statement--the names of each case label, and the name of the default case
+**/
 typedef struct {
   PARALLEL* cases;
   char* defaultval;
 } SWITCHINFO;
 
+/**
+ * Tags the type of a scope member
+**/
 #define MEMBERTYPELIST X(M_TYPEDEF), X(M_VARIABLE), X(M_GLOBAL), X(M_STRUCT), X(M_UNION), X(M_ENUM), X(M_ENUM_CONST)
 #define X(name) name
 enum membertype {
@@ -377,6 +383,9 @@ enum membertype {
 };
 #undef X
 
+/**
+ * Describes a member of a scope, tagged by mtype. Members of scopes are any scope-bound thing that is usable (i.e. variables, typedefs, structs, etc.)
+**/
 typedef struct {
   enum membertype mtype;
   union {
@@ -390,6 +399,10 @@ typedef struct {
   };
 } SCOPEMEMBER;
 
+/**
+ * Describes a scope, as placed on the scopestack--truescope tags whether it is a scope with the normal members or a fakescope.
+ * Fakescopes are used within union/struct bodies in order to scope-bind the members declared there.
+**/
 typedef struct {
   char truescope;
   union {
@@ -406,13 +419,21 @@ typedef struct {
   };
 } SCOPE;
 
+/**
+ * Possible states for the lexer to be in, to be pushed onto a stack. These states are pushed to the stack/updated when we encounter a #if #ifdef #else, etc.
+ * IFDEFDUMMY, IFANDFALSE, ELSEANDTRUE tell the lexer that we have not been lexing actual code since the value was pushed to the stack.
+**/
 enum ifdefstate {
   IFDEFDUMMY, IFANDTRUE, IFANDFALSE, ELSEANDTRUE, ELSEANDFALSE
 };
 
+/**
+ * Describes a macro, complete with the body of the macro in text, and the arguments of the macro, in string form, in args
+ * Used within the lexer to actually effect the macro replacements
+**/
 struct macrodef {
   DYNSTR* text;
-  DYNARR* args;//NULL if not function like
+  DYNARR* args;//NULL if macro is not function like
 };
 
 #define ispointer(x) ((x)->pointerstack && (x)->pointerstack->length)
