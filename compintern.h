@@ -308,11 +308,26 @@ typedef struct {
   };
 } SOI;
 
+/**
+ * Stores the name, and an expression giving a value, to an element, describes a value in an enum.
+**/
 typedef struct {
   char* name;
   EXPRESSION* value;
 } ENUMFIELD;
 
+/**
+ * Describes a single part of a pointer, type tags which field is used. These are put on the pointerstack of an IDTYPE.
+ * PARAMSSPEC describes a function (NOT a function pointer, any POINTERSPECs on top of it make it a function pointer)
+ * PARAMSSPEC has an array of its arguments. Anything above it on the pointerstack describes it (i.e. whether it's a 
+ * function pointer, array of function pointers, etc), anything below it describes the return type.
+ * NAMELESS_PARAMSSPEC is the same but the parameter representation does not include the names of each parameter.
+ * ARRAYSPEC describes an array, it contains the maximum index, and the length of the array in bytes, but these aren't
+ * guaranteed to be populated right after its declaration is processed due to i.e. int foo[] syntax.
+ * VLASPEC describes a VLA, it has an expression describing its length, and addrun and addrty describing the
+ * location and type respectively of the place where the length of the VLA is stored in 3ac, only accessible/useful
+ * while the 3ac gets generated.
+**/
 struct declarator_part {
   enum declpart_info type;
   union {
@@ -333,12 +348,18 @@ struct declarator_part {
   };
 };
 
+/**
+ * Describes a declaration, including the name, type, and index
+**/
 typedef struct {
   char* varname;
   IDTYPE* type;
   long varid;
 } DECLARATION;
 
+/**
+ * It is very obvious what this is
+**/
 typedef struct {
   DECLARATION* decl;
   EXPRESSION* expr;
