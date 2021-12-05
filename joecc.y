@@ -34,9 +34,6 @@
 
 
 %code requires{
-  #include <stdint.h>
-  #include <stdio.h>
-  #include <assert.h>
   #include "compintern.h"
   #include "dynarr.h"
   #include "parallel.h"

@@ -1,5 +1,3 @@
-#include <stdio.h>
-#include <assert.h>
 #include "compintern.h"
 #include "treeduce.h"
 #include "joecc.tab.h"

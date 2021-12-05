@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include "hash.h"
 #include "dynarr.h"
 #include "dynstr.h"

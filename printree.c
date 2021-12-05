@@ -1,7 +1,3 @@
-#include <stdio.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <assert.h>
 #include "compintern.h"
 #include "printree.h"
 int funcfile;

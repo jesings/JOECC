@@ -16,7 +16,6 @@ MSTRING \"(\\.|[^\\"]|{SKIPNEWL})*\"
 
 #include <math.h>
 #include <time.h>
-#include <assert.h>
 #include <libgen.h>
 #include "joecc.tab.h"
 #include "compintern.h"
