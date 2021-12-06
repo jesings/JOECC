@@ -1359,6 +1359,11 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                     DYNARR* equivlist = ((GVNNUM*) daget(eq->uniq_vals, actionable.p2))->equivs;
                     while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p2))) {
                       VALUESTRUCT* vs;
+                      //TODO: This is currently subject to a bug
+                      //The bug occurs when a computation that depends on a computation is part of the same antileader_in
+                      //Now that the ordering has been taken care of, there still appears to be an issue with the revtranslator
+                      //Essentially, actionable.p2 is getting modified when it shouldn't be, because provisional.regnum is being
+                      //set when it shouldn't be. More debugging is necessary to track down this error.
                       do {
                         assert(equivind < equivlist->length);
                         vs = daget(equivlist, equivind++);
@@ -1391,10 +1396,11 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                     DYNARR* equivlist = ((GVNNUM*) daget(eq->uniq_vals, actionable.p1))->equivs;
                     while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p1))) {
                       VALUESTRUCT* vs;
-                      //This is currently subject to a bug
+                      //TODO: This is currently subject to a bug
                       //The bug occurs when a computation that depends on a computation is part of the same antileader_in
-                      //What happens then is that the unordered nature of the hash map makes it so that the variable may
-                      //Not be accessible at the right program point. Aborting to redo does not seem too good either, too much state to store.
+                      //Now that the ordering has been taken care of, there still appears to be an issue with the revtranslator
+                      //Essentially, actionable.p1 is getting modified when it shouldn't be, because provisional.regnum is being
+                      //set when it shouldn't be. More debugging is necessary to track down this error.
                       do {
                         assert(equivind < equivlist->length);
                         vs = daget(equivlist, equivind++);
