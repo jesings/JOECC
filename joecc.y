@@ -1179,7 +1179,7 @@ enums:
         memcpy(newexpr, prevexpr, sizeof(EXPRESSION));
         ++(newexpr->uintconst);
         break;
-      case ADD: ;
+      case ADD:
         memcpy(newexpr, daget(prevexpr->params, 0), sizeof(EXPRESSION));
         if(newexpr->type == INT) {
           ++(newexpr->intconst);

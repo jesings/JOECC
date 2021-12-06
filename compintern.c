@@ -55,10 +55,11 @@ DYNARR* ptrdaclone(DYNARR* opointerstack) {
   DYNARR* npointerstack = dactor(opointerstack->maxlength);
   for(int i = 0; i < opointerstack->length; i++) {
     struct declarator_part* dclp = malloc(sizeof(struct declarator_part));
+    DYNARR* newp;
     memcpy(dclp, opointerstack->arr[i], sizeof(struct declarator_part));
     switch(dclp->type) {
-      case PARAMSSPEC: ;
-        DYNARR* newp = dactor(dclp->params->length);
+      case PARAMSSPEC:
+        newp = dactor(dclp->params->length);
         for(int j = 0; j < dclp->params->length; j++) {
           DECLARATION* parid = daget(dclp->params, j);
           if(!parid) {

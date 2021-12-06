@@ -248,10 +248,9 @@ static int statemeant(STATEMENT* stmt) {
   switch(stmt->type) {
     case ASMSTMT:
       break; //not handled yet, maybe never
-    case JGOTO: case LABEL: ;
-      int lnn = nodenumber++;
-      dprintf(funcfile, "n%d[label=\"%s\"];\n", lnn, stmt->glabel); 
-      dprintf(funcfile, "n%d -> n%d;\n", statenode, lnn); 
+    case JGOTO: case LABEL:
+      dprintf(funcfile, "n%d[label=\"%s\"];\n", nodenumber++, stmt->glabel); 
+      dprintf(funcfile, "n%d -> n%d;\n", statenode, nodenumber - 1); 
       break; 
     case IFELSES:
       dprintf(funcfile, "n%d -> n%d [color=blue];\n", statenode, statemeant(stmt->elsecond)); 
@@ -260,12 +259,11 @@ static int statemeant(STATEMENT* stmt) {
       dprintf(funcfile, "n%d -> n%d [color=red];\n", statenode, treexpr(stmt->ifcond)); 
       dprintf(funcfile, "n%d -> n%d [color=green];\n", statenode, statemeant(stmt->thencond)); 
       break;
-    case SWITCH: ;//not final, should be working better
-      PARALLEL* pl = stmt->labeltable;
-      for(int i = 0; i < pl->da->length; i++) {
+    case SWITCH: //not final, should be working better
+      for(int i = 0; i < stmt->labeltable->da->length; i++) {
         int scnn = nodenumber++;
-        unsigned long key = (unsigned long) pl->da->arr[i];
-        char* lname = fixedsearch(pl->ht, key);
+        unsigned long key = (unsigned long) stmt->labeltable->da->arr[i];
+        char* lname = fixedsearch(stmt->labeltable->ht, key);
         dprintf(funcfile, "n%d[label=\"%s\"];\n", scnn, lname);
         dprintf(funcfile, "n%d -> n%d [color=blue];\n", statenode, scnn); 
         dprintf(funcfile, "n%d -> n%ld;\n", scnn, key); 

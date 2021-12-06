@@ -1626,7 +1626,7 @@ char pleatstate(STATEMENT** stated) {
       //for while and maybe do while do something different if cond evaluates to false
       while(foldconst(st->cond)) i = 1;
       switch(st->cond->type) {
-        case INT: case UINT: ;
+        case INT: case UINT:
           if(st->cond->uintconst) {
             //plain infinite loop, maybe optimize?
           } else {
@@ -1653,7 +1653,7 @@ char pleatstate(STATEMENT** stated) {
         }
       }
       switch(st->forcond->type) {
-        case INT: case UINT: ;
+        case INT: case UINT:
           if(st->forcond->uintconst) {
             //plain infinite loop, maybe optimize?
           } else {

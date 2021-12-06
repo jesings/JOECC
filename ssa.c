@@ -465,13 +465,13 @@ static EQONTAINER* cteq(PROGRAM* prog) {
   return retval;
 }
 
-static void fregvnnum(GVNNUM* eqnode) {
+static void freegvnnum(GVNNUM* eqnode) {
   dadtorfr(eqnode->equivs);
   free(eqnode);
 }
 
 static void freeq(EQONTAINER* eq) {
-  dadtorcfr(eq->uniq_vals, (void(*)(void*)) fregvnnum);
+  dadtorcfr(eq->uniq_vals, (void(*)(void*)) freegvnnum);
   fhtdtor(eq->intconsthash);
   fhtdtor(eq->floatconsthash);
   htdtor(eq->strconsthash);
