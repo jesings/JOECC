@@ -11,46 +11,6 @@ const char* ireg8[] = {"al", "bl", "cl", "dl", "dil", "sil", "bpl", "spl", "r8b"
 const char* freg128[] = {"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"};
 const char* freg256[] = {"ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7", "ymm8", "ymm9", "ymm10", "ymm11", "ymm12", "ymm13", "ymm14", "ymm15"};
 
-static void rrblk(BBLOCK* blk, int blkcnt) {
-  if(blk->visited) return;
-  blk->visited = 1;
-  if(blk->nextblock && blk->nextblock->domind > blk->domind) {
-    rrblk(blk->nextblock, blkcnt);
-    blk->simply_reachable = bfclone(blk->nextblock->simply_reachable, blkcnt);
-  }
-  if(blk->branchblock && blk->branchblock->domind > blk->domind) {
-    rrblk(blk->branchblock, blkcnt);
-    if(!blk->simply_reachable) {
-      blk->simply_reachable = bfclone(blk->branchblock->simply_reachable, blkcnt);
-    } else {
-      for(int i = 0; i < (blkcnt + 7) >> 3; i++)
-        blk->simply_reachable[i] |= blk->branchblock->simply_reachable[i];
-    }
-  }
-  if(!blk->simply_reachable) blk->simply_reachable = bfalloc(blkcnt);
-  bfset(blk->simply_reachable, blk->domind);
-}
-static void calcbackblocks(BBLOCK* blk, PROGRAM* prog) {
-  blk->back_reachable = bfalloc(prog->allblocks->length + 1);
-  for(int i = 0; i < prog->allblocks->length; i++) {
-    BBLOCK* possbackblock = daget(prog->allblocks, i);
-    if(possbackblock != blk) continue;
-    if(bfget(blk->simply_reachable, possbackblock->domind) && !bfget(possbackblock->simply_reachable, blk->domind)) {
-      bfset(blk->back_reachable, possbackblock->domind);
-    }
-  }
-}
-
-static void reducedreachable(PROGRAM* prog) {
-  BBLOCK* b = daget(prog->allblocks, 0);
-  rrblk(b, prog->allblocks->length + 1);
-  for(int i = 0; i < prog->allblocks->length; i++) {
-    BBLOCK* blk = daget(prog->allblocks, i);
-    blk->visited = 0;
-    calcbackblocks(blk, prog);
-  }
-}
-
 static char isreachable(BBLOCK* src, BBLOCK* dest, BITFIELD bf) {
   if(bfget(bf, src->domind))
     return 0;
@@ -151,7 +111,6 @@ void liveness(PROGRAM* prog) {
       }
     )
   )
-  reducedreachable(prog);
 
   lastuse(prog, usedefchains);
 
