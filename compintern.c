@@ -50,6 +50,13 @@ IDTYPE* fcid2(IDTYPE* idt) {
   return idr;
 }
 
+static EXPRESSION* allocexpr(EXPRTYPE ext, IDTYPE* rettype) {
+    EXPRESSION* retval = malloc(sizeof(EXPRESSION));
+    retval->type = ext;
+    retval->rettype = rettype;
+    return retval;
+}
+
 //fully clone pointerstack
 DYNARR* ptrdaclone(DYNARR* opointerstack) {
   DYNARR* npointerstack = dactor(opointerstack->maxlength);
@@ -98,16 +105,12 @@ DYNARR* ptrdaclone(DYNARR* opointerstack) {
 }
 
 EXPRESSION* ct_nop_expr(void) {
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = NOP;
-  retval->rettype = NULL;
+  EXPRESSION* retval = allocexpr(NOP, NULL);
   return retval;
 }
 
 EXPRESSION* ct_unary_expr(EXPRTYPE t, EXPRESSION* param) {
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = t;
-  retval->rettype = NULL;
+  EXPRESSION* retval = allocexpr(t, NULL);
   retval->params = dactor(1);
   retval->params->arr[0] = param;
   retval->params->length = 1;
@@ -120,17 +123,13 @@ EXPRESSION* ct_sztype(IDTYPE* whichtype) {
     free(whichtype);
     return ic;
   }
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = SZOF;
-  retval->rettype = NULL;
+  EXPRESSION* retval = allocexpr(SZOF, NULL);
   retval->vartype = whichtype;
   return retval;
 }
 
 EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2) {
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = t;
-  retval->rettype = NULL;
+  EXPRESSION* retval = allocexpr(t, NULL);
   retval->params = dactor(2);
   retval->params->arr[0] = param1;
   retval->params->arr[1] = param2;
@@ -139,19 +138,16 @@ EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2) {
 }
 
 EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr) {
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = CAST;
+  EXPRESSION* retval = allocexpr(CAST, type);
   retval->params = dactor(1);
   retval->params->arr[0] = expr;
   retval->params->length = 1;
-  retval->rettype = retval->vartype = type;
+  retval->vartype = type;
   return retval;
 }
 
 EXPRESSION* ct_ternary_expr(EXPRESSION* param1, EXPRESSION* param2, EXPRESSION* param3) {
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = TERNARY;
-  retval->rettype = NULL;
+  EXPRESSION* retval = allocexpr(TERNARY, NULL);
   retval->params = dactor(3);
   retval->params->arr[0] = param1;
   retval->params->arr[1] = param2;
@@ -186,9 +182,7 @@ EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params) {
 }
 
 EXPRESSION* ct_strconst_expr(const char* str) {
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = STRING;
-  retval->rettype = malloc(sizeof(IDTYPE));
+  EXPRESSION* retval = allocexpr(STRING, malloc(sizeof(IDTYPE)));
   retval->rettype->pointerstack = dactor(1);
   dapushc(retval->rettype->pointerstack, mkdeclpart(POINTERSPEC, 0));
   retval->rettype->tb = 1 | UNSIGNEDNUM;
@@ -197,25 +191,19 @@ EXPRESSION* ct_strconst_expr(const char* str) {
 }
 
 EXPRESSION* ct_intconst_expr(long num) { 
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = INT;
+  EXPRESSION* retval = allocexpr(INT, NULL);
   retval->intconst = num;
-  retval->rettype = NULL;
   return retval;
 }
 
 EXPRESSION* ct_uintconst_expr(unsigned long num) {
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = UINT;
-  retval->rettype = NULL;
+  EXPRESSION* retval = allocexpr(UINT, NULL);
   retval->uintconst = num;
   return retval;
 }
 
 EXPRESSION* ct_floatconst_expr(double num) {
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = FLOAT;
-  retval->rettype = malloc(sizeof(IDTYPE));
+  EXPRESSION* retval = allocexpr(FLOAT, malloc(sizeof(IDTYPE)));
   retval->rettype->pointerstack = NULL;
   retval->rettype->tb = 8 | FLOATNUM;
   retval->floatconst = num;
@@ -223,24 +211,19 @@ EXPRESSION* ct_floatconst_expr(double num) {
 }
 
 EXPRESSION* ct_array_lit(DYNARR* da) {
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = ARRAY_LIT;
-  retval->rettype = NULL;
+  EXPRESSION* retval = allocexpr(ARRAY_LIT, NULL);
   retval->params = da;
   return retval;
 }
 
 EXPRESSION* ct_member_expr(char* member) {
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = MEMBER;
-  retval->rettype = NULL;
+  EXPRESSION* retval = allocexpr(MEMBER, NULL);
   retval->member = member;
   return retval;
 }
 
 EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident) {
-  EXPRESSION* retval = malloc(sizeof(EXPRESSION));
-  retval->type = IDENT;
+  EXPRESSION* retval = allocexpr(IDENT, NULL);
   IDENTIFIERINFO* ids = scopesearch(lct, M_VARIABLE, ident);
   if(!ids) {
     if(!lct->func) {
