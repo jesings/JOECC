@@ -1397,19 +1397,25 @@ int unionlen(USTRUCT* u) {
       u->size = -1;
       DYNARR* mm = u->fields;
       DYNARR* newmm = dactor(mm->maxlength);
+
+      //Otherwise, get the size of the largest member
       for(int i = 0; i < mm->length; i++) {
         DECLARATION* mmi = daget(mm, i);
         int esize;
         char keepmmi = 1;
+
+        //if it's a pointer, then the size is known easily
         if(ispointer(mmi->type)) {
           esize = 8;
           dapush(newmm, mmi);
         } else {
           TYPEBITS mtb = mmi->type->tb;
+          //if it's an anonymous struct/union member, then figure that out
           if(mtb & (STRUCTVAL | UNIONVAL)) {
             mtb & STRUCTVAL ? feedstruct(mmi->type->structtype) : unionlen(mmi->type->uniontype);
             if(mmi->type->tb & ANONMEMB) {
               DYNARR* anonf = mmi->type->structtype->fields;
+              //do each member in the anonymous struct/union to populate the offset
               for(int j = 0; j < anonf->length; j++) {
                 DECLARATION* mmi2 = daget(anonf, j);
                 STRUCTFIELD* sf = search(mmi->type->structtype->offsets, mmi2->varname);
@@ -1437,8 +1443,11 @@ int unionlen(USTRUCT* u) {
             dapush(newmm, mmi);
           }
         }
+
+        //if the size is greater then overwrite
         if(esize > u->size)
           u->size = esize;
+        //if we want to populate the offsets (for anything but anonymous struct stuff)
         if(keepmmi) {
           STRUCTFIELD* sf = malloc(sizeof(STRUCTFIELD));
           sf->type = mmi->type;
