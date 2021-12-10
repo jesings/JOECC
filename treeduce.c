@@ -79,6 +79,23 @@ char purestmt(STATEMENT* stmt) {
  * some work will need to be done in order to ignore circular dependencies
  * This is left for later, for now no functions are pure
  */
+char purecmpnd(STATEMENT* cmpndbody) {
+    assert(cmpndbody->type == CMPND);
+    for(int i = 0; i < cmpndbody->stmtsandinits->length; i++) {
+      SOI* s = cmpndbody->stmtsandinits->arr[i];
+      if(s->isstmt) {
+          if(purestmt(s->state)) return 1;
+          //check if assign to local nonderef'd variable, or fcall to other pure function?
+      } else {
+        for(int j = 0; j < s->init->length; j++) {
+          EXPRESSION* assigned_expr = ((INITIALIZER*) s->init->arr[j])->expr;
+          if(puritree(assigned_expr)) return 1;
+          //check if assign to local nonderef'd variable, or fcall to other pure function?
+        }
+      }
+    }
+    return 0;
+}
 
 //Checks whether two IDTYPEs are compatible
 char typequality(IDTYPE* t1, IDTYPE* t2) {
