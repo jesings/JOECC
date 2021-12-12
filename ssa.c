@@ -54,17 +54,24 @@ static void dfpdt(BBLOCK* root) {
   if(!root) return;
   if(root->visited) return;
   root->visited = 1;
+
+  //recursively handle immediately dominated nodes
   if(root->idominates)
     for(int i = 0; i < root->idominates->length; i++)
       dfpdt(daget(root->idominates, i));
+
   root->df = dactor(8);
+  //if the children aren't immediately dominated, they're in the dominance frontier
   if(root->nextblock && root->nextblock->dom != root) { //only excludes last node
     dapush(root->df, root->nextblock);
   }
   if(root->branchblock && root->branchblock->dom != root) {
     dapush(root->df, root->branchblock);
   }
+
   if(root->idominates) {
+    //for each immediately dominated node of the root node, for each node in its dominance frontier, 
+    //add to the root node's dominance frontier if its not already there
     for(int j = 0; j < root->idominates->length; j++) {
       BBLOCK* ib = daget(root->idominates, j);
       for(int k = 0; k < ib->df->length; k++) {
@@ -85,6 +92,7 @@ static void dfpdt(BBLOCK* root) {
   }
 }
 
+//TODO: I think ternary phis aren't getting renamed right
 //rename all registers in block based on SSA
 static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
   if(!block || block->visited) return;
@@ -97,6 +105,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
     while(1) {
       switch(op->opcode) {
         OPS_3_3ac OPS_3_PTRDEST_3ac
+          //rename second input operand if it's a variable
           if(op->addr1_type & ISVAR) {
             bdarr = daget(S, op->addr1.varnum);
             if(bdarr->length) //in case of addrsvar
@@ -104,6 +113,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
           }
           __attribute__((fallthrough));
         OPS_2_3ac case ADDR_3:
+          //rename first input operand if it's a variable
           if(op->addr0_type & ISVAR) {
             bdarr = daget(S, op->addr0.varnum);
             if(bdarr->length) 
@@ -111,6 +121,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
           }
           __attribute__((fallthrough));
         case CALL_3: case PHI: /*must have constant input in alloc_3*/
+          //rename destination operand if it's a variable. if it is not a dereference, generate a new name
           if(op->dest_type & ISVAR) {
             bdarr = daget(S, op->dest.varnum);
             if(bdarr->length) {
@@ -126,6 +137,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
           }
           break;
         OPS_NODEST_3ac
+          //rename second input operand if it's a variable
           if(op->addr1_type & ISVAR) {
             bdarr = daget(S, op->addr1.varnum);
             if(bdarr->length) //in case of addrsvar
@@ -136,6 +148,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
           if(op->addr0_type & GARBAGEVAL) break;
           __attribute__((fallthrough));
         case DEALOC:
+          //rename first input operand if it's a variable
           if(op->addr0_type & ISVAR) {
             bdarr = daget(S, op->addr0.varnum);
             if(bdarr->length) 
@@ -143,6 +156,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
           }
           break;
         OPS_1_ASSIGN_3ac
+          //rename destination operand, if the variable is never dereferenced, do a bunch of asserts and rename
           if(op->dest_type & ISVAR) {
             FULLADDR* fad = daget(prog->dynvars, op->dest.varnum);
             if(!(fad->addr_type & ADDRSVAR)) {
@@ -167,6 +181,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
       op = op->nextop;
     }
   }
+
   if(block->nextblock && block->nextblock->lastop) {
     int i = -1;
     while(daget(block->nextblock->inedges, ++i) != block) ;
