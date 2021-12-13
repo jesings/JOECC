@@ -366,9 +366,9 @@ void ssa(PROGRAM* prog) {
     cb->work = 0;
   }
   //no need to handle globals
-  DYNARR* varas = dactor(prog->dynvars->length);
-  for(int i = 0; i < varas->maxlength; i++)
-    dapushc(varas, dactor(16)); //initialize array for blocks that modify var
+  DYNARR* var_modifying_blocks = dactor(prog->dynvars->length);
+  for(int i = 0; i < var_modifying_blocks->maxlength; i++)
+    dapushc(var_modifying_blocks, dactor(16)); //initialize array for blocks that modify var
   //variable modification annotation, pass 1
   LOOPALLBLOCKS(
     switch(op->opcode) {
@@ -381,14 +381,14 @@ void ssa(PROGRAM* prog) {
       OPS_3_3ac OPS_2_3ac case CALL_3:
       //ARRMOV, MTP_OFF, COPY_3 must have pointer dest
         if((op->dest_type & (ISVAR | ISDEREF | ADDRSVAR)) == ISVAR) {
-          DYNARR* dda = daget(varas, op->dest.varnum);
+          DYNARR* dda = daget(var_modifying_blocks, op->dest.varnum);
           if(!dda->length || dapeek(dda) != blk)
             dapush(dda, blk);
         }
         break;
       OPS_1_ASSIGN_3ac
         if(!(op->dest_type & ADDRSVAR)) {
-          DYNARR* dda = daget(varas, op->dest.varnum);
+          DYNARR* dda = daget(var_modifying_blocks, op->dest.varnum);
           dapush(dda, blk);
         }
       default:
@@ -403,7 +403,7 @@ void ssa(PROGRAM* prog) {
     ++itercount;
     FULLADDR* fadr = daget(prog->dynvars, i);
     if(fadr->addr_type & ADDRSVAR) continue;
-    DYNARR* blockassigns = daget(varas, i);
+    DYNARR* blockassigns = daget(var_modifying_blocks, i);
     for(int j = 0; j < blockassigns->length; j++) {
       BBLOCK* block = daget(blockassigns, j);
       block->work = itercount;
@@ -441,20 +441,20 @@ void ssa(PROGRAM* prog) {
   }
 
   //variable renaming, pass 3
-  int* C = calloc(sizeof(int), varas->length);
-  for(int i = 0; i < varas->length; i++) {
-    DYNARR* da = daget(varas, i);
+  int* C = calloc(sizeof(int), var_modifying_blocks->length);
+  for(int i = 0; i < var_modifying_blocks->length; i++) {
+    DYNARR* da = daget(var_modifying_blocks, i);
     //convert each DYNARR* into a DYNINT*
     da->length = 0;
     da->maxlength *= sizeof(void*) / sizeof(int);
   }
-  rrename(first, C, varas, prog);
+  rrename(first, C, var_modifying_blocks, prog);
   for(int i = 0; i < blocks->length; i++) {
     BBLOCK* cb = daget(blocks, i);
     cb->visited = 0;
   }
 
-  dadtorcfr(varas, (void(*)(void*))didtor);
+  dadtorcfr(var_modifying_blocks, (void(*)(void*))didtor);
   free(C);
   prog->pdone |= SSA;
 }
@@ -494,10 +494,10 @@ static void freeq(EQONTAINER* eq) {
   free(eq);
 }
 
-static VALUESTRUCT* valdup(VALUESTRUCT* millenial) {
-  VALUESTRUCT* boomer = malloc(sizeof(VALUESTRUCT));
-  memcpy(boomer, millenial, sizeof(VALUESTRUCT));
-  return boomer;
+static VALUESTRUCT* valdup(VALUESTRUCT* original) {
+  VALUESTRUCT* duplicate = malloc(sizeof(VALUESTRUCT));
+  memcpy(duplicate, original, sizeof(VALUESTRUCT));
+  return duplicate;
 }
 
 //find which equivalence node, if any, this address corresponds to, and create one if it corresponds to nothing extant
