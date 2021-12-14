@@ -182,6 +182,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
     }
   }
 
+  //for nextblock, rename the values within the PHI, based on this block's names
   if(block->nextblock && block->nextblock->lastop) {
     int i = -1;
     while(daget(block->nextblock->inedges, ++i) != block) ;
@@ -199,6 +200,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
       op = op->nextop;
     }
   }
+  //for branch, rename the values within the PHI, based on this block's names
   if(block->branchblock && block->branchblock->lastop) {
     int i = -1;
     while(daget(block->branchblock->inedges, ++i) != block) ;
@@ -212,8 +214,12 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
       op = op->nextop;
     }
   }
+
+  //Recurse on nextblock and branchblock
   rrename(block->nextblock, C, S, prog);
   rrename(block->branchblock, C, S, prog);
+
+  //free dynint "assigns" and associated resources in S
   if(assigns) {
     for(int i = 0; i < assigns->length; i++) {
       int l = diget(assigns, i);
@@ -225,26 +231,38 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
 
 void ssa(PROGRAM* prog) {
   DYNARR* blocks = prog->allblocks;
+  //reset flags in each block
   for(int i = 0; i < blocks->length; i++) {
     BBLOCK* dtn = daget(blocks, i);
     dtn->visited = 0;
     dtn->domind = -1;
   }
+
+  //construct utility lists
   BBLOCK** blocklist = calloc(sizeof(BBLOCK*), blocks->length + 1);
   BBLOCK* first = daget(blocks, 0);
-  first->dom = first;
+
+  //populate dominator information for the first block in the CFG
+  first->dom = first; //we set the first block's dominator to be itself for simplifying later algorithms
   first->domind = 1;
+
+  //Recursively populate dominator tree for other blocks
   int ind = blocks->length;
   rpdt(first->nextblock, blocklist, &ind);
   rpdt(first->branchblock, blocklist, &ind);
+  
+  //reset flags in blocks, mark unreachable blocks for removal
   for(int i = 0; i < blocks->length; i++) {
     BBLOCK* dtn = daget(blocks, i);
     if(dtn->domind == -1) domark(dtn);
   }
+
+  //remove unreachable blocks
   int oldlen = blocks->length;
   rmunreach(prog);
   blocks = prog->allblocks;
 
+  //find immediate dominators for each block, keep looping until nothing has changed since last iter.
   char changed = 1;
   while(changed) {
     changed = 0;
@@ -256,6 +274,7 @@ void ssa(PROGRAM* prog) {
       for(int i = 0; i < cb->inedges->length; i++) {
         BBLOCK* pred = daget(cb->inedges, i);
         if(pred->dom) {
+          //find the last shared predecessor of each parent block and the previously thought idominator
           if(new_idom) {
             new_idom = intersect(pred, new_idom);
           } else {
@@ -270,6 +289,7 @@ void ssa(PROGRAM* prog) {
     }
   }
 
+  //reset flags in each block
   for(int i = 0; i < blocks->length; i++) {
     BBLOCK* dtn = daget(blocks, i);
     dtn->visited = 0;
@@ -278,11 +298,14 @@ void ssa(PROGRAM* prog) {
   }
 
   ind = blocks->length;
+  //if we don't have a final block (we're in an infinite loop and the final block was freed)
+  //Then make a dummy one for simplifying some other code.
   if(!prog->finalblock) {
     prog->finalblock = mpblk(); //pseudo final block
     ind++;
     //dapush(prog->allblocks, prog->finalblock);
   }
+
   prog->finalblock->postdom = prog->finalblock;
   rupdt(prog->finalblock, blocklist, &ind);
   if(ind > 0) {
