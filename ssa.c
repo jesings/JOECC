@@ -303,11 +303,14 @@ void ssa(PROGRAM* prog) {
   if(!prog->finalblock) {
     prog->finalblock = mpblk(); //pseudo final block
     ind++;
-    //dapush(prog->allblocks, prog->finalblock);
   }
 
+  //now populate postdominator information
   prog->finalblock->postdom = prog->finalblock;
+  //recursively update from finalblock
   rupdt(prog->finalblock, blocklist, &ind);
+
+  //if we haven't processed all the blocks we used a pseudo-final block
   if(ind > 0) {
     for(int i = 0; i < blocks->length; i++) {
       BBLOCK* blk = daget(blocks, i);
@@ -320,6 +323,7 @@ void ssa(PROGRAM* prog) {
       }
       blk->visited = 0;
     }
+    //recursively find postdominators for the edges with backedges that we found
     for(int i = 0; i < prog->finalblock->inedges->length; i++)
       rupdt(daget(prog->finalblock->inedges, i), blocklist, &ind);
     prog->finalblock->visited = 0;
@@ -329,7 +333,10 @@ void ssa(PROGRAM* prog) {
       blk->visited = 0;
     }
   }
+
+  //now actually populate the postdom field
   changed = 1;
+  //recurse until none of the postdominators are incorrect
   while(changed) {
     changed = 0;
     for(int i = ind; i < blocks->length; i++) {
@@ -339,6 +346,7 @@ void ssa(PROGRAM* prog) {
       if(cb->nextblock) {
         if(!cb->branchblock) new_pidom = cb->nextblock;
         else {
+          //same logic as normal dominator
           if(cb->nextblock->postdom) {
             if(cb->branchblock && cb->branchblock->postdom)
               new_pidom = postintersect(cb->branchblock, cb->nextblock);
@@ -360,6 +368,7 @@ void ssa(PROGRAM* prog) {
   free(blocklist);
   //populate in parents
   first->visited = 0;
+  //Construct dominator tree structure by allocating lists of immediately dominated nodes for every nonleaf
   for(int i = 1; i < blocks->length; i++) {//start at one so as not to let start block idominate itself
     BBLOCK* cb = daget(blocks, i);
     if(cb->dom) {
@@ -369,6 +378,8 @@ void ssa(PROGRAM* prog) {
     }
     cb->visited = 0;
   }
+
+  //Construct postdominator tree structure by allocating lists of immediately postdominated nodes for every nonleaf
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     BBLOCK* pdblk = blk->postdom;
@@ -378,6 +389,8 @@ void ssa(PROGRAM* prog) {
     if(!pdblk->pidominates) pdblk->pidominates = dactor(8);
     dapush(pdblk->pidominates, blk);
   }
+
+  //say finalblock doesn't postdominate itself
   if(prog->finalblock->pidominates) {
     dharma(prog->finalblock->pidominates, prog->finalblock);
   }
