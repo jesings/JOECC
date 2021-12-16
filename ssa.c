@@ -435,30 +435,43 @@ void ssa(PROGRAM* prog) {
   //join node insertion, pass 2
   DYNARR* W = dactor(blocks->length);
   int itercount = 0;
+
+  //TODO: figure out what this is actually doing for commenting it right
+  //for each ssa reg
   for(int i = 0; i < prog->dynvars->length; i++) {
     ++itercount;
     FULLADDR* fadr = daget(prog->dynvars, i);
     if(fadr->addr_type & ADDRSVAR) continue;
+
+    //find which blocks modify it
     DYNARR* blockassigns = daget(var_modifying_blocks, i);
     for(int j = 0; j < blockassigns->length; j++) {
       BBLOCK* block = daget(blockassigns, j);
+      //work here shows the most recent variable that this block modifies(?)
       block->work = itercount;
       dapush(W, block);
     }
+
     BBLOCK* initblock = daget(blockassigns, 0);
+    //for each modifying block, with some other things pushed
     for(int j = 0; j < W->length; j++) {
       BBLOCK* block = daget(W, j);
       if(block->df) {
+        //for each block in the modifying block's dominance frontier
         for(int k = 0; k < block->df->length; k++) {
           BBLOCK* domblock = daget(block->df, k);
+
+          //if the block has not been visited yet, it's not its own dominance frontier value, and it is not the finalblock
           if(domblock->visited < itercount && initblock != domblock && fixedintersect(initblock, domblock) && domblock != prog->finalblock) {
             ADDRESS jadr;
             jadr.joins = malloc(domblock->inedges->length * sizeof(FULLADDR));
+            //prepend phi to the block
             OPERATION* phi = ct_3ac_op2(PHI, ISCONST, jadr, fadr->addr_type, fadr->addr);
             phi->nextop = domblock->firstop;
             if(!domblock->lastop) domblock->lastop = phi;
             domblock->firstop = phi;
             domblock->visited = itercount;
+            //if the block has not been edited yet for this variable, then put it back on the list??????????
             if(domblock->work < itercount) {
               domblock->work = itercount;
               dapushc(W, domblock);
@@ -484,6 +497,8 @@ void ssa(PROGRAM* prog) {
     da->length = 0;
     da->maxlength *= sizeof(void*) / sizeof(int);
   }
+  
+  //now rename registers recursively
   rrename(first, C, var_modifying_blocks, prog);
   for(int i = 0; i < blocks->length; i++) {
     BBLOCK* cb = daget(blocks, i);
