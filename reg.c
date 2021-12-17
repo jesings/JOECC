@@ -11,6 +11,23 @@ const char* ireg8[] = {"al", "bl", "cl", "dl", "dil", "sil", "bpl", "spl", "r8b"
 const char* freg128[] = {"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"};
 const char* freg256[] = {"ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7", "ymm8", "ymm9", "ymm10", "ymm11", "ymm12", "ymm13", "ymm14", "ymm15"};
 
+static void liveness_populate(PROGRAM* prog) {
+  LOOPALLBLOCKS(
+    BITFIELD tvbf = bfalloc(prog->allblocks->length + 1);
+    DYNARR* recstack = dactor(8);
+    dapush(recstack, blk);
+    while(recstack->length) {
+      BBLOCK* db = dapop(recstack);
+      if(bfget(tvbf, db->domind)) continue;
+      bfset(tvbf, db->domind);
+      if(db->nextblock && db->nextblock->domind > db->domind)
+        dapush(recstack, db->nextblock);
+      if(db->branchblock && db->branchblock->domind > db->domind)
+        dapush(recstack, db->branchblock);
+    }
+  )
+}
+
 static char isreachable(BBLOCK* src, BBLOCK* dest, BITFIELD bf) {
   if(bfget(bf, src->domind))
     return 0;
