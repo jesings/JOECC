@@ -11,21 +11,28 @@ const char* ireg8[] = {"al", "bl", "cl", "dl", "dil", "sil", "bpl", "spl", "r8b"
 const char* freg128[] = {"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"};
 const char* freg256[] = {"ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7", "ymm8", "ymm9", "ymm10", "ymm11", "ymm12", "ymm13", "ymm14", "ymm15"};
 
-static void liveness_populate(PROGRAM* prog) {
-  LOOPALLBLOCKS(
+static DYNARR* liveness_populate(PROGRAM* prog) {
+  DYNARR* blockvals = dactor(prog->allblocks->length);
+  blockvals->length = blockvals->maxlength;
+  for(int blkind = 0; blkind < prog->allblocks->length; blkind++) {
+    BBLOCK* blk = daget(prog->allblocks, blkind);
     BITFIELD tvbf = bfalloc(prog->allblocks->length + 1);
     DYNARR* recstack = dactor(8);
+
+    //for each node in the dominance subtree, add its domind to the bitfield
     dapush(recstack, blk);
     while(recstack->length) {
       BBLOCK* db = dapop(recstack);
-      if(bfget(tvbf, db->domind)) continue;
       bfset(tvbf, db->domind);
-      if(db->nextblock && db->nextblock->domind > db->domind)
-        dapush(recstack, db->nextblock);
-      if(db->branchblock && db->branchblock->domind > db->domind)
-        dapush(recstack, db->branchblock);
+      if(db->idominates) 
+        for(int i = 0; i < db->idominates->length; i++)
+          dapush(recstack, daget(db->idominates, i));
     }
-  )
+    bfunset(tvbf, blk->domind);
+    dadtor(recstack);
+    blockvals->arr[blk->domind] = tvbf;
+  }
+  return blockvals;
 }
 
 static char isreachable(BBLOCK* src, BBLOCK* dest, BITFIELD bf) {
@@ -67,6 +74,8 @@ void lastuse(PROGRAM* prog, DYNARR** chains);
 
 void liveness(PROGRAM* prog) {
   DYNARR** usedefchains = calloc(prog->regcnt, sizeof(DYNARR*)); //could be reduced by renaming registers downwards first
+  DYNARR* foobar = liveness_populate(prog);
+  dadtorfr(foobar);
   LOOPALLBLOCKS(
     OPARGCASES(
       if(!(op->addr0_type & (ISDEREF | ISLABEL | ISCONST | GARBAGEVAL))) {
