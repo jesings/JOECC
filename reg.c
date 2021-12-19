@@ -16,18 +16,23 @@ static DYNARR* liveness_populate(PROGRAM* prog) {
   blockvals->length = blockvals->maxlength;
   for(int blkind = 0; blkind < prog->allblocks->length; blkind++) {
     BBLOCK* blk = daget(prog->allblocks, blkind);
-    BITFIELD tvbf = bfalloc(prog->allblocks->length + 1);
+    BITFIELD tvbf = bfalloc(prog->allblocks->length);
     DYNARR* recstack = dactor(8);
 
-    //for each node in the dominance subtree, add its domind to the bitfield
+    //for each node in the dominance subtree, if it doesn't require a backedge path
     dapush(recstack, blk);
     while(recstack->length) {
       BBLOCK* db = dapop(recstack);
       bfset(tvbf, db->domind);
-      if(db->idominates) 
-        for(int i = 0; i < db->idominates->length; i++)
-          dapush(recstack, daget(db->idominates, i));
+      if(db->idominates) {
+        for(int dominatedind = 0; dominatedind < db->idominates->length; dominatedind++) {
+          BBLOCK* dominated = daget(db->idominates, dominatedind);
+          if(dominated->domind > db->domind)
+            dapush(recstack, dominated);
+        }
+      }
     }
+
     bfunset(tvbf, blk->domind);
     dadtor(recstack);
     blockvals->arr[blk->domind] = tvbf;
