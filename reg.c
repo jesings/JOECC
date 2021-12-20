@@ -80,83 +80,83 @@ void lastuse(PROGRAM* prog, DYNARR** chains);
 void liveness(PROGRAM* prog) {
   DYNARR** usedefchains = calloc(prog->regcnt, sizeof(DYNARR*)); //could be reduced by renaming registers downwards first
   DYNARR* foobar = liveness_populate(prog);
+  //LOOPALLBLOCKS(
+  //  OPARGCASES(
+  //    if(!(op->addr0_type & (ISDEREF | ISLABEL | ISCONST | GARBAGEVAL))) {
+  //      DYNARR* chain;
+  //      unsigned int reg = op->addr0.regnum;
+  //      assert(reg < prog->regcnt);
+  //      assert((chain = usedefchains[reg])); //forward use that is not a phi
+  //      if(chain != (DYNARR*) -1) {
+  //        if(dapeek(chain) != blk)
+  //          dapush(chain, blk); //prevent adjacent duplicates
+  //      }
+  //    },
+  //    if(!(op->addr1_type & (ISDEREF | ISLABEL | ISCONST))) {
+  //      DYNARR* chain;
+  //      unsigned int reg = op->addr1.regnum;
+  //      assert(reg < prog->regcnt);
+  //      assert((chain = usedefchains[reg])); //forward use that is not a phi
+  //      if(chain != (DYNARR*) -1) {
+  //        if(dapeek(chain) != blk)
+  //          dapush(chain, blk); //prevent adjacent duplicates
+  //      }
+  //    },
+  //    if(!(op->dest_type & (ISDEREF | ISLABEL))) {
+  //      DYNARR* chain;
+  //      unsigned int reg = op->dest.regnum;
+  //      assert(reg < prog->regcnt);
+
+  //      if(op->dest_type & ADDRSVAR) {
+  //        usedefchains[reg] = (DYNARR*) -1;
+  //      } else {
+  //        chain = usedefchains[reg];
+  //        if(chain != (DYNARR*) -1) {
+  //          if(chain) {
+  //            assert(daget(chain, 0) == NULL);
+  //          } else {
+  //            chain = usedefchains[reg] = dactor(8);
+  //            chain->length = 1;
+  //          }
+  //          chain->arr[0] = blk;
+  //        }
+  //      }
+  //    },
+  //    if(!(phijoinaddr->addr_type & (ISDEREF | ISLABEL | ISCONST))) {
+  //      DYNARR* chain;
+  //      unsigned int reg = phijoinaddr->addr.regnum;
+  //      assert(reg < prog->regcnt);
+  //      if((chain = usedefchains[reg])) {
+  //        if(chain != (DYNARR*) -1) {
+  //          if(dapeek(chain) != blk) {
+  //            dapush(chain, blk); //prevent adjacent duplicates
+  //          }
+  //        }
+  //      } else {
+  //        chain = usedefchains[reg] = dactor(8);
+  //        chain->length = 2;
+  //        chain->arr[0] = NULL;
+  //        chain->arr[1] = blk;
+  //      }
+  //    }
+  //  )
+  //)
   dadtorfr(foobar);
-  LOOPALLBLOCKS(
-    OPARGCASES(
-      if(!(op->addr0_type & (ISDEREF | ISLABEL | ISCONST | GARBAGEVAL))) {
-        DYNARR* chain;
-        unsigned int reg = op->addr0.regnum;
-        assert(reg < prog->regcnt);
-        assert((chain = usedefchains[reg])); //forward use that is not a phi
-        if(chain != (DYNARR*) -1) {
-          if(dapeek(chain) != blk)
-            dapush(chain, blk); //prevent adjacent duplicates
-        }
-      },
-      if(!(op->addr1_type & (ISDEREF | ISLABEL | ISCONST))) {
-        DYNARR* chain;
-        unsigned int reg = op->addr1.regnum;
-        assert(reg < prog->regcnt);
-        assert((chain = usedefchains[reg])); //forward use that is not a phi
-        if(chain != (DYNARR*) -1) {
-          if(dapeek(chain) != blk)
-            dapush(chain, blk); //prevent adjacent duplicates
-        }
-      },
-      if(!(op->dest_type & (ISDEREF | ISLABEL))) {
-        DYNARR* chain;
-        unsigned int reg = op->dest.regnum;
-        assert(reg < prog->regcnt);
 
-        if(op->dest_type & ADDRSVAR) {
-          usedefchains[reg] = (DYNARR*) -1;
-        } else {
-          chain = usedefchains[reg];
-          if(chain != (DYNARR*) -1) {
-            if(chain) {
-              assert(daget(chain, 0) == NULL);
-            } else {
-              chain = usedefchains[reg] = dactor(8);
-              chain->length = 1;
-            }
-            chain->arr[0] = blk;
-          }
-        }
-      },
-      if(!(phijoinaddr->addr_type & (ISDEREF | ISLABEL | ISCONST))) {
-        DYNARR* chain;
-        unsigned int reg = phijoinaddr->addr.regnum;
-        assert(reg < prog->regcnt);
-        if((chain = usedefchains[reg])) {
-          if(chain != (DYNARR*) -1) {
-            if(dapeek(chain) != blk) {
-              dapush(chain, blk); //prevent adjacent duplicates
-            }
-          }
-        } else {
-          chain = usedefchains[reg] = dactor(8);
-          chain->length = 2;
-          chain->arr[0] = NULL;
-          chain->arr[1] = blk;
-        }
-      }
-    )
-  )
+  //lastuse(prog, usedefchains);
 
-  lastuse(prog, usedefchains);
-
-  LOOPALLBLOCKS(
-    OPARGCASES(
-      ,
-      ,
-      if(!(op->dest_type & (ISLABEL | ISCONST | GARBAGEVAL | ISDEREF)) && op->dest_type & LASTUSE &&  op->opcode != CALL_3) {
-        if(op->opcode == PHI) free(op->addr0.joins);
-        op->opcode = NOP_3;
-      }
-      ,
-      (void) phijoinaddr;
-    )
-  )
+  //LOOPALLBLOCKS(
+  //  OPARGCASES(
+  //    ,
+  //    ,
+  //    if(!(op->dest_type & (ISLABEL | ISCONST | GARBAGEVAL | ISDEREF)) && op->dest_type & LASTUSE &&  op->opcode != CALL_3) {
+  //      if(op->opcode == PHI) free(op->addr0.joins);
+  //      op->opcode = NOP_3;
+  //    }
+  //    ,
+  //    (void) phijoinaddr;
+  //  )
+  //)
 
   //liveadjmatrix(prog, usedefchains);
 
