@@ -27,8 +27,11 @@ static void liveness_populate(PROGRAM* prog, DYNARR* nobacks, DYNARR* backs) {
       if(db->idominates) {
         for(int dominatedind = 0; dominatedind < db->idominates->length; dominatedind++) {
           BBLOCK* dominated = daget(db->idominates, dominatedind);
-          if(dominated->domind > db->domind)
+          if(dominated->domind > db->domind) {
             dapush(recstack, dominated);
+          } else {
+            //it is a back edge target!
+          }
         }
       }
     }
@@ -82,6 +85,10 @@ void liveness(PROGRAM* prog) {
   DYNARR* forward_targets = dactor(prog->allblocks->length);
   DYNARR* backwards_targets = dactor(prog->allblocks->length);
   liveness_populate(prog, forward_targets, backwards_targets);
+  
+  //from this populated information, maintain a list of live variables in a DFS through the graph, rechecking liveness in/out
+  //for each node that we visit within the DFS.
+
   //LOOPALLBLOCKS(
   //  OPARGCASES(
   //    if(!(op->addr0_type & (ISDEREF | ISLABEL | ISCONST | GARBAGEVAL))) {
@@ -202,7 +209,7 @@ static void adjmatrixset(BITFIELD bf, int dim, int reg1, int reg2) {
   bfset(bf, reg2 * dim + reg1);
 }
 
-//treat multiple consecutive phi statements as if they copy at the same time for the sake of liveness, register allocation
+//We need to treat multiple consecutive phi statements as if they copy at the same time for the sake of liveness, register allocation
 //this is because there's much more flexibility if we do this
 BITFIELD liveadjmatrix(PROGRAM* prog, DYNARR** usedefs) {
   int dim = prog->regcnt;
