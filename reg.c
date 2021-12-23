@@ -17,7 +17,9 @@ static void liveness_populate(PROGRAM* prog, DYNARR* nobacks, DYNARR* backs) {
   for(int blkind = 0; blkind < prog->allblocks->length; blkind++) {
     BBLOCK* blk = daget(prog->allblocks, blkind);
     BITFIELD tvbf = bfalloc(prog->allblocks->length);
+    BITFIELD tvbfb = bfalloc(prog->allblocks->length);
     DYNARR* recstack = dactor(8);
+    DYNARR* backprocstack = dactor(8);
 
     //for each node in the dominance subtree, if it doesn't require a backedge path
     dapush(recstack, blk);
@@ -36,8 +38,17 @@ static void liveness_populate(PROGRAM* prog, DYNARR* nobacks, DYNARR* backs) {
       }
     }
 
+    while(backprocstack->length) {
+      BBLOCK* db = dapop(backprocstack);
+      bfset(tvbfb, db->domind);
+      if(db->idominates) {
+          //?
+      }
+    }
+
     bfunset(tvbf, blk->domind);
     dadtor(recstack);
+    dadtor(backprocstack);
     nobacks->arr[blk->domind] = tvbf;
     backs->arr[blk->domind] = bfalloc(prog->allblocks->length);
   }
