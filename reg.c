@@ -50,7 +50,7 @@ static void liveness_populate(PROGRAM* prog, DYNARR* nobacks, DYNARR* backs) {
     dadtor(recstack);
     dadtor(backprocstack);
     nobacks->arr[blk->domind] = tvbf;
-    backs->arr[blk->domind] = bfalloc(prog->allblocks->length);
+    backs->arr[blk->domind] = tvbfb;
   }
 }
 

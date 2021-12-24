@@ -1456,23 +1456,34 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                     }
                   } else {
                     int prevleader = (long) fixedsearch(blk->leader, actionable.p1);
+                    int origp1 = actionable.p1;
                     provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, prevleader) : 0;
                     if(provisional.regnum) actionable.p1 = nodefromaddr(eq, phi->dest_type, provisional, prog)->index;
-                    int equivind = 0;
-                    DYNARR* equivlist = ((GVNNUM*) daget(eq->uniq_vals, actionable.p1))->equivs;
-                    while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p1))) {
-                      VALUESTRUCT* vs;
-                      //TODO: This is currently subject to a bug
-                      //The bug occurs when a computation that depends on a computation is part of the same antileader_in
-                      //Now that the ordering has been taken care of, there still appears to be an issue with the revtranslator
-                      //Essentially, actionable.p1 is getting modified when it shouldn't be, because provisional.regnum is being
-                      //set when it shouldn't be. More debugging is necessary to track down this error.
-                      do {
-                        assert(equivind < equivlist->length);
-                        vs = daget(equivlist, equivind++);
-                      } while(vs->o != INIT_3);
-                      provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, vs->p1) : 0;
-                      if(provisional.regnum) actionable.p1 = nodefromaddr(eq, phi->dest_type, provisional, prog)->index;
+                    while(1) {
+                      int beginp1 = actionable.p1;
+                      int equivind = 0;
+                      DYNARR* equivlist = ((GVNNUM*) daget(eq->uniq_vals, actionable.p1))->equivs;
+                      while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p1))) {
+                        VALUESTRUCT* vs;
+                        //TODO: This is currently subject to a bug
+                        //The bug occurs when a computation that depends on a computation is part of the same antileader_in
+                        //Now that the ordering has been taken care of, there still appears to be an issue with the revtranslator
+                        //Essentially, actionable.p1 is getting modified when it shouldn't be, because provisional.regnum is being
+                        //set when it shouldn't be. More debugging is necessary to track down this error.
+                        do {
+                          if(equivind >= equivlist->length)
+                              goto trynext;
+                          vs = daget(equivlist, equivind++);
+                        } while(vs->o != INIT_3);
+                        provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, vs->p1) : 0;
+                        if(provisional.regnum) actionable.p1 = nodefromaddr(eq, phi->dest_type, provisional, prog)->index;
+                      }
+                      break;
+
+trynext:
+                      assert(beginp1 != origp1);
+                      beginp1 = origp1;
+                      actionable.p1 = beginp1;
                     }
                     genop->addr0_type = genop->dest_type;
                     genop->addr0.regnum = leadreg;
