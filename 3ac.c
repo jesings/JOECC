@@ -473,6 +473,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
   OPERATION* genop;
 
   switch(cexpr->type){
+    //for these literal cases we don't need to do much
     case STRING:
       curaddr.addr_type = ISCONST | ISSTRCONST | ISPOINTER | 0x8;
       curaddr.addr.strconst = cexpr->strconst;
@@ -489,8 +490,11 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       curaddr.addr_type = ISCONST | ISFLOAT | ISSIGNED | 0x8;
       curaddr.addr.floatconst_64 = cexpr->floatconst;
       return curaddr;
+
+    //in the case of an identifier, get some information about it based on scope
     case IDENT:
       if(cexpr->id->index < 0) {
+        //if it's a global variable
         if(cexpr->id->index == -2) {
           curaddr.addr_type = 8 | ISLABEL;
         } else {
@@ -501,6 +505,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       } else {
         return *(FULLADDR*) daget(prog->dynvars, cexpr->id->index);
       }
+
+    //Array literals can also serve to initialize VLAs (TODO: check), so more work must be done for them
     case ARRAY_LIT:
       FILLREG(destaddr, ISPOINTER | 0x8);
       struct declarator_part* ptrtop = dapeek(cexpr->rettype->pointerstack);
@@ -562,6 +568,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         }
       }
       return destaddr;
+
+    //process a struct literal including its initializing members
     case STRUCT_LIT:
       FILLREG(destaddr, ISPOINTER | 0x8);
       curaddr.addr.uintconst_64 = cexpr->rettype->structtype->size;
@@ -593,6 +601,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         opn(prog, ct_3ac_op3(MTP_OFF, curaddr.addr_type, curaddr.addr, ISCONST | 0x8, otheraddr.addr, destaddr.addr_type, destaddr.addr));
       }
       return destaddr;
+
+    //for simple unary operations we just need to use the output of the operand easily
     case NEG:
       curaddr = linearitree(daget(cexpr->params, 0), prog);
       FILLREG(destaddr, curaddr.addr_type & GENREGMASK);
