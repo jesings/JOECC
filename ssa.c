@@ -1497,11 +1497,10 @@ trynext:
                 oblk->firstop = oblk->lastop = genop;
               }
 
-              GVNNUM* destlead = nodefromaddr(eq, genop->dest_type, genop->dest, prog);
-              if(destlead->hasconst == NOCONST) {
-                assert(!fixedqueryval(oblk->leader, destlead->index));
+              if(antilnode->hasconst == NOCONST) {
+                assert(!fixedqueryval(oblk->leader, antilnode->index));
 
-                recdomins(oblk, destlead->index, (void*) (long) genop->dest.regnum);
+                recdomins(oblk, antilnode->index, (void*) (long) genop->dest.regnum);
                 if(!oblk->translator) oblk->translator = htctor();
                 if(!oblk->revtranslator) oblk->revtranslator = htctor();
                 fixedinsert(oblk->revtranslator, phi->dest.regnum, (void*) (long) genop->dest.regnum);
