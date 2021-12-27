@@ -1425,11 +1425,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                     DYNARR* equivlist = ((GVNNUM*) daget(eq->uniq_vals, actionable.p2))->equivs;
                     while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p2))) {
                       VALUESTRUCT* vs;
-                      //TODO: This is currently subject to a bug
-                      //The bug occurs when a computation that depends on a computation is part of the same antileader_in
-                      //Now that the ordering has been taken care of, there still appears to be an issue with the revtranslator
-                      //Essentially, actionable.p2 is getting modified when it shouldn't be, because provisional.regnum is being
-                      //set when it shouldn't be. More debugging is necessary to track down this error.
+                      //TODO: Once the below operand1 one is fixed copy it up here
                       do {
                         assert(equivind < equivlist->length);
                         vs = daget(equivlist, equivind++);
@@ -1465,11 +1461,10 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                       DYNARR* equivlist = ((GVNNUM*) daget(eq->uniq_vals, actionable.p1))->equivs;
                       while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p1))) {
                         VALUESTRUCT* vs;
-                        //TODO: This is currently subject to a bug
-                        //The bug occurs when a computation that depends on a computation is part of the same antileader_in
-                        //Now that the ordering has been taken care of, there still appears to be an issue with the revtranslator
-                        //Essentially, actionable.p1 is getting modified when it shouldn't be, because provisional.regnum is being
-                        //set when it shouldn't be. More debugging is necessary to track down this error.
+                        //TODO: This used to be subject to a bug wherein we too eagerly translated the values across phi.
+                        //This also used to not assign the new generated calculations  to the same value. These bugs have been fixed.
+                        //However because we now assign them to the same value they currently are not correctly understood as the 
+                        //leaders of those values. this means that they get nop-ified.
                         do {
                           if(equivind >= equivlist->length)
                               goto trynext;
