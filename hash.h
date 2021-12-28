@@ -76,5 +76,6 @@ void fixedinsertfr(HASHTABLE* ht, long fixedkey, void* value);
 void* fixedsearch(HASHTABLE* ht, long fixedkey);
 char fixedqueryval(HASHTABLE* ht, long fixedkey);
 void intsert(HASHTABLE* ht, const char* key, long value);
+void printfht(HASHTABLE* ht);
 #endif
 

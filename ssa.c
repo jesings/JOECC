@@ -1384,7 +1384,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
             BBLOCK* oblk = daget(blk->inedges, j);
             if(oblk == daget(stubbornblocks, stubbornindex)) {
               stubbornindex++;
-              int stubbornval = (int) (long) fixedsearch(oblk->leader, antilnode->index);
+              int stubbornval = (int) (long) fixedsearch(oblk->leader, antiint);
               joins.joins[j].addr_type = phi->dest_type;
               joins.joins[j].addr.regnum = stubbornval;
             } else {
@@ -1493,13 +1493,14 @@ trynext:
               }
 
               if(antilnode->hasconst == NOCONST) {
-                assert(!fixedqueryval(oblk->leader, antilnode->index));
+                assert(!fixedqueryval(oblk->leader, antiint));
 
-                recdomins(oblk, antilnode->index, (void*) (long) genop->dest.regnum);
+                //recdomins(oblk, antiint, (void*) (long) genop->dest.regnum);
                 if(!oblk->translator) oblk->translator = htctor();
                 if(!oblk->revtranslator) oblk->revtranslator = htctor();
                 fixedinsert(oblk->revtranslator, phi->dest.regnum, (void*) (long) genop->dest.regnum);
                 fixedinsert(oblk->translator, genop->dest.regnum, (void*) (long) phi->dest.regnum);
+                fixedinsert(oblk->leader, antiint, (void*) (long) genop->dest.regnum);
               }
 
               //insert calculation of value here in predecessor block
@@ -1556,6 +1557,12 @@ void gvn(PROGRAM* prog) {
   while(antics(prog->finalblock, prog, eq)) ;
   //buildsets calculated
   while(hoist(prog, eq)) ;
+  for(int i = 0; i < prog->allblocks->length; i++) {
+    BBLOCK* blk = daget(prog->allblocks, i);
+    printf("block %d leaders:", blk->domind);
+    printfht(blk->leader);
+    printf("\n");
+  }
   replacegvn(eq, prog);
   freeq(eq);
   prog->pdone |= GVN;

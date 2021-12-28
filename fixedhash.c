@@ -1,4 +1,5 @@
 #include "hash.h"
+#include <stdio.h>
 static unsigned long fixedhash(long data) {
   data = (data ^ (data >> 30)) * 0xbf58476d1ce4e5b9l;
   data = (data ^ (data >> 27)) * 0x94d049bb133111ebl;
@@ -224,4 +225,17 @@ void* frmpair(HASHTABLE* ht, long fixedkey) {
     prev = hp;
   }
   return rv;
+}
+
+void printfht(HASHTABLE* ht) {
+  printf("{");
+  for(int i = 0; i < HASHSIZE; i++) {
+    HASHPAIR* hp = &ht->pairs[i];
+    if(hp->next) {
+      do {
+        printf("%ld: %lx, ", hp->fixedkey, (long) hp->value);
+      } while((long) (hp = hp->next) >  1);
+    }
+  }
+  printf("}");
 }
