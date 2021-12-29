@@ -1389,6 +1389,10 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
               joins.joins[j].addr.regnum = stubbornval;
             } else {
               VALUESTRUCT actionable = *antil;
+              VALUESTRUCT genvalue;
+              genvalue.o = actionable.o;
+              genvalue.p2 = 0;
+              genvalue.size2 = 0;
               ADDRESS provisional;
               OPERATION* genop = malloc(sizeof(OPERATION));
               int leadreg;
@@ -1434,7 +1438,8 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                       if(provisional.regnum) actionable.p2 = nodefromaddr(eq, phi->dest_type, provisional, prog)->index;
                     }
                     genop->addr1_type = genop->dest_type;
-                    genop->addr1.regnum = leadreg;
+                    genvalue.p2 = genop->addr1.regnum = leadreg;
+                    genvalue.size2 = supersize(genop->dest_type);
                   }
                 __attribute__((fallthrough));
                 OPS_2_3ac
@@ -1481,7 +1486,8 @@ trynext:
                       actionable.p1 = beginp1;
                     }
                     genop->addr0_type = genop->dest_type;
-                    genop->addr0.regnum = leadreg;
+                    genvalue.p1 = genop->addr0.regnum = leadreg;
+                    genvalue.size1 = supersize(genop->dest_type);
                   }
                   break;
               }
@@ -1501,6 +1507,8 @@ trynext:
                 fixedinsert(oblk->revtranslator, phi->dest.regnum, (void*) (long) genop->dest.regnum);
                 fixedinsert(oblk->translator, genop->dest.regnum, (void*) (long) phi->dest.regnum);
                 fixedinsert(oblk->leader, antiint, (void*) (long) genop->dest.regnum);
+                bigfinsertfr(eq->ophash, (char*) ctvalstruct(INIT_3, genop->dest.regnum, 0, supersize(genop->dest_type), 0), antilnode, sizeof(VALUESTRUCT));
+                bigfinsertfr(eq->ophash, (char*) valdup(&genvalue), antilnode, sizeof(VALUESTRUCT));
               }
 
               //insert calculation of value here in predecessor block
@@ -1557,12 +1565,6 @@ void gvn(PROGRAM* prog) {
   while(antics(prog->finalblock, prog, eq)) ;
   //buildsets calculated
   while(hoist(prog, eq)) ;
-  for(int i = 0; i < prog->allblocks->length; i++) {
-    BBLOCK* blk = daget(prog->allblocks, i);
-    printf("block %d leaders:", blk->domind);
-    printfht(blk->leader);
-    printf("\n");
-  }
   replacegvn(eq, prog);
   freeq(eq);
   prog->pdone |= GVN;
