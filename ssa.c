@@ -683,12 +683,13 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
       for(int k = 0; k < blk->inedges->length; k++) {
         FULLADDR* fadrs = op->addr0.joins;
         val = nodefromaddr(eq, fadrs[k].addr_type, fadrs[k].addr, prog);
+        HASHTABLE* predled = ((BBLOCK*) daget(blk->inedges, k))->leader;
         if(val) {
           if(val->hasconst != NOCONST) {
             fadrs[k].addr_type = (fadrs[k].addr_type & GENREGMASK) | ISCONST;
             fadrs[k].addr.intconst_64 = val->intconst; //could be anything
-          } else if(fixedqueryval(leader, val->index)) {
-              fadrs[k].addr.regnum = (long) fixedsearch(leader, val->index);
+          } else if(fixedqueryval(predled, val->index)) {
+              fadrs[k].addr.regnum = (long) fixedsearch(predled, val->index);
           }
         }
       }
@@ -1423,19 +1424,31 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                     }
                   } else {
                     int prevleader = (long) fixedsearch(blk->leader, actionable.p2);
+                    int origp2 = actionable.p2;
                     provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, prevleader) : 0;
                     if(provisional.regnum) actionable.p2 = nodefromaddr(eq, phi->dest_type, provisional, prog)->index;
-                    int equivind = 0;
-                    DYNARR* equivlist = ((GVNNUM*) daget(eq->uniq_vals, actionable.p2))->equivs;
-                    while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p2))) {
-                      VALUESTRUCT* vs;
-                      //TODO: Once the below operand1 one is fixed copy it up here
-                      do {
-                        assert(equivind < equivlist->length);
-                        vs = daget(equivlist, equivind++);
-                      } while(vs->o != INIT_3);
-                      provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, vs->p1) : 0;
-                      if(provisional.regnum) actionable.p2 = nodefromaddr(eq, phi->dest_type, provisional, prog)->index;
+                    while(1) {
+                      char contflag = 0;
+                      int beginp2 = actionable.p2;
+                      int equivind = 0;
+                      DYNARR* equivlist = ((GVNNUM*) daget(eq->uniq_vals, actionable.p2))->equivs;
+                      while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p2))) {
+                        VALUESTRUCT* vs;
+                        do {
+                          if(equivind >= equivlist->length) {
+                              assert(beginp2 != origp2);
+                              beginp2 = origp2;
+                              actionable.p2 = beginp2;
+                              contflag = 1;
+                              break;
+                          }
+                          vs = daget(equivlist, equivind++);
+                        } while(vs->o != INIT_3);
+                        if(contflag) break;
+                        provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, vs->p1) : 0;
+                        if(provisional.regnum) actionable.p2 = nodefromaddr(eq, phi->dest_type, provisional, prog)->index;
+                      }
+                      if(!contflag) break;
                     }
                     genop->addr1_type = genop->dest_type;
                     genvalue.p2 = genop->addr1.regnum = leadreg;
@@ -1461,29 +1474,29 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                     provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, prevleader) : 0;
                     if(provisional.regnum) actionable.p1 = nodefromaddr(eq, phi->dest_type, provisional, prog)->index;
                     while(1) {
+                      char contflag = 0;
                       int beginp1 = actionable.p1;
                       int equivind = 0;
                       DYNARR* equivlist = ((GVNNUM*) daget(eq->uniq_vals, actionable.p1))->equivs;
                       while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p1))) {
                         VALUESTRUCT* vs;
-                        //TODO: This used to be subject to a bug wherein we too eagerly translated the values across phi.
+                        //Done: This used to be subject to a bug wherein we too eagerly translated the values across phi.
                         //This also used to not assign the new generated calculations  to the same value. These bugs have been fixed.
-                        //However because we now assign them to the same value they currently are not correctly understood as the 
-                        //leaders of those values. this means that they get nop-ified.
                         do {
-                          if(equivind >= equivlist->length)
-                              goto trynext;
+                          if(equivind >= equivlist->length) {
+                              assert(beginp1 != origp1);
+                              beginp1 = origp1;
+                              actionable.p1 = beginp1;
+                              contflag = 1;
+                              break;
+                          }
                           vs = daget(equivlist, equivind++);
                         } while(vs->o != INIT_3);
+                        if(contflag) break;
                         provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, vs->p1) : 0;
                         if(provisional.regnum) actionable.p1 = nodefromaddr(eq, phi->dest_type, provisional, prog)->index;
                       }
-                      break;
-
-trynext:
-                      assert(beginp1 != origp1);
-                      beginp1 = origp1;
-                      actionable.p1 = beginp1;
+                      if(!contflag) break;
                     }
                     genop->addr0_type = genop->dest_type;
                     genvalue.p1 = genop->addr0.regnum = leadreg;
