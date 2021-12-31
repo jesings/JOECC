@@ -2,6 +2,9 @@
 #include <assert.h>
 #include "opt.h"
 #include "ssa.h"
+
+//marks a block as unreachable by setting its dominance index to a dummy value of -1,
+//and eliminates all edges going from it
 void domark(BBLOCK* blk) {
   blk->domind = -1;
   if(blk->nextblock) {
@@ -14,22 +17,7 @@ void domark(BBLOCK* blk) {
   }
 }
 
-char markunreach(DYNARR* pb) {
-  char marked = 0;
-  char changed = 0;
-  do {
-    //ignore first block
-    for(int i = 1; i < pb->length; i++) {
-      BBLOCK* poss = daget(pb, i);
-      if(poss->domind == -1) continue;
-      if(poss->inedges->length == 0) {
-        changed = 1;
-        domark(poss);
-      }
-    }
-  } while(changed-- && (marked = 1));
-  return marked;
-}
+//removes all blocks that have been marked as unreachable
 void rmunreach(PROGRAM* prog) {
   DYNARR* oldall = prog->allblocks;
   DYNARR* newall = dactor(oldall->length);
@@ -50,7 +38,7 @@ void rmunreach(PROGRAM* prog) {
 //http://ssabook.gforge.inria.fr/latest/book.pdf
 //https://iitd-plos.github.io/col729/lec/loop_transformations.html
 
-//folds in blocks that only have one predecessor and one successor, while trying to maintain simplified block form
+//folds in blocks that only have one predecessor and one successor, while trying to maintain simplified block form (i.e. without creating any critical edges)
 void blockunblock(PROGRAM* prog) {
   for(int i = 1; i < prog->allblocks->length - 1; i++) {
     BBLOCK* curblock = daget(prog->allblocks, i);
@@ -87,6 +75,7 @@ void blockunblock(PROGRAM* prog) {
   }
 }
 
+//This should be an extremely self explanatory function
 char remove_nops(PROGRAM* prog) {
   DYNARR* da = prog->allblocks;
   for(int i = 0; i < da->length; i++) {
@@ -602,6 +591,10 @@ int countops(PROGRAM* prog) {
   return opcount;
 }
 
+/**
+ * Splits blocks up so as to break up any critical edges. A critical edge is one coming from a block with more than one
+ * outbound edge, and going to a block with more than one inbound edge. The resulting CFG is said to be in simplified form
+**/
 void splitcrit(PROGRAM* prog) {
   int blen = prog->allblocks->length;
   for(int i = 0; i < blen; i++) {
@@ -629,6 +622,7 @@ void splitcrit(PROGRAM* prog) {
   } 
 }
 
+//Does not yet but will perform tail call elimination optimization
 void tailcall(PROGRAM* prog) {
   //assume prog actually returns a value if this is being called
   for(int i = 0; i < prog->finalblock->inedges->length; i++) {
