@@ -1620,7 +1620,7 @@ void printprog(PROGRAM* prog) {
 
 //Formats and prints a whole function to graphviz, connecting up basic blocks into a graph structure
 void treeprog(PROGRAM* prog, char* fname, const char* pass) {
-  mkdir("functions", 0777);
+  mkdir("functions", 0744);
   char filen[256];
   sprintf(filen, "functions/%s_%s.dot", fname, pass);
   FILE* f = fopen(filen, "w");
