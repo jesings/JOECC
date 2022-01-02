@@ -21,7 +21,21 @@ void display_block(PROGRAM* prog, BBLOCK* blk) {
   char readchar;
   while(read(STDIN_FILENO, &readchar, 1) > 0) {
     puts(CLEAR);
+    //figure out raw arrow keys?
     switch(readchar) {
+      case '\x1b':
+        //escape character
+	goto cleanup;
+      case 'w':
+        break;
+      case 'a':
+        break;
+      case 's':
+        break;
+      case 'd':
+        break;
+      default:
+	break;
     }
   }
 
