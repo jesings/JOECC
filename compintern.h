@@ -16,6 +16,14 @@
 
 extern DYNARR* includepath;
 
+typedef struct {
+  int line_start;
+  int column_start;
+  int line_end;
+  int column_end;
+  char* file;
+} LOCTYPE;
+
 /**
  * An enum describing a bitfield with a bunch of information about the type of an AST value.
  * The lowest 4 bits in this enum are not listed here, they describe the number of bytes of the value.
@@ -186,6 +194,7 @@ typedef struct expr {
     double floatconst;
     IDENTIFIERINFO* id;
   };
+  LOCTYPE location;
 } EXPRESSION;
 
 
@@ -267,6 +276,7 @@ typedef struct {
 **/
 typedef struct stmt {
   enum stmttype type;
+  LOCTYPE location;
   union {
     EXPRESSION* expression;
     struct { //if or if/else

@@ -37,6 +37,11 @@ void display_block(PROGRAM* prog, BBLOCK* blk) {
       default:
 	break;
     }
+
+    //print block... shortened?
+    //print liveness information
+    //print dominance information
+    //print location information
   }
 
 cleanup:
