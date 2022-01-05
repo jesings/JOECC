@@ -803,10 +803,11 @@ SOI* soii(DYNARR* init) {
   return retval;
 }
 
-STATEMENT* mkexprstmt(enum stmttype type, EXPRESSION* express) {
+STATEMENT* mkexprstmt(enum stmttype type, EXPRESSION* express, LOCTYPE* loc) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = type;
   retval->expression = express;
+  retval->location = *loc;
   return retval;
 }
 

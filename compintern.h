@@ -16,12 +16,12 @@
 
 extern DYNARR* includepath;
 
-typedef struct {
-  int line_start;
-  int column_start;
-  int line_end;
-  int column_end;
-  char* file;
+typedef struct yyltype {
+  int first_line;
+  int last_line;
+  int first_column;
+  int last_column;
+  char* filename;
 } LOCTYPE;
 
 /**
@@ -515,7 +515,7 @@ DECLARATION* mkdeclaration(char* name);
 INITIALIZER* geninit(DECLARATION* decl, EXPRESSION* expr);
 SOI* sois(struct stmt* state);
 SOI* soii(DYNARR* init);
-STATEMENT* mkexprstmt(enum stmttype type, EXPRESSION* express);
+STATEMENT* mkexprstmt(enum stmttype type, EXPRESSION* express, LOCTYPE* loc);
 STATEMENT* mknopstmt(void);
 STATEMENT* mkgotostmt(char* gotoloc);
 STATEMENT* mkforstmt(EOI* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy);

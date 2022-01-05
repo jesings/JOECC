@@ -39,8 +39,7 @@
   #include "parallel.h"
   #include "treeduce.h"
 
-  struct yyltype {int first_line, last_line, first_column, last_column; char* filename;};
-  #define YYLTYPE struct yyltype
+  #define YYLTYPE LOCTYPE
 
   #define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
   #define dget(param, index) ((DECLARATION*) (param)->arr[(index)])
@@ -924,11 +923,11 @@ statement:
     scopepush(ctx);
     } dee  ee ';' ee ')' statement {$$ = mkforstmt($4, $5, $7, $9); scopepop(ctx);}
 | "goto" SYMBOL ';' {$$ = mkgotostmt($2);}
-| "break" ';' {$$ = mkexprstmt(LBREAK,NULL);}
-| "continue" ';' {$$ = mkexprstmt(LCONT,NULL);}
-| "return" ';' {$$ = mkexprstmt(FRET,NULL);}
-| "return" expression ';' {$$ = mkexprstmt(FRET,$2);}
-| expression ';' {$$ = mkexprstmt(EXPR,$1);}
+| "break" ';' {$$ = mkexprstmt(LBREAK, NULL, yyget_lloc(scanner));}
+| "continue" ';' {$$ = mkexprstmt(LCONT, NULL, yyget_lloc(scanner));}
+| "return" ';' {$$ = mkexprstmt(FRET, NULL, yyget_lloc(scanner));}
+| "return" expression ';' {$$ = mkexprstmt(FRET, $2, yyget_lloc(scanner));}
+| expression ';' {$$ = mkexprstmt(EXPR, $1, yyget_lloc(scanner));}
 | "asm" '(' multistring ')' ';' {$$ = mkasmstmt($3->strptr, NULL, NULL, NULL); free($3);}
 | "asm" '(' multistring ':' operands ')' ';' {$$ = mkasmstmt($3->strptr, $5, NULL, NULL); free($3);}
 | "asm" '(' multistring ':' operands ':' operands ')' ';' {$$ = mkasmstmt($3->strptr, $5, $7, NULL); free($3);}
