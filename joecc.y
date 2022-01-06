@@ -873,7 +873,7 @@ function:
     '{' soiorno '}' {
     scopepop(ctx);
     $$ = $3;
-    $$->body = mkcmpndstmt($5); 
+    $$->body = mkcmpndstmt($5, yyget_lloc(scanner)); 
     ctx->func = NULL;
     };
 clobberlist:
@@ -903,26 +903,26 @@ statement:
       snprintf(caselbl, 128, "__joecc__%s__%d", ctx->func->name, (ctx->func->caseindex)++);
       dapushc(cases, sois(mkcasestmt(ctx, ct_intconst_expr(i), caselbl)));
     }
-    $$ = mkcmpndstmt(cases);
+    $$ = mkcmpndstmt(cases, yyget_lloc(scanner));
     }
 | "default" ':' {
     char* caselbl = malloc(128);
     snprintf(caselbl, 128, "__joecc__%s__default__%d", ctx->func->name, (ctx->func->caseindex)++);
     $$ = mkdefaultstmt(ctx, caselbl);
     }
-| "if" '(' expression ')' statement %prec THEN {$$ = mkifstmt($3, $5, NULL);}
-| "if" '(' expression ')' statement "else" statement {$$ = mkifstmt($3, $5, $7);}
+| "if" '(' expression ')' statement %prec THEN {$$ = mkifstmt($3, $5, NULL, yyget_lloc(scanner));}
+| "if" '(' expression ')' statement "else" statement {$$ = mkifstmt($3, $5, $7, yyget_lloc(scanner));}
 | "switch" '(' expression ')' switch_midrule compound_statement {
     SWITCHINFO* swi = dapop(ctx->func->switchstack);
-    $$ = mkswitchstmt($3, $6, swi);
+    $$ = mkswitchstmt($3, $6, swi, yyget_lloc(scanner));
     free(swi);
     }
-| "while" '(' expression ')' statement {$$ = mklsstmt(WHILEL, $3, $5);}
-| "do" statement "while" '(' expression ')' ';' {$$ = mklsstmt(DOWHILEL, $5, $2);}
+| "while" '(' expression ')' statement {$$ = mklsstmt(WHILEL, $3, $5, yyget_lloc(scanner));}
+| "do" statement "while" '(' expression ')' ';' {$$ = mklsstmt(DOWHILEL, $5, $2, yyget_lloc(scanner));}
 | "for" '(' {
     scopepush(ctx);
-    } dee  ee ';' ee ')' statement {$$ = mkforstmt($4, $5, $7, $9); scopepop(ctx);}
-| "goto" SYMBOL ';' {$$ = mkgotostmt($2);}
+    } dee  ee ';' ee ')' statement {$$ = mkforstmt($4, $5, $7, $9, yyget_lloc(scanner)); scopepop(ctx);}
+| "goto" SYMBOL ';' {$$ = mkgotostmt($2, yyget_lloc(scanner));}
 | "break" ';' {$$ = mkexprstmt(LBREAK, NULL, yyget_lloc(scanner));}
 | "continue" ';' {$$ = mkexprstmt(LCONT, NULL, yyget_lloc(scanner));}
 | "return" ';' {$$ = mkexprstmt(FRET, NULL, yyget_lloc(scanner));}
@@ -941,7 +941,7 @@ dee:
 | ee ';' {$$ = malloc(sizeof(EOI)); $$->isE = 1; $$->E = $1;};
 compound_statement:/*add new scope to scope stack, remove when done*/
   '{' compound_midrule soiorno'}' {
-    $$ = mkcmpndstmt($3); 
+    $$ = mkcmpndstmt($3, yyget_lloc(scanner)); 
     scopepop(ctx);
     };
 compound_midrule: %empty {

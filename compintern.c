@@ -817,42 +817,46 @@ STATEMENT* mknopstmt(void) {
   return retval;
 }
 
-STATEMENT* mkgotostmt(char* gotoloc) {
+STATEMENT* mkgotostmt(char* gotoloc, LOCTYPE* loc) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = JGOTO;
   retval->glabel = gotoloc;
+  retval->location = *loc;
   return retval;
 }
 
-STATEMENT* mkforstmt(EOI* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy) {
+STATEMENT* mkforstmt(EOI* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy, LOCTYPE* loc) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = FORL;
   retval->forinit = e1;
   retval->forcond = e2;
   retval->increment = e3;
   retval->forbody = bdy;
+  retval->location  = *loc;
   return retval;
 }
 
-STATEMENT* mklsstmt(enum stmttype type, EXPRESSION* condition, STATEMENT* bdy) {
+STATEMENT* mklsstmt(enum stmttype type, EXPRESSION* condition, STATEMENT* bdy, LOCTYPE* loc) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = type;
   retval->cond = condition;
   retval->body = bdy;
+  retval->location = *loc;
   return retval;
 }
 
-STATEMENT* mkswitchstmt(EXPRESSION* contingent, STATEMENT* bdy, SWITCHINFO* swi) {
+STATEMENT* mkswitchstmt(EXPRESSION* contingent, STATEMENT* bdy, SWITCHINFO* swi, LOCTYPE* loc) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = SWITCH;
   retval->cond = contingent;
   retval->body = bdy;
   retval->labeltable = swi->cases;
   retval->defaultlbl = swi->defaultval;
+  retval->location = *loc;
   return retval;
 }
 
-STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy) {
+STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy, LOCTYPE* loc) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->ifcond = condition;
   retval->thencond = ifbdy;
@@ -862,13 +866,15 @@ STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy)
   } else {
     retval->type = IFS;
   }
+  retval->location = *loc;
   return retval;
 }
 
-STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits) {
+STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits, LOCTYPE* loc) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = CMPND;
   retval->stmtsandinits = stmtsandinits;
+  retval->location = *loc;
   return retval;
 }
 
