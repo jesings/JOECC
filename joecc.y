@@ -889,25 +889,25 @@ operands:
 | operandlist {$$ = $1;};
 statement:
   compound_statement {$$ = $1;}
-|  SYMBOL ':' {$$ = mklblstmt(ctx, $1);}
+|  SYMBOL ':' {$$ = mklblstmt(ctx, $1, @1);}
 | "case" esc ':' { 
     char* caselbl = malloc(128);
     snprintf(caselbl, 128, "__joecc__%s__%d", ctx->func->name, (ctx->func->caseindex)++);
-    $$ = mkcasestmt(ctx, $2, caselbl);
+    $$ = mkcasestmt(ctx, $2, caselbl, @$);
     }
 | "case" INTEGER_LITERAL "..." INTEGER_LITERAL ':' {
     DYNARR* cases = dactor($4 - $2 + 1);
     for(int i = $2; i <= $4; i++) {
       char* caselbl = malloc(128);
       snprintf(caselbl, 128, "__joecc__%s__%d", ctx->func->name, (ctx->func->caseindex)++);
-      dapushc(cases, sois(mkcasestmt(ctx, ct_intconst_expr(i), caselbl)));
+      dapushc(cases, sois(mkcasestmt(ctx, ct_intconst_expr(i), caselbl, @$)));
     }
     $$ = mkcmpndstmt(cases, @$);
     }
 | "default" ':' {
     char* caselbl = malloc(128);
     snprintf(caselbl, 128, "__joecc__%s__default__%d", ctx->func->name, (ctx->func->caseindex)++);
-    $$ = mkdefaultstmt(ctx, caselbl);
+    $$ = mkdefaultstmt(ctx, caselbl, @1);
     }
 | "if" '(' expression ')' statement %prec THEN {$$ = mkifstmt($3, $5, NULL, @$);}
 | "if" '(' expression ')' statement "else" statement {$$ = mkifstmt($3, $5, $7, @$);}

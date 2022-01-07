@@ -878,7 +878,7 @@ STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits, LOCTYPE loc) {
   return retval;
 }
 
-STATEMENT* mklblstmt(struct lexctx* lct, char* lblval) {
+STATEMENT* mklblstmt(struct lexctx* lct, char* lblval, LOCTYPE loc) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = LABEL;
   retval->glabel = lblval;
@@ -888,7 +888,7 @@ STATEMENT* mklblstmt(struct lexctx* lct, char* lblval) {
   return retval;
 }
 
-STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label) {
+STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label, LOCTYPE loc) {
   PARALLEL* pl = ((SWITCHINFO*) dapeek(lct->func->switchstack))->cases;
   while(foldconst(casexpr)) ;
   switch(casexpr->type) {
@@ -900,12 +900,12 @@ STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label) {
       fprintf(stderr, "Error: case has nonrectifiable value\n");
       assert(0);
   }
-  return mklblstmt(lct, label);
+  return mklblstmt(lct, label, loc);
 }
 
-STATEMENT* mkdefaultstmt(struct lexctx* lct, char* label) {
+STATEMENT* mkdefaultstmt(struct lexctx* lct, char* label, LOCTYPE loc) {
   ((SWITCHINFO*) dapeek(lct->func->switchstack))->defaultval = label;
-  return mklblstmt(lct, label);
+  return mklblstmt(lct, label, loc);
 }
 
 STATEMENT* mkasmstmt(char* asmstmts, DYNARR* outputs, DYNARR* inputs, DYNARR* clobbers) {

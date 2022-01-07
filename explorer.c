@@ -13,7 +13,7 @@ void display_block(PROGRAM* prog, BBLOCK* blk) {
   struct termios new_attrs;
   tcgetattr(STDIN_FILENO, &orig_attrs);
   new_attrs = orig_attrs;
-  new_attrs.c_lflag &= ~(ICANON | ECHO | ECHOE | ECHOK | ECHONL | IEXTEN; //stop cooking the output!
+  new_attrs.c_lflag &= ~(ICANON | ECHO | ECHOE | ECHOK | ECHONL | IEXTEN); //stop cooking the output!
   new_attrs.c_cc[VMIN] = 1; //reads go character by character
   new_attrs.c_cc[VTIME] = 0; //never timeout on the read
 
@@ -35,7 +35,7 @@ void display_block(PROGRAM* prog, BBLOCK* blk) {
       case 'd':
         break;
       default:
-	break;
+	    break;
     }
 
     //print block... shortened?

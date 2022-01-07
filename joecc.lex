@@ -23,7 +23,7 @@ MSTRING \"(\\.|[^\\"]|{SKIPNEWL})*\"
 //#undef YYLTYPE
 //#define YYLTYPE struct yyltype
 
-#define YY_USER_ACTION \
+#define YY_USER_ACTION do {\
   yylloc->first_line = yylloc->last_line; \
   yylloc->first_column = yylloc->last_column; \
   for(int i = 0; i < yyleng; i++) { \
@@ -34,6 +34,8 @@ MSTRING \"(\\.|[^\\"]|{SKIPNEWL})*\"
           yylloc->last_column++; \
       } \
   } \
+  /*yylloc->filename = yyscanner(*/ \
+} while(0);
 
 #undef unput
 #define unput(c, yyscanner) yyunput(c, ((struct yyguts_t*) yyscanner)->yytext_ptr, yyscanner) //fix your damn program flex

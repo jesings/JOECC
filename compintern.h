@@ -523,9 +523,9 @@ STATEMENT* mklsstmt(enum stmttype type, EXPRESSION* condition, STATEMENT* bdy, L
 STATEMENT* mkswitchstmt(EXPRESSION* contingent, STATEMENT* bdy, SWITCHINFO* swi, LOCTYPE loc);
 STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy, LOCTYPE loc);
 STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits, LOCTYPE loc);
-STATEMENT* mklblstmt(struct lexctx* lct, char* lblval);
-STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label);
-STATEMENT* mkdefaultstmt(struct lexctx* lct, char* label);
+STATEMENT* mklblstmt(struct lexctx* lct, char* lblval, LOCTYPE loc);
+STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label, LOCTYPE loc);
+STATEMENT* mkdefaultstmt(struct lexctx* lct, char* label, LOCTYPE loc);
 STATEMENT* mkasmstmt(char* asmstmts, DYNARR* outputs, DYNARR* inputs, DYNARR* clobbers);
 ENUMFIELD* genenumfield(char* name, EXPRESSION* value);
 struct declarator_part* mkdeclpart(enum declpart_info typ, void* d);
