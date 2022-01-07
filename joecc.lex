@@ -20,7 +20,8 @@ MSTRING \"(\\.|[^\\"]|{SKIPNEWL})*\"
 #include "joecc.tab.h"
 #include "compintern.h"
 #include "treeduce.h"
-#define YYLTYPE struct yyltype
+//#undef YYLTYPE
+//#define YYLTYPE struct yyltype
 
 #define YY_USER_ACTION \
   yylloc->first_line = yylloc->last_line; \

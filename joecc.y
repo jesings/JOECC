@@ -78,7 +78,6 @@
   int yylex(YYSTYPE* yst, YYLTYPE* ylt, void* yscanner);
   int yyerror(YYLTYPE* ylt, void* scanner, char* filename, const char* s); //filename is ignored
   void* yyget_extra(void* scanner);
-  struct yyltype* yyget_lloc(void*);
 %}
 
 %initial-action {
@@ -128,7 +127,7 @@ program:
     if(!search(ctx->funcs, cs)) {
       insert(ctx->funcs, cs, $2);
     } else {
-      fprintf(stderr, "Error: redefinition of function %s in %s %d.%d-%d.%d\n", $2->name, locprint(@$));
+      fprintf(stderr, "Error: redefinition of function %s in %s %d.%d-%d.%d\n", $2->name, locprint(@2));
     }
   }
 | program initializer {
@@ -159,7 +158,7 @@ program:
               //TODO: confirm compatibility of prototypes
             }
             if(errorstatus)
-              fprintf(stderr, "Error: redefinition of non-extern global identifier in %s %d.%d-%d.%d\n", locprint(@$));
+              fprintf(stderr, "Error: redefinition of non-extern global identifier in %s %d.%d-%d.%d\n", locprint(@2));
             freeinit(a2);
           }
         }
@@ -179,7 +178,7 @@ initializer:
       } else if($2->tb & UNIONVAL) {
         ht = scopepeek(ctx)->forwardunions;
       } else {
-        fprintf(stderr, "Error: forward declaration of unknown type %s at %s %d.%d-%d.%d\n", $2->structtype->name, locprint(@$));
+        fprintf(stderr, "Error: forward declaration of unknown type %s at %s %d.%d-%d.%d\n", $2->structtype->name, locprint(@2));
       }
       if(ht) {
         da = search(ht, $2->structtype->name);
@@ -873,7 +872,7 @@ function:
     '{' soiorno '}' {
     scopepop(ctx);
     $$ = $3;
-    $$->body = mkcmpndstmt($5, yyget_lloc(scanner)); 
+    $$->body = mkcmpndstmt($5, @$); 
     ctx->func = NULL;
     };
 clobberlist:
@@ -903,31 +902,31 @@ statement:
       snprintf(caselbl, 128, "__joecc__%s__%d", ctx->func->name, (ctx->func->caseindex)++);
       dapushc(cases, sois(mkcasestmt(ctx, ct_intconst_expr(i), caselbl)));
     }
-    $$ = mkcmpndstmt(cases, yyget_lloc(scanner));
+    $$ = mkcmpndstmt(cases, @$);
     }
 | "default" ':' {
     char* caselbl = malloc(128);
     snprintf(caselbl, 128, "__joecc__%s__default__%d", ctx->func->name, (ctx->func->caseindex)++);
     $$ = mkdefaultstmt(ctx, caselbl);
     }
-| "if" '(' expression ')' statement %prec THEN {$$ = mkifstmt($3, $5, NULL, yyget_lloc(scanner));}
-| "if" '(' expression ')' statement "else" statement {$$ = mkifstmt($3, $5, $7, yyget_lloc(scanner));}
+| "if" '(' expression ')' statement %prec THEN {$$ = mkifstmt($3, $5, NULL, @$);}
+| "if" '(' expression ')' statement "else" statement {$$ = mkifstmt($3, $5, $7, @$);}
 | "switch" '(' expression ')' switch_midrule compound_statement {
     SWITCHINFO* swi = dapop(ctx->func->switchstack);
-    $$ = mkswitchstmt($3, $6, swi, yyget_lloc(scanner));
+    $$ = mkswitchstmt($3, $6, swi, @$);
     free(swi);
     }
-| "while" '(' expression ')' statement {$$ = mklsstmt(WHILEL, $3, $5, yyget_lloc(scanner));}
-| "do" statement "while" '(' expression ')' ';' {$$ = mklsstmt(DOWHILEL, $5, $2, yyget_lloc(scanner));}
+| "while" '(' expression ')' statement {$$ = mklsstmt(WHILEL, $3, $5, @$);}
+| "do" statement "while" '(' expression ')' ';' {$$ = mklsstmt(DOWHILEL, $5, $2, @$);}
 | "for" '(' {
     scopepush(ctx);
-    } dee  ee ';' ee ')' statement {$$ = mkforstmt($4, $5, $7, $9, yyget_lloc(scanner)); scopepop(ctx);}
-| "goto" SYMBOL ';' {$$ = mkgotostmt($2, yyget_lloc(scanner));}
-| "break" ';' {$$ = mkexprstmt(LBREAK, NULL, yyget_lloc(scanner));}
-| "continue" ';' {$$ = mkexprstmt(LCONT, NULL, yyget_lloc(scanner));}
-| "return" ';' {$$ = mkexprstmt(FRET, NULL, yyget_lloc(scanner));}
-| "return" expression ';' {$$ = mkexprstmt(FRET, $2, yyget_lloc(scanner));}
-| expression ';' {$$ = mkexprstmt(EXPR, $1, yyget_lloc(scanner));}
+    } dee  ee ';' ee ')' statement {$$ = mkforstmt($4, $5, $7, $9, @$); scopepop(ctx);}
+| "goto" SYMBOL ';' {$$ = mkgotostmt($2, @$);}
+| "break" ';' {$$ = mkexprstmt(LBREAK, NULL, @$);}
+| "continue" ';' {$$ = mkexprstmt(LCONT, NULL, @$);}
+| "return" ';' {$$ = mkexprstmt(FRET, NULL, @$);}
+| "return" expression ';' {$$ = mkexprstmt(FRET, $2, @$);}
+| expression ';' {$$ = mkexprstmt(EXPR, $1, @$);}
 | "asm" '(' multistring ')' ';' {$$ = mkasmstmt($3->strptr, NULL, NULL, NULL); free($3);}
 | "asm" '(' multistring ':' operands ')' ';' {$$ = mkasmstmt($3->strptr, $5, NULL, NULL); free($3);}
 | "asm" '(' multistring ':' operands ':' operands ')' ';' {$$ = mkasmstmt($3->strptr, $5, $7, NULL); free($3);}
@@ -941,7 +940,7 @@ dee:
 | ee ';' {$$ = malloc(sizeof(EOI)); $$->isE = 1; $$->E = $1;};
 compound_statement:/*add new scope to scope stack, remove when done*/
   '{' compound_midrule soiorno'}' {
-    $$ = mkcmpndstmt($3, yyget_lloc(scanner)); 
+    $$ = mkcmpndstmt($3, @$); 
     scopepop(ctx);
     };
 compound_midrule: %empty {

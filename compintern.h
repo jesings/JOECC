@@ -16,7 +16,7 @@
 
 extern DYNARR* includepath;
 
-typedef struct yyltype {
+typedef struct {
   int first_line;
   int last_line;
   int first_column;
@@ -515,14 +515,14 @@ DECLARATION* mkdeclaration(char* name);
 INITIALIZER* geninit(DECLARATION* decl, EXPRESSION* expr);
 SOI* sois(struct stmt* state);
 SOI* soii(DYNARR* init);
-STATEMENT* mkexprstmt(enum stmttype type, EXPRESSION* express, LOCTYPE* loc);
+STATEMENT* mkexprstmt(enum stmttype type, EXPRESSION* express, LOCTYPE loc);
 STATEMENT* mknopstmt(void);
-STATEMENT* mkgotostmt(char* gotoloc, LOCTYPE* loc);
-STATEMENT* mkforstmt(EOI* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy, LOCTYPE* loc);
-STATEMENT* mklsstmt(enum stmttype type, EXPRESSION* condition, STATEMENT* bdy, LOCTYPE* loc);
-STATEMENT* mkswitchstmt(EXPRESSION* contingent, STATEMENT* bdy, SWITCHINFO* swi, LOCTYPE* loc);
-STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy, LOCTYPE* loc);
-STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits, LOCTYPE* loc);
+STATEMENT* mkgotostmt(char* gotoloc, LOCTYPE loc);
+STATEMENT* mkforstmt(EOI* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy, LOCTYPE loc);
+STATEMENT* mklsstmt(enum stmttype type, EXPRESSION* condition, STATEMENT* bdy, LOCTYPE loc);
+STATEMENT* mkswitchstmt(EXPRESSION* contingent, STATEMENT* bdy, SWITCHINFO* swi, LOCTYPE loc);
+STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy, LOCTYPE loc);
+STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits, LOCTYPE loc);
 STATEMENT* mklblstmt(struct lexctx* lct, char* lblval);
 STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label);
 STATEMENT* mkdefaultstmt(struct lexctx* lct, char* label);
@@ -548,8 +548,8 @@ void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* m
 void feedstruct(USTRUCT* s);
 int unionlen(USTRUCT* u);
 
-#define locprint(lv) yyget_lloc(scanner)->filename, lv.first_line, lv.first_column, lv.last_line, lv.last_column
-#define dlocprint(lv) yyget_lloc(scanner)->filename, lv->first_line, lv->first_column, lv->last_line, lv->last_column
+#define locprint(lv) lv.filename, lv.first_line, lv.first_column, lv.last_line, lv.last_column
+#define dlocprint(lv) lv->filename, lv->first_line, lv->first_column, lv->last_line, lv->last_column
 #define locprint2(lv) yyget_lloc(yyscanner)->filename, lv->first_line, lv->first_column, lv->last_line, lv->last_column
 #define ctx ((struct lexctx*) yyget_extra(scanner))
 
