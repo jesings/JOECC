@@ -927,10 +927,10 @@ statement:
 | "return" ';' {$$ = mkexprstmt(FRET, NULL, @$);}
 | "return" expression ';' {$$ = mkexprstmt(FRET, $2, @$);}
 | expression ';' {$$ = mkexprstmt(EXPR, $1, @$);}
-| "asm" '(' multistring ')' ';' {$$ = mkasmstmt($3->strptr, NULL, NULL, NULL); free($3);}
-| "asm" '(' multistring ':' operands ')' ';' {$$ = mkasmstmt($3->strptr, $5, NULL, NULL); free($3);}
-| "asm" '(' multistring ':' operands ':' operands ')' ';' {$$ = mkasmstmt($3->strptr, $5, $7, NULL); free($3);}
-| "asm" '(' multistring ':' operands ':' operands ':' clobbers ')' ';' {$$ = mkasmstmt($3->strptr, $5, $7, $9); free($3);}
+| "asm" '(' multistring ')' ';' {$$ = mkasmstmt($3->strptr, NULL, NULL, NULL, @$); free($3);}
+| "asm" '(' multistring ':' operands ')' ';' {$$ = mkasmstmt($3->strptr, $5, NULL, NULL, @$); free($3);}
+| "asm" '(' multistring ':' operands ':' operands ')' ';' {$$ = mkasmstmt($3->strptr, $5, $7, NULL, @$); free($3);}
+| "asm" '(' multistring ':' operands ':' operands ':' clobbers ')' ';' {$$ = mkasmstmt($3->strptr, $5, $7, $9, @$); free($3);}
 | ';' {$$ = mknopstmt();};
 ee: 
   expression {$$ = $1;}

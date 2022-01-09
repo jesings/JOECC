@@ -908,12 +908,13 @@ STATEMENT* mkdefaultstmt(struct lexctx* lct, char* label, LOCTYPE loc) {
   return mklblstmt(lct, label, loc);
 }
 
-STATEMENT* mkasmstmt(char* asmstmts, DYNARR* outputs, DYNARR* inputs, DYNARR* clobbers) {
+STATEMENT* mkasmstmt(char* asmstmts, DYNARR* outputs, DYNARR* inputs, DYNARR* clobbers, LOCTYPE loc) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->asmstmts = asmstmts;
   retval->outputs = outputs;
   retval->inputs = inputs;
   retval->clobbers = clobbers;
+  retval->location = loc;
   return retval;
 }
 

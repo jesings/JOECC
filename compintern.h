@@ -526,7 +526,7 @@ STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits, LOCTYPE loc);
 STATEMENT* mklblstmt(struct lexctx* lct, char* lblval, LOCTYPE loc);
 STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label, LOCTYPE loc);
 STATEMENT* mkdefaultstmt(struct lexctx* lct, char* label, LOCTYPE loc);
-STATEMENT* mkasmstmt(char* asmstmts, DYNARR* outputs, DYNARR* inputs, DYNARR* clobbers);
+STATEMENT* mkasmstmt(char* asmstmts, DYNARR* outputs, DYNARR* inputs, DYNARR* clobbers, LOCTYPE loc);
 ENUMFIELD* genenumfield(char* name, EXPRESSION* value);
 struct declarator_part* mkdeclpart(enum declpart_info typ, void* d);
 struct declarator_part* mkdeclpartarr(enum declpart_info typ, EXPRESSION* d);

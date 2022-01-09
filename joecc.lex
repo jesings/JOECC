@@ -34,7 +34,6 @@ MSTRING \"(\\.|[^\\"]|{SKIPNEWL})*\"
           yylloc->last_column++; \
       } \
   } \
-  /*yylloc->filename = yyscanner(*/ \
 } while(0);
 
 #undef unput

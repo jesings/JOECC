@@ -255,6 +255,7 @@ int main(int argc, char** argv) {
   };
   char tmpname[] = "precompilationXXXXXX";
   predefines = mkstemp(tmpname);
+  unlink(tmpname);
   includepath = dactor(8);
   for(unsigned int i = 0; i < sizeof(searchpath) / sizeof(char*); i++)
       dapush(includepath, strdup(searchpath[i]));
@@ -332,7 +333,6 @@ int main(int argc, char** argv) {
   }
   dadtorfr(includepath);
   close(predefines);
-  unlink(tmpname);
   linkall(filedest, argv);
   return 0;
 }
