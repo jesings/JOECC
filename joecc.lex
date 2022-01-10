@@ -1183,6 +1183,8 @@ int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) 
   return SYMBOL;
 }
 
+char parsmac[] = "macro call parsing";
+
 inline void yypush_stringbuffer(char* str, int length, const char* macname, YY_BUFFER_STATE ybs, yyscan_t yyscanner) {
   YY_BUFFER_STATE ylbs = yy_scan_bytes(str, length, yyscanner);
   yy_switch_to_buffer(ybs, yyscanner);
@@ -1194,7 +1196,7 @@ inline void yypush_stringbuffer(char* str, int length, const char* macname, YY_B
   ylc->first_line = ylc->last_line = 1;
   ylc->first_column = ylc->last_column = 0;
   if(macname) ylc->filename = strdup(macname);
-  else ylc->filename = NULL;
+  else ylc->filename = parsmac;
 }
 
 void zz_pop_state(void*);

@@ -31,6 +31,7 @@
 
 %param {void *scanner}
 %parse-param {void *filename}
+%define api.location.type {LOCTYPE}
 
 
 %code requires{
@@ -38,8 +39,6 @@
   #include "dynarr.h"
   #include "parallel.h"
   #include "treeduce.h"
-
-  #define YYLTYPE LOCTYPE
 
   #define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
   #define dget(param, index) ((DECLARATION*) (param)->arr[(index)])
@@ -75,8 +74,8 @@
 
 %{
   
-  int yylex(YYSTYPE* yst, YYLTYPE* ylt, void* yscanner);
-  int yyerror(YYLTYPE* ylt, void* scanner, char* filename, const char* s); //filename is ignored
+  int yylex(YYSTYPE* yst, LOCTYPE* ylt, void* yscanner);
+  int yyerror(LOCTYPE* ylt, void* scanner, char* filename, const char* s); //filename is ignored
   void* yyget_extra(void* scanner);
 %}
 
@@ -1210,7 +1209,7 @@ enums:
     };
 commaopt: ',' | %empty;
 %%
-int yyerror(YYLTYPE* ylt, void* scanner, char* filename, const char* s) {
+int yyerror(LOCTYPE* ylt, void* scanner, char* filename, const char* s) {
   fprintf(stderr, "ERROR: %s %s %d.%d-%d.%d\n", s, dlocprint(ylt));
   return 0;
 }
