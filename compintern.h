@@ -377,6 +377,7 @@ typedef struct {
 typedef struct {
   DECLARATION* decl;
   EXPRESSION* expr;
+  LOCTYPE loc;
 } INITIALIZER;
 
 /**

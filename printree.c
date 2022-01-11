@@ -244,7 +244,9 @@ static int prinit(DYNARR* dinit) {
 //Prints out graph representation for statement in AST recursively
 static int statemeant(STATEMENT* stmt) {
   int statenode = nodenumber++;
-  dprintf(funcfile, "n%d [label=\"%s\"];\n", statenode, name_STMTTYPE[stmt->type]); 
+  dprintf(funcfile, "n%d [label=\"%s\"] [tooltip=\"%s %d.%d-%d.%d\"];\n", 
+          statenode, name_STMTTYPE[stmt->type],
+          locprint(stmt->location));
   switch(stmt->type) {
     case ASMSTMT:
       break; //not handled yet, maybe never
