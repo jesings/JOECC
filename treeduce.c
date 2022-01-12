@@ -388,7 +388,7 @@ static void exunflatten(EXPRESSION* ex) {
     EXPRESSION* ex1 = daget(ex->params, ex->params->length - 2);
     EXPRESSION* ex2 = daget(ex->params, ex->params->length - 1);
     for(int i = ex->params->length - 3; i >= 0; i--) {
-      ex2 = ct_binary_expr(ex->type, ex1, ex2);
+      ex2 = ct_binary_expr(ex->type, ex1, ex2, ex->location);
       ex1 = daget(ex->params, i);
     }
     daget(ex->params, 1) = ex2;
@@ -620,7 +620,7 @@ char foldconst(EXPRESSION* ex) {
       //get addr for deref, as struct should be fully populated at this point
       return 0;
     case SZOF:
-      subexpr = ct_intconst_expr(lentype(ex->vartype));
+      subexpr = ct_intconst_expr(lentype(ex->vartype), ex->location);
       freetype(ex->vartype);
       *ex = *subexpr;
       free(subexpr);
@@ -748,7 +748,7 @@ char foldconst(EXPRESSION* ex) {
       }
     case ADD:
       newdyn = dactor(32);
-      rectexpr = ct_uintconst_expr(0);
+      rectexpr = ct_uintconst_expr(0, ex->location);
       rove = 0;
       //handle type? (likely unnecessary)
       for(int i = 0; i < ex->params->length; i++) {
@@ -840,7 +840,7 @@ char foldconst(EXPRESSION* ex) {
         return 1;
       } else if(newdyn->length == 0) {
         dadtor(newdyn);
-        subexpr = rectexpr ? rectexpr : ct_uintconst_expr(0);
+        subexpr = rectexpr ? rectexpr : ct_uintconst_expr(0, ex->location);
         if(ex->rettype) freetype(ex->rettype);
         *ex = *subexpr;
         free(subexpr);
@@ -850,7 +850,7 @@ char foldconst(EXPRESSION* ex) {
       return rove;
     case SUB:
       newdyn = dactor(32);
-      rectexpr = ct_uintconst_expr(0);
+      rectexpr = ct_uintconst_expr(0, ex->location);
       rove = 0;
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
@@ -976,7 +976,7 @@ char foldconst(EXPRESSION* ex) {
       return rove;
     case MULT: 
       newdyn = dactor(32);
-      rectexpr = ct_uintconst_expr(1);
+      rectexpr = ct_uintconst_expr(1, ex->location);
       //TODO: handle type(?)
       rove = 0;
       for(int i = 0; i < ex->params->length; i++) {
@@ -1076,7 +1076,7 @@ char foldconst(EXPRESSION* ex) {
       return rove;
     case DIVI:
       newdyn = dactor(32);
-      rectexpr = ct_uintconst_expr(1);
+      rectexpr = ct_uintconst_expr(1, ex->location);
       rove = 0;
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
@@ -1291,7 +1291,7 @@ char foldconst(EXPRESSION* ex) {
       }
       dadtor(ex->params);
       if(newdyn->length == 0) {
-        subexpr = ct_intconst_expr(1);
+        subexpr = ct_intconst_expr(1, ex->location);
         dadtor(newdyn);
         if(ex->rettype) freetype(ex->rettype);
         *ex = *subexpr;
@@ -1345,7 +1345,7 @@ char foldconst(EXPRESSION* ex) {
       }
       dadtor(ex->params);
       if(newdyn->length == 0) {
-        subexpr = ct_intconst_expr(0);
+        subexpr = ct_intconst_expr(0, ex->location);
         if(ex->rettype) freetype(ex->rettype);
         *ex = *subexpr;
         free(subexpr);
@@ -1357,7 +1357,7 @@ char foldconst(EXPRESSION* ex) {
     case B_AND: 
       newdyn = dactor(32);
       rove = 0;
-      rectexpr = ct_uintconst_expr(-1UL);
+      rectexpr = ct_uintconst_expr(-1UL, ex->location);
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
         switch(subexpr->type) {
@@ -1413,7 +1413,7 @@ char foldconst(EXPRESSION* ex) {
     case B_OR:
       newdyn = dactor(32);
       rove = 0;
-      rectexpr = ct_uintconst_expr(0);
+      rectexpr = ct_uintconst_expr(0, ex->location);
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
         switch(subexpr->type) {
@@ -1468,7 +1468,7 @@ char foldconst(EXPRESSION* ex) {
 
     case B_XOR:
       newdyn = dactor(32);
-      rectexpr = ct_uintconst_expr(0);
+      rectexpr = ct_uintconst_expr(0, ex->location);
       for(int i = 0; i < ex->params->length; i++) {
         subexpr = EPARAM(ex, i);
         rove = 0;

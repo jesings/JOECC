@@ -31,14 +31,14 @@
   #undef yylex
   typedef YYLTYPE ZZLTYPE;
   int yylex(YYSTYPE* yst, ZZLTYPE* ylt, void* yyscanner);
-  int yyerror(void* yyscanner, const char* s);
+  int yyerror(LOCTYPE* loc, void* yyscanner, const char* s);
   void* yyget_extra(void* scanner);
   ZZLTYPE* yyget_lloc(void* scanner);
   void zz_pop_state(void*);
   void zz_push_skip(void*);
 
-  static int zzlex(YYSTYPE* yst, void* yyscanner) {
-    return yylex(yst, yyget_lloc(yyscanner), yyscanner);
+  static int zzlex(YYSTYPE* yst, LOCTYPE* loc, void* yyscanner) {
+    return yylex(yst, loc, yyscanner);
   }
   #define yylex zzlex
 %}
@@ -120,7 +120,7 @@ esu:
 | UNSIGNED_LITERAL {$$ = ct_uintconst_expr($1, @$);}
 | INTEGER_LITERAL {$$ = ct_intconst_expr($1, @$);};
 %%
-int yyerror(void* scanner, const char* s) {
-  fprintf(stderr, "Subsidiary parser encountered error %s %s %d.%d-%d.%d\n", s, dlocprint(yyget_lloc(scanner)));
+int yyerror(LOCTYPE* ylt, void* scanner, const char* s) {
+  fprintf(stderr, "Subsidiary parser encountered error %s %s %d.%d-%d.%d\n", s, dlocprint(ylt));
   return 0;
 }
