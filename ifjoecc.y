@@ -8,6 +8,8 @@
 %define parse.assert
 %define parse.error verbose
 %define api.pure full
+%locations
+%define api.location.type {LOCTYPE}
 %type<exprvariant> expression est eslo esla esbo esbx esba eseq escmp essh esas esca esu
 
 %code requires{
@@ -27,7 +29,7 @@
 
 %{
   #undef yylex
-  typedef struct zzltype {int first_line, first_column, last_line, last_column; char* filename;} ZZLTYPE;
+  typedef YYLTYPE ZZLTYPE;
   int yylex(YYSTYPE* yst, ZZLTYPE* ylt, void* yyscanner);
   int yyerror(void* yyscanner, const char* s);
   void* yyget_extra(void* scanner);
@@ -67,56 +69,56 @@ fullifexpr:
       dapush(ctx->definestack, rids);
     };
 expression:
-  est '?' expression ':' est {$$ = ct_ternary_expr($1, $3, $5);}
+  est '?' expression ':' est {$$ = ct_ternary_expr($1, $3, $5, @$);}
 | est {$$ = $1;};
 est:
-  est "||" eslo {$$ = ct_binary_expr(L_OR, $1, $3);}
+  est "||" eslo {$$ = ct_binary_expr(L_OR, $1, $3, @$);}
 | eslo {$$ = $1;};
 eslo:
-  eslo "&&" esla {$$ = ct_binary_expr(L_AND, $1, $3);}
+  eslo "&&" esla {$$ = ct_binary_expr(L_AND, $1, $3, @$);}
 | esla {$$ = $1;};
 esla:
-  esla '|' esbo {$$ = ct_binary_expr(B_OR, $1, $3);}
+  esla '|' esbo {$$ = ct_binary_expr(B_OR, $1, $3, @$);}
 | esbo {$$ = $1;};
 esbo:
-  esbo '^' esbx {$$ = ct_binary_expr(B_XOR, $1, $3);}
+  esbo '^' esbx {$$ = ct_binary_expr(B_XOR, $1, $3, @$);}
 | esbx {$$ = $1;};
 esbx:
-  esbx '&' esba {$$ = ct_binary_expr(B_AND, $1, $3);}
+  esbx '&' esba {$$ = ct_binary_expr(B_AND, $1, $3, @$);}
 | esba {$$ = $1;};
 esba:
-  esba "==" eseq {$$ = ct_binary_expr(EQ, $1, $3);}
-| esba "!=" eseq {$$ = ct_binary_expr(NEQ, $1, $3);}
+  esba "==" eseq {$$ = ct_binary_expr(EQ, $1, $3, @$);}
+| esba "!=" eseq {$$ = ct_binary_expr(NEQ, $1, $3, @$);}
 | eseq {$$ = $1;};
 eseq:
-  eseq '<' escmp {$$ = ct_binary_expr(LT, $1, $3);}
-| eseq '>' escmp {$$ = ct_binary_expr(GT, $1, $3);}
-| eseq "<=" escmp {$$ = ct_binary_expr(LTE, $1, $3);}
-| eseq ">=" escmp {$$ = ct_binary_expr(GTE, $1, $3);}
+  eseq '<' escmp {$$ = ct_binary_expr(LT, $1, $3, @$);}
+| eseq '>' escmp {$$ = ct_binary_expr(GT, $1, $3, @$);}
+| eseq "<=" escmp {$$ = ct_binary_expr(LTE, $1, $3, @$);}
+| eseq ">=" escmp {$$ = ct_binary_expr(GTE, $1, $3, @$);}
 | escmp {$$ = $1;};
 escmp:
-  escmp "<<" essh {$$ = ct_binary_expr(SHL, $1, $3);}
-| escmp ">>" essh {$$ = ct_binary_expr(SHR, $1, $3);}
+  escmp "<<" essh {$$ = ct_binary_expr(SHL, $1, $3, @$);}
+| escmp ">>" essh {$$ = ct_binary_expr(SHR, $1, $3, @$);}
 | essh {$$ = $1;};
 essh:
-  essh '+' esas {$$ = ct_binary_expr(ADD, $1, $3);}
-| essh '-' esas {$$ = ct_binary_expr(SUB, $1, $3);}
+  essh '+' esas {$$ = ct_binary_expr(ADD, $1, $3, @$);}
+| essh '-' esas {$$ = ct_binary_expr(SUB, $1, $3, @$);}
 | esas {$$ = $1;};
 esas:
-  esas '*' esca {$$ = ct_binary_expr(MULT, $1, $3);}
-| esas '/' esca {$$ = ct_binary_expr(DIVI, $1, $3);}
-| esas '%' esca {$$ = ct_binary_expr(MOD, $1, $3);}
+  esas '*' esca {$$ = ct_binary_expr(MULT, $1, $3, @$);}
+| esas '/' esca {$$ = ct_binary_expr(DIVI, $1, $3, @$);}
+| esas '%' esca {$$ = ct_binary_expr(MOD, $1, $3, @$);}
 | esca {$$ = $1;};
 esca:
-  '+' esca {$$ = ct_unary_expr(IDENT, $2);}
-| '-' esca {$$ = ct_unary_expr(NEG, $2);}
-| '!' esca {$$ = ct_unary_expr(L_NOT, $2);}
-| '~' esca {$$ = ct_unary_expr(B_NOT, $2);}
+  '+' esca {$$ = ct_unary_expr(IDENT, $2, @$);}
+| '-' esca {$$ = ct_unary_expr(NEG, $2, @$);}
+| '!' esca {$$ = ct_unary_expr(L_NOT, $2, @$);}
+| '~' esca {$$ = ct_unary_expr(B_NOT, $2, @$);}
 | esu {$$ = $1;};
 esu:
   '(' expression ')' {$$ = $2;}
-| UNSIGNED_LITERAL {$$ = ct_uintconst_expr($1);}
-| INTEGER_LITERAL {$$ = ct_intconst_expr($1);};
+| UNSIGNED_LITERAL {$$ = ct_uintconst_expr($1, @$);}
+| INTEGER_LITERAL {$$ = ct_intconst_expr($1, @$);};
 %%
 int yyerror(void* scanner, const char* s) {
   fprintf(stderr, "Subsidiary parser encountered error %s %s %d.%d-%d.%d\n", s, dlocprint(yyget_lloc(scanner)));

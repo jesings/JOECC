@@ -50,7 +50,7 @@ IDTYPE* fcid2(IDTYPE* idt) {
   return idr;
 }
 
-static EXPRESSION* allocexpr(EXPRTYPE ext, IDTYPE* rettype) {
+static EXPRESSION* allocexpr(EXPRTYPE ext, IDTYPE* rettype, LOCTYPE loc) {
     EXPRESSION* retval = malloc(sizeof(EXPRESSION));
     retval->type = ext;
     retval->rettype = rettype;
@@ -104,32 +104,32 @@ DYNARR* ptrdaclone(DYNARR* opointerstack) {
   return npointerstack;
 }
 
-EXPRESSION* ct_nop_expr(void) {
-  EXPRESSION* retval = allocexpr(NOP, NULL);
+EXPRESSION* ct_nop_expr(LOCTYPE loc) {
+  EXPRESSION* retval = allocexpr(NOP, NULL, loc);
   return retval;
 }
 
-EXPRESSION* ct_unary_expr(EXPRTYPE t, EXPRESSION* param) {
-  EXPRESSION* retval = allocexpr(t, NULL);
+EXPRESSION* ct_unary_expr(EXPRTYPE t, EXPRESSION* param, LOCTYPE loc) {
+  EXPRESSION* retval = allocexpr(t, NULL, loc);
   retval->params = dactor(1);
   retval->params->arr[0] = param;
   retval->params->length = 1;
   return retval;
 }
 
-EXPRESSION* ct_sztype(IDTYPE* whichtype) {
+EXPRESSION* ct_sztype(IDTYPE* whichtype, LOCTYPE loc) {
   if(!(whichtype->tb & (STRUCTVAL | ENUMVAL | UNIONVAL))) {
-    EXPRESSION* ic = ct_intconst_expr(whichtype->tb & 0xf);
+    EXPRESSION* ic = ct_intconst_expr(whichtype->tb & 0xf, loc);
     free(whichtype);
     return ic;
   }
-  EXPRESSION* retval = allocexpr(SZOF, NULL);
+  EXPRESSION* retval = allocexpr(SZOF, NULL, loc);
   retval->vartype = whichtype;
   return retval;
 }
 
-EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2) {
-  EXPRESSION* retval = allocexpr(t, NULL);
+EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2, LOCTYPE loc) {
+  EXPRESSION* retval = allocexpr(t, NULL, loc);
   retval->params = dactor(2);
   retval->params->arr[0] = param1;
   retval->params->arr[1] = param2;
@@ -137,8 +137,8 @@ EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2) {
   return retval;
 }
 
-EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr) {
-  EXPRESSION* retval = allocexpr(CAST, type);
+EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr, LOCTYPE loc) {
+  EXPRESSION* retval = allocexpr(CAST, type, loc);
   retval->params = dactor(1);
   retval->params->arr[0] = expr;
   retval->params->length = 1;
@@ -146,8 +146,8 @@ EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr) {
   return retval;
 }
 
-EXPRESSION* ct_ternary_expr(EXPRESSION* param1, EXPRESSION* param2, EXPRESSION* param3) {
-  EXPRESSION* retval = allocexpr(TERNARY, NULL);
+EXPRESSION* ct_ternary_expr(EXPRESSION* param1, EXPRESSION* param2, EXPRESSION* param3, LOCTYPE loc) {
+  EXPRESSION* retval = allocexpr(TERNARY, NULL, loc);
   retval->params = dactor(3);
   retval->params->arr[0] = param1;
   retval->params->arr[1] = param2;
@@ -156,9 +156,11 @@ EXPRESSION* ct_ternary_expr(EXPRESSION* param1, EXPRESSION* param2, EXPRESSION* 
   return retval;
 }
 
-EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params) {
+EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params, LOCTYPE loc) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = FCALL;
+  retval->location = loc;
+
   assert(func->type & IDENT);
   DYNARR* ptrs = func->id->type->pointerstack;
   assert(ptrs);
@@ -181,8 +183,8 @@ EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params) {
   return retval;
 }
 
-EXPRESSION* ct_strconst_expr(const char* str) {
-  EXPRESSION* retval = allocexpr(STRING, malloc(sizeof(IDTYPE)));
+EXPRESSION* ct_strconst_expr(const char* str, LOCTYPE loc) {
+  EXPRESSION* retval = allocexpr(STRING, malloc(sizeof(IDTYPE)), loc);
   retval->rettype->pointerstack = dactor(1);
   dapushc(retval->rettype->pointerstack, mkdeclpart(POINTERSPEC, 0));
   retval->rettype->tb = 1 | UNSIGNEDNUM;
@@ -190,40 +192,40 @@ EXPRESSION* ct_strconst_expr(const char* str) {
   return retval;
 }
 
-EXPRESSION* ct_intconst_expr(long num) { 
-  EXPRESSION* retval = allocexpr(INT, NULL);
+EXPRESSION* ct_intconst_expr(long num, LOCTYPE loc) { 
+  EXPRESSION* retval = allocexpr(INT, NULL, loc);
   retval->intconst = num;
   return retval;
 }
 
-EXPRESSION* ct_uintconst_expr(unsigned long num) {
-  EXPRESSION* retval = allocexpr(UINT, NULL);
+EXPRESSION* ct_uintconst_expr(unsigned long num, LOCTYPE loc) {
+  EXPRESSION* retval = allocexpr(UINT, NULL, loc);
   retval->uintconst = num;
   return retval;
 }
 
-EXPRESSION* ct_floatconst_expr(double num) {
-  EXPRESSION* retval = allocexpr(FLOAT, malloc(sizeof(IDTYPE)));
+EXPRESSION* ct_floatconst_expr(double num, LOCTYPE loc) {
+  EXPRESSION* retval = allocexpr(FLOAT, malloc(sizeof(IDTYPE)), loc);
   retval->rettype->pointerstack = NULL;
   retval->rettype->tb = 8 | FLOATNUM;
   retval->floatconst = num;
   return retval;
 }
 
-EXPRESSION* ct_array_lit(DYNARR* da) {
-  EXPRESSION* retval = allocexpr(ARRAY_LIT, NULL);
+EXPRESSION* ct_array_lit(DYNARR* da, LOCTYPE loc) {
+  EXPRESSION* retval = allocexpr(ARRAY_LIT, NULL, loc);
   retval->params = da;
   return retval;
 }
 
-EXPRESSION* ct_member_expr(char* member) {
-  EXPRESSION* retval = allocexpr(MEMBER, NULL);
+EXPRESSION* ct_member_expr(char* member, LOCTYPE loc) {
+  EXPRESSION* retval = allocexpr(MEMBER, NULL, loc);
   retval->member = member;
   return retval;
 }
 
-EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident) {
-  EXPRESSION* retval = allocexpr(IDENT, NULL);
+EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident, LOCTYPE loc) {
+  EXPRESSION* retval = allocexpr(IDENT, NULL, loc);
   IDENTIFIERINFO* ids = scopesearch(lct, M_VARIABLE, ident);
   if(!ids) {
     if(!lct->func) {
@@ -280,7 +282,7 @@ char typecompat(IDTYPE* t1, IDTYPE* t2) {
 
 //TODO: handle NULLs default
 //Process array initializer expression, figuring out length and populating types
-int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
+int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, LOCTYPE loc) {
   struct declarator_part* tdclp = dapeek(arr_memtype->pointerstack);
   tdclp->arrlen = 0;
   arr_memtype->pointerstack->length -= 1;
@@ -296,13 +298,13 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
         int i;
         for(i = 0; i < arr_expr->params->length; i++) {
           EXPRESSION* arrv = daget(arr_expr->params, i);
-          process_struct_lit(arr_memtype, arrv);
+          process_struct_lit(arr_memtype, arrv, loc);
           arrv->rettype = fcid2(arr_memtype);
           tdclp->arrlen += szstep;
         }
         for(; i < tdclp->arrmaxind; i++) {
-          EXPRESSION* tofill = ct_array_lit(dactor(8));
-          process_struct_lit(arr_memtype, tofill);
+          EXPRESSION* tofill = ct_array_lit(dactor(8), loc);
+          process_struct_lit(arr_memtype, tofill, loc);
           tofill->rettype = fcid2(arr_memtype);
           dapush(arr_expr->params, tofill);
           tdclp->arrlen += szstep;
@@ -314,19 +316,19 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
           if(!arrv) {
             if(ispointer(arr_memtype)) {
               if(((struct declarator_part*) dapeek(arr_memtype->pointerstack))->type == ARRAYSPEC) {
-                EXPRESSION* tofill = ct_array_lit(dactor(8));
-                process_array_lit(arr_memtype, tofill);
+                EXPRESSION* tofill = ct_array_lit(dactor(8), loc);
+                process_array_lit(arr_memtype, tofill, loc);
                 tofill->rettype = fcid2(arr_memtype);
                 arr_expr->params->arr[i] = tofill;
               } else {
-                arr_expr->params->arr[i] = ct_uintconst_expr(0);
+                arr_expr->params->arr[i] = ct_uintconst_expr(0, loc);
               }
             } else if(arr_memtype->tb & FLOATNUM) {
-              arr_expr->params->arr[i] = ct_floatconst_expr(0.0);
+              arr_expr->params->arr[i] = ct_floatconst_expr(0.0, loc);
             } else if(arr_memtype->tb & UNSIGNEDNUM) {
-              arr_expr->params->arr[i] = ct_uintconst_expr(0);
+              arr_expr->params->arr[i] = ct_uintconst_expr(0, loc);
             } else {
-              arr_expr->params->arr[i] = ct_intconst_expr(0);
+              arr_expr->params->arr[i] = ct_intconst_expr(0, loc);
             }
           } else {
             IDTYPE arrt = typex(arrv);
@@ -337,19 +339,19 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
         for(; i < tdclp->arrmaxind; i++) {
           if(ispointer(arr_memtype)) {
             if(((struct declarator_part*) dapeek(arr_memtype->pointerstack))->type == ARRAYSPEC) {
-              EXPRESSION* tofill = ct_array_lit(dactor(8));
-              process_array_lit(arr_memtype, tofill);
+              EXPRESSION* tofill = ct_array_lit(dactor(8), loc);
+              process_array_lit(arr_memtype, tofill, loc);
               tofill->rettype = fcid2(arr_memtype);
               dapush(arr_expr->params, tofill);
             } else {
-              dapush(arr_expr->params, ct_uintconst_expr(0));
+              dapush(arr_expr->params, ct_uintconst_expr(0, loc));
             }
           } else if(arr_memtype->tb & FLOATNUM) {
-            dapush(arr_expr->params, ct_floatconst_expr(0.0));
+            dapush(arr_expr->params, ct_floatconst_expr(0.0, loc));
           } else if(arr_memtype->tb & UNSIGNEDNUM) {
-            dapush(arr_expr->params, ct_uintconst_expr(0));
+            dapush(arr_expr->params, ct_uintconst_expr(0, loc));
           } else {
-            dapush(arr_expr->params, ct_intconst_expr(0));
+            dapush(arr_expr->params, ct_intconst_expr(0, loc));
           }
           tdclp->arrlen += szstep;
         }
@@ -364,7 +366,7 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
         tdclp->arrlen += szstep;
       }
       for(; i < tdclp->arrmaxind; i++) {
-        dapush(arr_expr->params, ct_uintconst_expr(0));
+        dapush(arr_expr->params, ct_uintconst_expr(0, loc));
         tdclp->arrlen += szstep;
       }
       //params are fine, no further processing necessary
@@ -373,14 +375,14 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
     int i;
     for(i = 0; i < arr_expr->params->length; i++) {
       EXPRESSION* arrv = daget(arr_expr->params, i);
-      tdclp->arrlen += process_array_lit(arr_memtype, arrv);
+      tdclp->arrlen += process_array_lit(arr_memtype, arrv, loc);
       arrv->rettype = fcid2(arr_memtype);
       assert(typecompat(arrv->rettype, arr_memtype));
     }
     for(; i < tdclp->arrmaxind; i++) {
       struct declarator_part* ldclp = dapeek(arr_memtype->pointerstack);
-      EXPRESSION* arrv = ct_array_lit(dactor(ldclp->arrmaxind));
-      tdclp->arrlen += process_array_lit(arr_memtype, arrv);
+      EXPRESSION* arrv = ct_array_lit(dactor(ldclp->arrmaxind), loc);
+      tdclp->arrlen += process_array_lit(arr_memtype, arrv, loc);
       arrv->rettype = fcid2(arr_memtype);
       assert(typecompat(arrv->rettype, arr_memtype));
     }
@@ -391,7 +393,7 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
 }
 
 //Process struct initializer expression, figuring out length and populating types
-int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
+int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr, LOCTYPE loc) {
   struct_expr->type = STRUCT_LIT;
   USTRUCT* imptype = struct_memtype->structtype;
   feedstruct(imptype);
@@ -414,10 +416,10 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
           if(pointtop->type != ARRAYSPEC) break;
         }
         assert(arrdim);
-        process_array_lit(decl->type, member);
+        process_array_lit(decl->type, member, loc);
         member->rettype = fcid2(decl->type);
       } else if(decl->type->tb & (STRUCTVAL | UNIONVAL)) {
-        process_struct_lit(decl->type, member);
+        process_struct_lit(decl->type, member, loc);
         member->rettype = fcid2(decl->type);
       } else {
         assert(0);
@@ -431,24 +433,24 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
     DECLARATION* decl = daget(imptype->fields, i);
     if(ispointer(decl->type)) {
       if(((struct declarator_part*) dapeek(decl->type->pointerstack))->type == ARRAYSPEC) {
-        EXPRESSION* tofill = ct_array_lit(dactor(8));
-        process_array_lit(decl->type, tofill);
+        EXPRESSION* tofill = ct_array_lit(dactor(8), loc);
+        process_array_lit(decl->type, tofill, loc);
         tofill->rettype = fcid2(decl->type);
         dapush(struct_expr->params, tofill);
       } else {
-        dapush(struct_expr->params, ct_uintconst_expr(0));
+        dapush(struct_expr->params, ct_uintconst_expr(0, loc));
       }
     } else if(decl->type->tb & (STRUCTVAL | UNIONVAL)) {
-      EXPRESSION* tofill = ct_array_lit(dactor(8));
-      process_struct_lit(decl->type, tofill);
+      EXPRESSION* tofill = ct_array_lit(dactor(8), loc);
+      process_struct_lit(decl->type, tofill, loc);
       tofill->rettype = fcid2(decl->type);
       dapush(struct_expr->params, tofill);
     } else if(decl->type->tb & FLOATNUM) {
-      dapush(struct_expr->params, ct_floatconst_expr(0.0));
+      dapush(struct_expr->params, ct_floatconst_expr(0.0, loc));
     } else if(decl->type->tb & UNSIGNEDNUM) {
-      dapush(struct_expr->params, ct_uintconst_expr(0));
+      dapush(struct_expr->params, ct_uintconst_expr(0, loc));
     } else {
-      dapush(struct_expr->params, ct_intconst_expr(0));
+      dapush(struct_expr->params, ct_intconst_expr(0, loc));
     }
   }
   return imptype->size;

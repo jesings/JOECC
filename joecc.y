@@ -261,10 +261,10 @@ initializer:
     if(ac->expr && ac->expr->type == ARRAY_LIT) {
       DYNARR* pointy = ac->decl->type->pointerstack;
       if(pointy && pointy->length && ((struct declarator_part*) dapeek(pointy))->type == ARRAYSPEC) {
-        process_array_lit(ac->decl->type, ac->expr);
+        process_array_lit(ac->decl->type, ac->expr, @2);
         ac->expr->rettype = fcid2(ac->decl->type);
       } else if(!(pointy && pointy->length) && ac->decl->type->tb & (STRUCTVAL | UNIONVAL)) {
-        process_struct_lit(ac->decl->type, ac->expr);
+        process_struct_lit(ac->decl->type, ac->expr, @2);
         ac->expr->rettype = fcid2(ac->decl->type);
       } else {
         //disgusting unnecessary brace syntax allowed
@@ -320,7 +320,7 @@ cs_inits:
     if(id) dapushc($$, id); else fprintf(stderr, "Error: redefinition of identifier in %s %d.%d-%d.%d\n", locprint(@1)); };
 escoa:
   esc {$$ = $1;}
-| array_literal {$$ = ct_array_lit($1);};
+| array_literal {$$ = ct_array_lit($1, @$);};
 cs_minutes:
   cs_minutes ',' declarator {$$ = $1; dapush($1, $3);}
 | declarator {$$ = dactor(8); dapushc($$, $1);};
@@ -554,68 +554,68 @@ arbitrary_cast:
   $$ = $2;};
 
 expression:
-  expression ',' esc {$$ = ct_binary_expr(COMMA, $1, $3);}
+  expression ',' esc {$$ = ct_binary_expr(COMMA, $1, $3, @$);}
 | esc {$$ = $1;};
 esc:
-  esc '=' esa {$$ = ct_binary_expr(ASSIGN, $1, $3);}
-| esc "/=" esa {$$ = ct_binary_expr(DIVASSIGN, $1, $3);}
-| esc "*=" esa {$$ = ct_binary_expr(MULTASSIGN, $1, $3);}
-| esc "%=" esa {$$ = ct_binary_expr(MODASSIGN, $1, $3);}
-| esc "+=" esa {$$ = ct_binary_expr(ADDASSIGN, $1, $3);}
-| esc "-=" esa {$$ = ct_binary_expr(SUBASSIGN, $1, $3);}
-| esc "<<=" esa {$$ = ct_binary_expr(SHLASSIGN, $1, $3);}
-| esc ">>=" esa {$$ = ct_binary_expr(SHRASSIGN, $1, $3);}
-| esc "&=" esa {$$ = ct_binary_expr(ANDASSIGN, $1, $3);}
-| esc "^=" esa {$$ = ct_binary_expr(XORASSIGN, $1, $3);}
-| esc "|=" esa {$$ = ct_binary_expr(ORASSIGN, $1, $3);}
+  esc '=' esa {$$ = ct_binary_expr(ASSIGN, $1, $3, @$);}
+| esc "/=" esa {$$ = ct_binary_expr(DIVASSIGN, $1, $3, @$);}
+| esc "*=" esa {$$ = ct_binary_expr(MULTASSIGN, $1, $3, @$);}
+| esc "%=" esa {$$ = ct_binary_expr(MODASSIGN, $1, $3, @$);}
+| esc "+=" esa {$$ = ct_binary_expr(ADDASSIGN, $1, $3, @$);}
+| esc "-=" esa {$$ = ct_binary_expr(SUBASSIGN, $1, $3, @$);}
+| esc "<<=" esa {$$ = ct_binary_expr(SHLASSIGN, $1, $3, @$);}
+| esc ">>=" esa {$$ = ct_binary_expr(SHRASSIGN, $1, $3, @$);}
+| esc "&=" esa {$$ = ct_binary_expr(ANDASSIGN, $1, $3, @$);}
+| esc "^=" esa {$$ = ct_binary_expr(XORASSIGN, $1, $3, @$);}
+| esc "|=" esa {$$ = ct_binary_expr(ORASSIGN, $1, $3, @$);}
 | esa {$$ = $1;};
 esa:
-  est '?' expression ':' esa {$$ = ct_ternary_expr($1, $3, $5);}
+  est '?' expression ':' esa {$$ = ct_ternary_expr($1, $3, $5, @$);}
 | est {$$ = $1;};
 est:
-  est "||" eslo {$$ = ct_binary_expr(L_OR, $1, $3);}
+  est "||" eslo {$$ = ct_binary_expr(L_OR, $1, $3, @$);}
 | eslo {$$ = $1;};
 eslo:
-  eslo "&&" esla {$$ = ct_binary_expr(L_AND, $1, $3);}
+  eslo "&&" esla {$$ = ct_binary_expr(L_AND, $1, $3, @$);}
 | esla {$$ = $1;};
 esla:
-  esla '|' esbo {$$ = ct_binary_expr(B_OR, $1, $3);}
+  esla '|' esbo {$$ = ct_binary_expr(B_OR, $1, $3, @$);}
 | esbo {$$ = $1;};
 esbo:
-  esbo '^' esbx {$$ = ct_binary_expr(B_XOR, $1, $3);}
+  esbo '^' esbx {$$ = ct_binary_expr(B_XOR, $1, $3, @$);}
 | esbx {$$ = $1;};
 esbx:
-  esbx '&' esba {$$ = ct_binary_expr(B_AND, $1, $3);}
+  esbx '&' esba {$$ = ct_binary_expr(B_AND, $1, $3, @$);}
 | esba {$$ = $1;};
 esba:
-  esba "==" eseq {$$ = ct_binary_expr(EQ, $1, $3);}
-| esba "!=" eseq {$$ = ct_binary_expr(NEQ, $1, $3);}
+  esba "==" eseq {$$ = ct_binary_expr(EQ, $1, $3, @$);}
+| esba "!=" eseq {$$ = ct_binary_expr(NEQ, $1, $3, @$);}
 | eseq {$$ = $1;};
 eseq:
-  eseq '<' escmp {$$ = ct_binary_expr(LT, $1, $3);}
-| eseq '>' escmp {$$ = ct_binary_expr(GT, $1, $3);}
-| eseq "<=" escmp {$$ = ct_binary_expr(LTE, $1, $3);}
-| eseq ">=" escmp {$$ = ct_binary_expr(GTE, $1, $3);}
+  eseq '<' escmp {$$ = ct_binary_expr(LT, $1, $3, @$);}
+| eseq '>' escmp {$$ = ct_binary_expr(GT, $1, $3, @$);}
+| eseq "<=" escmp {$$ = ct_binary_expr(LTE, $1, $3, @$);}
+| eseq ">=" escmp {$$ = ct_binary_expr(GTE, $1, $3, @$);}
 | escmp {$$ = $1;};
 escmp:
-  escmp "<<" essh {$$ = ct_binary_expr(SHL, $1, $3);}
-| escmp ">>" essh {$$ = ct_binary_expr(SHR, $1, $3);}
+  escmp "<<" essh {$$ = ct_binary_expr(SHL, $1, $3, @$);}
+| escmp ">>" essh {$$ = ct_binary_expr(SHR, $1, $3, @$);}
 | essh;
 essh:
-  essh '+' esas {$$ = ct_binary_expr(ADD, $1, $3);}
-| essh '-' esas {$$ = ct_binary_expr(SUB, $1, $3);}
+  essh '+' esas {$$ = ct_binary_expr(ADD, $1, $3, @$);}
+| essh '-' esas {$$ = ct_binary_expr(SUB, $1, $3, @$);}
 | esas {$$ = $1;};
 esas:
-  esas '*' esm {$$ = ct_binary_expr(MULT, $1, $3);}
-| esas '/' esm {$$ = ct_binary_expr(DIVI, $1, $3);}
-| esas '%' esm {$$ = ct_binary_expr(MOD, $1, $3);}
+  esas '*' esm {$$ = ct_binary_expr(MULT, $1, $3, @$);}
+| esas '/' esm {$$ = ct_binary_expr(DIVI, $1, $3, @$);}
+| esas '%' esm {$$ = ct_binary_expr(MOD, $1, $3, @$);}
 | esm {$$ = $1;};
 esm:
-  arbitrary_cast esm {$$ = ct_cast_expr($1, $2);}
+  arbitrary_cast esm {$$ = ct_cast_expr($1, $2, @$);}
 | esca {$$ = $1;};
 esca:
-  "++" esca {$$ = ct_unary_expr(PREINC, $2);}
-| "--" esca {$$ = ct_unary_expr(PREDEC, $2);}
+  "++" esca {$$ = ct_unary_expr(PREINC, $2, @$);}
+| "--" esca {$$ = ct_unary_expr(PREDEC, $2, @$);}
 | '+' esm {$$ = $2;}
 | '-' esm {
     switch($2->type) {
@@ -628,57 +628,57 @@ esca:
         $2->floatconst = -$2->floatconst;
         break;
       default:
-        $$ = ct_unary_expr(NEG, $2);
+        $$ = ct_unary_expr(NEG, $2, @$);
         break;
     }}
-| '!' esm {$$ = ct_unary_expr(L_NOT, $2);}
-| '~' esm {$$ = ct_unary_expr(B_NOT, $2);}
-| '*' esm {$$ = ct_unary_expr(DEREF, $2);}
-| '&' esm {$$ = ct_unary_expr(ADDR, $2);}
-| "sizeof" '(' type abstract_ptr ')' {$$ = ct_uintconst_expr(sizeof(uintptr_t)); free($3); dadtorfr($4);}
+| '!' esm {$$ = ct_unary_expr(L_NOT, $2, @$);}
+| '~' esm {$$ = ct_unary_expr(B_NOT, $2, @$);}
+| '*' esm {$$ = ct_unary_expr(DEREF, $2, @$);}
+| '&' esm {$$ = ct_unary_expr(ADDR, $2, @$);}
+| "sizeof" '(' type abstract_ptr ')' {$$ = ct_uintconst_expr(sizeof(uintptr_t), @$); free($3); dadtorfr($4);}
 | "sizeof" '(' type ')' {
     //exclude arrays from pointer check
     if(ispointer($3)) {
       free($3);
-      $$ = ct_uintconst_expr(sizeof(uintptr_t));
+      $$ = ct_uintconst_expr(sizeof(uintptr_t), @$);
     } else {
-      $$ = ct_sztype($3);
+      $$ = ct_sztype($3, @$);
     }
     }
-| "sizeof" esca {$$ = ct_unary_expr(SZOFEXPR,$2);}
+| "sizeof" esca {$$ = ct_unary_expr(SZOFEXPR,$2, @$);}
 | esp {$$ = $1;};
 esp:
-  esp "++" {$$ = ct_unary_expr(POSTINC, $1);}
-| esp "--" {$$ = ct_unary_expr(POSTDEC, $1);}
-| esp '(' ')' {$$ = ct_fcall_expr($1, dactor(0));}
-| esp '(' escl ')' {$$ = ct_fcall_expr($1, $3);}
-| esp '[' expression ']' {$$ = ct_unary_expr(DEREF, ct_binary_expr(ADD, $1, $3));}
-| esp '.' SYMBOL {$$ = ct_binary_expr(DOTOP, $1, ct_member_expr($3));}
-| esp "->" SYMBOL {$$ = ct_binary_expr(ARROW, $1, ct_member_expr($3));}
+  esp "++" {$$ = ct_unary_expr(POSTINC, $1, @$);}
+| esp "--" {$$ = ct_unary_expr(POSTDEC, $1, @$);}
+| esp '(' ')' {$$ = ct_fcall_expr($1, dactor(0), @$);}
+| esp '(' escl ')' {$$ = ct_fcall_expr($1, $3, @$);}
+| esp '[' expression ']' {$$ = ct_unary_expr(DEREF, ct_binary_expr(ADD, $1, $3, @$), @$);}
+| esp '.' SYMBOL {$$ = ct_binary_expr(DOTOP, $1, ct_member_expr($3, @3), @$);}
+| esp "->" SYMBOL {$$ = ct_binary_expr(ARROW, $1, ct_member_expr($3, @3), @$);}
 | esu {$$ = $1;};
 esu:
   '(' expression ')' {$$ = $2;}
-| multistring {$$ = ct_strconst_expr($1->strptr); free($1);}
-| INTEGER_LITERAL {$$ = ct_intconst_expr($1);}
-| UNSIGNED_LITERAL {$$ = ct_uintconst_expr($1);}
-| FLOAT_LITERAL {$$ = ct_floatconst_expr($1);}
+| multistring {$$ = ct_strconst_expr($1->strptr, @$); free($1);}
+| INTEGER_LITERAL {$$ = ct_intconst_expr($1, @$);}
+| UNSIGNED_LITERAL {$$ = ct_uintconst_expr($1, @$);}
+| FLOAT_LITERAL {$$ = ct_floatconst_expr($1, @$);}
 | SYMBOL {
     EXPRESSION* expr = scopesearch(ctx, M_ENUM_CONST, $1);
     if(!expr) {
-      $$ = ct_ident_expr(ctx, $1);
+      $$ = ct_ident_expr(ctx, $1, @$);
     } else {
       free($1);
-      $$ = ct_intconst_expr(expr->intconst);
+      $$ = ct_intconst_expr(expr->intconst, @$);
     }
     }
 | arbitrary_cast array_literal {
     DYNARR* pointy = $1->pointerstack;
-    $$ = ct_array_lit($2);
+    $$ = ct_array_lit($2, @2);
     if(pointy && pointy->length && ((struct declarator_part*) dapeek(pointy))->type == ARRAYSPEC) {
-      process_array_lit($1, $$);
+      process_array_lit($1, $$, @2);
       $$->rettype = $1;
     } else if(!(pointy && pointy->length) && $1->tb & (STRUCTVAL | UNIONVAL)) {
-      process_struct_lit($1, $$);
+      process_struct_lit($1, $$, @2);
       $$->rettype = $1;
     } else {
       //disgusting unnecessary brace syntax allowed
@@ -691,7 +691,7 @@ esu:
     }
     }/*compound literal*/
 | error {
-    $$ = ct_nop_expr(); 
+    $$ = ct_nop_expr(@$); 
     fprintf (stderr, "Malformed expression at %s %d.%d-%d.%d\n", locprint(@1));
     };
 escl:
@@ -899,7 +899,7 @@ statement:
     for(int i = $2; i <= $4; i++) {
       char* caselbl = malloc(128);
       snprintf(caselbl, 128, "__joecc__%s__%d", ctx->func->name, (ctx->func->caseindex)++);
-      dapushc(cases, sois(mkcasestmt(ctx, ct_intconst_expr(i), caselbl, @$)));
+      dapushc(cases, sois(mkcasestmt(ctx, ct_intconst_expr(i, @3), caselbl, @$)));
     }
     $$ = mkcmpndstmt(cases, @$);
     }
@@ -933,9 +933,9 @@ statement:
 | ';' {$$ = mknopstmt();};
 ee: 
   expression {$$ = $1;}
-| %empty {$$ = ct_nop_expr();};
+| %empty {$$ = ct_nop_expr(@$);};
 dee:
-  initializer {if($1) {$$ = malloc(sizeof(EOI)); $$->isE = 0; $$->I = $1;} else {$$ = malloc(sizeof(EOI)); $$->isE = 1; $$->E = ct_nop_expr();};}
+  initializer {if($1) {$$ = malloc(sizeof(EOI)); $$->isE = 0; $$->I = $1;} else {$$ = malloc(sizeof(EOI)); $$->isE = 1; $$->E = ct_nop_expr(@$);};}
 | ee ';' {$$ = malloc(sizeof(EOI)); $$->isE = 1; $$->E = $1;};
 compound_statement:/*add new scope to scope stack, remove when done*/
   '{' compound_midrule soiorno'}' {
@@ -1154,7 +1154,7 @@ enumbody:
   '{' enums commaopt '}' {$$ = $2;};
 enums:
   SYMBOL {$$ = dactor(256);
-    EXPRESSION* const0 = ct_intconst_expr(0);
+    EXPRESSION* const0 = ct_intconst_expr(0, @$);
     dapushc($$, genenumfield($1,const0)); 
     add2scope(ctx, $1, M_ENUM_CONST, const0);
     }
@@ -1186,7 +1186,7 @@ enums:
       default:
         assert(0);
         //newexpr->type = ADD;
-        //dapush(newexpr->params, ct_intconst_expr(1));
+        //dapush(newexpr->params, ct_intconst_expr(1, @$));
         //dapush(newexpr->params, rclonexpr(prevexpr));
     }
     dapush($$, genenumfield($3, newexpr));
