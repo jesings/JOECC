@@ -37,7 +37,7 @@ static IDTYPE* fcid(IDTYPE* idt) {
 //shallow clone expression
 EXPRESSION* cloneexpr(EXPRESSION* orig) {
   EXPRESSION* clone = malloc(sizeof(EXPRESSION));
-  memcpy(clone, orig, sizeof(EXPRESSION));
+  memcpy(clone, orig, sizeof(EXPRESSION));//includes the location
   return clone;
 }
 
@@ -724,7 +724,7 @@ void rfreefunc(FUNC* f) {
 //deep clones an expression
 EXPRESSION* rclonexpr(EXPRESSION* e) {
   EXPRESSION* e2 = malloc(sizeof(EXPRESSION));
-  memcpy(e2, e, sizeof(EXPRESSION));
+  memcpy(e2, e, sizeof(EXPRESSION)); //includes location
   switch(e->type) {
     default:
       e2->params = dactor(e->params->length);
@@ -782,10 +782,11 @@ DECLARATION* mkdeclaration(char* name) {
   return retval;
 }
 
-INITIALIZER* geninit(DECLARATION* decl, EXPRESSION* expr) {
+INITIALIZER* geninit(DECLARATION* decl, EXPRESSION* expr, LOCTYPE loc) {
   INITIALIZER* retval = malloc(sizeof(INITIALIZER));
   retval->decl = decl;
   retval->expr = expr;
+  retval->location = loc;
   return retval;
 }
 
@@ -1252,8 +1253,8 @@ void freemd2(struct macrodef* mds) {
 }
 
 //declares variable, adds it to scope
-INITIALIZER* decl2scope(DECLARATION* dec, EXPRESSION* ex, struct lexctx* lct) {
-  INITIALIZER* ac = geninit(dec, ex);
+INITIALIZER* decl2scope(DECLARATION* dec, EXPRESSION* ex, struct lexctx* lct, LOCTYPE loc) {
+  INITIALIZER* ac = geninit(dec, ex, loc);
   if(lct->func) {
     HASHTABLE* ht = scopepeek(lct)->members;
     SCOPEMEMBER* sm = search(ht, dec->varname);

@@ -282,6 +282,7 @@ struct arginfo {
   }
 
   {MSTRING}? {
+    //TODO: handle if in macro!?
     free(yylloc->filename);
     yytext[yyleng - 1] = '\0';
     yylloc->filename = strdup(yytext + 1);
@@ -376,6 +377,7 @@ struct arginfo {
       char pathbuf[256];
       yy_pop_state(yyscanner);
       int i = 0;
+      //TODO: what if in macro?!
       char* strpardir = strdup(yylloc->filename);
       char* pardir = dirname(strpardir);
       for(; i < includepath->length; ++i) {
@@ -752,6 +754,7 @@ struct arginfo {
     char pathbuf[256];
     yytext[yyleng - 1] = 0;
     yylval_param->unum = 0;
+    //TODO: what if in macro?
     char* strpardir = strdup(yylloc->filename);
     char* pardir = dirname(strpardir);
     for(; i < includepath->length; ++i) {

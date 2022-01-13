@@ -307,16 +307,19 @@ initializer:
 | fullunion ';' {$$ = NULL;};
 cs_inits:
   cs_inits ',' declarator '=' escoa {$$ = $1; 
-    INITIALIZER* id = decl2scope($3, $5, ctx);
+    LOCTYPE real = @5;
+    real.first_line = @3.first_line;
+    real.first_column = @3.first_column;
+    INITIALIZER* id = decl2scope($3, $5, ctx, real);
     if(id) dapush($$, id); else fprintf(stderr, "Error: redefinition of identifier in %s %d.%d-%d.%d\n", locprint(@3)); }
 | declarator '=' escoa {$$ = dactor(8);
-    INITIALIZER* id = decl2scope($1, $3, ctx);
+    INITIALIZER* id = decl2scope($1, $3, ctx, @$);
     if(id) dapushc($$, id); else fprintf(stderr, "Error: redefinition of identifier in %s %d.%d-%d.%d\n", locprint(@1)); }
 | cs_inits ',' declarator {$$ = $1; 
-    INITIALIZER* id = decl2scope($3, NULL, ctx);
+    INITIALIZER* id = decl2scope($3, NULL, ctx, @3);
     if(id) dapush($$, id); else fprintf(stderr, "Error: redefinition of identifier in %s %d.%d-%d.%d\n", locprint(@1)); }
 | declarator {$$ = dactor(8); 
-    INITIALIZER* id = decl2scope($1, NULL, ctx);
+    INITIALIZER* id = decl2scope($1, NULL, ctx, @$);
     if(id) dapushc($$, id); else fprintf(stderr, "Error: redefinition of identifier in %s %d.%d-%d.%d\n", locprint(@1)); };
 escoa:
   esc {$$ = $1;}
