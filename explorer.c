@@ -7,7 +7,7 @@
 
 #define CLEAR "\033[H\033[J"
 
-void display_block(PROGRAM* prog, BBLOCK* blk) {
+void display_block(PROGRAM* prog, BBLOCK* origblk) {
   //assert stdin/stdout both terminals??
   struct termios orig_attrs;
   struct termios new_attrs;
@@ -19,6 +19,7 @@ void display_block(PROGRAM* prog, BBLOCK* blk) {
 
   tcsetattr(STDIN_FILENO, TCSANOW, &new_attrs);
   char readchar;
+  BBLOCK* blk = origblk;
   while(read(STDIN_FILENO, &readchar, 1) > 0) {
     puts(CLEAR);
     //figure out raw arrow keys?
@@ -39,9 +40,19 @@ void display_block(PROGRAM* prog, BBLOCK* blk) {
     }
 
     //print block... shortened?
+    LOOPOPS(
+        printop(op, 1, blk, stdout, prog);
+        //print location information
+        fputc('\n', stdout);
+    );
+
     //print liveness information
+
     //print dominance information
-    //print location information
+    for(int i = 0; i < blk->idominates->length; i++) {
+        BBLOCK* idomed = daget(blk->idominates, i);
+    }
+
   }
 
 cleanup:
