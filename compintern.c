@@ -54,6 +54,7 @@ static EXPRESSION* allocexpr(EXPRTYPE ext, IDTYPE* rettype, LOCTYPE loc) {
     EXPRESSION* retval = malloc(sizeof(EXPRESSION));
     retval->type = ext;
     retval->rettype = rettype;
+    retval->location = loc;
     return retval;
 }
 
@@ -192,7 +193,7 @@ EXPRESSION* ct_strconst_expr(const char* str, LOCTYPE loc) {
   return retval;
 }
 
-EXPRESSION* ct_intconst_expr(long num, LOCTYPE loc) { 
+EXPRESSION* ct_intconst_expr(long num, LOCTYPE loc) {
   EXPRESSION* retval = allocexpr(INT, NULL, loc);
   retval->intconst = num;
   return retval;
@@ -408,7 +409,7 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr, LOCTYPE 
     EXPRESSION* member = daget(struct_expr->params, i);
     DECLARATION* decl = daget(imptype->fields, i);
     if(member->type == ARRAY_LIT) {
-      if(decl->type->pointerstack && decl->type->pointerstack->length && 
+      if(decl->type->pointerstack && decl->type->pointerstack->length &&
          ((struct declarator_part*) dapeek(decl->type->pointerstack))->type == ARRAYSPEC) {
         int arrdim = 0;
         for(int j = decl->type->pointerstack->length - 1; j >= 0; j--, arrdim++) {
@@ -550,7 +551,7 @@ void rfreexpr(EXPRESSION* e) {
     case CAST://rettype and vartype are the same pointer
       dadtorcfr(e->params, (void(*)(void*)) rfreexpr);
       break;
-    case SZOF: 
+    case SZOF:
       free(e->vartype);
       break;
     case UINT: case INT: case FLOAT:
@@ -620,8 +621,8 @@ void rfreestate(STATEMENT* s) {
       //We don't reduce case statement here
       break;
     case LABEL:
-    case JGOTO: 
-      free(s->glabel); 
+    case JGOTO:
+      free(s->glabel);
       break;
     case CASE:
       break;
@@ -672,7 +673,7 @@ void rfreestate(STATEMENT* s) {
     case FRET:
       if(!s->expression) break;
       //fall through
-    case EXPR: 
+    case EXPR:
       rfreexpr(s->expression);
       break;
     case IFELSES:
@@ -1066,7 +1067,7 @@ void* scopesearch(struct lexctx* lct, enum membertype mt, char* key){
           return rv->unionmemb;
         case M_TYPEDEF:
           return rv->typememb;
-        case M_GLOBAL: 
+        case M_GLOBAL:
           //global should never be encountered, they're coerced to variables on declaration
           fprintf(stderr, "Error: corrupted global variable encountered");
           return rv->idi;
@@ -1102,7 +1103,7 @@ char scopequeryval(struct lexctx* lct, enum membertype mt, char* key) {
         break;
     }
     SCOPEMEMBER* rv = search(ht, key);//will return scope object
-    if(rv && rv->mtype == mt) 
+    if(rv && rv->mtype == mt)
       return 1;
   }
   return 0;
@@ -1126,7 +1127,7 @@ static void declfmacro(BIGHASHTABLE* ht, const char* macroname, const char* para
   biginsert(ht, macroname, md);
 }
 
-struct lexctx* ctxinit(FILE* ar) {
+struct lexctx* ctxinit(FILE* ar, char* rn) {
   struct lexctx* lct =  malloc(sizeof(struct lexctx));
   lct->funcs = htctor();
   lct->definestack = dactor(64);
@@ -1140,21 +1141,22 @@ struct lexctx* ctxinit(FILE* ar) {
   lct->defines = bightctor();
   lct->withindefines = htctor();
   lct->actualroot = ar;
+  lct->rootname = rn;
   declmacro(lct->defines, "__STDC__", "1");
   declmacro(lct->defines, "__STDC_VERSION__", "201710L");
-  declmacro(lct->defines, "__STDC_HOSTED__", "1"); 
-  declmacro(lct->defines, "_XOPEN_SOURCE", "700"); 
-  declmacro(lct->defines, "_DEFAULT_SOURCE", "700"); 
-  declmacro(lct->defines, "_POSIX_C_SOURCE", "200809L"); 
+  declmacro(lct->defines, "__STDC_HOSTED__", "1");
+  declmacro(lct->defines, "_XOPEN_SOURCE", "700");
+  declmacro(lct->defines, "_DEFAULT_SOURCE", "700");
+  declmacro(lct->defines, "_POSIX_C_SOURCE", "200809L");
   declmacro(lct->defines, "_XOPEN_SOURCE_EXTENDED", "1");
   declmacro(lct->defines, "_USE_XOPEN_EXTENDED", "1");
-  declmacro(lct->defines, "__FILE__", NULL); 
-  declmacro(lct->defines, "__LINE__", NULL); 
-  declmacro(lct->defines, "__DATE__", NULL); 
-  declmacro(lct->defines, "__TIME__", NULL); 
-  declmacro(lct->defines, "__func__", NULL); 
-  declmacro(lct->defines, "__x86_64__", "1"); 
-  declmacro(lct->defines, "__linux__", "1"); 
+  declmacro(lct->defines, "__FILE__", NULL);
+  declmacro(lct->defines, "__LINE__", NULL);
+  declmacro(lct->defines, "__DATE__", NULL);
+  declmacro(lct->defines, "__TIME__", NULL);
+  declmacro(lct->defines, "__func__", NULL);
+  declmacro(lct->defines, "__x86_64__", "1");
+  declmacro(lct->defines, "__linux__", "1");
   declmacro(lct->defines, "__builtin_va_list", "byte*"); //should be typedef
   declmacro(lct->defines, "SDL_DISABLE_IMMINTRIN_H", "1");
   declmacro(lct->defines, "__SIZE_TYPE__", "unsigned long");
@@ -1360,7 +1362,7 @@ void feedstruct(USTRUCT* s) {
                 free(sf);
               }
               esize = mmi->type->structtype->size;
-              
+
               dadtor(mmi->type->structtype->fields);
               htdtor(mmi->type->structtype->offsets);
               free(mmi->type->structtype);
@@ -1384,7 +1386,7 @@ void feedstruct(USTRUCT* s) {
           sf->type = mmi->type;
           sf->offset = totalsize;
           insert(s->offsets, mmi->varname, sf);
-        }        
+        }
         totalsize += esize;
       }
       s->size = totalsize;

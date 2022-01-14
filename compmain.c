@@ -31,10 +31,12 @@ pthread_mutex_t printlock, listlock;
 int listptr, linkallstart;
 int predefines;
 DYNARR* includepath;
+char tmpname[32] = "precompilationXXXXXX";
 
 struct yyltype {int first_line, last_line, first_column, last_column; char* filename;};
 
 struct yyltype* yyget_lloc(void*);
+void yyset_lloc(struct yyltype*, void*);
 int yyparse(void* scanner, char* filename);
 int yyset_in(FILE*, void*);
 int yyset_debug(int flag, void*);
@@ -80,18 +82,23 @@ static void filecomp(char* filename) {
         return; //error
       case 1:
         return; //need to link
-      case 2: 
+      case 2:
         return; //static exe
-      case 3: 
+      case 3:
         return; //dynamic exe
     }
   } else {
     rewind(yyin);
   }
   void* scanner;
-  struct lexctx* lctx = ctxinit(yyin);
+  struct lexctx* lctx = ctxinit(yyin, filename);
   yylex_init_extra(lctx, &scanner);
-  DEBUG(yyset_debug(0, scanner));//not debugging lexer for now
+  struct yyltype* ylt = malloc(sizeof(LOCTYPE));
+  ylt->last_line = ylt->first_line = 0;
+  ylt->last_column = ylt->first_column = 0;
+  ylt->filename = tmpname;
+  yyset_lloc(ylt, scanner);
+  DEBUG(yyset_debug(1, scanner));//not debugging lexer for now
   yyset_in(precontext, scanner);
   yyparse(scanner, strdup(filename));
   free(yyget_lloc(scanner)->filename);
@@ -253,7 +260,6 @@ int main(int argc, char** argv) {
     {"version", no_argument, NULL, 'v'},
     {NULL, 0, NULL, 0},
   };
-  char tmpname[] = "precompilationXXXXXX";
   predefines = mkstemp(tmpname);
   unlink(tmpname);
   includepath = dactor(8);
@@ -264,7 +270,7 @@ int main(int argc, char** argv) {
     switch(opt) {
       case 'l':
         break;
-      case 'c': 
+      case 'c':
         break;
       case 'o':
         filedest = optarg;
