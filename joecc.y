@@ -1,19 +1,19 @@
 %locations
 %token<unum> UNSIGNED_LITERAL;
 %token<snum> INTEGER_LITERAL;
-%token SHLTK "<<" SHRTK ">>" LE "<=" GE ">=" EQTK "==" NEQTK "!=" AND "&&" OR "||" 
+%token SHLTK "<<" SHRTK ">>" LE "<=" GE ">=" EQTK "==" NEQTK "!=" AND "&&" OR "||"
 
 %token<dbl> FLOAT_LITERAL;
 %token<str> SYMBOL TYPE_NAME
 %token<dstr> STRING_LITERAL;
 
 %token ARROWTK "->" INC "++" DEC "--" DIV_GETS "/=" MUL_GETS "*=" MOD_GETS "%="
-%token ADD_GETS "+=" SUB_GETS "-=" SHL_GETS "<<=" SHR_GETS ">>=" AND_GETS "&=" 
+%token ADD_GETS "+=" SUB_GETS "-=" SHL_GETS "<<=" SHR_GETS ">>=" AND_GETS "&="
 %token XOR_GETS "^=" OR_GETS "|=" ELLIPSIS "..."
 
 %token TYPEDEF "typedef" STATIC "static" EXTERN "extern" CHAR "char" VOID "void"
 %token INT8 "int8" INT16 "int16" INT32 "int32" INT64 "int64" BYTE "byte"
-%token DBYTE "dbyte" QBYTE "qbyte" OBYTE "obyte" SINGLE "single" DOUBLE "double" 
+%token DBYTE "dbyte" QBYTE "qbyte" OBYTE "obyte" SINGLE "single" DOUBLE "double"
 %token CASETK "case" DEFAULTTK "default" IF "if" ELSE "else" SWITCHTK "switch"
 %token WHILE "while" DO "do" FOR "for" GOTO "goto" CONTINUE "continue"
 %token BREAK "break" RETURN "return" SIZEOF "sizeof" UNSIGNED "unsigned"
@@ -73,7 +73,6 @@
 }
 
 %{
-  
   int yylex(YYSTYPE* yst, LOCTYPE* ylt, void* yscanner);
   int yyerror(LOCTYPE* ylt, void* scanner, char* filename, const char* s); //filename is ignored
   void* yyget_extra(void* scanner);
@@ -240,12 +239,12 @@ initializer:
   }
   for(int i = 0; i < $$->length; i++) {
     ac = aget($$, i);
-    ac->decl->type->tb |= $1->tb; 
+    ac->decl->type->tb |= $1->tb;
     if(ispointer($1)) {
       DYNARR* nptrst = ptrdaclone($1->pointerstack);
       if(ac->decl->type->pointerstack)
         ac->decl->type->pointerstack = damerge(nptrst, ac->decl->type->pointerstack);
-      else 
+      else
         ac->decl->type->pointerstack = nptrst;
     }
     if($1->tb & (STRUCTVAL | UNIONVAL)) {
@@ -294,7 +293,7 @@ initializer:
   }
   free($2);
   }
-| "enum" enumbody ';' {$$ = NULL; 
+| "enum" enumbody ';' {$$ = NULL;
   for(int i = 0; i < $2->length; i++) {
     ENUMFIELD* enf = daget($2, i);
     free(enf->name);
@@ -306,7 +305,7 @@ initializer:
 | fullenum ';' {$$ = NULL;}
 | fullunion ';' {$$ = NULL;};
 cs_inits:
-  cs_inits ',' declarator '=' escoa {$$ = $1; 
+  cs_inits ',' declarator '=' escoa {$$ = $1;
     LOCTYPE real = @5;
     real.first_line = @3.first_line;
     real.first_column = @3.first_column;
@@ -315,10 +314,10 @@ cs_inits:
 | declarator '=' escoa {$$ = dactor(8);
     INITIALIZER* id = decl2scope($1, $3, ctx, @$);
     if(id) dapushc($$, id); else fprintf(stderr, "Error: redefinition of identifier in %s %d.%d-%d.%d\n", locprint(@1)); }
-| cs_inits ',' declarator {$$ = $1; 
+| cs_inits ',' declarator {$$ = $1;
     INITIALIZER* id = decl2scope($3, NULL, ctx, @3);
     if(id) dapush($$, id); else fprintf(stderr, "Error: redefinition of identifier in %s %d.%d-%d.%d\n", locprint(@1)); }
-| declarator {$$ = dactor(8); 
+| declarator {$$ = dactor(8);
     INITIALIZER* id = decl2scope($1, NULL, ctx, @$);
     if(id) dapushc($$, id); else fprintf(stderr, "Error: redefinition of identifier in %s %d.%d-%d.%d\n", locprint(@1)); };
 escoa:
@@ -378,8 +377,8 @@ param_decl:
     if(ispointer($1)) {
       DYNARR* nptr = ptrdaclone($1->pointerstack);
       if($2->type->pointerstack)
-        $2->type->pointerstack = damerge(nptr, $2->type->pointerstack); 
-      else 
+        $2->type->pointerstack = damerge(nptr, $2->type->pointerstack);
+      else
         $2->type->pointerstack = nptr;
     }
     if($1->tb & (STRUCTVAL | UNIONVAL)) {
@@ -408,7 +407,7 @@ nameless:
   namelesstype {$$ = dactor(16); dapushc($$, $1);}
 | nameless ',' namelesstype {$$ = $1; dapush($$, $3);}
 | params ',' namelesstype {
-    $$ = dactor($1->length + 16); 
+    $$ = dactor($1->length + 16);
     for(int i = 0; i < $1->length; i++) {
       DECLARATION* idt = daget($1, i);
       dapush($$, idt->type);
@@ -471,29 +470,29 @@ typem:
 | "double" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 8 | FLOATNUM;}
 | "int64" "double" {$$ = calloc(1, sizeof(IDTYPE)); $$->tb = 10;/*garbage feature only here for compatibility(?)*/}
 | struct {
-    $$ = calloc(1, sizeof(IDTYPE)); 
+    $$ = calloc(1, sizeof(IDTYPE));
     $$->structtype = $1;
     $$->tb = STRUCTVAL;
     if($1->fields == NULL) {
       DYNARR* da = (DYNARR*) search(scopepeek(ctx)->forwardstructs, $1->name);
-      if(!da) 
+      if(!da)
         fprintf(stderr, "Error: struct %s undeclared in %s %d.%d-%d.%d\n", $1->name, locprint(@$));
       else
         dapush(da, &($$->structtype));
     }}
 | union {
-    $$ = calloc(1, sizeof(IDTYPE)); 
+    $$ = calloc(1, sizeof(IDTYPE));
     $$->uniontype = $1;
     $$->tb = UNIONVAL;
     if($1->fields == NULL) {
-      DYNARR* da = (DYNARR*) search(scopepeek(ctx)->forwardunions, $1->name); 
-      if(!da) 
+      DYNARR* da = (DYNARR*) search(scopepeek(ctx)->forwardunions, $1->name);
+      if(!da)
         fprintf(stderr, "Error: union %s undeclared in %s %d.%d-%d.%d\n", $1->name, locprint(@$));
       else
         dapush(da, &($$->uniontype));
     }}
 | enum {
-    $$ = calloc(1, sizeof(IDTYPE)); 
+    $$ = calloc(1, sizeof(IDTYPE));
     $$->enumtype = $1;
     $$->tb = ENUMVAL | 0x8;//for now they're all 8 bits
     };
@@ -694,7 +693,7 @@ esu:
     }
     }/*compound literal*/
 | error {
-    $$ = ct_nop_expr(@$); 
+    $$ = ct_nop_expr(@$);
     fprintf (stderr, "Malformed expression at %s %d.%d-%d.%d\n", locprint(@1));
     };
 escl:
@@ -744,8 +743,8 @@ arrescoal:
     free($4);
     }
 | escoal ',' '[' expression ']' '=' escoa {
-    $$ = malloc(sizeof(DESIGNARR)); 
-    $$->inits = $1; 
+    $$ = malloc(sizeof(DESIGNARR));
+    $$->inits = $1;
     $$->curpt = $1->length;
     foldconst($4);
     assert($4->type == INT || $4->type == UINT);
@@ -874,7 +873,7 @@ function:
     '{' soiorno '}' {
     scopepop(ctx);
     $$ = $3;
-    $$->body = mkcmpndstmt($5, @$); 
+    $$->body = mkcmpndstmt($5, @$);
     ctx->func = NULL;
     };
 clobberlist:
@@ -892,7 +891,7 @@ operands:
 statement:
   compound_statement {$$ = $1;}
 |  SYMBOL ':' {$$ = mklblstmt(ctx, $1, @1);}
-| "case" esc ':' { 
+| "case" esc ':' {
     char* caselbl = malloc(128);
     snprintf(caselbl, 128, "__joecc__%s__%d", ctx->func->name, (ctx->func->caseindex)++);
     $$ = mkcasestmt(ctx, $2, caselbl, @$);
@@ -934,7 +933,7 @@ statement:
 | "asm" '(' multistring ':' operands ':' operands ')' ';' {$$ = mkasmstmt($3->strptr, $5, $7, NULL, @$); free($3);}
 | "asm" '(' multistring ':' operands ':' operands ':' clobbers ')' ';' {$$ = mkasmstmt($3->strptr, $5, $7, $9, @$); free($3);}
 | ';' {$$ = mknopstmt();};
-ee: 
+ee:
   expression {$$ = $1;}
 | %empty {$$ = ct_nop_expr(@$);};
 dee:
@@ -942,7 +941,7 @@ dee:
 | ee ';' {$$ = malloc(sizeof(EOI)); $$->isE = 1; $$->E = $1;};
 compound_statement:/*add new scope to scope stack, remove when done*/
   '{' compound_midrule soiorno'}' {
-    $$ = mkcmpndstmt($3, @$); 
+    $$ = mkcmpndstmt($3, @$);
     scopepop(ctx);
     };
 compound_midrule: %empty {
@@ -979,7 +978,7 @@ fullunion:
     }} structbody {
     $$ = ustructor($2, $4, ctx);
     rmpaircfr(scopepeek(ctx)->unions, $2, free); //no-op if not predefined
-    add2scope(ctx, $2, M_UNION, $$); 
+    add2scope(ctx, $2, M_UNION, $$);
     defbackward(ctx, M_UNION, $2, (USTRUCT*) $$);
     };
 union:
@@ -1007,7 +1006,7 @@ fullstruct:
     } else {
       fprintf(stderr, "Error: redefinition of struct %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
     }} structbody {
-    $$ = ustructor($2, $4, ctx); 
+    $$ = ustructor($2, $4, ctx);
     rmpaircfr(scopepeek(ctx)->structs, $2, free); //no-op if not predefined
     add2scope(ctx, $2, M_STRUCT, $$);
     defbackward(ctx, M_STRUCT, $2, $$);
@@ -1043,7 +1042,7 @@ struct_decl:
         }
       }
     }
-    $$ = $2; 
+    $$ = $2;
     DYNARR* da = NULL;
     if($1->tb & (STRUCTVAL | UNIONVAL)) {
       if(!$1->structtype->fields) {
@@ -1061,10 +1060,10 @@ struct_decl:
         }
       }
     }
-    
+
     for(int i = 0; i < $2->length; i++) {
       DECLARATION* dc = dget($$, i);
-      dc->type->tb |= $1->tb; 
+      dc->type->tb |= $1->tb;
       if(ispointer($1)) {
         DYNARR* nptr = ptrdaclone($1->pointerstack);
         if(dc->type->pointerstack) {
@@ -1130,7 +1129,7 @@ struct_decl:
 cs_decls:
   cs_decls ',' sdecl {$$ = $1; dapush($$, $3);}
 | sdecl {$$ = dactor(8); dapushc($$, $1);};
-sdecl: 
+sdecl:
   declarator {$$ = $1;}
 | declarator ':' esc {$$ = $1; rfreexpr($3);/*dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $3));*/}
 | ':' esc {$$ = mkdeclaration(NULL); rfreexpr($2);/*dapush($$->type->pointerstack, mkdeclpart(BITFIELDSPEC, $2));*/};
@@ -1140,7 +1139,7 @@ fullenum:
       fprintf(stderr, "Error: redefinition of enum %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
     }
     } enumbody {
-    $$ = enumctor($2, $4, ctx); 
+    $$ = enumctor($2, $4, ctx);
     add2scope(ctx, $2, M_ENUM, $$);
     };
 enum:
@@ -1158,16 +1157,16 @@ enumbody:
 enums:
   SYMBOL {$$ = dactor(256);
     EXPRESSION* const0 = ct_intconst_expr(0, @$);
-    dapushc($$, genenumfield($1,const0)); 
+    dapushc($$, genenumfield($1,const0));
     add2scope(ctx, $1, M_ENUM_CONST, const0);
     }
 | SYMBOL '=' esc {$$ = dactor(256);
     ENUMFIELD* ef = genenumfield($1,$3);
-    dapushc($$, ef); 
+    dapushc($$, ef);
     add2scope(ctx, $1, M_ENUM_CONST, ef->value);
     }
 | enums ',' SYMBOL {
-    $$ = $1; 
+    $$ = $1;
     EXPRESSION* prevexpr = ((ENUMFIELD*) dapeek($$))->value;
     EXPRESSION* newexpr = malloc(sizeof(EXPRESSION));
     switch(prevexpr->type) {
@@ -1202,7 +1201,7 @@ enums:
     }
 | enums ',' SYMBOL '=' esc {$$ = $1;
     ENUMFIELD* ef = genenumfield($3,$5);
-    dapush($$, ef); 
+    dapush($$, ef);
     if(scopequeryval(ctx, M_ENUM_CONST, $3) ||
        scopequeryval(ctx, M_VARIABLE, $3)) {
       fprintf(stderr, "Error: redefinition of symbol %s as enum constant at %s %d.%d-%d.%d\n", $3, locprint(@$));
