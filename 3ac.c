@@ -43,7 +43,7 @@ OPERATION* ct_3ac_op2(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
   return retval;
 }
 //Construct an operation that takes 3 args--two source and one destination
-OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0, 
+OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0,
                      ADDRTYPE addr1_type, ADDRESS addr1, ADDRTYPE dest_type, ADDRESS dest) {
   OPERATION* retval = malloc(sizeof(OPERATION));
   retval->opcode = opcode;
@@ -482,7 +482,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       curaddr.addr_type = ISCONST | ISSIGNED | 0x8;
       curaddr.addr.intconst_64 = cexpr->intconst;
       return curaddr;
-    case UINT: 
+    case UINT:
       curaddr.addr_type = ISCONST | 0x8;
       curaddr.addr.uintconst_64 = cexpr->uintconst;
       return curaddr;
@@ -668,20 +668,20 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       genop = implicit_binary_3(GENERIC_U, cexpr, prog);
       DEGENERIC(genop, ADD);
       return op2ret(prog, genop);
-    case SUB: 
+    case SUB:
       genop = implicit_binary_3(GENERIC_U, cexpr, prog);
       DEGENERIC(genop, SUB);
       return op2ret(prog, genop);
     case MULT:
       return op2ret(prog, implicit_binary_3(MULT_U, cexpr, prog));
-    case DIVI: 
+    case DIVI:
       return op2ret(prog, implicit_binary_3(DIV_U, cexpr, prog));
 
     case EQ:
       genop = cmpret_binary_3(GENERIC_U, cexpr, prog);
       DEGENERIC(genop, EQ);
       return op2ret(prog, genop);
-    case NEQ: 
+    case NEQ:
       genop = cmpret_binary_3(GENERIC_U, cexpr, prog);
       DEGENERIC(genop, NE);
       return op2ret(prog, genop);
@@ -721,7 +721,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       }
       return linearitree(daget(cexpr->params, cexpr->params->length - 1), prog);
 
-    case DOTOP: 
+    case DOTOP:
       varty = typex(daget(cexpr->params, 0));
       assert(!ispointer2(varty));
       return smemrec(cexpr, prog);
@@ -755,7 +755,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         opn(prog, ct_3ac_op2(curaddr.addr_type & ISFLOAT ? F2I : MOV_3, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       } else if(cexpr->vartype->tb & VOIDNUM) {
         return curaddr; //not sure how this should be handled
-      } else if(cexpr->vartype->tb & UNIONVAL) { 
+      } else if(cexpr->vartype->tb & UNIONVAL) {
         USTRUCT* castdest = cexpr->vartype->uniontype;
         FILLREG(destaddr, ISPOINTER | 0x8);
         unionlen(castdest);
@@ -867,7 +867,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return cmpnd_assign_addsub(ADD_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
     case SUBASSIGN:
       return cmpnd_assign_addsub(SUB_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
-    case DIVASSIGN: 
+    case DIVASSIGN:
       return cmpnd_assign(DIV_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
     case SHLASSIGN:
       return cmpnd_assign(SHL_U, daget(cexpr->params, 0), daget(cexpr->params, 1), prog);
@@ -1064,7 +1064,7 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
   dapush(prog->dynchars, i->decl->varname);
 }
 
-//Does necessary actions for jumping to a named label, this might involve 
+//Does necessary actions for jumping to a named label, this might involve
 //forward defining the label for later resolution or connecting 2 basic blocks
 static void lbljmp(char* lblname, BBLOCK* block, BBLOCK** loc, PROGRAM* prog) {
   if(!(*loc = search(prog->labels, lblname))) {
@@ -1148,7 +1148,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       contblock = mpblk();
       topblock = mpblk();
       if(cst->forinit->isE) {
-        if(cst->forinit->E->type != NOP) 
+        if(cst->forinit->E->type != NOP)
           linearitree(cst->forinit->E, prog);
       } else {
         for(int i = 0; i < cst->forinit->I->length; i++) {
@@ -1261,7 +1261,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
         rmpair(prog->unfilledlabels, cst->glabel);
       }
       return;
-    case CMPND: 
+    case CMPND:
       if(cst->stmtsandinits) {
         for(int i = 0; i < cst->stmtsandinits->length; i++) {
           SOI* s = (SOI*) daget(cst->stmtsandinits, i);
@@ -1277,11 +1277,11 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
     case EXPR:
       linearitree(cst->expression, prog);
       return;
-    case ASMSTMT: 
+    case ASMSTMT:
       //TODO: asm statement really not implemented yet
       opn(prog, ct_3ac_op1(ASM, GARBAGEVAL, ret_op.addr));
       return;
-    case NOPSTMT: 
+    case NOPSTMT:
       return;
     case CASE: case DEFAULT:
       break; //should never see case or default
@@ -1329,7 +1329,7 @@ PROGRAM* linefunc(FUNC* f) {
         dclp->addrty = scratchaddr.addr_type;
         opn(prog, ct_3ac_op2(ALOC_3, scratchaddr.addr_type, scratchaddr.addr, newa->addr_type, newa->addr));
       }
-    } 
+    }
     assert(prog->dynvars->length == pdec->varid);
     dapush(prog->dynvars, newa);
     dapush(prog->dynchars, pdec->varname);
@@ -1402,7 +1402,7 @@ static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char term, FILE* f, PROG
       else fprintf(f, "<FONT COLOR=\"#%.2hhx%.2hhx%.2hhx\">", 250, 60, 60);
       if(addr_type & ISFLOAT)
         fprintf(f, "%lf", addr.floatconst_64);
-      else if(addr_type & ISSIGNED) 
+      else if(addr_type & ISSIGNED)
         fprintf(f, "%ld", addr.intconst_64);
       else
         fprintf(f, "%lu", addr.intconst_64);
@@ -1478,7 +1478,7 @@ void printop(OPERATION* op, char term, BBLOCK* blk, FILE* f, PROGRAM* prog) {
   switch(op->opcode) {
     case NOP_3:
       break;
-    case LBL_3: 
+    case LBL_3:
       if(term) fprintf(f, RGBCOLOR(200,200,120));
       else fprintf(f, "<FONT COLOR=\"#%.2hhx%.2hhx%.2hhx\">", 200, 200, 120);
       fprintf(f, "%s:", op->addr0.labelname);
@@ -1488,25 +1488,25 @@ void printop(OPERATION* op, char term, BBLOCK* blk, FILE* f, PROGRAM* prog) {
     case COPY_3:
       PRINTOP3( );
       break;
-    case ADD_U: case ADD_F: 
+    case ADD_U: case ADD_F:
       PRINTOP3(+);
-      break; 
+      break;
     case SUB_U: case SUB_F:
       PRINTOP3(-);
       break;
-    case MULT_U: case MULT_I: case MULT_F: 
+    case MULT_U: case MULT_I: case MULT_F:
       PRINTOP3(*);
       break;
-    case DIV_U: case DIV_I: case DIV_F: 
+    case DIV_U: case DIV_I: case DIV_F:
       PRINTOP3(/);
       break;
-    case MOD_U: case MOD_I: 
+    case MOD_U: case MOD_I:
       PRINTOP3(%);
       break;
-    case SHL_U: case SHL_I: 
+    case SHL_U: case SHL_I:
       PRINTOP3OPT(<<, &lt;&lt;);
       break;
-    case SHR_U: case SHR_I: 
+    case SHR_U: case SHR_I:
       PRINTOP3OPT(>>, &gt;&gt;);
       break;
     case AND_U:
@@ -1521,38 +1521,38 @@ void printop(OPERATION* op, char term, BBLOCK* blk, FILE* f, PROGRAM* prog) {
     case NOT_U:
       PRINTOP2(~);
       break;
-    case NEG_I: case NEG_F: 
+    case NEG_I: case NEG_F:
       PRINTOP2(-);
       break;
     case ADDR_3: /*not sure if I is needed*/
       PRINTOP2(&amp;);
       break;
-    case EQ_U: case EQ_F: 
+    case EQ_U: case EQ_F:
       PRINTOP3(==);
       break;
-    case NE_U: case NE_F: 
+    case NE_U: case NE_F:
       PRINTOP3(!=);
       break;
-    case GE_U: case GE_I: case GE_F: 
+    case GE_U: case GE_I: case GE_F:
       PRINTOP3OPT(>=,&gt;=);
       break;
-    case LE_U: case LE_I: case LE_F: 
+    case LE_U: case LE_I: case LE_F:
       PRINTOP3OPT(<=,&lt;=);
       break;
-    case GT_U: case GT_I: case GT_F: 
+    case GT_U: case GT_I: case GT_F:
       PRINTOP3OPT(>,&gt;);
       break;
-    case LT_U: case LT_I: case LT_F: 
+    case LT_U: case LT_I: case LT_F:
       PRINTOP3OPT(<,&lt;);
       break;
     case BEQ_U: case BEQ_F:
       PRINTBROP2(==);
       break;
-    case BGE_U: case BGE_I: case BGE_F: 
+    case BGE_U: case BGE_I: case BGE_F:
       if(term) PRINTBROP2(>=);
       else PRINTBROP2(&gt;=);
       break;
-    case BGT_U: case BGT_I: case BGT_F: 
+    case BGT_U: case BGT_I: case BGT_F:
       if(term) PRINTBROP2(>);
       else PRINTBROP2(&gt;);
       break;
@@ -1563,7 +1563,7 @@ void printop(OPERATION* op, char term, BBLOCK* blk, FILE* f, PROGRAM* prog) {
     case INIT_3: case PARAM_3:
       PRINTOP1ASSIGN( );
       break;
-    case RET_3: 
+    case RET_3:
       if(!(op->addr0_type & GARBAGEVAL)) PRINTOP1( );
       break;
     case JEQ_I:
