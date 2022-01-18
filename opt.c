@@ -296,7 +296,7 @@ char constfold(PROGRAM* prog) {
         bincf(intconst_64, -=);
       case SUB_F:
         bincf(floatconst_64, -=);
-      case MULT_U: 
+      case MULT_U:
         last1(uintconst_64, 0, 1);
         first1(uintconst_64, 0, 1);
         bincfbl(uintconst_64, *=)
@@ -423,7 +423,7 @@ char constfold(PROGRAM* prog) {
         break;
       case DIV_F:
         bincf(floatconst_64, /=);
-      case MOD_U: 
+      case MOD_U:
         last1(uintconst_64, 0, 1);
         if((op->addr0_type & ISCONST) && (op->addr1_type & ISCONST)) {
           if(op->addr0.uintconst_64 == 0) break;
@@ -619,7 +619,7 @@ void splitcrit(PROGRAM* prog) {
         darpa(blka->nextblock->inedges, blk, blka);
       }
     }
-  } 
+  }
 }
 
 //Does not yet but will perform tail call elimination optimization
@@ -667,7 +667,7 @@ void collatealloc(PROGRAM* prog) {
         dapushc(allocfrontier, blk);
         while(allocfrontier->length) {
           BBLOCK* inquestion = dapop(allocfrontier);
-          if(inquestion->lastop && inquestion->lastop->opcode == DEALOC 
+          if(inquestion->lastop && inquestion->lastop->opcode == DEALOC
              && inquestion->lastop->addr0.regnum == op->dest.regnum) continue;
           //removal of critical edges should remove the issue that arises if one branch leaves dominance but the other doesn't
           if(inquestion->nextblock == prog->finalblock) {

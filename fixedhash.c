@@ -160,7 +160,7 @@ char fhtequal(HASHTABLE* ht1, HASHTABLE* ht2) {
     HASHPAIR* current1 = &(ht1->pairs[i]);
     HASHPAIR* current2 = &(ht2->pairs[i]);
     if(current1->next) {
-      if(!current2->next) 
+      if(!current2->next)
           return 0;
       do {
         if(!((current1->fixedkey == current2->fixedkey)/* && (current1->value == current2->value)*/))
