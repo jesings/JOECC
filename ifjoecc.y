@@ -11,6 +11,11 @@
 %locations
 %define api.location.type {LOCTYPE}
 %type<exprvariant> expression est eslo esla esbo esbx esba eseq escmp essh esas esca esu
+%parse-param {YYLTYPE start_location};
+%initial-action
+{
+  @$ = start_location;
+}
 
 %code requires{
   #include <stdio.h>
@@ -31,7 +36,7 @@
   #undef yylex
   typedef YYLTYPE ZZLTYPE;
   int yylex(YYSTYPE* yst, ZZLTYPE* ylt, void* yyscanner);
-  int yyerror(LOCTYPE* loc, void* yyscanner, const char* s);
+  int yyerror(LOCTYPE* loc, ZZLTYPE start_location, void* yyscanner, const char* s);
   void* yyget_extra(void* scanner);
   ZZLTYPE* yyget_lloc(void* scanner);
   void zz_pop_state(void*);
@@ -120,7 +125,7 @@ esu:
 | UNSIGNED_LITERAL {$$ = ct_uintconst_expr($1, @$);}
 | INTEGER_LITERAL {$$ = ct_intconst_expr($1, @$);};
 %%
-int yyerror(LOCTYPE* ylt, void* scanner, const char* s) {
+int yyerror(LOCTYPE* ylt, ZZLTYPE start_loc, void* scanner, const char* s) {
   fprintf(stderr, "Subsidiary parser encountered error %s %s %d.%d-%d.%d\n", s, dlocprint(ylt));
   return 0;
 }

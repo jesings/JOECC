@@ -40,7 +40,7 @@ MSTRING \"(\\.|[^\\"]|{SKIPNEWL})*\"
 #define unput(c, yyscanner) yyunput(c, ((struct yyguts_t*) yyscanner)->yytext_ptr, yyscanner) //fix your damn program flex
 #define lctx ((struct lexctx*) yyget_extra(yyscanner))
 
-int zzparse(yyscan_t scanner);
+int zzparse(yyscan_t scanner, YYLTYPE start_location);
 int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner);
 void yypush_stringbuffer(char* str, int length, const char* macname, YY_BUFFER_STATE ybs, yyscan_t yyscanner);
 char handle_eof(yyscan_t yyscanner);
@@ -182,7 +182,7 @@ struct arginfo {
         break;
       case IFANDTRUE: case ELSEANDFALSE:
         yy_push_state(WITHINIF, yyscanner);
-        zzparse(yyscanner);
+        zzparse(yyscanner, *yylloc);
         break;
     }
     }
@@ -220,7 +220,7 @@ struct arginfo {
         yy_pop_state(yyscanner);
         free(dapop(ds));
         yy_push_state(WITHINIF, yyscanner);
-        zzparse(yyscanner);
+        zzparse(yyscanner, *yylloc);
         break;
       case IFDEFDUMMY:
         break;

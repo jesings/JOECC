@@ -163,6 +163,7 @@ char fhtequal(HASHTABLE* ht1, HASHTABLE* ht2) {
       if(!current2->next)
           return 0;
       do {
+        //for now we are actually testing just that they all have the same keys!
         if(!((current1->fixedkey == current2->fixedkey)/* && (current1->value == current2->value)*/))
             return 0;
         current1 = current1->next;
