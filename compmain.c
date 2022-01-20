@@ -98,10 +98,10 @@ static void filecomp(char* filename) {
   ylt->last_column = ylt->first_column = 0;
   ylt->filename = tmpname;
   yyset_lloc(ylt, scanner);
-  DEBUG(yyset_debug(1, scanner));//not debugging lexer for now
+  DEBUG(yyset_debug(0, scanner));//not debugging lexer for now
   yyset_in(precontext, scanner);
-  yyparse(scanner, strdup(filename));
-  free(yyget_lloc(scanner)->filename);
+  yyparse(scanner, filename);
+  free(ylt);
   yylex_destroy(scanner);
   dadtorcfr(lctx->enumerat2free, (void(*)(void*)) freenum);
   bightdtorcfr(lctx->defines, (void (*)(void*)) freemd);

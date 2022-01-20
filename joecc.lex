@@ -52,6 +52,8 @@ struct arginfo {
   DYNARR* parg;
 };
 
+char parsmac[] = "macro call parsing";
+
 //get one character
 #define GOC(c) yylval_param->unum = c; yy_pop_state(yyscanner); return UNSIGNED_LITERAL
 %}
@@ -283,9 +285,11 @@ struct arginfo {
 
   {MSTRING}? {
     //TODO: handle if in macro!?
+    if(yylloc->filename == parsmac) {
     free(yylloc->filename);
     yytext[yyleng - 1] = '\0';
     yylloc->filename = strdup(yytext + 1);
+    }
   }
 
   ({BLANKC}|{SKIPNEWL})* {}
@@ -1186,8 +1190,6 @@ int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) 
 #endif
   return SYMBOL;
 }
-
-char parsmac[] = "macro call parsing";
 
 inline void yypush_stringbuffer(char* str, int length, const char* macname, YY_BUFFER_STATE ybs, yyscan_t yyscanner) {
   YY_BUFFER_STATE ylbs = yy_scan_bytes(str, length, yyscanner);
