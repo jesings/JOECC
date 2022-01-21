@@ -1181,6 +1181,7 @@ struct lexctx* ctxinit(FILE* ar, char* rn) {
   lct->ls->locs = dactor(32);
   lct->ls->defargs = NULL;
   lct->ls->argpp = dactor(16);
+  lct->ls->defname = NULL;
   return lct;
 }
 
