@@ -83,7 +83,15 @@ void liveness(PROGRAM* prog) {
       }
     )
   )
-  //liveness_populate(prog, forward_targets, backwards_targets);
+
+  //in order to calculate the liveness, the thing we probably want to do is...
+  //recursively check if predecessors of any use node are sdominated by the def node, 
+  //perhaps lazily generate bitfields for the dominance information?
+  //we take in the prog and the use def chains, and then we output...
+  //An adjacency matrix? If so then we need to handle the block-internal cases there, but that's doable
+  //Easy to check for live-in just do not set on def node, even if there is a use there
+  //What about phis?
+  //liveness_populate(prog);
 
   //lastuse(prog, usedefchains);
 
