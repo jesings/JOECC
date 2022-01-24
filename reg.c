@@ -10,82 +10,10 @@ const char* ireg16[] = {"ax", "bx", "cx", "dx", "di", "si", "bp", "sp", "r8w", "
 const char* ireg8[] = {"al", "bl", "cl", "dl", "dil", "sil", "bpl", "spl", "r8b", "r9b", "r10b", "r11b", "r12b", "r13b", "r14b", "r15b"};
 const char* freg128[] = {"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"};
 const char* freg256[] = {"ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7", "ymm8", "ymm9", "ymm10", "ymm11", "ymm12", "ymm13", "ymm14", "ymm15"};
-
-static void liveness_populate(PROGRAM* prog, DYNARR* nobacks, DYNARR* backs) {
-  nobacks->length = nobacks->maxlength;
-  backs->length = backs->maxlength;
-  for(int blkind = 0; blkind < prog->allblocks->length; blkind++) {
-    BBLOCK* blk = daget(prog->allblocks, blkind);
-    BITFIELD tvbf = bfalloc(prog->allblocks->length);
-    BITFIELD tvbfb = bfalloc(prog->allblocks->length);
-    DYNARR* recstack = dactor(8);
-    DYNARR* backprocstack = dactor(8);
-
-    //for each node in the dominance subtree, if it doesn't require a backedge path
-    dapush(recstack, blk);
-    while(recstack->length) {
-      BBLOCK* db = dapop(recstack);
-      bfset(tvbf, db->domind);
-      if(db->idominates) {
-        for(int dominatedind = 0; dominatedind < db->idominates->length; dominatedind++) {
-          BBLOCK* dominated = daget(db->idominates, dominatedind);
-          if(dominated->domind > db->domind) {
-            dapush(recstack, dominated);
-          } else {
-            //it is a back edge target!
-          }
-        }
-      }
-    }
-
-    while(backprocstack->length) {
-      BBLOCK* db = dapop(backprocstack);
-      bfset(tvbfb, db->domind);
-      if(db->idominates) {
-          //?
-      }
-    }
-
-    bfunset(tvbf, blk->domind);
-    dadtor(recstack);
-    dadtor(backprocstack);
-    nobacks->arr[blk->domind] = tvbf;
-    backs->arr[blk->domind] = tvbfb;
-  }
-}
-
-static char isreachable(BBLOCK* src, BBLOCK* dest, BITFIELD bf) {
-  if(bfget(bf, src->domind))
-    return 0;
-  //DFS because I'm lazy
-  bfset(bf, src->domind);
-  if(src == dest) 
-    return 1;
-  return (src->nextblock && isreachable(src->nextblock, dest, bf)) || (src->branchblock && isreachable(src->branchblock, dest, bf));
-}
-
 static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, int varnum) {
-  if(!usedefchains[varnum] || usedefchains[varnum] == (void*) -1 || !usedefchains[varnum]->arr[0]) return 0;
-  BBLOCK* defblock = usedefchains[varnum]->arr[0];
-  BITFIELD visited = bfalloc(prog->allblocks->length);
-  for(int index = 1; index < usedefchains[varnum]->length; index++) {
-    BBLOCK* otherblock = daget(usedefchains[varnum], index);
-    bfzero(visited, prog->allblocks->length);
-    bfset(visited, defblock->domind);
-    if(isreachable(blk, otherblock, visited)) {
-      free(visited);
-      return 1;
-    }
-  }
-  free(visited);
   return 0;
 }
 static char islive_out(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, int varnum) {
-  if(!usedefchains[varnum] || usedefchains[varnum] == (void*) -1 || !usedefchains[varnum]->arr[0]) return 0;
-  if(blk->nextblock && islive_in(prog, blk->nextblock, usedefchains, varnum))
-    return 1;
-  if(blk->branchblock && islive_in(prog, blk->branchblock, usedefchains, varnum))
-    return 1;
   return 0;
 }
 
@@ -93,9 +21,7 @@ void lastuse(PROGRAM* prog, DYNARR** chains);
 
 void liveness(PROGRAM* prog) {
   DYNARR** usedefchains = calloc(prog->regcnt, sizeof(DYNARR*)); //could be reduced by renaming registers downwards first
-  DYNARR* forward_targets = dactor(prog->allblocks->length);
-  DYNARR* backwards_targets = dactor(prog->allblocks->length);
-  liveness_populate(prog, forward_targets, backwards_targets);
+  //liveness_populate(prog, forward_targets, backwards_targets);
   
   //from this populated information, maintain a list of live variables in a DFS through the graph, rechecking liveness in/out
   //for each node that we visit within the DFS.
@@ -161,8 +87,6 @@ void liveness(PROGRAM* prog) {
   //    }
   //  )
   //)
-  dadtorfr(forward_targets);
-  dadtorfr(backwards_targets);
 
   //lastuse(prog, usedefchains);
 
