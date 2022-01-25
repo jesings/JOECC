@@ -19,6 +19,24 @@ static char islive_out(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, int va
 
 void lastuse(PROGRAM* prog, DYNARR** chains);
 
+static void bfdtreepop(BBLOCK* blk, BITFIELD bf) {
+    bfset(bf, blk->domind);
+    for(int i = 0; i < blk->idominates->length; i++) {
+        bfdtreepop(daget(blk->idominates, i), bf);
+    }
+}
+
+static BITFIELD liveness_populate(PROGRAM* prog, DYNARR**chains) {
+    //allocate a bitfield for each block which should be NULL to start with and will be filled lazily with the dominance tree of that block
+    BITFIELD* domtreeset = calloc(sizeof(BITFIELD), prog->allblocks->length);
+    for(unsigned int i = 0; i < prog->regcnt; i++) {
+        DYNARR* localchain = chains[i];
+        BBLOCK* defblk = daget(localchain, 0);
+        bfdtreepop(defblk, domtreeset[defblk->domind]);
+    }
+    return NULL;
+}
+
 void liveness(PROGRAM* prog) {
   DYNARR** usedefchains = calloc(prog->regcnt, sizeof(DYNARR*)); //could be reduced by renaming registers downwards first
   //first calculate the use-def chains
@@ -91,7 +109,7 @@ void liveness(PROGRAM* prog) {
   //An adjacency matrix? If so then we need to handle the block-internal cases there, but that's doable
   //Easy to check for live-in just do not set on def node, even if there is a use there
   //What about phis?
-  //liveness_populate(prog);
+  liveness_populate(prog, usedefchains);
 
   //lastuse(prog, usedefchains);
 
