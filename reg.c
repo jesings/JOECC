@@ -19,26 +19,40 @@ static char islive_out(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, int va
 
 void lastuse(PROGRAM* prog, DYNARR** chains);
 
-static void bfdtreepop(BBLOCK* blk, BITFIELD bf) {
+static void bfdtreepopulate(BBLOCK* blk, BITFIELD bf) {
     bfset(bf, blk->domind);
-    for(int i = 0; i < blk->idominates->length; i++) {
-        bfdtreepop(daget(blk->idominates, i), bf);
-    }
+    for(int i = 0; i < blk->idominates->length; i++)
+        bfdtreepopulate(daget(blk->idominates, i), bf);
+}
+
+static void updompop(BBLOCK* liveblk, BITFIELD domtreeset, BITFIELD topop) {
+    if(!bfget(domtreeset, liveblk->domind)) return;
+    if(!bfget(topop, liveblk->domind)) return;
+    bfset(topop, liveblk->domind);
+    for(int i = 0; i < liveblk->inedges->length; i++)
+        updompop(daget(liveblk->inedges, i), domtreeset, topop);
 }
 
 static BITFIELD liveness_populate(PROGRAM* prog, DYNARR**chains) {
     //allocate a bitfield for each block which should be NULL to start with and will be filled lazily with the dominance tree of that block
+    BITFIELD* varbs = calloc(sizeof(BITFIELD), prog->regcnt);
     BITFIELD* domtreeset = calloc(sizeof(BITFIELD), prog->allblocks->length);
     for(unsigned int i = 0; i < prog->regcnt; i++) {
         DYNARR* localchain = chains[i];
         BBLOCK* defblk = daget(localchain, 0);
-        bfdtreepop(defblk, domtreeset[defblk->domind]);
+        bfdtreepopulate(defblk, domtreeset[defblk->domind]);
+        BITFIELD varb = bfalloc(prog->allblocks->length);
+        for(int j = 1; j < localchain->length; j++) {
+            updompop(daget(localchain, j), domtreeset[defblk->domind], varb);
+        }
+        varbs[i] = varb;
     }
     return NULL;
 }
 
 void liveness(PROGRAM* prog) {
-  DYNARR** usedefchains = calloc(prog->regcnt, sizeof(DYNARR*)); //could be reduced by renaming registers downwards first
+  //first we should try to rename variables downward
+  DYNARR** usedefchains = calloc(prog->regcnt, sizeof(DYNARR*));
   //first calculate the use-def chains
   LOOPALLBLOCKS(
     OPARGCASES(
