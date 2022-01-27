@@ -21,11 +21,13 @@ void lastuse(PROGRAM* prog, DYNARR** chains);
 
 static void bfdtreepopulate(BBLOCK* blk, BITFIELD bf) {
     bfset(bf, blk->domind);
-    for(int i = 0; i < blk->idominates->length; i++)
+    if(blk->idominates)
+      for(int i = 0; i < blk->idominates->length; i++)
         bfdtreepopulate(daget(blk->idominates, i), bf);
 }
 
 static void updompop(BBLOCK* liveblk, BITFIELD domtreeset, BITFIELD topop) {
+    //I THINK only one of these cases is necessary?
     if(!bfget(domtreeset, liveblk->domind)) return;
     if(!bfget(topop, liveblk->domind)) return;
     bfset(topop, liveblk->domind);
@@ -38,14 +40,19 @@ static BITFIELD liveness_populate(PROGRAM* prog, DYNARR**chains) {
     BITFIELD* varbs = calloc(sizeof(BITFIELD), prog->regcnt);
     BITFIELD* domtreeset = calloc(sizeof(BITFIELD), prog->allblocks->length);
     for(unsigned int i = 0; i < prog->regcnt; i++) {
-        DYNARR* localchain = chains[i];
-        BBLOCK* defblk = daget(localchain, 0);
-        bfdtreepopulate(defblk, domtreeset[defblk->domind]);
-        BITFIELD varb = bfalloc(prog->allblocks->length);
-        for(int j = 1; j < localchain->length; j++) {
-            updompop(daget(localchain, j), domtreeset[defblk->domind], varb);
-        }
-        varbs[i] = varb;
+      DYNARR* localchain = chains[i];
+      if(!localchain) continue;
+      BBLOCK* defblk = daget(localchain, 0);
+      assert(defblk);
+      BITFIELD dombf = domtreeset[defblk->domind];
+      if(dombf == NULL) 
+       dombf = domtreeset[defblk->domind] = bfalloc(prog->allblocks->length);
+      bfdtreepopulate(defblk, dombf);
+      BITFIELD varb = bfalloc(prog->allblocks->length);
+      for(int j = 1; j < localchain->length; j++) {
+        updompop(daget(localchain, j), dombf, varb);
+      }
+      varbs[i] = varb;
     }
     return NULL;
 }
