@@ -120,8 +120,32 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
               op->addr0.ssaind = dipeek(bdarr);
           }
           __attribute__((fallthrough));
-        case CALL_3: case PHI: /*must have constant input in alloc_3*/
+        case CALL_3:/*must have constant input in alloc_3*/
           //rename destination operand if it's a variable. if it is not a dereference, generate a new name
+          if(op->dest_type & ISVAR) {
+            bdarr = daget(S, op->dest.varnum);
+            if(bdarr->length) {
+              if(op->dest_type & ISDEREF) {
+                op->dest.ssaind = dipeek(bdarr);
+              } else {
+                C[op->dest.varnum] = prog->regcnt++;
+                op->dest.ssaind = C[op->dest.varnum];
+                dipush(bdarr, C[op->dest.varnum]);
+                dipush(assigns, op->dest.varnum);
+              }
+            }
+          }
+          break;
+        case PHI: //ternary phi, needs special case
+          if(op->addr1_type == GARBAGEVAL) {
+            for(int i = 0; i < block->inedges->length; i++) {
+                if(op->addr0.joins[i].addr_type & ISVAR) {
+                  bdarr = daget(S, op->addr0.joins[i].addr.varnum);
+                  if(bdarr->length) //in case of addrsvar
+                    op->addr0.joins[i].addr.ssaind = dipeek(bdarr);
+                }
+            }
+          }
           if(op->dest_type & ISVAR) {
             bdarr = daget(S, op->dest.varnum);
             if(bdarr->length) {
@@ -467,6 +491,7 @@ void ssa(PROGRAM* prog) {
             jadr.joins = malloc(domblock->inedges->length * sizeof(FULLADDR));
             //prepend phi to the block
             OPERATION* phi = ct_3ac_op2(PHI, ISCONST, jadr, fadr->addr_type, fadr->addr);
+            phi->addr1_type = 0;
             phi->nextop = domblock->firstop;
             if(!domblock->lastop) domblock->lastop = phi;
             domblock->firstop = phi;
@@ -1380,7 +1405,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
               assert(k < antilnode->equivs->length);
               if(antilantileader->o == INIT_3) break;
           }
-          OPERATION* phi = ct_3ac_op2(PHI, ISCONST, joins, downsize(antilantileader->size1), reggie);
+          OPERATION* phi = ct_3ac_op2(PHI, ISCONST, joins, downsize(antilantileader->size1), reggie);//no need to fix op1, we're after ssa gen
           for(int j = 0; j < blk->inedges->length; j++) {
             BBLOCK* oblk = daget(blk->inedges, j);
             if(oblk == daget(stubbornblocks, stubbornindex)) {
