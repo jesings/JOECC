@@ -133,8 +133,7 @@ static void filecomp(char* filename) {
       remove_nops(prog);
       DEBUG(printf("Ops before SSA %d\n", countops(prog)));
       DEBUG(treeprog(prog, pairthere->key, "pressa"));
-      ssa(prog);
-      remove_nops(prog);
+      ssa(prog); //no nops are generated here
       DEBUG(printf("Ops after SSA %d\n", countops(prog)));
       DEBUG(treeprog(prog, pairthere->key, "justssa"));
       constfold(prog);

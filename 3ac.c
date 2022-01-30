@@ -790,9 +790,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       IDTYPE t3t = typex(cexpr);
       OPERATION* join = malloc(sizeof(OPERATION));
       join->opcode = PHI;
-      join->addr0_type = ISCONST | GARBAGEVAL;
+      join->addr0_type = ISCONST | GARBAGEVAL;//The GARBAGEVAL here singifies it's a ternary phi
       join->addr0.joins = malloc(2 * sizeof(FULLADDR));
-      join->addr1_type = GARBAGEVAL; //This signifies that it's a ternary phi for SSA gen but unneeded elsewhere
       giveblock(prog, succblock);
       FILLREG(destaddr, addrconv(&t3t));
       join->dest = destaddr.addr;

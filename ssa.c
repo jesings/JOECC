@@ -92,7 +92,6 @@ static void dfpdt(BBLOCK* root) {
   }
 }
 
-//TODO: I think ternary phis aren't getting renamed right
 //rename all registers in block based on SSA
 static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
   if(!block || block->visited) return;
@@ -137,13 +136,13 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
           }
           break;
         case PHI: //ternary phi, needs special case
-          if(op->addr1_type == GARBAGEVAL) {
+          if(op->addr0_type & GARBAGEVAL) {
             for(int i = 0; i < block->inedges->length; i++) {
-                if(op->addr0.joins[i].addr_type & ISVAR) {
-                  bdarr = daget(S, op->addr0.joins[i].addr.varnum);
-                  if(bdarr->length) //in case of addrsvar
-                    op->addr0.joins[i].addr.ssaind = dipeek(bdarr);
-                }
+              if(op->addr0.joins[i].addr_type & ISVAR) {
+                bdarr = daget(S, op->addr0.joins[i].addr.varnum);
+                if(bdarr->length) //in case of addrsvar
+                  op->addr0.joins[i].addr.ssaind = dipeek(bdarr);
+              }
             }
           }
           if(op->dest_type & ISVAR) {
@@ -491,7 +490,6 @@ void ssa(PROGRAM* prog) {
             jadr.joins = malloc(domblock->inedges->length * sizeof(FULLADDR));
             //prepend phi to the block
             OPERATION* phi = ct_3ac_op2(PHI, ISCONST, jadr, fadr->addr_type, fadr->addr);
-            phi->addr1_type = 0;
             phi->nextop = domblock->firstop;
             if(!domblock->lastop) domblock->lastop = phi;
             domblock->firstop = phi;
