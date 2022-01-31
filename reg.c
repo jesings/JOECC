@@ -35,13 +35,13 @@ static void updompop(BBLOCK* liveblk, BITFIELD domtreeset, BITFIELD topop) {
         updompop(daget(liveblk->inedges, i), domtreeset, topop);
 }
 
-static BITFIELD liveness_populate(PROGRAM* prog, DYNARR**chains) {
+static void liveness_populate(PROGRAM* prog, DYNARR**chains, BITFIELD* varbs) {
     //allocate a bitfield for each block which should be NULL to start with and will be filled lazily with the dominance tree of that block
-    BITFIELD* varbs = calloc(sizeof(BITFIELD), prog->regcnt);
     BITFIELD* domtreeset = calloc(sizeof(BITFIELD), prog->allblocks->length);
     for(unsigned int i = 0; i < prog->regcnt; i++) {
       DYNARR* localchain = chains[i];
       if(!localchain) continue;
+      assert(localchain != (void*) -1L); //forward use that is never resolved!
       BBLOCK* defblk = daget(localchain, 0);
       assert(defblk);
       BITFIELD dombf = domtreeset[defblk->domind];
@@ -54,7 +54,10 @@ static BITFIELD liveness_populate(PROGRAM* prog, DYNARR**chains) {
       }
       varbs[i] = varb;
     }
-    return NULL;
+
+    for(int i = 0; i < prog->allblocks->length; i++)
+        if(domtreeset[i]) free(domtreeset[i]);
+    free(domtreeset);
 }
 
 void liveness(PROGRAM* prog) {
@@ -130,7 +133,13 @@ void liveness(PROGRAM* prog) {
   //An adjacency matrix? If so then we need to handle the block-internal cases there, but that's doable
   //Easy to check for live-in just do not set on def node, even if there is a use there
   //What about phis?
-  liveness_populate(prog, usedefchains);
+  BITFIELD* varbs = calloc(sizeof(BITFIELD), prog->regcnt);
+  liveness_populate(prog, usedefchains, varbs);
+  for(unsigned int i = 0; i < prog->regcnt; i++) {
+      assert(varbs[i] || !usedefchains[i]);
+      free(varbs[i]);
+  }
+  free(varbs);
 
   //lastuse(prog, usedefchains);
 

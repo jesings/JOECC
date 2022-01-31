@@ -1422,11 +1422,12 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
               assert(k < antilnode->equivs->length);
               if(antilantileader->o == INIT_3) break;
           }
-          OPERATION* phi = ct_3ac_op2(PHI, ISCONST, joins, downsize(antilantileader->size1), reggie);//no need to fix op1, we're after ssa gen
+          OPERATION* phi = ct_3ac_op2(PHI, ISCONST, joins, downsize(antilantileader->size1), reggie);
           for(int j = 0; j < blk->inedges->length; j++) {
             BBLOCK* oblk = daget(blk->inedges, j);
             if(oblk == daget(stubbornblocks, stubbornindex)) {
               stubbornindex++;
+              assert(fixedqueryval(oblk->leader, antiint));
               int stubbornval = (int) (long) fixedsearch(oblk->leader, antiint);
               joins.joins[j].addr_type = phi->dest_type;
               joins.joins[j].addr.regnum = stubbornval;
