@@ -277,7 +277,26 @@ void ssa(PROGRAM* prog) {
   //reset flags in blocks, mark unreachable blocks for removal
   for(int i = 0; i < blocks->length; i++) {
     BBLOCK* dtn = daget(blocks, i);
-    if(dtn->domind == -1) domark(dtn);
+    if(dtn->domind == -1) {
+      if(dtn->nextblock && dtn->nextblock->lastop) {
+        //we don't need to check that it's a join and we also don't need to rearrange PHIs, because there must be a maximum of one ternary phi per block
+        OPERATION* possphi = dtn->nextblock->firstop;
+        if(possphi->opcode == PHI) {
+          DYNARR* possum = dtn->nextblock->inedges;
+          //ternary phis must have 2 source operands
+          assert(possum->length == 2);
+          assert(possphi->addr0_type & GARBAGEVAL);
+
+          //replace it with a mov from the operand of the not bogus block
+          FULLADDR source = possphi->addr0.joins[daget(possum, 0) == dtn ? 1 : 0];
+          free(possphi->addr0.joins);
+          possphi->opcode = MOV_3;
+          possphi->addr0_type = source.addr_type;
+          possphi->addr0 = source.addr;
+        }
+      }
+      domark(dtn);
+    }
   }
 
   //remove unreachable blocks
