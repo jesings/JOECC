@@ -19,6 +19,7 @@ static char islive_out(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, int va
 
 void lastuse(PROGRAM* prog, DYNARR** chains);
 
+//populate a bitfield of blocks dominated by a given block, to prevent recalculation and make liveness easier
 static void bfdtreepopulate(BBLOCK* blk, BITFIELD bf) {
     bfset(bf, blk->domind);
     if(blk->idominates)
@@ -26,6 +27,9 @@ static void bfdtreepopulate(BBLOCK* blk, BITFIELD bf) {
         bfdtreepopulate(daget(blk->idominates, i), bf);
 }
 
+//populate all blocks in the dominance subtree of the definition where the variable is live
+//In order to do this, for each of the uses in the use def chain, for each of the variables
+//find recursively all predecessor blocks that lie within the dominance tree
 static void updompop(BBLOCK* liveblk, BITFIELD domtreeset, BITFIELD topop) {
     //I THINK only one of these cases is necessary?
     if(!bfget(domtreeset, liveblk->domind)) return;
@@ -130,9 +134,8 @@ void liveness(PROGRAM* prog) {
   //recursively check if predecessors of any use node are sdominated by the def node, 
   //perhaps lazily generate bitfields for the dominance information?
   //we take in the prog and the use def chains, and then we output...
-  //An adjacency matrix? If so then we need to handle the block-internal cases there, but that's doable
+  //A dynarr of the liveness bitfields for all the variables
   //Easy to check for live-in just do not set on def node, even if there is a use there
-  //What about phis?
   BITFIELD* varbs = calloc(sizeof(BITFIELD), prog->regcnt);
   liveness_populate(prog, usedefchains, varbs);
   for(unsigned int i = 0; i < prog->regcnt; i++) {
