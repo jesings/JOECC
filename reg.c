@@ -45,18 +45,25 @@ static void liveness_populate(PROGRAM* prog, DYNARR**chains, BITFIELD* varbs) {
     for(unsigned int i = 0; i < prog->regcnt; i++) {
       DYNARR* localchain = chains[i];
       if(!localchain) continue;
-      assert(localchain != (void*) -1L); //forward use that is never resolved!
       BBLOCK* defblk = daget(localchain, 0);
       assert(defblk);
       BITFIELD dombf = domtreeset[defblk->domind];
-      if(dombf == NULL) 
-       dombf = domtreeset[defblk->domind] = bfalloc(prog->allblocks->length);
-      bfdtreepopulate(defblk, dombf);
-      BITFIELD varb = bfalloc(prog->allblocks->length);
-      for(int j = 1; j < localchain->length; j++) {
-        updompop(daget(localchain, j), dombf, varb);
+      if(dombf == NULL) {
+        dombf = domtreeset[defblk->domind] = bfalloc(prog->allblocks->length);
+        bfdtreepopulate(defblk, dombf);
       }
-      varbs[i] = varb;
+      if(localchain->length != -1L) {
+          //normal variable
+          BITFIELD varb = bfalloc(prog->allblocks->length);
+          for(int j = 1; j < localchain->length; j++) {
+            updompop(daget(localchain, j), dombf, varb);
+          }
+          varbs[i] = varb;
+      } else {
+          //addrsvar case! consider it live from every point in its dominator tree
+          varbs[i] = bfclone(dombf, prog->allblocks->length);
+      }
+      //for both of these cases, maybe we want to exclude the defblk from the live_in set?
     }
 
     for(int i = 0; i < prog->allblocks->length; i++)
@@ -75,7 +82,7 @@ void liveness(PROGRAM* prog) {
         unsigned int reg = op->addr0.regnum;
         assert(reg < prog->regcnt);
         assert((chain = usedefchains[reg])); //forward use that is not a phi
-        if(chain != (DYNARR*) -1) {
+        if(chain->length != -1) {//if it's not an addrsvar
           if(dapeek(chain) != blk)
             dapush(chain, blk); //prevent adjacent duplicates
         }
@@ -85,7 +92,7 @@ void liveness(PROGRAM* prog) {
         unsigned int reg = op->addr1.regnum;
         assert(reg < prog->regcnt);
         assert((chain = usedefchains[reg])); //forward use that is not a phi
-        if(chain != (DYNARR*) -1) {
+        if(chain->length != -1) {//if it's not an addrsvar
           if(dapeek(chain) != blk)
             dapush(chain, blk); //prevent adjacent duplicates
         }
@@ -96,18 +103,20 @@ void liveness(PROGRAM* prog) {
         assert(reg < prog->regcnt);
 
         if(op->dest_type & ADDRSVAR) {
-          usedefchains[reg] = (DYNARR*) -1;
+          assert(!usedefchains[reg]);
+          chain = usedefchains[reg] = dactor(1);
+          usedefchains[reg]->length = -1;
+          usedefchains[reg]->arr[0] = blk;
         } else {
           chain = usedefchains[reg];
-          if(chain != (DYNARR*) -1) {
-            if(chain) {
-              assert(daget(chain, 0) == NULL);
-            } else {
-              chain = usedefchains[reg] = dactor(8);
-              chain->length = 1;
-            }
-            chain->arr[0] = blk;
+          if(chain) {
+            if(chain->length == -1) break;
+            assert(daget(chain, 0) == NULL);
+          } else {
+            chain = usedefchains[reg] = dactor(8);
+            chain->length = 1;
           }
+          chain->arr[0] = blk;
         }
       },
       if(!(phijoinaddr->addr_type & (ISDEREF | ISLABEL | ISCONST))) {
@@ -115,7 +124,7 @@ void liveness(PROGRAM* prog) {
         unsigned int reg = phijoinaddr->addr.regnum;
         assert(reg < prog->regcnt);
         if((chain = usedefchains[reg])) {
-          if(chain != (DYNARR*) -1) {
+          if(chain->length != -1) {//if it's not an addrsvar
             if(dapeek(chain) != blk) {
               dapush(chain, blk); //prevent adjacent duplicates
             }
@@ -162,7 +171,7 @@ void liveness(PROGRAM* prog) {
   //liveadjmatrix(prog, usedefchains);
 
   for(unsigned int i = 0; i < prog->regcnt; i++)
-    if(usedefchains[i] && usedefchains[i] != (DYNARR*) -1) dadtor(usedefchains[i]);
+    if(usedefchains[i]) dadtor(usedefchains[i]);
   free(usedefchains);
 }
 
