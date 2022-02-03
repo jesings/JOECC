@@ -1400,6 +1400,9 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     if(blk->inedges->length > 1) {
+
+      //we try to find which blocks have antileader sets that have some items present as leaders
+      //in predecessor nodes, and others not present, these are as per the paper candidates for value generation
       for(int antiind = 0; antiind < blk->antileader_in_list->length; antiind++) {
         int antiint = blk->antileader_in_list->arr[antiind];
         GVNNUM* antilnode = daget(eq->uniq_vals, antiint);
@@ -1411,6 +1414,8 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                 dapush(stubbornblocks, oblk);
             }
         }
+
+        //TODO: hmm if it's present in all predecessors do we not want to PHI join anyway
         if(stubbornblocks->length > 0 && stubbornblocks->length < blk->inedges->length) {
           int stubbornindex = 0;
           ADDRESS joins, reggie;
@@ -1425,7 +1430,8 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
           OPERATION* phi = ct_3ac_op2(PHI, ISCONST, joins, downsize(antilantileader->size1), reggie);
           for(int j = 0; j < blk->inedges->length; j++) {
             BBLOCK* oblk = daget(blk->inedges, j);
-            if(oblk == daget(stubbornblocks, stubbornindex)) {
+            if(stubbornindex < stubbornblocks->length && 
+               oblk == daget(stubbornblocks, stubbornindex)) {
               stubbornindex++;
               assert(fixedqueryval(oblk->leader, antiint));
               int stubbornval = (int) (long) fixedsearch(oblk->leader, antiint);
@@ -1590,6 +1596,8 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
           blk->antileader_in_list->arr[antiind] = -1;
 
           if(prevval) free(prevval);
+        } else if (stubbornblocks->length == blk->inedges->length) {
+            //TODO: insert phi here, update leader info
         }
 
         stubbornblocks->length = 0;
