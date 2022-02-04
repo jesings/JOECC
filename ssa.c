@@ -1415,21 +1415,27 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
             }
         }
 
-        //TODO: hmm if it's present in all predecessors do we not want to PHI join anyway
         if(stubbornblocks->length > 0 && stubbornblocks->length < blk->inedges->length) {
           int stubbornindex = 0;
           ADDRESS joins, reggie;
           joins.joins = malloc(blk->inedges->length * sizeof(FULLADDR));
           reggie.regnum = prog->regcnt++;
           VALUESTRUCT *antilantileader;
+          //We find one authoritative type that this value should have
           for(int k = 0; ;k++) {
               antilantileader = daget(antilnode->equivs, k);
               assert(k < antilnode->equivs->length);
               if(antilantileader->o == INIT_3) break;
           }
+
+          //create the PHI join node, to be populated later
           OPERATION* phi = ct_3ac_op2(PHI, ISCONST, joins, downsize(antilantileader->size1), reggie);
+
+          //for each predecessor block, i.e. each value to be joined within the PHI node
           for(int j = 0; j < blk->inedges->length; j++) {
             BBLOCK* oblk = daget(blk->inedges, j);
+
+            //if it's got the value already represented, just insert the value into the PHI
             if(stubbornindex < stubbornblocks->length && 
                oblk == daget(stubbornblocks, stubbornindex)) {
               stubbornindex++;
@@ -1438,8 +1444,9 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
               joins.joins[j].addr_type = phi->dest_type;
               joins.joins[j].addr.regnum = stubbornval;
             } else {
+            //if the value is not already represented, we need to hoist the operation used to generate it!
               VALUESTRUCT actionable = *antil;
-              VALUESTRUCT genvalue;
+              VALUESTRUCT genvalue; //holds the generated value, p2 is zeroed out for the case of op1
               genvalue.o = actionable.o;
               genvalue.p2 = 0;
               genvalue.size2 = 0;
@@ -1450,15 +1457,18 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
               genop->opcode = actionable.o;
               genop->dest_type = phi->dest_type;
               genop->dest.regnum = prog->regcnt++;
+              //we switch on the operation
               switch(actionable.o) {
                 default:
                   assert(0);
                 case INIT_3:
                   free(genop);
+                  //somehow the variable was present when we thought it wasn't? Just insert the value like normal
                   joins.joins[j].addr_type = phi->dest_type;
                   joins.joins[j].addr.regnum = actionable.p1;
                   continue;
                 OPS_3_3ac
+                  //for an op3 we first look at the second source operand
                   operandnode = daget(eq->uniq_vals, actionable.p2);
                   if(operandnode->hasconst != NOCONST) {
                     genop->addr1.intconst_64 = operandnode->intconst;
@@ -1505,6 +1515,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                   }
                 __attribute__((fallthrough));
                 OPS_2_3ac
+                  //for an op2 and an op3 we look at the first source operand now
                   operandnode = daget(eq->uniq_vals, actionable.p1);
                   if(operandnode->hasconst != NOCONST) {
                     genop->addr0.intconst_64 = operandnode->intconst;
@@ -1597,7 +1608,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
 
           if(prevval) free(prevval);
         } else if (stubbornblocks->length == blk->inedges->length) {
-            //TODO: insert phi here, update leader info
+            //TODO: insert phi here, update leader info?
         }
 
         stubbornblocks->length = 0;
