@@ -836,7 +836,7 @@ STATEMENT* mkforstmt(EOI* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy, LO
   retval->forcond = e2;
   retval->increment = e3;
   retval->forbody = bdy;
-  retval->location  = loc;
+  retval->location = loc;
   return retval;
 }
 

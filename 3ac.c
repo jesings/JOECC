@@ -1312,8 +1312,13 @@ PROGRAM* linefunc(FUNC* f) {
     newa->addr.regnum = prog->regcnt++;
     opn(prog, ct_3ac_op1_assign(PARAM_3, newa->addr_type, newa->addr));
     if(!ispointer(pdec->type)) {
-      if((pdec->type->tb & (STRUCTVAL | UNIONVAL) )) {
+      if(pdec->type->tb & (STRUCTVAL | UNIONVAL)) {
         ADDRESS tmpaddr, tmpaddr2;
+        if(pdec->type->tb & STRUCTVAL) {
+            feedstruct(pdec->type->structtype);
+        } else {
+            unionlen(pdec->type->uniontype);
+        }
         tmpaddr.intconst_64 = pdec->type->structtype->size;
         tmpaddr2.regnum = prog->regcnt++;
         opn(prog, ct_3ac_op2(ALOC_3, ISCONST | 8, tmpaddr, newa->addr_type & ~ISVAR, tmpaddr2));
