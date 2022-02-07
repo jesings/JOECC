@@ -10,14 +10,46 @@ const char* ireg16[] = {"ax", "bx", "cx", "dx", "di", "si", "bp", "sp", "r8w", "
 const char* ireg8[] = {"al", "bl", "cl", "dl", "dil", "sil", "bpl", "spl", "r8b", "r9b", "r10b", "r11b", "r12b", "r13b", "r14b", "r15b"};
 const char* freg128[] = {"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"};
 const char* freg256[] = {"ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7", "ymm8", "ymm9", "ymm10", "ymm11", "ymm12", "ymm13", "ymm14", "ymm15"};
-static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, int varnum) {
-  return 0;
-}
-static char islive_out(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, int varnum) {
-  return 0;
+static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, BITFIELD* varbs, int varnum) {
+  //if it's not the definition block, it's live_in provided it's live
+  //if it is the definition block, it's only live in if it's joined
+  //this is not true for addrsvar, variables where we conservatively say it's live
+  //if and only if it's live in a predecessor of the defining block
+  if(usedefchains[varnum] && daget(usedefchains[varnum], 0) == blk) {
+    int numpred = blk->inedges->length;
+    if(usedefchains[varnum]->length == -1) {
+      for(int i = 0; i < numpred; i++) {
+        BBLOCK* predblk = daget(blk->inedges, i);
+        if(bfget(varbs[varnum], predblk->domind))
+          return 1;
+      }
+    } else {
+      assert(blk->lastop);//if it's the defining block there must be an op
+      OPERATION* op = blk->firstop;
+      while(op->opcode == PHI) {
+        for(int i = 0; i < numpred; i++) {
+          FULLADDR f = op->addr0.joins[i];
+          //deref is not necessary because derefs should never be used in phis
+          if(!(f.addr_type & (ISDEREF | GARBAGEVAL | ISLABEL | ISCONST))) {//i.e. it must be a register
+            if(f.addr.regnum == (unsigned) varnum)
+              return 1;
+          }
+        }
+        if(op == blk->lastop) break;
+        op = op->nextop;
+      }
+    }
+    return 0;
+  }
+  return bfget(varbs[varnum], blk->domind);
 }
 
-void lastuse(PROGRAM* prog, DYNARR** chains);
+static char islive_out(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, BITFIELD* varbs, int varnum) {
+  //here we simply check whether the block is live in any successor
+  return bfget(varbs[varnum], blk->nextblock->domind) || (blk->branchblock && bfget(varbs[varnum], blk->branchblock->domind));
+}
+
+void lastuse(PROGRAM* prog, DYNARR** chains, BITFIELD* varbs);
 
 //populate a bitfield of blocks dominated by a given block, to prevent recalculation and make liveness easier
 static void bfdtreepopulate(BBLOCK* blk, BITFIELD bf) {
@@ -164,6 +196,8 @@ void liveness(PROGRAM* prog) {
   BITFIELD* varbs = calloc(sizeof(BITFIELD), prog->regcnt);
   liveness_populate(prog, usedefchains, varbs);
 
+  lastuse(prog, usedefchains, varbs);
+
   BITFIELD adjmatrix = genadjmatrix(prog, usedefchains, varbs);
 
   for(unsigned int i = 0; i < prog->regcnt; i++) {
@@ -174,7 +208,6 @@ void liveness(PROGRAM* prog) {
   free(varbs);
   free(adjmatrix);
 
-  //lastuse(prog, usedefchains);
 
   //LOOPALLBLOCKS(
   //  OPARGCASES(
@@ -196,22 +229,22 @@ void liveness(PROGRAM* prog) {
   free(usedefchains);
 }
 
-void lastuse(PROGRAM* prog, DYNARR** chains) {
+void lastuse(PROGRAM* prog, DYNARR** chains, BITFIELD* varbs) {
   for(int blockind = 0; blockind < prog->allblocks->length; blockind++) {
     BBLOCK* blk = daget(prog->allblocks, blockind);
     HASHTABLE* reglasts = htctor();
     LOOPOPS(
       OPARGCASES(
-        if(!(op->addr0_type & (ISLABEL | ISCONST | GARBAGEVAL)) && !islive_out(prog, blk, chains, op->addr0.regnum))
+        if(!(op->addr0_type & (ISLABEL | ISCONST | GARBAGEVAL)) && !islive_out(prog, blk, chains, varbs, op->addr0.regnum))
           fixedinsert(reglasts, op->addr0.regnum, &op->addr0_type);
         ,
-        if(!(op->addr1_type & (ISLABEL | ISCONST | GARBAGEVAL)) && !islive_out(prog, blk, chains, op->addr1.regnum))
+        if(!(op->addr1_type & (ISLABEL | ISCONST | GARBAGEVAL)) && !islive_out(prog, blk, chains, varbs, op->addr1.regnum))
           fixedinsert(reglasts, op->addr1.regnum, &op->addr1_type);
         ,
-        if(!(op->dest_type & (ISLABEL | ISCONST | GARBAGEVAL)) && !islive_out(prog, blk, chains, op->dest.regnum))
+        if(!(op->dest_type & (ISLABEL | ISCONST | GARBAGEVAL)) && !islive_out(prog, blk, chains, varbs, op->dest.regnum))
           fixedinsert(reglasts, op->dest.regnum, &op->dest_type); //uh oh
         ,
-        if(!(phijoinaddr->addr_type & (ISLABEL | ISCONST)) && !islive_out(prog, blk, chains, phijoinaddr->addr.regnum))
+        if(!(phijoinaddr->addr_type & (ISLABEL | ISCONST)) && !islive_out(prog, blk, chains, varbs, phijoinaddr->addr.regnum))
           fixedinsert(reglasts, phijoinaddr->addr.regnum, &phijoinaddr->addr_type); //uh oh
       )
     )
