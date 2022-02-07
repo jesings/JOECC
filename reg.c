@@ -31,44 +31,66 @@ static void bfdtreepopulate(BBLOCK* blk, BITFIELD bf) {
 //In order to do this, for each of the uses in the use def chain, for each of the variables
 //find recursively all predecessor blocks that lie within the dominance tree
 static void updompop(BBLOCK* liveblk, BITFIELD domtreeset, BITFIELD topop) {
-    //I THINK only one of these cases is necessary?
-    if(!bfget(domtreeset, liveblk->domind)) return;
-    if(!bfget(topop, liveblk->domind)) return;
-    bfset(topop, liveblk->domind);
-    for(int i = 0; i < liveblk->inedges->length; i++)
-        updompop(daget(liveblk->inedges, i), domtreeset, topop);
+  //I THINK only one of these cases is necessary?
+  if(!bfget(domtreeset, liveblk->domind)) return;
+  if(!bfget(topop, liveblk->domind)) return;
+  bfset(topop, liveblk->domind);
+  for(int i = 0; i < liveblk->inedges->length; i++)
+      updompop(daget(liveblk->inedges, i), domtreeset, topop);
 }
 
 static void liveness_populate(PROGRAM* prog, DYNARR**chains, BITFIELD* varbs) {
-    //allocate a bitfield for each block which should be NULL to start with and will be filled lazily with the dominance tree of that block
-    BITFIELD* domtreeset = calloc(sizeof(BITFIELD), prog->allblocks->length);
-    for(unsigned int i = 0; i < prog->regcnt; i++) {
-      DYNARR* localchain = chains[i];
-      if(!localchain) continue;
-      BBLOCK* defblk = daget(localchain, 0);
-      assert(defblk);
-      BITFIELD dombf = domtreeset[defblk->domind];
-      if(dombf == NULL) {
-        dombf = domtreeset[defblk->domind] = bfalloc(prog->allblocks->length);
-        bfdtreepopulate(defblk, dombf);
-      }
-      if(localchain->length != -1L) {
-          //normal variable
-          BITFIELD varb = bfalloc(prog->allblocks->length);
-          for(int j = 1; j < localchain->length; j++) {
-            updompop(daget(localchain, j), dombf, varb);
-          }
-          varbs[i] = varb;
-      } else {
-          //addrsvar case! consider it live from every point in its dominator tree
-          varbs[i] = bfclone(dombf, prog->allblocks->length);
-      }
-      //for both of these cases, maybe we want to exclude the defblk from the live_in set?
+  //allocate a bitfield for each block which should be NULL to start with and will be filled lazily with the dominance tree of that block
+  BITFIELD* domtreeset = calloc(sizeof(BITFIELD), prog->allblocks->length);
+  for(unsigned int i = 0; i < prog->regcnt; i++) {
+    DYNARR* localchain = chains[i];
+    if(!localchain) continue;
+    BBLOCK* defblk = daget(localchain, 0);
+    assert(defblk);
+    BITFIELD dombf = domtreeset[defblk->domind];
+    if(dombf == NULL) {
+      dombf = domtreeset[defblk->domind] = bfalloc(prog->allblocks->length);
+      bfdtreepopulate(defblk, dombf);
     }
+    if(localchain->length != -1L) {
+      //normal variable
+      BITFIELD varb = bfalloc(prog->allblocks->length);
+      for(int j = 1; j < localchain->length; j++) {
+        updompop(daget(localchain, j), dombf, varb);
+      }
+      varbs[i] = varb;
+    } else {
+      //addrsvar case! consider it live from every point in its dominator tree
+      varbs[i] = bfclone(dombf, prog->allblocks->length);
+    }
+    //for both of these cases, maybe we want to exclude the defblk from the live_in set?
+  }
 
-    for(int i = 0; i < prog->allblocks->length; i++)
-        if(domtreeset[i]) free(domtreeset[i]);
-    free(domtreeset);
+  for(int i = 0; i < prog->allblocks->length; i++)
+      if(domtreeset[i]) free(domtreeset[i]);
+  free(domtreeset);
+}
+
+static void adjmatrixset(BITFIELD bf, int dim, int reg1, int reg2) {
+  bfset(bf, reg1 * dim + reg2);
+  bfset(bf, reg2 * dim + reg1);
+}
+
+static BITFIELD genadjmatrix(PROGRAM* prog, DYNARR** chains, BITFIELD* varbs) {
+  BITFIELD adjmatrix = bfalloc(prog->regcnt * prog->regcnt);
+  //for now let's handle things inefficiently and say if they're live at all in the same block it counts
+  for(int blockind = 0; blockind < prog->allblocks->length; blockind++) {
+    for(unsigned int i = 0; i < prog->regcnt; i++) {
+      if(varbs[i] && bfget(varbs[i], blockind)) {
+        for(unsigned int j = i + 1; j < prog->regcnt; j++) {
+          if(varbs[j] && bfget(varbs[j], blockind)) {
+              adjmatrixset(adjmatrix, prog->regcnt, i, j);
+          }
+        }
+      }
+    }
+  }
+  return adjmatrix;
 }
 
 void liveness(PROGRAM* prog) {
@@ -139,19 +161,18 @@ void liveness(PROGRAM* prog) {
     )
   )
 
-  //in order to calculate the liveness, the thing we probably want to do is...
-  //recursively check if predecessors of any use node are sdominated by the def node, 
-  //perhaps lazily generate bitfields for the dominance information?
-  //we take in the prog and the use def chains, and then we output...
-  //A dynarr of the liveness bitfields for all the variables
-  //Easy to check for live-in just do not set on def node, even if there is a use there
   BITFIELD* varbs = calloc(sizeof(BITFIELD), prog->regcnt);
   liveness_populate(prog, usedefchains, varbs);
+
+  BITFIELD adjmatrix = genadjmatrix(prog, usedefchains, varbs);
+
   for(unsigned int i = 0; i < prog->regcnt; i++) {
       assert(varbs[i] || !usedefchains[i]);
       free(varbs[i]);
   }
+  //generate liveness matrix
   free(varbs);
+  free(adjmatrix);
 
   //lastuse(prog, usedefchains);
 
@@ -202,30 +223,6 @@ void lastuse(PROGRAM* prog, DYNARR** chains) {
     dadtor(da);
     fhtdtor(reglasts);
   }
-}
-
-static void adjmatrixset(BITFIELD bf, int dim, int reg1, int reg2) {
-  bfset(bf, reg1 * dim + reg2);
-  bfset(bf, reg2 * dim + reg1);
-}
-
-//We need to treat multiple consecutive phi statements as if they copy at the same time for the sake of liveness, register allocation
-//this is because there's much more flexibility if we do this
-BITFIELD liveadjmatrix(PROGRAM* prog, DYNARR** usedefs) {
-  int dim = prog->regcnt;
-  BITFIELD bf = bfalloc(dim * dim);
-
-  for(int blockindex = 0; blockindex < prog->allblocks->length; blockindex++) {
-    BITFIELD curbf = bfalloc(dim);
-    BBLOCK* blk = daget(prog->allblocks, blockindex);
-    for(int i = 0; i < dim; i++) {
-      if(islive_in(prog, blk, usedefs, i)) {
-        bfset(curbf, i);
-      }
-      //each new declaration add collision
-    }
-  }
-  return bf;
 }
 
 //handle long doubles same as doubles
