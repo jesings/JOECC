@@ -655,12 +655,17 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           op->opcode = NOP_3;
           break;
         }
+      } else {
+        val = nodefromaddr(eq, op->dest_type & ~ISDEREF, op->dest, prog);
+        if(val && fixedqueryval(leader, val->index)) {
+          op->dest.regnum = (long) fixedsearch(leader, val->index);
+        }
       }
       __attribute__((fallthrough));
     OPS_NODEST_3ac OPS_3_PTRDEST_3ac
-      val = nodefromaddr(eq, op->addr1_type, op->addr1, prog);
+      val = nodefromaddr(eq, op->addr1_type & ~ISDEREF, op->addr1, prog);
       if(val) {
-        if(val->hasconst != NOCONST) {
+        if(val->hasconst != NOCONST && !(op->addr1_type & ISDEREF)) {
           op->addr1_type = (op->addr1_type & GENREGMASK) | ISCONST;
           op->addr1.intconst_64 = val->intconst; //could be anything
         } else if(fixedqueryval(leader, val->index)) {
@@ -670,9 +675,9 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
       __attribute__((fallthrough));
     OPS_1_3ac
       if(op->addr0_type & GARBAGEVAL) break;
-      val = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
+      val = nodefromaddr(eq, op->addr0_type & ~ISDEREF, op->addr0, prog);
       if(val) {
-        if(val->hasconst != NOCONST) {
+        if(val->hasconst != NOCONST && !(op->addr0_type & ISDEREF)) {
           op->addr0_type = (op->addr0_type & GENREGMASK) | ISCONST;
           op->addr0.intconst_64 = val->intconst; //could be anything
         } else {
@@ -696,10 +701,15 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           op->opcode = NOP_3;
           break;
         }
+      } else {
+        val = nodefromaddr(eq, op->dest_type & ~ISDEREF, op->dest, prog);
+        if(val && fixedqueryval(leader, val->index)) {
+          op->dest.regnum = (long) fixedsearch(leader, val->index);
+        }
       }
-      val = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
+      val = nodefromaddr(eq, op->addr0_type & ~ISDEREF, op->addr0, prog);
       if(val) {
-        if(val->hasconst != NOCONST) {
+        if(val->hasconst != NOCONST && !(op->addr0_type & ISDEREF)) {
           op->addr0_type = (op->addr0_type & GENREGMASK) | ISCONST;
           op->addr0.intconst_64 = val->intconst; //could be anything
         } else if(fixedqueryval(leader, val->index)) {
@@ -712,6 +722,11 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
       if(val) {
         assert(val->hasconst == NOCONST);
         assert(op->dest.regnum == (long) fixedsearch(leader, val->index));
+      } else {
+        val = nodefromaddr(eq, op->dest_type & ~ISDEREF, op->dest, prog);
+        if(val && fixedqueryval(leader, val->index)) {
+          op->dest.regnum = (long) fixedsearch(leader, val->index);
+        }
       }
       break;
     OPS_1_ASSIGN_3ac
@@ -719,15 +734,15 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
       if(val) {
         assert(val->hasconst == NOCONST);
         assert(op->dest.regnum == (long) fixedsearch(leader, val->index));
-      }
+      } //no need to handle deref for i.e. PARAM_3, INIT_3
       break;
     case PHI: 
       for(int k = 0; k < blk->inedges->length; k++) {
         FULLADDR* fadrs = op->addr0.joins;
-        val = nodefromaddr(eq, fadrs[k].addr_type, fadrs[k].addr, prog);
+        val = nodefromaddr(eq, fadrs[k].addr_type & ~ISDEREF, fadrs[k].addr, prog);
         HASHTABLE* predled = ((BBLOCK*) daget(blk->inedges, k))->leader;
         if(val) {
-          if(val->hasconst != NOCONST) {
+          if(val->hasconst != NOCONST && !(fadrs[k].addr_type & ISDEREF)) {
             fadrs[k].addr_type = (fadrs[k].addr_type & GENREGMASK) | ISCONST;
             fadrs[k].addr.intconst_64 = val->intconst; //could be anything
           } else if(fixedqueryval(predled, val->index)) {
@@ -739,6 +754,12 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
       if(val) {
         assert(val->hasconst == NOCONST);
         assert(op->dest.regnum == (long) fixedsearch(leader, val->index));
+      } else {
+        //this should only probably be the case for ternary phis
+        val = nodefromaddr(eq, op->dest_type & ~ISDEREF, op->dest, prog);
+        if(val && fixedqueryval(leader, val->index)) {
+          op->dest.regnum = (long) fixedsearch(leader, val->index);
+        }
       }
       break;
     OPS_NOVAR_3ac
