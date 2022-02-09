@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include <assert.h>
+#include "joecc_assert.h"
 #include "opt.h"
 #include "ssa.h"
 

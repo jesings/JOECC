@@ -1,4 +1,4 @@
-#include <assert.h>
+#include "joecc_assert.h"
 #include <sys/stat.h>
 #include "3ac.h"
 #define X(s) #s,

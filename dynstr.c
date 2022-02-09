@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <assert.h>
+#include "joecc_assert.h"
 #include "dynstr.h"
 
 DYNSTR* strctor(char* strptr, int len, int maxlen) {

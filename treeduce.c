@@ -1,7 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <assert.h>
+#include "joecc_assert.h"
 #include "treeduce.h"
 #define EPARAM(EVA, IND) ((EXPRESSION*)((EVA)->params->arr[IND]))
 #define LPARAM(EVA, IND) ((EVA)->params->arr[IND])

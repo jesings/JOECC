@@ -1,4 +1,4 @@
-#include <assert.h>
+#include "joecc_assert.h"
 #include "ssa.h"
 #include "opt.h"
 #define X(op) case op:
@@ -949,7 +949,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
             val1 = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
             if(!val1) {
               val2 = ctgvnnum(eq, NOCONST);
-              dapush(val2->equivs, ctvalstruct(DEALOC, val1->index, 0, supersize(op->addr0_type), 0));
+              dapush(val2->equivs, ctvalstruct(DEALOC, op->addr0.ssaind, 0, 0, 0));
               bigfinsertfr(ophash, (char*) valdup(&combind), val2, sizeof(VALUESTRUCT));
             }
           }

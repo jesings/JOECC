@@ -1,7 +1,7 @@
 #ifndef REG_C
 #define REG_C
 #include "3ac.h"
-#include <assert.h>
+#include "joecc_assert.h"
 
 /**
  * Represents the registers in x86_64 as bits

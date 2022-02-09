@@ -1,4 +1,4 @@
-#include <assert.h>
+#include "joecc_assert.h"
 #include "3ac.h"
 #include "codegen.h"
 

@@ -2,7 +2,7 @@
 #define COMPINTERN_H
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
+#include "joecc_assert.h"
 #include <stdio.h>
 #include <stdint.h>
 #include <unistd.h>
