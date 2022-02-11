@@ -731,10 +731,62 @@ void collatealloc(PROGRAM* prog) {
 static int compar(const void* blk1, const void* blk2) {
   return (*(BBLOCK* const*) blk1)->domind > (*(BBLOCK* const*) blk2)->domind;
 }
+
+#define X(op) case op:
+static void renumber_registers(BBLOCK* blk, HASHTABLE* ht) {
+  LOOPOPS(
+    OPARGCASES(
+      if(!(op->addr0_type & (ISLABEL | ISCONST | GARBAGEVAL))) {
+        int regnum = (long) fixedsearch(ht, op->addr0.regnum);
+        assert(regnum);
+        op->addr0.regnum = regnum;
+      }
+      ,
+      if(!(op->addr1_type & (ISLABEL | ISCONST | GARBAGEVAL))) {
+        int regnum = (long) fixedsearch(ht, op->addr1.regnum);
+        assert(regnum);
+        op->addr1.regnum = regnum;
+      }
+      ,
+      if(!(op->dest_type & (ISLABEL | ISCONST | GARBAGEVAL))) {
+        if(fixedqueryval(ht, op->dest.regnum)) {
+          //it either must have been a deref or have come from a phi!!!
+          int regnum = (long) fixedsearch(ht, op->dest.regnum);
+          assert(regnum);
+          op->dest.regnum = regnum;
+        } else {
+          fixedinsertint(ht, op->dest.regnum, ++ht->keys);
+          op->dest.regnum = ht->keys; //perhaps indicate here whether it's an int or a float? 2 separate hash tables?
+        }
+      }
+      ,
+      if(!(phijoinaddr->addr_type & (ISLABEL | ISCONST | GARBAGEVAL))) {
+        if(fixedqueryval(ht, phijoinaddr->addr.regnum)) {
+          int regnum = (long) fixedsearch(ht, phijoinaddr->addr.regnum);
+          assert(regnum);
+          phijoinaddr->addr.regnum = regnum;
+        } else {
+          fixedinsertint(ht, phijoinaddr->addr.regnum, ++ht->keys);
+          phijoinaddr->addr.regnum = ht->keys; //perhaps indicate here whether it's an int or a float? 2 separate hash tables?
+        }
+      }
+    )
+  )
+  if(blk->idominates)
+    for(int i = 0; i < blk->idominates->length; i++)
+      renumber_registers(daget(blk->idominates, i), ht);
+}
+#undef X
+
 void renumber(PROGRAM* prog) {
   qsort(prog->allblocks->arr, prog->allblocks->length, sizeof(BBLOCK*), compar);
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     blk->domind = i;
   }
+
+  HASHTABLE* regtransht = htctor();
+  renumber_registers(daget(prog->allblocks, 0), regtransht);
+  prog->regcnt = regtransht->keys + 1;
+  //change dynvars and dynchars?
 }

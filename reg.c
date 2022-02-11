@@ -262,7 +262,8 @@ void lastuse(PROGRAM* prog, DYNARR** chains, BITFIELD* varbs) {
 //https://compilers.cs.uni-saarland.de/projects/ssara/hack_ssara_ssa09.pdf
 //https://www.rw.cdl.uni-saarland.de/people/grund/private/papers/cgo08-liveness.pdf
 
-void regalloc(PROGRAM* prog) {
+void regalloc(PROGRAM* prog, BITFIELD adjmatrix) {
+  //start out by coloring based on fewest collisions?!
   //attempt color
   //spill if fail--where/how to spill, with belady's algorithm?
   //how coalesce and retry?

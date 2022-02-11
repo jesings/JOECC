@@ -51,6 +51,6 @@ typedef struct {
   short banneighbors; //clobbers, inputs, output to go elsewhere
   short color; //which register
 } REGINF;
-void regalloc(PROGRAM* prog);
+void regalloc(PROGRAM* prog, BITFIELD adjmatrix);
 BITFIELD liveadjmatrix(PROGRAM* prog, DYNARR** usedefs);
 #endif
