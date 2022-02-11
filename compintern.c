@@ -1328,11 +1328,13 @@ void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* m
 }
 
 //process size, offsets for struct
-void feedstruct(USTRUCT* s) {
+int feedstruct(USTRUCT* s) {
   switch(s->size) {
     case 0:
-      if(s->offsets)
-        return;
+      if(s->offsets) {
+        printf("sizeless struct\n");
+        return 0; //sizeless struct
+      }
       s->offsets = htctor();
       s->size = -1;
       DYNARR* mm = s->fields;
@@ -1393,13 +1395,13 @@ void feedstruct(USTRUCT* s) {
       s->size = totalsize;
       dadtor(mm);
       s->fields = newmm;
-      return;
+      return s->size;
     case -1:
       //circular structs!!!!!
       assert(0);
     default:
       //struct already fed
-      return;
+      return s->size;
   }
 }
 

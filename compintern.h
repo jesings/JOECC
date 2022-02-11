@@ -547,7 +547,7 @@ char scopequeryval(struct lexctx* lct, enum membertype mt, char* key);
 void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, USTRUCT* assignval);
 INITIALIZER* decl2scope(DECLARATION* dec, EXPRESSION* ex, struct lexctx* lct, LOCTYPE loc);
 void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* memberval);
-void feedstruct(USTRUCT* s);
+int feedstruct(USTRUCT* s);
 int unionlen(USTRUCT* u);
 
 #define locprint(lv) lv.filename, lv.first_line, lv.first_column, lv.last_line, lv.last_column

@@ -864,7 +864,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
             }
           }
           break;
-        OPS_2_3ac_MUT
+        OPS_2_3ac_MUT //Do we really want to handle ALOC_3 this way?
           val1 = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
           if(!(op->dest_type & (ISLABEL | ISDEREF))) {
             if(op->dest_type & ISVAR) {
