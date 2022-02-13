@@ -146,6 +146,7 @@ static void filecomp(char* filename) {
       DEBUG(treeprog(prog, pairthere->key, "ldstrsep"));
 
       renumber(prog);
+      DEBUG(treeprog(prog, pairthere->key, "renumber"));
       liveness(prog);
       remove_nops(prog);
       DEBUG(treeprog(prog, pairthere->key, "liveness"));

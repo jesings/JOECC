@@ -755,8 +755,9 @@ static void renumber_registers(BBLOCK* blk, HASHTABLE* ht) {
           assert(regnum);
           op->dest.regnum = regnum;
         } else {
-          fixedinsertint(ht, op->dest.regnum, ++ht->keys);
-          op->dest.regnum = ht->keys; //perhaps indicate here whether it's an int or a float? 2 separate hash tables?
+          int newreg = ht->keys + 1;
+          fixedinsertint(ht, op->dest.regnum, newreg);
+          op->dest.regnum = newreg; //perhaps indicate here whether it's an int or a float? 2 separate hash tables?
         }
       }
       ,
@@ -766,7 +767,7 @@ static void renumber_registers(BBLOCK* blk, HASHTABLE* ht) {
           assert(regnum);
           phijoinaddr->addr.regnum = regnum;
         } else {
-          fixedinsertint(ht, phijoinaddr->addr.regnum, ++ht->keys);
+          fixedinsertint(ht, phijoinaddr->addr.regnum, ht->keys + 1);
           phijoinaddr->addr.regnum = ht->keys; //perhaps indicate here whether it's an int or a float? 2 separate hash tables?
         }
       }
