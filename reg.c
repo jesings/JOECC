@@ -10,6 +10,8 @@ const char* ireg16[] = {"ax", "bx", "cx", "dx", "di", "si", "bp", "sp", "r8w", "
 const char* ireg8[] = {"al", "bl", "cl", "dl", "dil", "sil", "bpl", "spl", "r8b", "r9b", "r10b", "r11b", "r12b", "r13b", "r14b", "r15b"};
 const char* freg128[] = {"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"};
 const char* freg256[] = {"ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7", "ymm8", "ymm9", "ymm10", "ymm11", "ymm12", "ymm13", "ymm14", "ymm15"};
+
+//Returns whether a reg is live at the very beginning of this block, before any operations have been executed yet
 static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, BITFIELD* varbs, int varnum) {
   //if it's not the definition block, it's live_in provided it's live
   //if it is the definition block, it's only live in if it's joined
@@ -44,6 +46,7 @@ static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, BITFIEL
   return bfget(varbs[varnum], blk->domind);
 }
 
+//Returns whether a reg is live at the very end of a block, after all operations have been executed
 static char islive_out(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, BITFIELD* varbs, int varnum) {
   //here we simply check whether the block is live in any successor
   return bfget(varbs[varnum], blk->nextblock->domind) || (blk->branchblock && bfget(varbs[varnum], blk->branchblock->domind));
@@ -71,6 +74,7 @@ static void updompop(BBLOCK* liveblk, BITFIELD domtreeset, BITFIELD topop) {
       updompop(daget(liveblk->inedges, i), domtreeset, topop);
 }
 
+//Populates liveness information for a PROGRAM, determining which variables have livenesses that overlap and register allocating
 static void liveness_populate(PROGRAM* prog, DYNARR**chains, BITFIELD* varbs) {
   //allocate a bitfield for each block which should be NULL to start with and will be filled lazily with the dominance tree of that block
   BITFIELD* domtreeset = calloc(sizeof(BITFIELD), prog->allblocks->length);
@@ -229,6 +233,9 @@ void liveness(PROGRAM* prog) {
   free(usedefchains);
 }
 
+//(currently nonfunctional) Annotates uses of each reg in each operation if that variable is not used at any program point that can be reached after that
+//This excludes when the very next use would be the definition of that reg except for the case where that definition is a phi statement
+//which takes in the reg itself as the parameter for a reachable predecessor block.
 void lastuse(PROGRAM* prog, DYNARR** chains, BITFIELD* varbs) {
   for(int blockind = 0; blockind < prog->allblocks->length; blockind++) {
     BBLOCK* blk = daget(prog->allblocks, blockind);
