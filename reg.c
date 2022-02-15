@@ -217,12 +217,12 @@ void liveness(PROGRAM* prog) {
   //  OPARGCASES(
   //    ,
   //    ,
-  //    if(!(op->dest_type & (ISLABEL | ISCONST | GARBAGEVAL | ISDEREF)) && op->dest_type & LASTUSE &&  op->opcode != CALL_3) {
+  //    if((op->dest_type & (ISLABEL | ISCONST | GARBAGEVAL | ISDEREF | LASTUSE) == LASTUSE) && op->opcode != CALL_3) {
   //      if(op->opcode == PHI) free(op->addr0.joins);
   //      op->opcode = NOP_3;
   //    }
   //    ,
-  //    (void) phijoinaddr;
+  //    assert(!(phijoinaddr.addr_type & LASTUSE));
   //  )
   //)
 
@@ -233,9 +233,10 @@ void liveness(PROGRAM* prog) {
   free(usedefchains);
 }
 
-//(currently nonfunctional) Annotates uses of each reg in each operation if that variable is not used at any program point that can be reached after that
+//Annotates uses of each reg in each operation if that variable is not used at any program point that can be reached after that
 //This excludes when the very next use would be the definition of that reg except for the case where that definition is a phi statement
 //which takes in the reg itself as the parameter for a reachable predecessor block.
+//These liveness checks should be pretty cheap as in most cases they are 1 or 2 lookups
 void lastuse(PROGRAM* prog, DYNARR** chains, BITFIELD* varbs) {
   for(int blockind = 0; blockind < prog->allblocks->length; blockind++) {
     BBLOCK* blk = daget(prog->allblocks, blockind);
@@ -249,10 +250,10 @@ void lastuse(PROGRAM* prog, DYNARR** chains, BITFIELD* varbs) {
           fixedinsert(reglasts, op->addr1.regnum, &op->addr1_type);
         ,
         if(!(op->dest_type & (ISLABEL | ISCONST | GARBAGEVAL)) && !islive_out(prog, blk, chains, varbs, op->dest.regnum))
-          fixedinsert(reglasts, op->dest.regnum, &op->dest_type); //uh oh
+          fixedinsert(reglasts, op->dest.regnum, &op->dest_type); //if this is the case we'll free! then maybe we need to consider what happens if we entirely get rid of a variable?
         ,
         if(!(phijoinaddr->addr_type & (ISLABEL | ISCONST)) && !islive_out(prog, blk, chains, varbs, phijoinaddr->addr.regnum))
-          fixedinsert(reglasts, phijoinaddr->addr.regnum, &phijoinaddr->addr_type); //uh oh
+          fixedinsert(reglasts, phijoinaddr->addr.regnum, &phijoinaddr->addr_type); //this should never ever be the actual lastuse, if it is that's an error
       )
     )
     DYNARR* da = htfpairs(reglasts);

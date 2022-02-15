@@ -1637,7 +1637,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
 
       int newlen = 0;
       int aiindex;
-      for(aiindex = 0; aiindex < blk->antileader_in_list->length; aiindex++)  {
+      for(aiindex = 0; aiindex < blk->antileader_in_list->length; aiindex++) {
           if(blk->antileader_in_list->arr[aiindex] == -1)
               continue;
           blk->antileader_in_list->arr[newlen++] = blk->antileader_in_list->arr[aiindex];
