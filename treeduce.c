@@ -1187,8 +1187,10 @@ char foldconst(EXPRESSION* ex) {
                   rectexpr->floatconst = divisor->floatconst / rectexpr->uintconst;
                   rectexpr->type = FLOAT;
                   break;
-                default: assert(0);
-              } break;
+                default:
+                  assert(0);
+              }
+              break;
             case INT:
               switch(divisor->type) {
                 case UINT:
@@ -1201,8 +1203,10 @@ char foldconst(EXPRESSION* ex) {
                   rectexpr->floatconst = divisor->floatconst / rectexpr->intconst;
                   rectexpr->type = FLOAT;
                   break;
-                default: assert(0);
-              } break;
+                default:
+                  assert(0);
+              }
+              break;
             case FLOAT:
               switch(divisor->type) {
                 case UINT:
@@ -1214,9 +1218,12 @@ char foldconst(EXPRESSION* ex) {
                 case FLOAT:
                   rectexpr->floatconst = divisor->floatconst / rectexpr->floatconst;
                   break;
-                default: assert(0);
-              } break;
-            default: goto afterbreak;
+                default:
+                  assert(0);
+              }
+              break;
+            default:
+              goto afterbreak;
           }
           free(divisor);
           dadtor(newdyn);

@@ -1595,7 +1595,6 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
               if(antilnode->hasconst == NOCONST) {
                 assert(!fixedqueryval(oblk->leader, antiint));
 
-                //recdomins(oblk, antiint, (void*) (long) genop->dest.regnum);
                 if(!oblk->translator) oblk->translator = htctor();
                 if(!oblk->revtranslator) oblk->revtranslator = htctor();
                 fixedinsert(oblk->revtranslator, phi->dest.regnum, (void*) (long) genop->dest.regnum);
