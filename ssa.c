@@ -776,20 +776,26 @@ static void replacegvn(EQONTAINER* eq, PROGRAM* prog) {
 }
 
 static void debuggo(EQONTAINER* eq, PROGRAM* prog) {
-  LOOPALLBLOCKS(
+  for(int blockind = 0; blockind < prog->allblocks->length; blockind++) { \
+    BBLOCK* blk = daget(prog->allblocks, blockind); \
     printf("BBLOCK NUMBER %d\n", blk->domind);
     LOOPOPS(
+      printf("%s ", opcode_3ac_names[op->opcode]);
       OPARGCASES(
         printaddr(op->addr0, op->addr0_type, 1, stdout, prog);
+        putchar(',');
         ,
         printaddr(op->addr1, op->addr1_type, 1, stdout, prog);
+        putchar(',');
         ,
         printaddr(op->dest, op->dest_type, 1, stdout, prog);
         ,
         printaddr(phijoinaddr->addr, phijoinaddr->addr_type, 1, stdout, prog);
+        putchar(',');
       )
+      putchar('\n');
     )
-  )
+  }
 }
 
 //number values
@@ -1676,8 +1682,14 @@ void gvn(PROGRAM* prog) {
   first->pidominates = dactor(0);
   while(antics(prog->finalblock, prog, eq)) ;
   //buildsets calculated
+  puts("PREHOIST");
+  debuggo(eq, prog);
   while(hoist(prog, eq)) ;
+  puts("PREREPLACE");
+  debuggo(eq, prog);
+  puts("POSTREPLACE");
   replacegvn(eq, prog);
+  debuggo(eq, prog);
   freeq(eq);
   prog->pdone |= GVN;
   return;
