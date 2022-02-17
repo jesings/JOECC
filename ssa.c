@@ -775,6 +775,23 @@ static void replacegvn(EQONTAINER* eq, PROGRAM* prog) {
   )
 }
 
+static void debuggo(EQONTAINER* eq, PROGRAM* prog) {
+  LOOPALLBLOCKS(
+    printf("BBLOCK NUMBER %d\n", blk->domind);
+    LOOPOPS(
+      OPARGCASES(
+        printaddr(op->addr0, op->addr0_type, 1, stdout, prog);
+        ,
+        printaddr(op->addr1, op->addr1_type, 1, stdout, prog);
+        ,
+        printaddr(op->dest, op->dest_type, 1, stdout, prog);
+        ,
+        printaddr(phijoinaddr->addr, phijoinaddr->addr_type, 1, stdout, prog);
+      )
+    )
+  )
+}
+
 //number values
 static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
   blk->leader = fhtclone(blk->dom->leader);

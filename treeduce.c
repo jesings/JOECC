@@ -105,9 +105,7 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
     return 0;
   //we don't really care about the specifics of each pointerstack member as
   //they all specify the same amount of indirection
-  if(t1->tb & (STRUCTVAL | ENUMVAL | UNIONVAL) && t1->structtype != t2->structtype)
-    return 0;
-  return 1;
+  return !(t1->tb & (STRUCTVAL | ENUMVAL | UNIONVAL) && t1->structtype != t2->structtype);
 }
 
 

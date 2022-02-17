@@ -1353,7 +1353,7 @@ PROGRAM* linefunc(FUNC* f) {
 
 //Formats and writes to a file an address (with type), term specifies whether the file should be formatted with ANSI
 //coloring or output as a graphviz snippet with that coloring
-static void printaddr(ADDRESS addr, ADDRTYPE addr_type, char term, FILE* f, PROGRAM* prog) {
+void printaddr(ADDRESS addr, ADDRTYPE addr_type, char term, FILE* f, PROGRAM* prog) {
   if(addr_type & ISLABEL) {
     if(term) fprintf(f, RGBCOLOR(255,200,10));
     else fprintf(f, "<FONT COLOR=\"#%.2hhx%.2hhx%.2hhx\">", 255, 200, 10);

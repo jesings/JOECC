@@ -272,6 +272,7 @@ void treeprog(PROGRAM* prog, char* fname, const char* pass);
 void freeblock(void* blk);
 void rectifinal(PROGRAM* prog);
 void freeprog(PROGRAM* prog);
+void printaddr(ADDRESS addr, ADDRTYPE addr_type, char term, FILE* f, PROGRAM* prog);
 void printop(OPERATION* op, char term, BBLOCK* blk, FILE* f, PROGRAM* prog);
 
 //convert IDTYPE to equivalent ADDRTYPE
