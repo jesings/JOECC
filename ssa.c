@@ -776,22 +776,28 @@ static void replacegvn(EQONTAINER* eq, PROGRAM* prog) {
 }
 
 static void debuggo(EQONTAINER* eq, PROGRAM* prog) {
-  for(int blockind = 0; blockind < prog->allblocks->length; blockind++) { \
-    BBLOCK* blk = daget(prog->allblocks, blockind); \
+  for(int blockind = 0; blockind < prog->allblocks->length; blockind++) {
+    BBLOCK* blk = daget(prog->allblocks, blockind);
+    GVNNUM* gn;
     printf("BBLOCK NUMBER %d\n", blk->domind);
     LOOPOPS(
       printf("%s ", opcode_3ac_names[op->opcode]);
       OPARGCASES(
         printaddr(op->addr0, op->addr0_type, 1, stdout, prog);
-        putchar(',');
+        gn = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
+        printf("[%d],", gn ? gn->index : -1);
         ,
         printaddr(op->addr1, op->addr1_type, 1, stdout, prog);
-        putchar(',');
+        gn = nodefromaddr(eq, op->addr1_type, op->addr1, prog);
+        printf("[%d],", gn ? gn->index : -1);
         ,
         printaddr(op->dest, op->dest_type, 1, stdout, prog);
+        gn = nodefromaddr(eq, op->dest_type, op->dest, prog);
+        printf("[%d],", gn ? gn->index : -1);
         ,
         printaddr(phijoinaddr->addr, phijoinaddr->addr_type, 1, stdout, prog);
-        putchar(',');
+        gn = nodefromaddr(eq, phijoinaddr->addr_type, phijoinaddr->addr, prog);
+        printf("[%d],", gn ? gn->index : -1);
       )
       putchar('\n');
     )
