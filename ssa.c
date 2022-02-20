@@ -639,6 +639,15 @@ static GVNNUM* supernodefromaddr(EQONTAINER* eq, char ty, ADDRESS adr, PROGRAM* 
   return nodefromaddr(eq, downsize(ty), adr, prog);
 }
 
+static GVNNUM* derefwithnodefromaddr(EQONTAINER* eq, ADDRTYPE ty, ADDRESS adr, PROGRAM* prog) {
+  if(ty & ISDEREF) {
+    ADDRTYPE newty = 8 | (ty & (ISVAR | ISLABEL | ISPOINTER | GARBAGEVAL | LASTUSE));
+    return nodefromaddr(eq, newty, adr, prog);
+  } else {
+    return nodefromaddr(eq, ty, adr, prog);
+  }
+}
+
 //replace operation via gvn
 static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op) {
   HASHTABLE* leader = blk->leader;
@@ -656,14 +665,14 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           break;
         }
       } else {
-        val = nodefromaddr(eq, op->dest_type & ~ISDEREF, op->dest, prog);
+        val = derefwithnodefromaddr(eq, op->dest_type, op->dest, prog);
         if(val && fixedqueryval(leader, val->index)) {
           op->dest.regnum = (long) fixedsearch(leader, val->index);
         }
       }
       __attribute__((fallthrough));
     OPS_NODEST_3ac OPS_3_PTRDEST_3ac
-      val = nodefromaddr(eq, op->addr1_type & ~ISDEREF, op->addr1, prog);
+      val = derefwithnodefromaddr(eq, op->addr1_type, op->addr1, prog);
       if(val) {
         if(val->hasconst != NOCONST && !(op->addr1_type & ISDEREF)) {
           op->addr1_type = (op->addr1_type & GENREGMASK) | ISCONST;
@@ -675,7 +684,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
       __attribute__((fallthrough));
     OPS_1_3ac
       if(op->addr0_type & GARBAGEVAL) break;
-      val = nodefromaddr(eq, op->addr0_type & ~ISDEREF, op->addr0, prog);
+      val = derefwithnodefromaddr(eq, op->addr0_type, op->addr0, prog);
       if(val) {
         if(val->hasconst != NOCONST && !(op->addr0_type & ISDEREF)) {
           op->addr0_type = (op->addr0_type & GENREGMASK) | ISCONST;
@@ -702,12 +711,12 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           break;
         }
       } else {
-        val = nodefromaddr(eq, op->dest_type & ~ISDEREF, op->dest, prog);
+        val = derefwithnodefromaddr(eq, op->dest_type, op->dest, prog);
         if(val && fixedqueryval(leader, val->index)) {
           op->dest.regnum = (long) fixedsearch(leader, val->index);
         }
       }
-      val = nodefromaddr(eq, op->addr0_type & ~ISDEREF, op->addr0, prog);
+      val = derefwithnodefromaddr(eq, op->addr0_type, op->addr0, prog);
       if(val) {
         if(val->hasconst != NOCONST && !(op->addr0_type & ISDEREF)) {
           op->addr0_type = (op->addr0_type & GENREGMASK) | ISCONST;
@@ -723,7 +732,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
         assert(val->hasconst == NOCONST);
         assert(op->dest.regnum == (long) fixedsearch(leader, val->index));
       } else {
-        val = nodefromaddr(eq, op->dest_type & ~ISDEREF, op->dest, prog);
+        val = derefwithnodefromaddr(eq, op->dest_type, op->dest, prog);
         if(val && fixedqueryval(leader, val->index)) {
           op->dest.regnum = (long) fixedsearch(leader, val->index);
         }
@@ -739,7 +748,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
     case PHI: 
       for(int k = 0; k < blk->inedges->length; k++) {
         FULLADDR* fadrs = op->addr0.joins;
-        val = nodefromaddr(eq, fadrs[k].addr_type & ~ISDEREF, fadrs[k].addr, prog);
+        val = derefwithnodefromaddr(eq, fadrs[k].addr_type, fadrs[k].addr, prog);
         HASHTABLE* predled = ((BBLOCK*) daget(blk->inedges, k))->leader;
         if(val) {
           if(val->hasconst != NOCONST && !(fadrs[k].addr_type & ISDEREF)) {
@@ -756,7 +765,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
         assert(op->dest.regnum == (long) fixedsearch(leader, val->index));
       } else {
         //this should only probably be the case for ternary phis
-        val = nodefromaddr(eq, op->dest_type & ~ISDEREF, op->dest, prog);
+        val = derefwithnodefromaddr(eq, op->dest_type, op->dest, prog);
         if(val && fixedqueryval(leader, val->index)) {
           op->dest.regnum = (long) fixedsearch(leader, val->index);
         }
@@ -784,20 +793,36 @@ static void debuggo(EQONTAINER* eq, PROGRAM* prog) {
       printf("%s ", opcode_3ac_names[op->opcode]);
       OPARGCASES(
         printaddr(op->addr0, op->addr0_type, 1, stdout, prog);
-        gn = nodefromaddr(eq, op->addr0_type, op->addr0, prog);
-        printf("[%d],", gn ? gn->index : -1);
+        gn = derefwithnodefromaddr(eq, op->addr0_type, op->addr0, prog);
+        if(op->addr0_type & ISDEREF) {
+          printf("([%d]),", gn ? gn->index : -1);
+        } else {
+          printf("[%d],", gn ? gn->index : -1);
+        }
         ,
         printaddr(op->addr1, op->addr1_type, 1, stdout, prog);
-        gn = nodefromaddr(eq, op->addr1_type, op->addr1, prog);
-        printf("[%d],", gn ? gn->index : -1);
+        gn = derefwithnodefromaddr(eq, op->addr1_type, op->addr1, prog);
+        if(op->addr0_type & ISDEREF) {
+          printf("([%d]),", gn ? gn->index : -1);
+        } else {
+          printf("[%d],", gn ? gn->index : -1);
+        }
         ,
         printaddr(op->dest, op->dest_type, 1, stdout, prog);
-        gn = nodefromaddr(eq, op->dest_type, op->dest, prog);
-        printf("[%d],", gn ? gn->index : -1);
+        gn = derefwithnodefromaddr(eq, op->dest_type, op->dest, prog);
+        if(op->addr0_type & ISDEREF) {
+          printf("([%d]),", gn ? gn->index : -1);
+        } else {
+          printf("[%d],", gn ? gn->index : -1);
+        }
         ,
         printaddr(phijoinaddr->addr, phijoinaddr->addr_type, 1, stdout, prog);
-        gn = nodefromaddr(eq, phijoinaddr->addr_type, phijoinaddr->addr, prog);
-        printf("[%d],", gn ? gn->index : -1);
+        gn = derefwithnodefromaddr(eq, phijoinaddr->addr_type, phijoinaddr->addr, prog);
+        if(op->addr0_type & ISDEREF) {
+          printf("([%d]),", gn ? gn->index : -1);
+        } else {
+          printf("[%d],", gn ? gn->index : -1);
+        }
       )
       putchar('\n');
     )
@@ -1688,14 +1713,8 @@ void gvn(PROGRAM* prog) {
   first->pidominates = dactor(0);
   while(antics(prog->finalblock, prog, eq)) ;
   //buildsets calculated
-  puts("PREHOIST");
-  debuggo(eq, prog);
   while(hoist(prog, eq)) ;
-  puts("PREREPLACE");
-  debuggo(eq, prog);
-  puts("POSTREPLACE");
   replacegvn(eq, prog);
-  debuggo(eq, prog);
   freeq(eq);
   prog->pdone |= GVN;
   return;

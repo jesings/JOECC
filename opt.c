@@ -789,5 +789,6 @@ void renumber(PROGRAM* prog) {
   HASHTABLE* regtransht = htctor();
   renumber_registers(daget(prog->allblocks, 0), regtransht);
   prog->regcnt = regtransht->keys + 1;
+  fhtdtor(regtransht);
   //change dynvars and dynchars?
 }
