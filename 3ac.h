@@ -19,7 +19,6 @@
 #define OPS_3_3ac OPS_3_3ac_COM OPS_3_3ac_NOCOM
 #define OPS_3_PTRDEST_3ac \
   X(COPY_3) /*source (pointer) length destination (pointer) */\
-  X(ARROFF) /*source (uintconst or reg) index dest (index size implicit from result) */\
   X(ARRMOV) /*source (uintconst or reg) index dest (index size implicit from result) */\
   X(MTP_OFF)
 #define OPS_2_3ac_MUT \
@@ -74,7 +73,11 @@ extern const char* opcode_3ac_names[];
       addr1case \
       destcase \
       break; \
-    OPS_3_PTRDEST_3ac OPS_NODEST_3ac \
+    OPS_3_PTRDEST_3ac \
+      addr0case \
+      destcase \
+      break; \
+    OPS_NODEST_3ac \
       addr0case \
       addr1case \
       break; \

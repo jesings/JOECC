@@ -47,7 +47,6 @@ struct opinfo op2op[] = {
   [LT_I] = {"cmp", 2, 0, 0, 0}, //then do a setl
   [LT_F] = {"comis", 2, 0, 0, 0}, //then do a setb
   [COPY_3] = {"repnz movs", 0, SI | DI | CX, 0, 0}, //clobbers si, di, move count into cx
-  [ARROFF] = {"lea", 2, 0, 0, 0}, //not sure?
   [ARRMOV] = {"mov", 2, 0, 0, 0}, //not sure, either way args are the same
   [MTP_OFF] = {"mov", 2, 0, 0, 0}, //not sure, either way args are the same
   [NOT_U] = {"not", 2, 0, 0, 0},
@@ -93,7 +92,7 @@ void ldstrsep(PROGRAM* prog) {
     while(1) {
       char inplace;
       switch(op->opcode) {
-        OPS_NOVAR_3ac OPS_1_3ac OPS_1_ASSIGN_3ac case COPY_3: case ARROFF: case CALL_3: case DEALOC: case ASM:
+        OPS_NOVAR_3ac OPS_1_3ac OPS_1_ASSIGN_3ac case COPY_3: case CALL_3: case DEALOC: case ASM:
           break;
         case PHI: //all phis should be gone by this point
           break;

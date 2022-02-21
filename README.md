@@ -103,7 +103,6 @@ BNZ_3, BEZ_3|Directs codegen to go to the branching block if source integer oper
 JEQ_I|Directs codegen to go to the branching block if the source operands are equivalent signed integers, the dest operand specifies the label to branch to; only generated in compiling switch cases|2 source and 1 dest
 ADDR_3|Gets the address of label or dereferenced source operand 1 and puts it in dest|1 source and 1 dest
 COPY_3|Copies from source integer (pointer) operand 1 into the dest integer (pointer) operand the number of bytes specified in source integer (length) oprand 2|2 source and 1 dest
-ARROFF|Moves from the integer source operand 2th element in the array pointed to by integer (pointer) source operand 1 to the dest operand, the size of each array elemnt is implicit in the size of source operand 1 |2 source and 1 dest
 ARRMOV|Moves from integer source operand 1 to the integer source operand 2th element in the array pointed to by integer (pointer) operand dest, the size of each array element is implicit in the size of the dest operand|2 source and 1 dest
 MTP_OFF|Moves from memory pointed to by integer (pointer) source operand 1 offset by the integer source operand 2th element to the dest operand|2 source and 1 dest
 ALOC_3|Allocates integer source operand 1 bytes of stack memory, places address of allocated memory into dest operand|1 source and 1 dest

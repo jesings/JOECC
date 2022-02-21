@@ -653,7 +653,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
   HASHTABLE* leader = blk->leader;
   GVNNUM* val;
   switch(op->opcode) {
-    OPS_3_3ac_NOCOM OPS_3_3ac_COM
+    OPS_3_3ac OPS_3_PTRDEST_3ac
       val = nodefromaddr(eq, op->dest_type, op->dest, prog);
       if(val) {
         if(val->hasconst != NOCONST) {
@@ -671,7 +671,7 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
         }
       }
       __attribute__((fallthrough));
-    OPS_NODEST_3ac OPS_3_PTRDEST_3ac
+    OPS_NODEST_3ac
       val = derefwithnodefromaddr(eq, op->addr1_type, op->addr1, prog);
       if(val) {
         if(val->hasconst != NOCONST && !(op->addr1_type & ISDEREF)) {

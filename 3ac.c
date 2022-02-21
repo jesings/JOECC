@@ -539,7 +539,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
             opn(prog, ct_3ac_op2(F2F, otheraddr.addr_type, otheraddr.addr, fad2.addr_type, fad2.addr));
             otheraddr = fad2;
           }
-          opn(prog, ct_3ac_op3(ARRMOV, otheraddr.addr_type, otheraddr.addr, ISCONST | 0x8, curaddr.addr, destaddr.addr_type, destaddr.addr));
+          opn(prog, ct_3ac_op3(ARRMOV, otheraddr.addr_type, otheraddr.addr, ISCONST | 0x8, curaddr.addr, destaddr.addr_type | ISDEREF, destaddr.addr));
         }
       } else {
         ADDRESS a;
@@ -598,7 +598,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
           opn(prog, ct_3ac_op2(F2F, otheraddr.addr_type, otheraddr.addr, fad2.addr_type, fad2.addr));
           otheraddr = fad2;
         }
-        opn(prog, ct_3ac_op3(MTP_OFF, curaddr.addr_type, curaddr.addr, ISCONST | 0x8, otheraddr.addr, destaddr.addr_type, destaddr.addr));
+        opn(prog, ct_3ac_op3(MTP_OFF, curaddr.addr_type, curaddr.addr, ISCONST | 0x8, otheraddr.addr, destaddr.addr_type | ISDEREF, destaddr.addr));
       }
       return destaddr;
 
@@ -922,7 +922,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       EXPRESSION* fname = daget(cexpr->params, 0);
       opn(prog, ct_3ac_op2(CALL_3, ISCONST | ISLABEL, (ADDRESS) fname->id->name, destaddr.addr_type, destaddr.addr));
       if(!ispointer(frettype) && frettype->tb & (STRUCTVAL | UNIONVAL))
-        opn(prog, ct_3ac_op3(COPY_3, destaddr.addr_type, destaddr.addr, ISCONST | 8, curaddr.addr, otheraddr.addr_type, otheraddr.addr));
+        opn(prog, ct_3ac_op3(COPY_3, destaddr.addr_type | ISDEREF, destaddr.addr, ISCONST | 8, curaddr.addr, otheraddr.addr_type | ISDEREF, otheraddr.addr));
       //Note, this is not entirely to spec as the program is only supposed to copy the struct as a transparent final argument within the scope of the called function, not within the caller. This should work for now however.
       return destaddr;
   }
@@ -1579,14 +1579,6 @@ void printop(OPERATION* op, char term, BBLOCK* blk, FILE* f, PROGRAM* prog) {
     case F2I: case I2F: case F2F:
     case MOV_3: case ALOC_3:
       PRINTOP2( );
-      break;
-    case ARROFF:
-      printaddr(op->addr0, op->addr0_type, term, f, prog);
-      fprintf(f, "[");
-      printaddr(op->addr1, op->addr1_type, term, f, prog);
-      fprintf(f, "] ");
-      fprintf(f, " →  ");
-      printaddr(op->dest, op->dest_type, term, f, prog);
       break;
     case ARRMOV:
       printaddr(op->addr0, op->addr0_type, term, f, prog);
