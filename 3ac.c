@@ -263,13 +263,15 @@ OPERATION* implicit_mtp_2(EXPRESSION* destexpr, EXPRESSION* fromexpr, FULLADDR a
     if(!(srcidt.tb & FLOATNUM) || (srcidt.tb & 0xf) != (destidt.tb & 0xf)) {
       FULLADDR fad;
       FILLREG(fad, ISFLOAT | (destidt.tb & 0xf));
-      return ct_3ac_op2((srcidt.tb & FLOATNUM ? F2F : I2F), a2.addr_type, a2.addr, fad.addr_type | ISDEREF, fad.addr);
+      opn(prog, ct_3ac_op2((srcidt.tb & FLOATNUM ? F2F : I2F), a2.addr_type, a2.addr, fad.addr_type, fad.addr));
+      a2 = fad;
     }
   } else {
     if(srcidt.tb & FLOATNUM) {
       FULLADDR fad;
       FILLREG(fad, (destidt.tb & UNSIGNEDNUM) ? destidt.tb & 0xf : (destidt.tb & 0xf) | ISSIGNED);
-      return ct_3ac_op2(F2I, a2.addr_type, a2.addr, fad.addr_type | ISDEREF, fad.addr);
+      opn(prog, ct_3ac_op2(F2I, a2.addr_type, a2.addr, fad.addr_type, fad.addr));
+      a2 = fad;
     }
   }
   return ct_3ac_op2(MOV_3, a2.addr_type, a2.addr, a1.addr_type | ISDEREF, a1.addr);
