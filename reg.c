@@ -77,7 +77,8 @@ static void updompop(BBLOCK* liveblk, BITFIELD domtreeset, BITFIELD topop) {
 //Populates liveness information for a PROGRAM, determining which variables have livenesses that overlap and register allocating
 static void liveness_populate(PROGRAM* prog, DYNARR**chains, BITFIELD* varbs) {
   //allocate a bitfield for each block which should be NULL to start with and will be filled lazily with the dominance tree of that block
-  BITFIELD* domtreeset = calloc(sizeof(BITFIELD), prog->allblocks->length);
+  short pal = prog->allblocks->length;//short to suppress warning about maximum calloc size, force less than 65k blocks later?
+  BITFIELD* domtreeset = calloc(sizeof(BITFIELD), pal);
   for(unsigned int i = 0; i < prog->regcnt; i++) {
     DYNARR* localchain = chains[i];
     if(!localchain) continue;
@@ -85,24 +86,24 @@ static void liveness_populate(PROGRAM* prog, DYNARR**chains, BITFIELD* varbs) {
     assert(defblk);
     BITFIELD dombf = domtreeset[defblk->domind];
     if(dombf == NULL) {
-      dombf = domtreeset[defblk->domind] = bfalloc(prog->allblocks->length);
+      dombf = domtreeset[defblk->domind] = bfalloc(pal);
       bfdtreepopulate(defblk, dombf);
     }
     if(localchain->length != -1L) {
       //normal variable
-      BITFIELD varb = bfalloc(prog->allblocks->length);
+      BITFIELD varb = bfalloc(pal);
       for(int j = 1; j < localchain->length; j++) {
         updompop(daget(localchain, j), dombf, varb);
       }
       varbs[i] = varb;
     } else {
       //addrsvar case! consider it live from every point in its dominator tree
-      varbs[i] = bfclone(dombf, prog->allblocks->length);
+      varbs[i] = bfclone(dombf, pal);
     }
     //for both of these cases, maybe we want to exclude the defblk from the live_in set?
   }
 
-  for(int i = 0; i < prog->allblocks->length; i++)
+  for(int i = 0; i < pal; i++)
       if(domtreeset[i]) free(domtreeset[i]);
   free(domtreeset);
 }
@@ -136,20 +137,20 @@ void liveness(PROGRAM* prog) {
   LOOPALLBLOCKS(
     OPARGCASES(
       if(!(op->addr0_type & (ISDEREF | ISLABEL | ISCONST | GARBAGEVAL))) {
-        DYNARR* chain;
         unsigned int reg = op->addr0.regnum;
+        DYNARR* chain = usedefchains[reg];
         assert(reg < prog->regcnt);
-        assert((chain = usedefchains[reg])); //forward use that is not a phi
+        assert(chain); //forward use that is not a phi
         if(chain->length != -1) {//if it's not an addrsvar
           if(dapeek(chain) != blk)
             dapush(chain, blk); //prevent adjacent duplicates
         }
       },
       if(!(op->addr1_type & (ISDEREF | ISLABEL | ISCONST))) {
-        DYNARR* chain;
         unsigned int reg = op->addr1.regnum;
+        DYNARR* chain = usedefchains[reg];
         assert(reg < prog->regcnt);
-        assert((chain = usedefchains[reg])); //forward use that is not a phi
+        assert(chain); //forward use that is not a phi
         if(chain->length != -1) {//if it's not an addrsvar
           if(dapeek(chain) != blk)
             dapush(chain, blk); //prevent adjacent duplicates

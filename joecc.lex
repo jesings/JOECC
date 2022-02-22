@@ -286,7 +286,6 @@ char parsmac[] = "macro call parsing";
   {MSTRING}? {
     //TODO: handle if in macro!?
     if(yylloc->filename == parsmac) {
-    free(yylloc->filename);
     yytext[yyleng - 1] = '\0';
     yylloc->filename = strdup(yytext + 1);
     }
