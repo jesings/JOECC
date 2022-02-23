@@ -801,100 +801,100 @@ char parsmac[] = "macro call parsing";
 }
 
 <INCLUDE,INCLUDENEXT,DEFINE,UNDEF,IFDEF,DEFARG,DEFINE2,STRINGLIT,CALLMACRO>{SKIPNEWL} {/*the newline is ignored*/}
-"->" {return ARROWTK;}
-"++" {return INC;}
-"--" {return DEC;}
-"/=" {return DIV_GETS;}
-"*=" {return MUL_GETS;}
 "%=" {return MOD_GETS;}
+"&=" {return AND_GETS;}
+"*=" {return MUL_GETS;}
+"++" {return INC;}
 "+=" {return ADD_GETS;}
+"--" {return DEC;}
 "-=" {return SUB_GETS;}
+"->" {return ARROWTK;}
+"..." {return ELLIPSIS;}
+"/=" {return DIV_GETS;}
 "<<=" {return SHL_GETS;}
 ">>=" {return SHR_GETS;}
-"&=" {return AND_GETS;}
 "^=" {return XOR_GETS;}
 "|=" {return OR_GETS;}
-"..." {return ELLIPSIS;}
-typedef {return TYPEDEF;}
-static {return STATIC;}
-extern {return EXTERN;}
-inline {return INLINE;}
-signed {return SIGNED;}
-unsigned {return UNSIGNED;}
-const {return CONST;}
-volatile {return VOLATILE;}
-restrict {return RESTRICT;}
+_Noreturn {return NORETURN;}
+__asm__ {return ASM;}
+asm {return ASM;}
+break {return BREAK;}
+byte {return BYTE;}
+case {return CASETK;}
 char {return CHAR;}
-short {return INT16;}
+const {return CONST;}
+continue {return CONTINUE;}
+dbyte {return DBYTE;}
+default {return DEFAULTTK;}
+do {return DO;}
+double {return DOUBLE;}
+else {return ELSE;}
+enum {return ENUMTK;}
+extern {return EXTERN;}
+float {return SINGLE;}
+for {return FOR;}
+goto {return GOTO;}
+if {return IF;}
+inline {return INLINE;}
 int {return INT32;}
-long {return INT64;}
-int8 {return INT8;}
 int16 {return INT16;}
 int32 {return INT32;}
 int64 {return INT64;}
-byte {return BYTE;}
-dbyte {return DBYTE;}
-qbyte {return QBYTE;}
+int8 {return INT8;}
+long {return INT64;}
 obyte {return OBYTE;}
-single {return SINGLE;}
-float {return SINGLE;}
-double {return DOUBLE;}
-void {return VOID;}
-case {return CASETK;}
-default {return DEFAULTTK;}
-if {return IF;}
-else {return ELSE;}
-switch {return SWITCHTK;}
-while {return WHILE;}
-do {return DO;}
-for {return FOR;}
-goto {return GOTO;}
-continue {return CONTINUE;}
-break {return BREAK;}
+qbyte {return QBYTE;}
+restrict {return RESTRICT;}
 return {return RETURN;}
+short {return INT16;}
+signed {return SIGNED;}
+single {return SINGLE;}
 sizeof {return SIZEOF;}
+static {return STATIC;}
 struct {return STRUCTTK;}
-enum {return ENUMTK;}
+switch {return SWITCHTK;}
+typedef {return TYPEDEF;}
 union {return UNIONTK;}
-asm {return ASM;}
-__asm__ {return ASM;}
-_Noreturn {return NORETURN;}
+unsigned {return UNSIGNED;}
+void {return VOID;}
+volatile {return VOLATILE;}
+while {return WHILE;}
 
 <INITIAL,WITHINIF>{
-  "<<" {return SHLTK;}
-  ">>" {return SHRTK;}
-  "&&" {return AND;}
-  "||" {return OR;}
-  "!=" {return NEQTK;}
-  "==" {return EQTK;}
-  "<=" {return LE;}
-  ">=" {return GE;}
-  "<" {return '<';}
-  ">" {return '>';}
   "!" {return '!';}
-  "-" {return '-';}
+  "!=" {return NEQTK;}
+  "&" {return '&';}
+  "&&" {return AND;}
   "(" {return '(';}
   ")" {return ')';}
-  "|" {return '|';}
-  "+" {return '+';}
-  "/" {return '/';}
   "*" {return '*';}
-  "~" {return '~';}
-  "^" {return '^';}
-  "&" {return '&';}
-  "?" {return '?';}
+  "+" {return '+';}
+  "-" {return '-';}
+  "/" {return '/';}
   ":" {return ':';}
+  "<" {return '<';}
+  "<<" {return SHLTK;}
+  "<=" {return LE;}
+  "==" {return EQTK;}
+  ">" {return '>';}
+  ">=" {return GE;}
+  ">>" {return SHRTK;}
+  "?" {return '?';}
+  "^" {return '^';}
+  "|" {return '|';}
+  "||" {return OR;}
+  "~" {return '~';}
 }
 
+"%" {return '%';}
+"," {return ',';}
+"." {return '.';}
+";" {return ';';}
 "=" {return '=';}
 "[" {return '[';}
 "]" {return ']';}
-"," {return ',';}
 "{" {return '{';}
 "}" {return '}';}
-";" {return ';';}
-"%" {return '%';}
-"." {return '.';}
 
 
 <WITHINIF>{
