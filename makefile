@@ -16,7 +16,7 @@ usemusl: CFLAGS += -D USEMUSL
 usemusl: CFLAGS += -fsanitize=address
 usemusl: LDFLAGS += -fsanitize=address
 usemusl: compiler
-perftest: CFLAGS = -O2 -D NODEBUG -ggdb -g3 -march=native -D HEADERS_VERSION=\"$(VERSION)\"
+perftest: CFLAGS = -O2 -D NODEBUG -g -march=native -D HEADERS_VERSION=\"$(VERSION)\"
 perftest: LEXFLAGS = -Cfer -p -p
 perftest: profile
 CFLAGS += -D HEADERS_VERSION=\"$(VERSION)\"
@@ -64,7 +64,15 @@ reg.o: reg.c
 	$(CC) reg.c -c $(CFLAGS)
 
 profile: compiler
-	perf record ./compiler treeduce.c
+	perf record -g --call-graph=dwarf ./compiler *.c *.h
+
+perfreport:
+	perf report -g fractal -F+period,srcline
+
+flamegraph:
+	perf script | ~/build/FlameGraph/stackcollapse-perf.pl > out.perf-folded #replace with the right directory
+	~/build/FlameGraph/flamegraph.pl out.perf-folded > perf.svg #replace with the right directory
+
 
 
 
