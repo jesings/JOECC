@@ -7,20 +7,20 @@
  * Represents the registers in x86_64 as bits
 **/
 enum reguse {
-  DI = 1, 
-  SI = 2, 
-  DX = 4,
-  CX = 8,
-  R8 = 0x20,
-  R9 = 0x40,
-  AX = 0x10,
-  R10 = 0x80,
-  R11 = 0x100,
-  R12 = 0x200,
-  R13 = 0x400,
-  R14 = 0x800,
-  R15 = 0x1000,
-  BX = 0x2000,
+  DI = 0, 
+  SI = 1, 
+  DX = 2,
+  CX = 3,
+  R8 = 4,
+  R9 = 5,
+  AX = 6,
+  R10 = 7,
+  R11 = 8,
+  R12 = 9,
+  R13 = 10,
+  R14 = 11,
+  R15 = 12,
+  BX = 13,
   //missing BP and SP
   //This is because we don't allow them to be used in that way
 };

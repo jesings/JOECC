@@ -132,9 +132,9 @@ typedef union {
     };
   };
   struct {
-    char x86ireg;
-    char scalereg;
-    short scalefactor;
+    char x86ireg; //filled with enum reguse
+    char scalereg; //filled with enum reguse
+    unsigned short scalefactor; //either 1, 2, or 8
     int displacement;
   };
   unsigned long uintconst_64; //unsigned int 64 bit or pointer
