@@ -204,6 +204,7 @@ void liveness(PROGRAM* prog) {
   lastuse(prog, usedefchains, varbs);
 
   BITFIELD adjmatrix = genadjmatrix(prog, usedefchains, varbs);
+  //printadjmatrix(prog->regcnt, adjmatrix);
 
   for(unsigned int i = 0; i < prog->regcnt; i++) {
       assert(varbs[i] || !usedefchains[i]);
@@ -276,5 +277,14 @@ void regalloc(PROGRAM* prog, BITFIELD adjmatrix) {
   //attempt color
   //spill if fail--where/how to spill, with belady's algorithm?
   //how coalesce and retry?
+}
+
+void printadjmatrix(int dim, BITFIELD adjmatrix) {
+    for(int i = 0; i < dim; i++) {
+        for(int j = 0; j < dim; j++) {
+            putchar(bfget(adjmatrix, i*dim + j) ? 'o' : 'x');//i, j or j, i doesn't matter because it's symmetric
+        }
+        putchar('\n');
+    }
 }
 #undef X
