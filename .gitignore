@@ -8,4 +8,5 @@ lex.h
 *.output
 tags
 *.joecco
+*.joeccs
 precompilation*
