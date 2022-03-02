@@ -17,7 +17,17 @@ QHASHTABLE* qhtctor(void) {
 }
 
 void qresize(QHASHTABLE* qh) {
-
+  QHASHPAIR* oldhashtable = qh->hashtable;
+  int qoldsize = qh->slotmask;
+  QHASHPAIR* newq = calloc((qh->slotmask + 1) >> 2, sizeof(QHASHPAIR));
+  qh->keys = 0;
+  qh->slotmask = ((qh->slotmask + 1) << 2) - 1;
+  qh->hashtable = newq;
+  for(int i = 0; i <= qoldsize; i++) {
+    if(oldhashtable[i].key) {
+      insert(qh, oldhashtable[i].key, oldhashtable[i].value); //if this needs to resize we've got no problem
+    }
+  }
 }
 
 void insert(QHASHTABLE* qh, const char* key, void* value) {
@@ -37,7 +47,7 @@ void insert(QHASHTABLE* qh, const char* key, void* value) {
     } else {
       break;
     }
-  } while(1); //this should never iterate twice
+  } while(1);
 
   ++qh->keys;
 }

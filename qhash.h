@@ -28,4 +28,5 @@ typedef struct {
   QHASHPAIR* hashtable;
 } QHASHTABLE;
 
+void insert(QHASHTABLE* qh, const char* key, void* value);
 #endif
