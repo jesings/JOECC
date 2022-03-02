@@ -12,14 +12,8 @@
  * Keys are typically string pointers. 
 **/
 typedef struct qhp {
-  union {
-    char* key;
-    long fixedkey;
-  };
-  union {
-    void* value;
-    long ivalue;
-  };
+  char* key;
+  void* value;
 } QHASHPAIR;
 
 typedef struct {
@@ -29,4 +23,8 @@ typedef struct {
 } QHASHTABLE;
 
 void insert(QHASHTABLE* qh, const char* key, void* value);
+void* search(QHASHTABLE* qh, const char* key);
+char queryval(QHASHTABLE* qh, const char* key);
+void rmpaircfr(QHASHTABLE* qh, const char* key, void (*cfree)(void*));
+char htequal(QHASHTABLE* ht1, QHASHTABLE* ht2);
 #endif
