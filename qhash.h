@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #ifndef QHASH_H
 #define QHASH_H
 #define HASHSIZE 256
@@ -5,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "dynarr.h"
+#include "joecc_assert.h"
 
 /**
  * Represents a key/value pair in the hashmap with quadratic probing.
@@ -26,5 +28,7 @@ void insert(QHASHTABLE* qh, const char* key, void* value);
 void* search(QHASHTABLE* qh, const char* key);
 char queryval(QHASHTABLE* qh, const char* key);
 void rmpaircfr(QHASHTABLE* qh, const char* key, void (*cfree)(void*));
+void insertcfr(QHASHTABLE* qh, const char* key, void* value, void (*cfree)(void*));
+void resize(QHASHTABLE* qh);
 char htequal(QHASHTABLE* ht1, QHASHTABLE* ht2);
 #endif

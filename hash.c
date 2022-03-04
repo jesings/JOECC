@@ -430,30 +430,3 @@ char htequal(HASHTABLE* ht1, HASHTABLE* ht2) {
   }
   return 1;
 }
-
-//insert into hashtable with integer (rather than pointer) value
-void intsert(HASHTABLE* ht, const char* key, long value) {
-  unsigned long i = hash(key);
-  HASHPAIR* hp = &(ht->pairs[i]);
-  if(!(hp->key)) {
-    hp->key = strdup(key);
-    hp->ivalue = value;
-  } else {
-    for(; hp->next; hp = hp->next) {
-      if(!strcmp(hp->key, key)) {
-        hp->ivalue = value;
-        return;
-      }
-    }
-    if(!strcmp(hp->key, key)) {
-      hp->ivalue = value;
-      return;
-    }
-    HASHPAIR* newpair = malloc(sizeof(HASHPAIR));
-    newpair->key = strdup(key);
-    newpair->ivalue = value;
-    newpair->next = NULL;
-    hp->next = newpair;
-  }
-  ++ht->keys;
-}
