@@ -126,3 +126,12 @@ void htdtor(QHASHTABLE* ht, void (*freep)(void*)) {
   free(ht->hashtable);
   free(ht);
 }
+
+DYNARR* htpairs(QHASHTABLE* ht) {
+  DYNARR* da = dactor(ht->keys);
+  for(int i = 0; i <= ht->slotmask; i++) {
+    QHASHPAIR* curpair = &(ht->hashtable[i]);
+    if(curpair->key) dapush(da, curpair);
+  }
+  return da;
+}
