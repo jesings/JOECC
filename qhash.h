@@ -1,3 +1,4 @@
+#undef _GNU_SOURCE
 #define _GNU_SOURCE
 #ifndef QHASH_H
 #define QHASH_H
@@ -24,11 +25,15 @@ typedef struct {
   QHASHPAIR* hashtable;
 } QHASHTABLE;
 
-void insert(QHASHTABLE* qh, const char* key, void* value);
-void* search(QHASHTABLE* qh, const char* key);
-char queryval(QHASHTABLE* qh, const char* key);
-void rmpaircfr(QHASHTABLE* qh, const char* key, void (*cfree)(void*));
-void insertcfr(QHASHTABLE* qh, const char* key, void* value, void (*cfree)(void*));
-void resize(QHASHTABLE* qh);
-char htequal(QHASHTABLE* ht1, QHASHTABLE* ht2);
+void qinsert(QHASHTABLE* qh, const char* key, void* value);
+void* qsearch(QHASHTABLE* qh, const char* key);
+char qqueryval(QHASHTABLE* qh, const char* key);
+void qrmpaircfr(QHASHTABLE* qh, const char* key, void (*cfree)(void*));
+void qinsertcfr(QHASHTABLE* qh, const char* key, void* value, void (*cfree)(void*));
+void qresize(QHASHTABLE* qh);
+char qhtequal(QHASHTABLE* ht1, QHASHTABLE* ht2);
+DYNARR* qhtpairs(QHASHTABLE* ht);
+QHASHTABLE* qhtctor(void);
+QHASHTABLE* qchtctor(int size);
+void qhtdtor(QHASHTABLE* ht, void (*freep)(void*));
 #endif

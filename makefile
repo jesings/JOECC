@@ -20,8 +20,8 @@ perftest: CFLAGS = -O2 -D NODEBUG -g -march=native -D HEADERS_VERSION=\"$(VERSIO
 perftest: LEXFLAGS = -Cfer -p -p
 perftest: profile
 CFLAGS += -D HEADERS_VERSION=\"$(VERSION)\"
-compiler: joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o  dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o opt.o ssa.o reg.o codegen.o
-	$(CC) joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o opt.o ssa.o reg.o codegen.o -o compiler $(LDFLAGS)
+compiler: joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o  dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o opt.o ssa.o reg.o codegen.o qhash.o
+	$(CC) joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o opt.o ssa.o reg.o codegen.o qhash.o -o compiler $(LDFLAGS)
 gotest: compiler
 	./compiler dynarr.c
 lex.yy.c: joecc.lex
@@ -62,6 +62,8 @@ codegen.o: codegen.c
 	$(CC) codegen.c -c $(CFLAGS)
 reg.o: reg.c
 	$(CC) reg.c -c $(CFLAGS)
+qhash.o: qhash.c
+	$(CC) qhash.c -c $(CFLAGS)
 
 profile: compiler
 	perf record -g --call-graph=dwarf ./compiler *.c *.h

@@ -1,6 +1,6 @@
 #include "qhash.h"
 
-static int hash(QHASHTABLE* qh, const char* str) {    /*courtesy of http://www.cse.yorku.ca/~oz/hash.html */
+static int qhash(QHASHTABLE* qh, const char* str) {    /*courtesy of http://www.cse.yorku.ca/~oz/hash.html */
   unsigned long hash = 5381;
   int c;
   while((c = *str++))
@@ -8,14 +8,14 @@ static int hash(QHASHTABLE* qh, const char* str) {    /*courtesy of http://www.c
   return hash & qh->slotmask;
 }
 
-QHASHTABLE* htctor(void) {
+QHASHTABLE* qhtctor(void) {
   QHASHTABLE* ht = malloc(sizeof(QHASHTABLE));
   ht->keys = 0;
   ht->slotmask = HASHSIZE - 1;
   ht->hashtable = calloc(sizeof(QHASHPAIR), HASHSIZE);
   return ht;
 }
-QHASHTABLE* chtctor(int size) {
+QHASHTABLE* qchtctor(int size) {
   QHASHTABLE* ht = malloc(sizeof(QHASHTABLE));
   assert((size & (size-1)) == 0); //assert that the size is a power of 2
   ht->keys = 0;
@@ -24,8 +24,8 @@ QHASHTABLE* chtctor(int size) {
   return ht;
 }
 
-static void resizeinsert(QHASHTABLE* qh, const char* key, void* value) {
-  int hashval = hash(qh, key);
+static void qresizeinsert(QHASHTABLE* qh, char* key, void* value) {
+  int hashval = qhash(qh, key);
   int i;
   do {
     for(i = 0; i < PROBECOUNT; i++) {
@@ -37,13 +37,13 @@ static void resizeinsert(QHASHTABLE* qh, const char* key, void* value) {
       }
     }
     if(i == PROBECOUNT) {
-      resize(qh);
+      qresize(qh);
     } else {
       break;
     }
   } while(1);
 }
-void resize(QHASHTABLE* qh) {
+void qresize(QHASHTABLE* qh) {
   QHASHPAIR* oldhashtable = qh->hashtable;
   int qoldsize = qh->slotmask;
   int qoldkeys = qh->keys;
@@ -52,15 +52,15 @@ void resize(QHASHTABLE* qh) {
   qh->hashtable = newq;
   for(int i = 0; i <= qoldsize; i++) {
     if(oldhashtable[i].key) {
-      resizeinsert(qh, oldhashtable[i].key, oldhashtable[i].value); //if this needs to resize we've got no problem
+      qresizeinsert(qh, oldhashtable[i].key, oldhashtable[i].value); //if this needs to resize we've got no problem
     }
   }
   qh->keys = qoldkeys;
   free(oldhashtable);
 }
 
-void insert(QHASHTABLE* qh, const char* key, void* value) {
-  int hashval = hash(qh, key);
+void qinsert(QHASHTABLE* qh, const char* key, void* value) {
+  int hashval = qhash(qh, key);
   int i;
   do {
     for(i = 0; i < PROBECOUNT; i++) {
@@ -75,7 +75,7 @@ void insert(QHASHTABLE* qh, const char* key, void* value) {
       }
     }
     if(i == PROBECOUNT) {
-      resize(qh);
+      qresize(qh);
     } else {
       break;
     }
@@ -84,8 +84,8 @@ void insert(QHASHTABLE* qh, const char* key, void* value) {
   ++qh->keys;
 }
 
-void insertcfr(QHASHTABLE* qh, const char* key, void* value, void (*cfree)(void*)) {
-  int hashval = hash(qh, key);
+void qinsertcfr(QHASHTABLE* qh, const char* key, void* value, void (*cfree)(void*)) {
+  int hashval = qhash(qh, key);
   int i;
   do {
     for(i = 0; i < PROBECOUNT; i++) {
@@ -96,12 +96,12 @@ void insertcfr(QHASHTABLE* qh, const char* key, void* value, void (*cfree)(void*
         break;
       }
       if(!strcmp(qhp->key , key)) {
-        free((void*) key);
+        free((void*) qhp->value);
         qhp->value = value;
       }
     }
     if(i == PROBECOUNT) {
-      resize(qh);
+      qresize(qh);
     } else {
       break;
     }
@@ -110,8 +110,8 @@ void insertcfr(QHASHTABLE* qh, const char* key, void* value, void (*cfree)(void*
   ++qh->keys;
 }
 
-void* search(QHASHTABLE* qh, const char* key) {
-  int hashval = hash(qh, key);
+void* qsearch(QHASHTABLE* qh, const char* key) {
+  int hashval = qhash(qh, key);
   for(int i = 0; i < PROBECOUNT; i++) {
     QHASHPAIR *qhp = qh->hashtable + ((hashval + i * i) & qh->slotmask);
     if(qhp->key) {
@@ -124,8 +124,8 @@ void* search(QHASHTABLE* qh, const char* key) {
   }
   return NULL;
 }
-char queryval(QHASHTABLE* qh, const char* key) {
-  int hashval = hash(qh, key);
+char qqueryval(QHASHTABLE* qh, const char* key) {
+  int hashval = qhash(qh, key);
   for(int i = 0; i < PROBECOUNT; i++) {
     QHASHPAIR *qhp = qh->hashtable + ((hashval + i * i) & qh->slotmask);
     if(qhp->key) {
@@ -139,8 +139,8 @@ char queryval(QHASHTABLE* qh, const char* key) {
   return 0;
 }
 
-void rmpaircfr(QHASHTABLE* qh, const char* key, void (*cfree)(void*)) {
-  int hashval = hash(qh, key);
+void qrmpaircfr(QHASHTABLE* qh, const char* key, void (*cfree)(void*)) {
+  int hashval = qhash(qh, key);
   for(int i = 0; i < PROBECOUNT; i++) {
     QHASHPAIR *qhp = qh->hashtable + ((hashval + i * i) & qh->slotmask);
     if(qhp->key) {
@@ -156,7 +156,7 @@ void rmpaircfr(QHASHTABLE* qh, const char* key, void (*cfree)(void*)) {
   }
 }
 
-char htequal(QHASHTABLE* ht1, QHASHTABLE* ht2) {
+char qhtequal(QHASHTABLE* ht1, QHASHTABLE* ht2) {
   if(ht1) if(!ht2) return 0;
   if(!ht1) return 0;
   if(ht1->slotmask != ht2->slotmask ||
@@ -170,7 +170,7 @@ char htequal(QHASHTABLE* ht1, QHASHTABLE* ht2) {
   return 1;
 }
 
-void htdtor(QHASHTABLE* ht, void (*freep)(void*)) {
+void qhtdtor(QHASHTABLE* ht, void (*freep)(void*)) {
   if(ht->keys != 0) {
     for(int i = 0; i <= ht->slotmask; i++) {
       QHASHPAIR* current = &(ht->hashtable[i]);
@@ -185,7 +185,7 @@ void htdtor(QHASHTABLE* ht, void (*freep)(void*)) {
   free(ht);
 }
 
-DYNARR* htpairs(QHASHTABLE* ht) {
+DYNARR* qhtpairs(QHASHTABLE* ht) {
   DYNARR* da = dactor(ht->keys);
   for(int i = 0; i <= ht->slotmask; i++) {
     QHASHPAIR* curpair = &(ht->hashtable[i]);
