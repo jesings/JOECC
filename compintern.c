@@ -1126,7 +1126,7 @@ static void declfmacro(BIGHASHTABLE* ht, const char* macroname, const char* para
 
 struct lexctx* ctxinit(FILE* ar, char* rn) {
   struct lexctx* lct =  malloc(sizeof(struct lexctx));
-  lct->funcs = htctor();
+  lct->funcs = qchtctor(64);
   lct->definestack = dactor(64);
   lct->scopes = dactor(64);
   lct->func = NULL;
@@ -1136,7 +1136,7 @@ struct lexctx* ctxinit(FILE* ar, char* rn) {
   lct->globals = dactor(512);
   lct->externglobals = dactor(128);
   lct->defines = bightctor();
-  lct->withindefines = htctor();
+  lct->withindefines = qchtctor(32);
   lct->actualroot = ar;
   lct->rootname = rn;
   declmacro(lct->defines, "__STDC__", "1");

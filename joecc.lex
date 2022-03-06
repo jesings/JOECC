@@ -419,7 +419,7 @@ char parsmac[] = "macro call parsing";
     yy_push_state(DEFINE2, yyscanner);
     lctx->ls->mdstrdly = strctor(malloc(256), 0, 256);
     lctx->ls->defname = strdup(yytext);
-    insert(lctx->withindefines, yytext, NULL);
+    qinsert(lctx->withindefines, yytext, NULL);
     }
   {IDENT}|["][^"\n]*["]/[[:blank:]] {
     yy_pop_state(yyscanner);
@@ -427,7 +427,7 @@ char parsmac[] = "macro call parsing";
     lctx->ls->mdstrdly = strctor(malloc(256), 0, 256);
     yy_push_state(KILLBLANK, yyscanner);
     lctx->ls->defname = strdup(yytext);
-    insert(lctx->withindefines, yytext, NULL);
+    qinsert(lctx->withindefines, yytext, NULL);
     }
   {IDENT}\( {
     yy_pop_state(yyscanner);
@@ -436,7 +436,7 @@ char parsmac[] = "macro call parsing";
     lctx->ls->defname = strdup(yytext);
     lctx->ls->md->args = dactor(8);
     lctx->ls->argeaten = 0;
-    insert(lctx->withindefines, yytext, NULL);
+    qinsert(lctx->withindefines, yytext, NULL);
     }
   {IDENT}\(/[[:blank:]] {
     yy_pop_state(yyscanner);
@@ -446,7 +446,7 @@ char parsmac[] = "macro call parsing";
     lctx->ls->defname = strdup(yytext);
     lctx->ls->md->args = dactor(8);
     lctx->ls->argeaten = 0;
-    insert(lctx->withindefines, yytext, NULL);
+    qinsert(lctx->withindefines, yytext, NULL);
     }
   \r?\n {yy_pop_state(yyscanner);/*error state*/}
   . {fprintf(stderr, "DEFINE: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint2(yylloc));}
@@ -508,7 +508,7 @@ char parsmac[] = "macro call parsing";
     }
     lctx->ls->md->text = lctx->ls->mdstrdly;
     biginsert(lctx->defines, lctx->ls->defname, lctx->ls->md);
-    rmpair(lctx->withindefines, lctx->ls->defname);
+    qrmpair(lctx->withindefines, lctx->ls->defname);
     free(lctx->ls->defname);
     lctx->ls->defname = NULL;
     }
@@ -592,7 +592,7 @@ char parsmac[] = "macro call parsing";
           fprintf(stderr, "Error: the number of arguments passed to function-like macro is different than the number of parameters %s %d.%d-%d.%d\n", locprint2(yylloc));
           //error state
         } else {
-          insert(lctx->withindefines, lctx->ls->defname, NULL);
+          qinsert(lctx->withindefines, lctx->ls->defname, NULL);
           DYNARR* argn = mdl->args;
           lctx->ls->defargs = htctor();
           char** prma = (char**) argn->arr;
@@ -668,7 +668,7 @@ char parsmac[] = "macro call parsing";
       *yylloc = *ylt;
       free(ylt);
       struct arginfo* ai = dapop(lctx->ls->argpp);
-      rmpair(lctx->withindefines, lctx->ls->defname);
+      qrmpair(lctx->withindefines, lctx->ls->defname);
       free(lctx->ls->defname);
       lctx->ls->defname = ai->defname;
       free(ai);
@@ -725,7 +725,7 @@ char parsmac[] = "macro call parsing";
     yylloc->first_line = yylloc->last_line = 1;
     yylloc->first_column = yylloc->last_column = 0;
     yylloc->filename = strdup(buf);
-    rmpair(lctx->withindefines, lctx->ls->defname);
+    qrmpair(lctx->withindefines, lctx->ls->defname);
     htdtorcfr(lctx->ls->defargs, (void(*)(void*)) strdtor);
     strdtor(lctx->ls->dstrdly);
     if(lctx->ls->argpp->length) {
@@ -736,7 +736,7 @@ char parsmac[] = "macro call parsing";
         lctx->ls->parg = argi->parg;
         argi->argi = NULL;
         dapush(lctx->ls->argpp, argi);
-        insert(lctx->withindefines, lctx->ls->defname, NULL);
+        qinsert(lctx->withindefines, lctx->ls->defname, NULL);
       } else {
         free(lctx->ls->defname);
         lctx->ls->defname = argi->defname;
@@ -1087,7 +1087,7 @@ char handle_eof(yyscan_t yyscanner) {
   } else {
     yy_pop_state(yyscanner);
     YYLTYPE* ylt = dapop(lctx->ls->locs);
-    rmpair(lctx->withindefines, yylloc->filename);
+    qrmpair(lctx->withindefines, yylloc->filename);
     free(yylloc->filename);
     *yylloc = *ylt;
     free(ylt);
@@ -1102,7 +1102,7 @@ char handle_eof(yyscan_t yyscanner) {
 
 int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) {
   struct macrodef* macdef = bigsearch(lctx->defines, symb, 0);
-  if(macdef && !queryval(lctx->withindefines, symb)) {
+  if(macdef && !qqueryval(lctx->withindefines, symb)) {
     char* oldname = lctx->ls->defname;
     lctx->ls->defname = symb;
     switch(frominitial) {
@@ -1164,7 +1164,7 @@ int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) 
       snprintf(buf, 256, "%s", symb);
       struct yyguts_t* yyg = (struct yyguts_t*) yyscanner;
       yypush_stringbuffer(macdef->text->strptr, macdef->text->lenstr, buf, YY_CURRENT_BUFFER, yyscanner);
-      insert(lctx->withindefines, symb, NULL);
+      qinsert(lctx->withindefines, symb, NULL);
       if(frominitial == 2) {
         struct arginfo* argi = calloc(1, sizeof(struct arginfo));
         argi->defname = oldname;

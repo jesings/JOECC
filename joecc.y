@@ -103,7 +103,7 @@
 program:
   function {
     $$ = NULL;
-    insert(ctx->funcs, $1->name, $1);
+    qinsert(ctx->funcs, $1->name, $1);
   }
 | initializer {
     $$ = NULL;
@@ -122,8 +122,8 @@ program:
 | program function {
     $$ = $1;
     char* cs = $2->name;
-    if(!search(ctx->funcs, cs)) {
-      insert(ctx->funcs, cs, $2);
+    if(!qsearch(ctx->funcs, cs)) {
+      qinsert(ctx->funcs, cs, $2);
     } else {
       fprintf(stderr, "Error: redefinition of function %s in %s %d.%d-%d.%d\n", $2->name, locprint(@2));
     }

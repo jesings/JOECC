@@ -29,11 +29,13 @@ void qinsert(QHASHTABLE* qh, const char* key, void* value);
 void* qsearch(QHASHTABLE* qh, const char* key);
 char qqueryval(QHASHTABLE* qh, const char* key);
 void qrmpaircfr(QHASHTABLE* qh, const char* key, void (*cfree)(void*));
+void qrmpair(QHASHTABLE* qh, const char* key);
 void qinsertcfr(QHASHTABLE* qh, const char* key, void* value, void (*cfree)(void*));
 void qresize(QHASHTABLE* qh);
 char qhtequal(QHASHTABLE* ht1, QHASHTABLE* ht2);
 DYNARR* qhtpairs(QHASHTABLE* ht);
 QHASHTABLE* qhtctor(void);
 QHASHTABLE* qchtctor(int size);
-void qhtdtor(QHASHTABLE* ht, void (*freep)(void*));
+void qhtdtor(QHASHTABLE* ht);
+void qchtdtor(QHASHTABLE* ht, void (*freep)(void*));
 #endif

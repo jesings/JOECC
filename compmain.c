@@ -105,11 +105,11 @@ static void filecomp(char* filename) {
   yylex_destroy(scanner);
   dadtorcfr(lctx->enumerat2free, (void(*)(void*)) freenum);
   bightdtorcfr(lctx->defines, (void (*)(void*)) freemd);
-  free(lctx->withindefines);
+  qhtdtor(lctx->withindefines);
   dadtor(lctx->definestack);
   dadtor(lctx->ls->locs);
   dadtor(lctx->ls->argpp);
-  DYNARR* funcky = htpairs(lctx->funcs);
+  DYNARR* funcky = qhtpairs(lctx->funcs);
 
   char* newname = explainjoke(filename, 's');
   FILE* objf = fopen(newname, "w");
@@ -165,7 +165,7 @@ static void filecomp(char* filename) {
   dadtorcfr(lctx->enstruct2free, (void(*)(void*)) wipestruct);
   dadtorcfr(lctx->externglobals, (void(*)(void*)) freeinit);
   dadtorcfr(lctx->globals, (void(*)(void*)) freeinit);
-  htdtor(lctx->funcs);
+  qhtdtor(lctx->funcs);
   free(lctx->ls);
   free(lctx);
   return;

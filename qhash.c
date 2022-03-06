@@ -148,6 +148,24 @@ void qrmpaircfr(QHASHTABLE* qh, const char* key, void (*cfree)(void*)) {
         free(qhp->key);
         cfree(qhp->value);
         qhp->key = NULL;
+        --qh->keys;
+        break;
+      }
+    } else {
+      break;
+    }
+  }
+}
+
+void qrmpair(QHASHTABLE* qh, const char* key) {
+  int hashval = qhash(qh, key);
+  for(int i = 0; i < PROBECOUNT; i++) {
+    QHASHPAIR *qhp = qh->hashtable + ((hashval + i * i) & qh->slotmask);
+    if(qhp->key) {
+      if(!strcmp(qhp->key, key)) {
+        free(qhp->key);
+        qhp->key = NULL;
+        --qh->keys;
         break;
       }
     } else {
@@ -170,13 +188,27 @@ char qhtequal(QHASHTABLE* ht1, QHASHTABLE* ht2) {
   return 1;
 }
 
-void qhtdtor(QHASHTABLE* ht, void (*freep)(void*)) {
+void qchtdtor(QHASHTABLE* ht, void (*freep)(void*)) {
   if(ht->keys != 0) {
     for(int i = 0; i <= ht->slotmask; i++) {
       QHASHPAIR* current = &(ht->hashtable[i]);
       if(current->key) {
         free(current->key);
         freep(current->value);
+        if(! --ht->keys) break;
+      }
+    }
+  }
+  free(ht->hashtable);
+  free(ht);
+}
+
+void qhtdtor(QHASHTABLE* ht) {
+  if(ht->keys != 0) {
+    for(int i = 0; i <= ht->slotmask; i++) {
+      QHASHPAIR* current = &(ht->hashtable[i]);
+      if(current->key) {
+        free(current->key);
         if(! --ht->keys) break;
       }
     }

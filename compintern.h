@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include "hash.h"
+#include "qhash.h"
 #include "dynarr.h"
 #include "dynstr.h"
 #include "parallel.h"
@@ -246,12 +247,12 @@ struct lstate {
  * reassign it to null when that is done.
 **/
 struct lexctx {
-  HASHTABLE* funcs;
+  QHASHTABLE* funcs;
   DYNARR* scopes;
   DYNARR* definestack;
   FUNC* func;
   BIGHASHTABLE* defines;
-  HASHTABLE* withindefines;
+  QHASHTABLE* withindefines;
   DYNARR* enstruct2free;
   DYNARR* enumerat2free;
   DYNARR* globals;

@@ -531,7 +531,7 @@ void startgenfile(FILE* outputfile, struct lexctx* lctx) {
     INITIALIZER* in = daget(lctx->globals, i);
     if(ispointer(in->decl->type) && (((struct declarator_part*) dapeek(in->decl->type->pointerstack))->type == PARAMSSPEC || ((struct declarator_part*) dapeek(in->decl->type->pointerstack))->type == NAMELESS_PARAMSSPEC)) {
       if(!(in->decl->type->tb & STATICNUM)) {
-        if(queryval(lctx->funcs, in->decl->varname)) {
+        if(qqueryval(lctx->funcs, in->decl->varname)) {
           fprintf(outputfile, ".global %s\n", in->decl->varname);
         } else {
           fprintf(outputfile, ".extern %s\n", in->decl->varname);
