@@ -1106,27 +1106,27 @@ char scopequeryval(struct lexctx* lct, enum membertype mt, char* key) {
   return 0;
 }
 
-static void declmacro(BIGHASHTABLE* ht, const char* macroname, const char* body) {
+static void declmacro(QHASHTABLE* ht, const char* macroname, const char* body) {
   struct macrodef* md = calloc(1, sizeof(struct macrodef));
   if(body) {
     int blen = strlen(body);
     md->text = strctor(strdup(body), blen + 1, blen + 1);
   }
-  biginsert(ht, macroname, md);
+  qinsert(ht, macroname, md);
 }
 
-static void declfmacro(BIGHASHTABLE* ht, const char* macroname, const char* param, const char* body) {
+static void declfmacro(QHASHTABLE* ht, const char* macroname, const char* param, const char* body) {
   struct macrodef* md = calloc(1, sizeof(struct macrodef));
   int blen = strlen(body);
   md->text = strctor(strdup(body), blen + 1, blen + 1);
   md->args = dactor(1);
   dapushc(md->args, strdup(param));
-  biginsert(ht, macroname, md);
+  qinsert(ht, macroname, md);
 }
 
 struct lexctx* ctxinit(FILE* ar, char* rn) {
   struct lexctx* lct =  malloc(sizeof(struct lexctx));
-  lct->funcs = qchtctor(64);
+  lct->funcs = qchtctor(256);
   lct->definestack = dactor(64);
   lct->scopes = dactor(64);
   lct->func = NULL;
@@ -1135,7 +1135,7 @@ struct lexctx* ctxinit(FILE* ar, char* rn) {
   lct->enumerat2free = dactor(256);
   lct->globals = dactor(512);
   lct->externglobals = dactor(128);
-  lct->defines = bightctor();
+  lct->defines = qchtctor(8192);
   lct->withindefines = qchtctor(32);
   lct->actualroot = ar;
   lct->rootname = rn;

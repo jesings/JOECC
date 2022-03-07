@@ -498,7 +498,7 @@ char parsmac[] = "macro call parsing";
     yy_pop_state(yyscanner);
     dsccat(lctx->ls->mdstrdly, 0);
     struct macrodef* isinplace;
-    if((isinplace = bigsearch(lctx->defines, lctx->ls->defname, 0))) {
+    if((isinplace = qsearch(lctx->defines, lctx->ls->defname))) {
       if(strcmp(isinplace->text->strptr, lctx->ls->mdstrdly->strptr)) {
         dsws(isinplace->text);
         dsws(lctx->ls->mdstrdly);
@@ -507,7 +507,7 @@ char parsmac[] = "macro call parsing";
       freemd(isinplace);
     }
     lctx->ls->md->text = lctx->ls->mdstrdly;
-    biginsert(lctx->defines, lctx->ls->defname, lctx->ls->md);
+    qinsert(lctx->defines, lctx->ls->defname, lctx->ls->md);
     qrmpair(lctx->withindefines, lctx->ls->defname);
     free(lctx->ls->defname);
     lctx->ls->defname = NULL;
@@ -516,9 +516,9 @@ char parsmac[] = "macro call parsing";
 
 <UNDEF>{
   {IDENT}|["][^"\n]*["] {
-    bigrmpaircfr(lctx->defines, yytext, (void(*)(void*)) freemd, 0);}
+    qrmpaircfr(lctx->defines, yytext, (void(*)(void*)) freemd);}
   {IDENT}|["][^"\n]*["]/[[:blank:]] {
-    bigrmpaircfr(lctx->defines, yytext, (void(*)(void*)) freemd, 0); yy_push_state(KILLBLANK, yyscanner);}
+    qrmpaircfr(lctx->defines, yytext, (void(*)(void*)) freemd); yy_push_state(KILLBLANK, yyscanner);}
   \r?\n {yy_pop_state(yyscanner);/*error state if expr not over?*/}
   . {fprintf(stderr, "UNDEF: Unexpected character encountered: %c %s %d.%d-%d.%d\n", *yytext, locprint2(yylloc));}
 }
@@ -544,9 +544,9 @@ char parsmac[] = "macro call parsing";
       switch(contval) {
         case IFANDTRUE: case ELSEANDFALSE:
 #if PPDEBUG
-              fprintf(stderr, "Value of identifier %s is %d at %s %d.%d-%d.%d\n", lctx->ls->defname, bigqueryval(lctx->defines, lctx->ls->defname), locprint2(yylloc));
+              fprintf(stderr, "Value of identifier %s is %d at %s %d.%d-%d.%d\n", lctx->ls->defname, qqueryval(lctx->defines, lctx->ls->defname), locprint2(yylloc));
 #endif
-          if(lctx->ls->argeaten ^ bigqueryval(lctx->defines, lctx->ls->defname)) {
+          if(lctx->ls->argeaten ^ qqueryval(lctx->defines, lctx->ls->defname)) {
             *rids = IFANDTRUE;
           } else {
             *rids = IFANDFALSE;
@@ -580,7 +580,7 @@ char parsmac[] = "macro call parsing";
       dapush(lctx->ls->parg, lctx->ls->dstrdly);
 
       struct macrodef* mdl;
-      if(!(mdl = bigsearch(lctx->defines, lctx->ls->defname, 0))) {
+      if(!(mdl = qsearch(lctx->defines, lctx->ls->defname))) {
         fprintf(stderr, "Error: Malformed function-like macro call %s %d.%d-%d.%d\n", locprint2(yylloc));
         //error state
         yy_pop_state(yyscanner);
@@ -641,7 +641,7 @@ char parsmac[] = "macro call parsing";
     dsccat(lctx->ls->dstrdly, ' ');
     }
   [[:space:]]*,[[:space:]]* {
-    struct macrodef* mdl = bigsearch(lctx->defines, lctx->ls->defname, 0);
+    struct macrodef* mdl = qsearch(lctx->defines, lctx->ls->defname);
     if(lctx->ls->paren_depth || !strcmp(daget(mdl->args, lctx->ls->parg->length), "__VA_ARGS__")) {
       char tmpstr[3];
       int tmpstrl = 0;
@@ -781,7 +781,7 @@ char parsmac[] = "macro call parsing";
   [[:blank:]]*\) {yy_pop_state(yyscanner);}
   {IDENT} {
     //maybe check completion
-    yylval_param->unum = bigqueryval(lctx->defines, yytext);
+    yylval_param->unum = qqueryval(lctx->defines, yytext);
 #if PPDEBUG
       fprintf(stderr, "Value of identifier %s is %lu at %s %d.%d-%d.%d\n", yytext, yylval_param->unum, locprint2(yylloc));
 #endif
@@ -792,7 +792,7 @@ char parsmac[] = "macro call parsing";
 <CHECKDEFINED2>{
   {IDENT} {
     yy_pop_state(yyscanner);
-    yylval_param->unum = bigqueryval(lctx->defines, yytext);
+    yylval_param->unum = qqueryval(lctx->defines, yytext);
 #if PPDEBUG
       fprintf(stderr, "Value of identifier %s is %lu at %s %d.%d-%d.%d\n", yytext, yylval_param->unum, locprint2(yylloc));
 #endif
@@ -1101,7 +1101,7 @@ char handle_eof(yyscan_t yyscanner) {
 }
 
 int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) {
-  struct macrodef* macdef = bigsearch(lctx->defines, symb, 0);
+  struct macrodef* macdef = qsearch(lctx->defines, symb);
   if(macdef && !qqueryval(lctx->withindefines, symb)) {
     char* oldname = lctx->ls->defname;
     lctx->ls->defname = symb;

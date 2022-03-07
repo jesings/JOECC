@@ -72,6 +72,7 @@ void qinsert(QHASHTABLE* qh, const char* key, void* value) {
       }
       if(!strcmp(qhp->key, key)) {
         qhp->value = value;
+        break;
       }
     }
     if(i == PROBECOUNT) {

@@ -104,7 +104,7 @@ static void filecomp(char* filename) {
   free(ylt);
   yylex_destroy(scanner);
   dadtorcfr(lctx->enumerat2free, (void(*)(void*)) freenum);
-  bightdtorcfr(lctx->defines, (void (*)(void*)) freemd);
+  qchtdtor(lctx->defines, (void (*)(void*)) freemd);
   qhtdtor(lctx->withindefines);
   dadtor(lctx->definestack);
   dadtor(lctx->ls->locs);
