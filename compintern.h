@@ -108,7 +108,7 @@ struct stmt;
 typedef struct {
   DYNARR* fields;//Each entry is a struct that contains a full identifier
   char* name;
-  HASHTABLE* offsets; //each entry is a struct that contains a full identifier and offset
+  QHASHTABLE* offsets; //each entry is a struct that contains a full identifier and offset
   int size;
 } USTRUCT;
 /**
@@ -172,7 +172,7 @@ typedef struct {
   struct stmt* body; //compound statement
   DYNARR* params;
   IDTYPE* retrn;
-  HASHTABLE* lbls;
+  QHASHTABLE* lbls;
   DYNARR* switchstack;
   int caseindex;
   int numvars;
@@ -227,7 +227,7 @@ struct lstate {
   DYNARR* parg;
   char stmtover, argeaten;
   char* defname;
-  HASHTABLE* defargs;
+  QHASHTABLE* defargs;
   int paren_depth;
   struct macrodef* md;
   DYNSTR* dstrdly, * mdstrdly, * strcur;

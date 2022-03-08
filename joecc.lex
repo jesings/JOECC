@@ -594,11 +594,11 @@ char parsmac[] = "macro call parsing";
         } else {
           qinsert(lctx->withindefines, lctx->ls->defname, NULL);
           DYNARR* argn = mdl->args;
-          lctx->ls->defargs = htctor();
+          lctx->ls->defargs = qchtctor(16);
           char** prma = (char**) argn->arr;
           DYNSTR** arga = (DYNSTR**) lctx->ls->parg->arr;
           for(int i = 0; i < lctx->ls->parg->length; i++) {
-            insert(lctx->ls->defargs, prma[i], arga[i]);
+            qinsert(lctx->ls->defargs, prma[i], arga[i]);
           }
           dadtor(lctx->ls->parg);
           lctx->ls->dstrdly = strctor(malloc(256), 0, 256);
@@ -679,7 +679,7 @@ char parsmac[] = "macro call parsing";
 
 <FINDREPLACE>{
   {IDENT} {
-    DYNSTR* argy = search(lctx->ls->defargs, yytext);
+    DYNSTR* argy = qsearch(lctx->ls->defargs, yytext);
     if(argy) {
       dscat(lctx->ls->dstrdly, argy->strptr, argy->lenstr);
     } else {
@@ -687,7 +687,7 @@ char parsmac[] = "macro call parsing";
     }
     }
   #{IDENT} {
-    DYNSTR* argy = search(lctx->ls->defargs, yytext + 1);
+    DYNSTR* argy = qsearch(lctx->ls->defargs, yytext + 1);
     if(argy) {
       dsccat(lctx->ls->dstrdly, '"');
       for(int i = 0; i < argy->lenstr; ++i) {
@@ -726,7 +726,7 @@ char parsmac[] = "macro call parsing";
     yylloc->first_column = yylloc->last_column = 0;
     yylloc->filename = strdup(buf);
     qrmpair(lctx->withindefines, lctx->ls->defname);
-    htdtorcfr(lctx->ls->defargs, (void(*)(void*)) strdtor);
+    qchtdtor(lctx->ls->defargs, (void(*)(void*)) strdtor);
     strdtor(lctx->ls->dstrdly);
     if(lctx->ls->argpp->length) {
       struct arginfo* argi = dapop(lctx->ls->argpp);

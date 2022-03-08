@@ -470,7 +470,7 @@ void wipestruct(USTRUCT* strct) {
     }
     dadtor(strct->fields);
   }
-  if(strct->offsets) htdtorfr(strct->offsets);
+  if(strct->offsets) qchtdtor(strct->offsets, free);
   if(strct->name) free(strct->name);
   free(strct);
 }
@@ -714,7 +714,7 @@ void rfreefunc(FUNC* f) {
   free(f->name);
   freetype(f->retrn);
   rfreestate(f->body);
-  if(f->lbls) htdtorfr(f->lbls);
+  if(f->lbls) qchtdtor(f->lbls, free);
   dadtor(f->switchstack);
   free(f);
 }
@@ -883,8 +883,8 @@ STATEMENT* mklblstmt(struct lexctx* lct, char* lblval, LOCTYPE loc) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = LABEL;
   retval->glabel = lblval;
-  if(!lct->func->lbls) lct->func->lbls = htctor();
-  insert(lct->func->lbls, lblval, NULL);
+  if(!lct->func->lbls) lct->func->lbls = qhtctor();
+  qinsert(lct->func->lbls, lblval, NULL);
   //confirm no collision
   return retval;
 }
@@ -1332,7 +1332,7 @@ int feedstruct(USTRUCT* s) {
         printf("sizeless struct\n");
         return 0; //sizeless struct
       }
-      s->offsets = htctor();
+      s->offsets = qchtctor(32);
       s->size = -1;
       DYNARR* mm = s->fields;
       DYNARR* newmm = dactor(mm->maxlength);
@@ -1353,18 +1353,18 @@ int feedstruct(USTRUCT* s) {
               DYNARR* anonf = mmi->type->structtype->fields;
               for(int j = 0; j < anonf->length; j++) {
                 DECLARATION* mmi2 = daget(anonf, j);
-                STRUCTFIELD* sf = search(mmi->type->structtype->offsets, mmi2->varname);
+                STRUCTFIELD* sf = qsearch(mmi->type->structtype->offsets, mmi2->varname);
                 STRUCTFIELD* sf2 = malloc(sizeof(STRUCTFIELD));
                 *sf2 = *sf;
                 sf2->offset += totalsize;
-                insert(s->offsets, mmi2->varname, sf2);
+                qinsert(s->offsets, mmi2->varname, sf2);
                 dapush(newmm, mmi2);
                 free(sf);
               }
               esize = mmi->type->structtype->size;
 
               dadtor(mmi->type->structtype->fields);
-              htdtor(mmi->type->structtype->offsets);
+              qhtdtor(mmi->type->structtype->offsets);
               free(mmi->type->structtype);
               freetype(mmi->type);
               free(mmi->varname);
@@ -1385,7 +1385,7 @@ int feedstruct(USTRUCT* s) {
           STRUCTFIELD* sf = malloc(sizeof(STRUCTFIELD));
           sf->type = mmi->type;
           sf->offset = totalsize;
-          insert(s->offsets, mmi->varname, sf);
+          qinsert(s->offsets, mmi->varname, sf);
         }
         totalsize += esize;
       }
@@ -1406,7 +1406,7 @@ int feedstruct(USTRUCT* s) {
 int unionlen(USTRUCT* u) {
   switch(u->size) {
     case 0:
-      u->offsets = htctor();
+      u->offsets = qchtctor(32);
       u->size = -1;
       DYNARR* mm = u->fields;
       DYNARR* newmm = dactor(mm->maxlength);
@@ -1431,16 +1431,16 @@ int unionlen(USTRUCT* u) {
               //do each member in the anonymous struct/union to populate the offset
               for(int j = 0; j < anonf->length; j++) {
                 DECLARATION* mmi2 = daget(anonf, j);
-                STRUCTFIELD* sf = search(mmi->type->structtype->offsets, mmi2->varname);
+                STRUCTFIELD* sf = qsearch(mmi->type->structtype->offsets, mmi2->varname);
                 STRUCTFIELD* sf2 = malloc(sizeof(STRUCTFIELD));
                 *sf2 = *sf;
-                insert(u->offsets, mmi2->varname, sf2);
+                qinsert(u->offsets, mmi2->varname, sf2);
                 dapush(newmm, mmi2);
                 free(sf);
               }
               esize = mmi->type->structtype->size;
 
-              htdtor(mmi->type->structtype->offsets);
+              qhtdtor(mmi->type->structtype->offsets);
               dadtor(mmi->type->structtype->fields);
               free(mmi->type->structtype);
               freetype(mmi->type);
@@ -1465,7 +1465,7 @@ int unionlen(USTRUCT* u) {
           STRUCTFIELD* sf = malloc(sizeof(STRUCTFIELD));
           sf->type = mmi->type;
           sf->offset = 0;
-          insert(u->offsets, mmi->varname, sf);
+          qinsert(u->offsets, mmi->varname, sf);
         }
       }
       dadtor(mm);

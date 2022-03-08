@@ -44,7 +44,7 @@ typedef struct {
   HASHTABLE* intconsthash;
   HASHTABLE* floatconsthash;
   HASHTABLE* strconsthash;
-  BIGHASHTABLE* ophash;
+  QHASHTABLE* ophash;
 } EQONTAINER;
 
 void ssa(PROGRAM* prog);

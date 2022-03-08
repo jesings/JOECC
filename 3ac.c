@@ -407,8 +407,7 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
     unionlen(seaty.uniontype);
   FULLADDR retaddr;
   ADDRESS offaddr;
-  HASHTABLE* ofs = seaty.structtype->offsets;
-  STRUCTFIELD* sf = search(ofs, memname);
+  STRUCTFIELD* sf = qsearch(seaty.structtype->offsets, memname);
   char pointerqual = ispointer(sf->type);
   offaddr.intconst_64 = sf->offset;
   if(!pointerqual && (sf->type->tb & (STRUCTVAL | UNIONVAL))) {
@@ -579,7 +578,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       for(int i = 0; i < cexpr->params->length; i++) {
         EXPRESSION* member = daget(cexpr->params, i);
         DECLARATION* decl = daget(cexpr->rettype->structtype->fields, i);
-        STRUCTFIELD* sf = search(cexpr->rettype->structtype->offsets, decl->varname);
+        STRUCTFIELD* sf = qsearch(cexpr->rettype->structtype->offsets, decl->varname);
         curaddr = linearitree(member, prog);
         otheraddr.addr.uintconst_64 = sf->offset;
         ADDRTYPE sft = addrconv(sf->type);

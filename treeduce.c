@@ -482,16 +482,14 @@ IDTYPE typex(EXPRESSION* ex) {
       if(idt.tb & STRUCTVAL) {
         USTRUCT* ids = idt.structtype;
         if(!ids->offsets) feedstruct(ids);
-        HASHTABLE* htb = ids->offsets;
         EXPRESSION* memex = daget(ex->params, 1);
-        STRUCTFIELD* typified = search(htb, memex->member);
+        STRUCTFIELD* typified = qsearch(ids->offsets, memex->member);
         idt = *typified->type;
       } else if(idt.tb & UNIONVAL) {
         USTRUCT* idu = idt.uniontype;
         unionlen(idu);
-        HASHTABLE* htb = idu->offsets;
         EXPRESSION* memex = daget(ex->params, 1);
-        idt = *(IDTYPE*) ((STRUCTFIELD*) search(htb, memex->member))->type;
+        idt = *(IDTYPE*) ((STRUCTFIELD*) qsearch(idu->offsets, memex->member))->type;
       } else {
         assert(0);
       }
