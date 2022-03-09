@@ -170,7 +170,7 @@ initializer:
   DYNARR* da = NULL;
   if($2->tb & (STRUCTVAL | UNIONVAL)) {
     if(!$2->structtype->fields) {
-      HASHTABLE* ht = NULL;
+      QHASHTABLE* ht = NULL;
       if($2->tb & STRUCTVAL) {
         ht = scopepeek(ctx)->forwardstructs;
       } else if($2->tb & UNIONVAL) {
@@ -179,7 +179,7 @@ initializer:
         fprintf(stderr, "Error: forward declaration of unknown type %s at %s %d.%d-%d.%d\n", $2->structtype->name, locprint(@2));
       }
       if(ht) {
-        da = search(ht, $2->structtype->name);
+        da = qsearch(ht, $2->structtype->name);
         if(da) dapop(da); //else opaque struct
       }
     }
@@ -187,7 +187,7 @@ initializer:
   SCOPE* topscope = dapeek(ctx->scopes);
   for(int i = 0; i < $3->length; i++) {
     dc = dget($3, i);
-    if(!queryval(topscope->typesdef, dc->varname)) {
+    if(!qqueryval(topscope->typesdef, dc->varname)) {
       dc->type->tb |= $2->tb;
       if(ispointer($2)) {
         DYNARR* nptr = ptrdaclone($2->pointerstack);
@@ -227,13 +227,13 @@ initializer:
   DYNARR* da = NULL;
   if($1->tb & (STRUCTVAL | UNIONVAL)) {
     if(!$1->structtype->fields) {
-      HASHTABLE* ht;
+      QHASHTABLE* ht;
       if($1->tb & STRUCTVAL) {
         ht = scopepeek(ctx)->forwardstructs;
       } else {
         ht = scopepeek(ctx)->forwardunions;
       }
-      da = search(ht, $1->structtype->name);
+      da = qsearch(ht, $1->structtype->name);
       if(da) dapop(da); //else opaque struct
     }
   }
@@ -281,7 +281,7 @@ initializer:
   $$ = NULL;
   if(!scopequeryval(ctx, M_STRUCT, $2)) {
     add2scope(ctx, $2, M_STRUCT, NULL);
-    insert(scopepeek(ctx)->forwardstructs, $2, dactor(16));
+    qinsert(scopepeek(ctx)->forwardstructs, $2, dactor(16));
   }
   free($2);
   }
@@ -289,7 +289,7 @@ initializer:
   $$ = NULL;
   if(!scopequeryval(ctx, M_UNION, $2)) {
     add2scope(ctx, $2, M_UNION, NULL);
-    insert(scopepeek(ctx)->forwardunions, $2, dactor(16));
+    qinsert(scopepeek(ctx)->forwardunions, $2, dactor(16));
   }
   free($2);
   }
@@ -385,14 +385,14 @@ param_decl:
       if($1->structtype->fields) {
         $2->type->structtype = $1->structtype;
       } else {
-        HASHTABLE* ht = NULL;
+        QHASHTABLE* ht = NULL;
         if($1->tb & STRUCTVAL) {
           ht = scopepeek(ctx)->forwardstructs;
         } else if($1->tb & UNIONVAL) {
           ht = scopepeek(ctx)->forwardunions;
         }
         if(ht) {
-          DYNARR* da = search(ht, $1->structtype->name);
+          DYNARR* da = qsearch(ht, $1->structtype->name);
           if(da) {
             dapop(da);
             dapush(da, &($2->type->structtype));
@@ -474,7 +474,7 @@ typem:
     $$->structtype = $1;
     $$->tb = STRUCTVAL;
     if($1->fields == NULL) {
-      DYNARR* da = (DYNARR*) search(scopepeek(ctx)->forwardstructs, $1->name);
+      DYNARR* da = (DYNARR*) qsearch(scopepeek(ctx)->forwardstructs, $1->name);
       if(!da)
         fprintf(stderr, "Error: struct %s undeclared in %s %d.%d-%d.%d\n", $1->name, locprint(@$));
       else
@@ -485,7 +485,7 @@ typem:
     $$->uniontype = $1;
     $$->tb = UNIONVAL;
     if($1->fields == NULL) {
-      DYNARR* da = (DYNARR*) search(scopepeek(ctx)->forwardunions, $1->name);
+      DYNARR* da = (DYNARR*) qsearch(scopepeek(ctx)->forwardunions, $1->name);
       if(!da)
         fprintf(stderr, "Error: union %s undeclared in %s %d.%d-%d.%d\n", $1->name, locprint(@$));
       else
@@ -813,14 +813,14 @@ function:
       if($1->structtype->fields) {
         $2->type->structtype = $1->structtype;
       } else {
-        HASHTABLE* ht = NULL;
+        QHASHTABLE* ht = NULL;
         if($1->tb & STRUCTVAL) {
           ht = scopepeek(ctx)->forwardstructs;
         } else if($1->tb & UNIONVAL) {
           ht = scopepeek(ctx)->forwardunions;
         }
         if(ht) {
-          DYNARR* da = search(ht, $1->structtype->name);
+          DYNARR* da = qsearch(ht, $1->structtype->name);
           if(da) {
             dapop(da);
             dapush(da, &($2->type->structtype));
@@ -857,7 +857,7 @@ function:
     dapush($2->type->pointerstack, dp);
     id->type = $2->type;
     id->type->tb |= GLOBALFUNC;
-    rmpaircfr(scopepeek(ctx)->members, $2->varname, free); //no-op if not predefined
+    qrmpaircfr(scopepeek(ctx)->members, $2->varname, free); //no-op if not predefined
     add2scope(ctx, $2->varname, M_GLOBAL, id);
     free($2);
     free($1);
@@ -867,7 +867,7 @@ function:
     for(int i = 0; i < parammemb->length; i++) {
       DECLARATION* declwhole = daget(parammemb, i);
       add2scope(ctx, declwhole->varname, M_VARIABLE, declwhole->type);
-      declwhole->varid = ((SCOPEMEMBER*) search(scopepeek(ctx)->members, declwhole->varname))->idi->index;
+      declwhole->varid = ((SCOPEMEMBER*) qsearch(scopepeek(ctx)->members, declwhole->varname))->idi->index;
     }
     }
     '{' soiorno '}' {
@@ -969,15 +969,15 @@ generic_symbol:
 fullunion:
   "union" generic_symbol {
     if(!scopesearch(ctx, M_UNION, $2)) {
-      if(!queryval(scopepeek(ctx)->forwardunions, $2)) {
+      if(!qqueryval(scopepeek(ctx)->forwardunions, $2)) {
         add2scope(ctx, $2, M_UNION, NULL);
-        insert(scopepeek(ctx)->forwardunions, $2, dactor(16));
+        qinsert(scopepeek(ctx)->forwardunions, $2, dactor(16));
       }
     } else {
       fprintf(stderr, "Error: redefinition of union %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
     }} structbody {
     $$ = ustructor($2, $4, ctx);
-    rmpaircfr(scopepeek(ctx)->unions, $2, free); //no-op if not predefined
+    qrmpaircfr(scopepeek(ctx)->unions, $2, free); //no-op if not predefined
     add2scope(ctx, $2, M_UNION, $$);
     defbackward(ctx, M_UNION, $2, (USTRUCT*) $$);
     };
@@ -987,9 +987,9 @@ union:
 | "union" generic_symbol {
     $$ = (USTRUCT*) scopesearch(ctx, M_UNION, $2);
     if(!$$) {
-      if(!queryval(scopepeek(ctx)->forwardunions, $2)) {
+      if(!qqueryval(scopepeek(ctx)->forwardunions, $2)) {
         add2scope(ctx, $2, M_UNION, NULL);
-        insert(scopepeek(ctx)->forwardunions, $2, dactor(16));
+        qinsert(scopepeek(ctx)->forwardunions, $2, dactor(16));
       }
       $$ = ustructor($2, NULL, ctx);
     } else {
@@ -999,15 +999,15 @@ union:
 fullstruct:
   "struct" generic_symbol {
     if(!scopesearch(ctx, M_STRUCT, $2)) {
-      if(!queryval(scopepeek(ctx)->forwardstructs, $2)) {
+      if(!qqueryval(scopepeek(ctx)->forwardstructs, $2)) {
         add2scope(ctx, $2, M_STRUCT, NULL);
-        insert(scopepeek(ctx)->forwardstructs, $2, dactor(16));
+        qinsert(scopepeek(ctx)->forwardstructs, $2, dactor(16));
       }
     } else {
       fprintf(stderr, "Error: redefinition of struct %s at %s %d.%d-%d.%d\n", $2, locprint(@$));
     }} structbody {
     $$ = ustructor($2, $4, ctx);
-    rmpaircfr(scopepeek(ctx)->structs, $2, free); //no-op if not predefined
+    qrmpaircfr(scopepeek(ctx)->structs, $2, free); //no-op if not predefined
     add2scope(ctx, $2, M_STRUCT, $$);
     defbackward(ctx, M_STRUCT, $2, $$);
     };
@@ -1017,9 +1017,9 @@ struct:
 | "struct" generic_symbol {
     $$ = (USTRUCT*) scopesearch(ctx, M_STRUCT, $2);
     if(!$$) {
-      if(!queryval(scopepeek(ctx)->forwardstructs, $2)) {
+      if(!qqueryval(scopepeek(ctx)->forwardstructs, $2)) {
         add2scope(ctx, $2, M_STRUCT, NULL);
-        insert(scopepeek(ctx)->forwardstructs, $2, dactor(16));
+        qinsert(scopepeek(ctx)->forwardstructs, $2, dactor(16));
       }
       $$ = ustructor($2, NULL, ctx);
     } else {
@@ -1035,10 +1035,10 @@ struct_decl:
     for(int i = 0; i < $2->length; i++) {
       char* vn = dget($2, i)->varname;
       if(vn) {
-        if(queryval(fakescopepeek(ctx)->fakescope, vn)) {
+        if(qqueryval(fakescopepeek(ctx)->fakescope, vn)) {
           fprintf(stderr, "Error: redefinition of struct or union member %s at %s %d.%d-%d.%d\n", vn, locprint(@$));
         } else {
-          insert(fakescopepeek(ctx)->fakescope, vn, NULL);
+          qinsert(fakescopepeek(ctx)->fakescope, vn, NULL);
         }
       }
     }
@@ -1046,7 +1046,7 @@ struct_decl:
     DYNARR* da = NULL;
     if($1->tb & (STRUCTVAL | UNIONVAL)) {
       if(!$1->structtype->fields) {
-        HASHTABLE* ht = NULL;
+        QHASHTABLE* ht = NULL;
         if($1->tb & STRUCTVAL) {
           ht = scopepeek(ctx)->forwardstructs;
         } else if($1->tb & UNIONVAL) {
@@ -1055,7 +1055,7 @@ struct_decl:
           fprintf(stderr, "Error: forward declaration of unknown type %s at %s %d.%d-%d.%d\n", $1->structtype->name, locprint(@$));
         }
         if(ht) {
-          da = search(ht, $1->structtype->name);
+          da = qsearch(ht, $1->structtype->name);
           if(da) dapop(da); //else opaque struct
         }
       }
@@ -1086,10 +1086,10 @@ struct_decl:
     for(int i = 0; i < $2->length; i++) {
       char* vn = dget($2, i)->varname;
       if(vn) {
-        if(queryval(fakescopepeek(ctx)->fakescope, vn)) {
+        if(qqueryval(fakescopepeek(ctx)->fakescope, vn)) {
           fprintf(stderr, "Error: redefinition of struct or union member %s at %s %d.%d-%d.%d\n", vn, locprint(@$));
         } else {
-          insert(fakescopepeek(ctx)->fakescope, vn, NULL);
+          qinsert(fakescopepeek(ctx)->fakescope, vn, NULL);
         }
       }
     }
@@ -1108,10 +1108,10 @@ struct_decl:
     for(int i = 0; i < $2->length; i++) {
       char* vn = dget($2, i)->varname;
       if(vn) {
-        if(queryval(fakescopepeek(ctx)->fakescope, vn)) {
+        if(qqueryval(fakescopepeek(ctx)->fakescope, vn)) {
           fprintf(stderr, "Error: redefinition of struct or union member %s at %s %d.%d-%d.%d\n", vn, locprint(@$));
         } else {
-          insert(fakescopepeek(ctx)->fakescope, vn, NULL);
+          qinsert(fakescopepeek(ctx)->fakescope, vn, NULL);
         }
       }
     }

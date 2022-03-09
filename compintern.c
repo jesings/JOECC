@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include "compintern.h"
 #include "treeduce.h"
 #include "joecc.tab.h"
@@ -246,7 +247,7 @@ EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident, LOCTYPE loc) {
 
 char isglobal(struct lexctx* lct, char* ident) {
   SCOPE* sc = daget(lct->scopes, 0);
-  return queryval(sc->members, ident);
+  return qqueryval(sc->members, ident);
 }
 
 //returns whether two types are compatible: i.e. they can be added without an implicit or explicit cast
@@ -983,13 +984,13 @@ FUNC* ct_function(char* name, STATEMENT* body, DYNARR* params, IDTYPE* retrn) {
 SCOPE* mkscope(void) {
   SCOPE* child = malloc(sizeof(SCOPE));
   child->truescope = 1;
-  child->members = htctor();
-  child->structs = htctor();
-  child->enums = htctor();
-  child->unions = htctor();
-  child->typesdef = htctor();
-  child->forwardstructs = htctor();
-  child->forwardunions = htctor();
+  child->members = qhtctor();
+  child->structs = qhtctor();
+  child->enums = qhtctor();
+  child->unions = qhtctor();
+  child->typesdef = qhtctor();
+  child->forwardstructs = qchtctor(32);
+  child->forwardunions = qchtctor(32);
   return child;
 }
 
@@ -997,7 +998,7 @@ SCOPE* mkscope(void) {
 SCOPE* mkfakescope(void) {
   SCOPE* child = malloc(sizeof(SCOPE));
   child->truescope = 0;
-  child->fakescope = htctor();
+  child->fakescope = qhtctor();
   return child;
 }
 
@@ -1006,12 +1007,12 @@ void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, USTRUCT* a
   DYNARR* da;
   switch(mt) {
     case M_STRUCT:
-      da = (DYNARR*) search(scopepeek(lct)->forwardstructs, defnd);
-      rmpair(scopepeek(lct)->forwardstructs, defnd);
+      da = (DYNARR*) qsearch(scopepeek(lct)->forwardstructs, defnd);
+      qrmpair(scopepeek(lct)->forwardstructs, defnd);
       break;
     case M_UNION:
-      da = (DYNARR*) search(scopepeek(lct)->forwardunions, defnd);
-      rmpair(scopepeek(lct)->forwardunions, defnd);
+      da = (DYNARR*) qsearch(scopepeek(lct)->forwardunions, defnd);
+      qrmpair(scopepeek(lct)->forwardunions, defnd);
       break;
     default:
       fprintf(stderr, "Error: attempt to backwards define symbol of wrong type: %s\n", defnd);
@@ -1030,7 +1031,7 @@ void* scopesearch(struct lexctx* lct, enum membertype mt, char* key){
     SCOPE* htp = daget(lct->scopes, i);
     if(!htp->truescope)
       continue;
-    HASHTABLE* ht;
+    QHASHTABLE* ht;
     switch(mt) {
       default:
       case M_VARIABLE:
@@ -1049,7 +1050,7 @@ void* scopesearch(struct lexctx* lct, enum membertype mt, char* key){
         ht = htp->typesdef;
         break;
     }
-    SCOPEMEMBER* rv = (SCOPEMEMBER*) search(ht, key);
+    SCOPEMEMBER* rv = (SCOPEMEMBER*) qsearch(ht, key);
     if(rv && rv->mtype == mt) {
       switch(rv->mtype) {
         case M_ENUM_CONST:
@@ -1080,7 +1081,7 @@ char scopequeryval(struct lexctx* lct, enum membertype mt, char* key) {
     SCOPE* htp = daget(lct->scopes, i);
     if(!htp->truescope)
       continue;
-    HASHTABLE* ht;
+    QHASHTABLE* ht;
     switch(mt) {
       default:
       case M_VARIABLE:
@@ -1099,7 +1100,7 @@ char scopequeryval(struct lexctx* lct, enum membertype mt, char* key) {
         ht = htp->typesdef;
         break;
     }
-    SCOPEMEMBER* rv = search(ht, key);//will return scope object
+    SCOPEMEMBER* rv = qsearch(ht, key);//will return scope object
     if(rv && rv->mtype == mt)
       return 1;
   }
@@ -1212,15 +1213,15 @@ void scopepop(struct lexctx* lct) {
      && lct->scopes->length != 0)
     fprintf(stderr, "Error: not all forward declarations processed by end of scope\n");
   if(!cleanup->truescope) {
-    htdtorfr(cleanup->fakescope);
+    qchtdtor(cleanup->fakescope, free);
   } else {
-    htdtorcfr(cleanup->typesdef, freeidibidi);//SCOPEMEMBER argument
-    htdtorcfr(cleanup->members, freeidi);//SCOPEMEMBER argument
-    htdtorfr(cleanup->structs);
-    htdtorfr(cleanup->enums);
-    htdtorfr(cleanup->unions);
-    htdtorcfr(cleanup->forwardstructs, (void(*)(void*)) dadtor);
-    htdtorcfr(cleanup->forwardunions, (void(*)(void*)) dadtor);
+    qchtdtor(cleanup->typesdef, freeidibidi);//SCOPEMEMBER argument
+    qchtdtor(cleanup->members, freeidi);//SCOPEMEMBER argument
+    qchtdtor(cleanup->structs, free);
+    qchtdtor(cleanup->enums, free);
+    qchtdtor(cleanup->unions, free);
+    qchtdtor(cleanup->forwardstructs, (void(*)(void*)) dadtor);
+    qchtdtor(cleanup->forwardunions, (void(*)(void*)) dadtor);
   }
   free(cleanup);
 }
@@ -1256,11 +1257,11 @@ void freemd2(struct macrodef* mds) {
 INITIALIZER* decl2scope(DECLARATION* dec, EXPRESSION* ex, struct lexctx* lct, LOCTYPE loc) {
   INITIALIZER* ac = geninit(dec, ex, loc);
   if(lct->func) {
-    HASHTABLE* ht = scopepeek(lct)->members;
-    SCOPEMEMBER* sm = search(ht, dec->varname);
+    QHASHTABLE* ht = scopepeek(lct)->members;
+    SCOPEMEMBER* sm = qsearch(ht, dec->varname);
     if(!sm || (sm->mtype == M_VARIABLE && (sm->idi->type->tb & EXTERNNUM))) {
       add2scope(lct, dec->varname, M_VARIABLE, dec->type);
-      dec->varid = ((SCOPEMEMBER*) search(ht, dec->varname))->idi->index;
+      dec->varid = ((SCOPEMEMBER*) qsearch(ht, dec->varname))->idi->index;
     } else {
       freeinit(ac);
       ac = NULL;
@@ -1292,26 +1293,26 @@ void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* m
   switch(mtype) {
     case M_STRUCT:
       sm->structmemb = memberval;
-      insert(scope->structs, memname, sm);
+      qinsert(scope->structs, memname, sm);
       break;
     case M_UNION:
       sm->unionmemb = memberval;
-      insert(scope->unions, memname, sm);
+      qinsert(scope->unions, memname, sm);
       break;
     case M_ENUM:
       sm->enummemb = memberval;
-      insert(scope->enums, memname, sm);
+      qinsert(scope->enums, memname, sm);
       break;
     case M_TYPEDEF:
       sm->typememb = memberval;
-      insert(scope->typesdef, memname, sm);
+      qinsert(scope->typesdef, memname, sm);
       break;
     case M_VARIABLE:
       sm->idi = malloc(sizeof(IDENTIFIERINFO));
       sm->idi->name = memname;
       sm->idi->type = memberval;
       sm->idi->index= lct->func->numvars++;
-      insert(scope->members, memname, sm);
+      qinsert(scope->members, memname, sm);
       break;
     case M_GLOBAL:
       sm->mtype = M_VARIABLE;
@@ -1319,7 +1320,7 @@ void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* m
       //fall through
     default:
       sm->garbage = memberval;
-      insert(scope->members, memname, sm);
+      qinsert(scope->members, memname, sm);
       break;
   }
 }

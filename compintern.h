@@ -424,15 +424,15 @@ typedef struct {
   char truescope;
   union {
     struct {
-      HASHTABLE* typesdef;//SCOPEMEMBER argument
-      HASHTABLE* members;//SCOPEMEMBER argument
-      HASHTABLE* structs;
-      HASHTABLE* enums;
-      HASHTABLE* unions;
-      HASHTABLE* forwardstructs;
-      HASHTABLE* forwardunions;
+      QHASHTABLE* typesdef;//SCOPEMEMBER argument
+      QHASHTABLE* members;//SCOPEMEMBER argument
+      QHASHTABLE* structs;
+      QHASHTABLE* enums;
+      QHASHTABLE* unions;
+      QHASHTABLE* forwardstructs;
+      QHASHTABLE* forwardunions;
     };
-    HASHTABLE* fakescope;
+    QHASHTABLE* fakescope;
   };
 } SCOPE;
 
