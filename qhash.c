@@ -25,9 +25,10 @@ QHASHTABLE* qchtctor(int size) {
 }
 
 static void qresizeinsert(QHASHTABLE* qh, char* key, void* value) {
-  int hashval = qhash(qh, key);
+  int hashval;
   int i;
   do {
+    hashval = qhash(qh, key);
     for(i = 0; i < PROBECOUNT; i++) {
       QHASHPAIR *qhp = qh->hashtable + ((hashval + i * i) & qh->slotmask);
       if(!qhp->key) {
@@ -60,9 +61,10 @@ void qresize(QHASHTABLE* qh) {
 }
 
 void qinsert(QHASHTABLE* qh, const char* key, void* value) {
-  int hashval = qhash(qh, key);
+  int hashval;
   int i;
   do {
+    hashval = qhash(qh, key);
     for(i = 0; i < PROBECOUNT; i++) {
       QHASHPAIR *qhp = qh->hashtable + ((hashval + i * i) & qh->slotmask);
       if(!qhp->key) {
@@ -86,9 +88,10 @@ void qinsert(QHASHTABLE* qh, const char* key, void* value) {
 }
 
 void qinsertcfr(QHASHTABLE* qh, const char* key, void* value, void (*cfree)(void*)) {
-  int hashval = qhash(qh, key);
+  int hashval;
   int i;
   do {
+    hashval = qhash(qh, key);
     for(i = 0; i < PROBECOUNT; i++) {
       QHASHPAIR *qhp = qh->hashtable + ((hashval + i * i) & qh->slotmask);
       if(!qhp->key) {
