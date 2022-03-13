@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include "bf.h"
 #include "hash.h"
 #include "qhash.h"
 #include "dynarr.h"
@@ -555,12 +556,4 @@ int unionlen(USTRUCT* u);
 #define dlocprint(lv) lv->filename, lv->first_line, lv->first_column, lv->last_line, lv->last_column
 #define locprint2(lv) yyget_lloc(yyscanner)->filename, lv->first_line, lv->first_column, lv->last_line, lv->last_column
 #define ctx ((struct lexctx*) yyget_extra(scanner))
-
-#define bfalloc(length) calloc(1, ((length) + 7) >> 3)
-#define bfclone(bitfield, length) memcpy(malloc(((length) + 7) >> 3), (bitfield), ((length) + 7) >> 3)
-#define bfzero(bitfield, length) memset(bitfield, 0, ((length) + 7) >> 3)
-#define bfget(bitfield, index) ((bitfield)[(index) >> 3] & (1 << ((index) & 7)))
-#define bfset(bitfield, index) ((bitfield)[(index) >> 3] |= (1 << ((index) & 7)))
-#define bfunset(bitfield, index) ((bitfield)[(index) >> 3] &= ~(1 << ((index) & 7)))
-#define BITFIELD char*
 #endif

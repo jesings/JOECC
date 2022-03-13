@@ -8,6 +8,7 @@
 #include <string.h>
 #include "dynarr.h"
 #include "joecc_assert.h"
+#include "bf.h"
 
 /**
  * Represents a key/value pair in the hashmap with quadratic probing.
@@ -23,6 +24,7 @@ typedef struct {
   int keys;
   int slotmask; //this is in the form of 2^n - 1 for a ht with n bits
   QHASHPAIR* hashtable;
+  BITFIELD bf;
 } QHASHTABLE;
 
 void qinsert(QHASHTABLE* qh, const char* key, void* value);
@@ -48,6 +50,7 @@ typedef struct {
   int keys;
   int slotmask; //this is in the form of 2^n - 1 for a ht with n bits
   IIHASHPAIR* hashtable;
+  BITFIELD bf;
 } IIHASHTABLE;
 
 
