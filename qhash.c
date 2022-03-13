@@ -1,12 +1,18 @@
 #include "qhash.h"
 
 
-static int qhash(QHASHTABLE* qh, const char* str) {    /*courtesy of http://www.cse.yorku.ca/~oz/hash.html */
+static int qhash(const char* str) {    /*courtesy of http://www.cse.yorku.ca/~oz/hash.html */
   unsigned long hash = 5381;
   int c;
   while((c = *str++))
     hash = ((hash << 5) + hash) ^ c;    /* hash* 33 + c */
-  return hash & qh->slotmask;
+  return hash;
+}
+static unsigned int inthash(unsigned int x) {
+    x = ((x >> 16) ^ x) * 0x45d9f3b;
+    x = ((x >> 16) ^ x) * 0x45d9f3b;
+    x = (x >> 16) ^ x;
+    return x;
 }
 
 #define HASHIMPL(type_prefix, prefix, hashfunc, cmpfunc, freefunc, dupfunc, keytype, valtype) \
@@ -29,7 +35,7 @@ static void prefix ## resizeinsert(type_prefix ## TABLE* qh, keytype key, valtyp
   int hashval; \
   int i; \
   do { \
-    hashval = hashfunc(qh, key); \
+    hashval = hashfunc(key); \
     for(i = 0; i < PROBECOUNT; i++) { \
       type_prefix ## PAIR *qhp = qh->hashtable + ((hashval + i * i) & qh->slotmask); \
       if(!qhp->key) { \
@@ -64,7 +70,7 @@ void prefix ## insert(type_prefix ## TABLE* qh, const keytype key, valtype value
   int hashval; \
   int i; \
   do { \
-    hashval = hashfunc(qh, key); \
+    hashval = hashfunc(key); \
     for(i = 0; i < PROBECOUNT; i++) { \
       type_prefix ## PAIR *qhp = qh->hashtable + ((hashval + i * i) & qh->slotmask); \
       if(!qhp->key) { \
@@ -87,7 +93,7 @@ void prefix ## insert(type_prefix ## TABLE* qh, const keytype key, valtype value
   ++qh->keys; \
 } \
 valtype prefix ## search(type_prefix ## TABLE* qh, const keytype key) { \
-  int hashval = hashfunc(qh, key); \
+  int hashval = hashfunc(key); \
   for(int i = 0; i < PROBECOUNT; i++) { \
     type_prefix ## PAIR *qhp = qh->hashtable + ((hashval + i * i) & qh->slotmask); \
     if(qhp->key) { \
@@ -98,10 +104,10 @@ valtype prefix ## search(type_prefix ## TABLE* qh, const keytype key) { \
       break; \
     } \
   } \
-  return NULL; \
+  return (valtype) 0; \
 } \
 char prefix ## queryval(type_prefix ## TABLE* qh, const keytype key) { \
-  int hashval = hashfunc(qh, key); \
+  int hashval = hashfunc(key); \
   for(int i = 0; i < PROBECOUNT; i++) { \
     type_prefix ## PAIR *qhp = qh->hashtable + ((hashval + i * i) & qh->slotmask); \
     if(qhp->key) { \
@@ -115,13 +121,13 @@ char prefix ## queryval(type_prefix ## TABLE* qh, const keytype key) { \
   return 0; \
 } \
 void prefix ## rmpair(type_prefix ## TABLE* qh, const keytype key) { \
-  int hashval = hashfunc(qh, key); \
+  int hashval = hashfunc(key); \
   for(int i = 0; i < PROBECOUNT; i++) { \
     type_prefix ## PAIR *qhp = qh->hashtable + ((hashval + i * i) & qh->slotmask); \
     if(qhp->key) { \
       if(!cmpfunc(qhp->key, key)) { \
         freefunc(qhp->key); \
-        qhp->key = NULL; \
+        qhp->key = (keytype) 0; \
         --qh->keys; \
         break; \
       } \
@@ -153,12 +159,19 @@ DYNARR* prefix ## htpairs(type_prefix ## TABLE* ht) { \
 }
 
 HASHIMPL(QHASH, q, qhash, strcmp, free, strdup, char*, void*)
+#define NOP(X) 
+#define VERBATIM(X) X
+#define COMPARATOR(i1, i2) ((i1) == (i2))
+HASHIMPL(IIHASH, ii, inthash, COMPARATOR, NOP, VERBATIM, int, int)
+#undef COMPARATOR
+#undef VERBATIM
+#undef NOP
 
 void qinsertcfr(QHASHTABLE* qh, const char* key, void* value, void (*cfree)(void*)) {
   int hashval;
   int i;
   do {
-    hashval = qhash(qh, key);
+    hashval = qhash(key);
     for(i = 0; i < PROBECOUNT; i++) {
       QHASHPAIR *qhp = qh->hashtable + ((hashval + i * i) & qh->slotmask);
       if(!qhp->key) {
@@ -183,7 +196,7 @@ void qinsertcfr(QHASHTABLE* qh, const char* key, void* value, void (*cfree)(void
 
 
 void qrmpaircfr(QHASHTABLE* qh, const char* key, void (*cfree)(void*)) {
-  int hashval = qhash(qh, key);
+  int hashval = qhash(key);
   for(int i = 0; i < PROBECOUNT; i++) {
     QHASHPAIR *qhp = qh->hashtable + ((hashval + i * i) & qh->slotmask);
     if(qhp->key) {

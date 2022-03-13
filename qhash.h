@@ -38,4 +38,26 @@ QHASHTABLE* qhtctor(void);
 QHASHTABLE* qchtctor(int size);
 void qhtdtor(QHASHTABLE* ht);
 void qchtdtor(QHASHTABLE* ht, void (*freep)(void*));
+
+typedef struct ihp {
+  int key;
+  int value;
+} IIHASHPAIR;
+
+typedef struct {
+  int keys;
+  int slotmask; //this is in the form of 2^n - 1 for a ht with n bits
+  IIHASHPAIR* hashtable;
+} IIHASHTABLE;
+
+
+void iiinsert(IIHASHTABLE* qh, const int key, int value);
+int iisearch(IIHASHTABLE* qh, const int key);
+char iiqueryval(IIHASHTABLE* qh, const int key);
+void iirmpair(IIHASHTABLE* qh, const int key);
+void iiresize(IIHASHTABLE* qh);
+DYNARR* iihtpairs(IIHASHTABLE* ht);
+IIHASHTABLE* iihtctor(void);
+IIHASHTABLE* iichtctor(int size);
+void iihtdtor(IIHASHTABLE* ht);
 #endif
