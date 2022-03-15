@@ -20,7 +20,7 @@ type_prefix ## TABLE* prefix ## htctor(void) { \
   type_prefix ## TABLE* ht = malloc(sizeof(type_prefix ## TABLE)); \
   ht->keys = 0; \
   ht->slotmask = HASHSIZE - 1; \
-  ht->hashtable = calloc(sizeof(type_prefix ## PAIR), HASHSIZE); \
+  ht->hashtable = malloc(sizeof(type_prefix ## PAIR) * HASHSIZE); \
   ht->bf = bfalloc(HASHSIZE); \
   return ht; \
 } \
@@ -44,6 +44,7 @@ static void prefix ## resizeinsert(type_prefix ## TABLE* qh, keytype key, valtyp
         type_prefix ## PAIR *qhp = qh->hashtable + hashloc; \
         qhp->key = (keytype) key; \
         qhp->value = value; \
+        bfset(qh->bf, hashloc); \
         break; \
       } \
     } \
@@ -59,15 +60,16 @@ void prefix ## resize(type_prefix ## TABLE* qh) { \
   int qoldsize = qh->slotmask; \
   int qoldkeys = qh->keys; \
   type_prefix ## PAIR* newq = calloc((qh->slotmask + 1) << 1, sizeof(type_prefix ## PAIR)); \
+  BITFIELD oldbf = qh->bf; \
   qh->slotmask = (qh->slotmask << 1) | 1; \
   qh->hashtable = newq; \
-  free(qh->bf); \
   qh->bf = bfalloc(qh->slotmask + 1); \
   for(int i = 0; i <= qoldsize; i++) { \
-    if(oldhashtable[i].key) { \
+    if(bfget(oldbf, i)) { \
       prefix ## resizeinsert(qh, oldhashtable[i].key, oldhashtable[i].value); /*if this needs to resize we've got no problem*/ \
     } \
   } \
+  free(oldbf); \
   qh->keys = qoldkeys; \
   free(oldhashtable); \
 } \
@@ -78,16 +80,16 @@ void prefix ## insert(type_prefix ## TABLE* qh, const keytype key, valtype value
     hashval = hashfunc(key); \
     for(i = 0; i < PROBECOUNT; i++) { \
       int hashloc = ((hashval + i * i) & qh->slotmask); \
-      if(!bfget(qh->bf, hashloc)) { \
-        type_prefix ## PAIR *qhp = qh->hashtable + hashloc; \
+      type_prefix ## PAIR *qhp = qh->hashtable + hashloc; \
+      if(bfget(qh->bf, hashloc)) { \
+        if(!cmpfunc(qhp->key, key)) { \
+          qhp->value = value; \
+          break; \
+        } \
+      } else { \
         qhp->key = dupfunc(key); \
         qhp->value = value; \
         bfset(qh->bf, hashloc); \
-        break; \
-      } \
-      type_prefix ## PAIR *qhp = qh->hashtable + hashloc; \
-      if(!cmpfunc(qhp->key, key)) { \
-        qhp->value = value; \
         break; \
       } \
     } \
@@ -103,7 +105,7 @@ void prefix ## insert(type_prefix ## TABLE* qh, const keytype key, valtype value
 valtype prefix ## search(type_prefix ## TABLE* qh, const keytype key) { \
   int hashval = hashfunc(key); \
   for(int i = 0; i < PROBECOUNT; i++) { \
-    int hashloc = ((hashval + i * i) & qh->slotmask); \
+    int hashloc = (hashval + i * i) & qh->slotmask; \
     if(bfget(qh->bf, hashloc)) { \
       type_prefix ## PAIR *qhp = qh->hashtable + hashloc; \
       if(!cmpfunc(qhp->key, key)) { \
@@ -116,7 +118,7 @@ valtype prefix ## search(type_prefix ## TABLE* qh, const keytype key) { \
 char prefix ## queryval(type_prefix ## TABLE* qh, const keytype key) { \
   int hashval = hashfunc(key); \
   for(int i = 0; i < PROBECOUNT; i++) { \
-    int hashloc = ((hashval + i * i) & qh->slotmask); \
+    int hashloc = (hashval + i * i) & qh->slotmask; \
     if(bfget(qh->bf, hashloc)) { \
       type_prefix ## PAIR *qhp = qh->hashtable + hashloc; \
       if(!cmpfunc(qhp->key, key)) { \
@@ -129,12 +131,11 @@ char prefix ## queryval(type_prefix ## TABLE* qh, const keytype key) { \
 void prefix ## rmpair(type_prefix ## TABLE* qh, const keytype key) { \
   int hashval = hashfunc(key); \
   for(int i = 0; i < PROBECOUNT; i++) { \
-    int hashloc = ((hashval + i * i) & qh->slotmask); \
+    int hashloc = (hashval + i * i) & qh->slotmask; \
     if(bfget(qh->bf, hashloc)) { \
       type_prefix ## PAIR *qhp = qh->hashtable + hashloc; \
       if(!cmpfunc(qhp->key, key)) { \
         freefunc(qhp->key); \
-        qhp->key = (keytype) 0; \
         --qh->keys; \
         bfunset(qh->bf, hashloc); \
         break; \
@@ -145,8 +146,8 @@ void prefix ## rmpair(type_prefix ## TABLE* qh, const keytype key) { \
 void prefix ## htdtor(type_prefix ## TABLE* ht) { \
   if(ht->keys != 0) { \
     for(int i = 0; i <= ht->slotmask; i++) { \
-      type_prefix ## PAIR* current = &(ht->hashtable[i]); \
-      if(current->key) { \
+      if(bfget(ht->bf, i)) { \
+        type_prefix ## PAIR *current = ht->hashtable + i; \
         freefunc(current->key); \
         if(! --ht->keys) break; \
       } \
@@ -168,7 +169,7 @@ DYNARR* prefix ## htpairs(type_prefix ## TABLE* ht) { \
 }
 
 HASHIMPL(QHASH, q, qhash, strcmp, free, strdup, char*, void*)
-#define NOP(X) 
+#define NOP(X) (void) X
 #define VERBATIM(X) X
 #define COMPARATOR(i1, i2) ((i1) == (i2))
 HASHIMPL(IIHASH, ii, inthash, COMPARATOR, NOP, VERBATIM, int, int)
