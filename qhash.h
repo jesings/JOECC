@@ -63,4 +63,28 @@ DYNARR* iihtpairs(IIHASHTABLE* ht);
 IIHASHTABLE* iihtctor(void);
 IIHASHTABLE* iichtctor(int size);
 void iihtdtor(IIHASHTABLE* ht);
+IIHASHTABLE* iiclone(IIHASHTABLE* ht);
+
+typedef struct lvhp {
+  long key;
+  void* value;
+} LVHASHPAIR;
+
+typedef struct {
+  int keys;
+  int slotmask; //this is in the form of 2^n - 1 for a ht with n bits
+  LVHASHPAIR* hashtable;
+  BITFIELD bf;
+} LVHASHTABLE;
+
+
+void lvinsert(LVHASHTABLE* qh, const long key, void* value);
+void* lvsearch(LVHASHTABLE* qh, const long key);
+char lvqueryval(LVHASHTABLE* qh, const long key);
+void lvrmpair(LVHASHTABLE* qh, const long key);
+void lvresize(LVHASHTABLE* qh);
+DYNARR* lvhtpairs(LVHASHTABLE* ht);
+LVHASHTABLE* lvhtctor(void);
+LVHASHTABLE* lvchtctor(int size);
+void lvhtdtor(LVHASHTABLE* ht);
 #endif

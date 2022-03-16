@@ -650,7 +650,7 @@ static GVNNUM* derefwithnodefromaddr(EQONTAINER* eq, ADDRTYPE ty, ADDRESS adr, P
 
 //replace operation via gvn
 static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op) {
-  HASHTABLE* leader = blk->leader;
+  IIHASHTABLE* leader = blk->leader;
   GVNNUM* val;
   switch(op->opcode) {
     OPS_3_3ac OPS_3_PTRDEST_3ac
@@ -660,14 +660,14 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           op->opcode = NOP_3;
           break;
         }
-        if(op->dest.regnum != (long) fixedsearch(leader, val->index)) {
+        if(op->dest.regnum != (unsigned) iisearch(leader, val->index)) {
           op->opcode = NOP_3;
           break;
         }
       } else {
         val = derefwithnodefromaddr(eq, op->dest_type, op->dest, prog);
-        if(val && fixedqueryval(leader, val->index)) {
-          op->dest.regnum = (long) fixedsearch(leader, val->index);
+        if(val && iiqueryval(leader, val->index)) {
+          op->dest.regnum = iisearch(leader, val->index);
         }
       }
       __attribute__((fallthrough));
@@ -677,8 +677,8 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
         if(val->hasconst != NOCONST && !(op->addr1_type & ISDEREF)) {
           op->addr1_type = (op->addr1_type & GENREGMASK) | ISCONST;
           op->addr1.intconst_64 = val->intconst; //could be anything
-        } else if(fixedqueryval(leader, val->index)) {
-          op->addr1.regnum = (long) fixedsearch(leader, val->index);
+        } else if(iiqueryval(leader, val->index)) {
+          op->addr1.regnum = iisearch(leader, val->index);
         }
       }
       __attribute__((fallthrough));
@@ -690,8 +690,8 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           op->addr0_type = (op->addr0_type & GENREGMASK) | ISCONST;
           op->addr0.intconst_64 = val->intconst; //could be anything
         } else {
-          if(fixedqueryval(leader, val->index))
-          op->addr0.regnum = (long) fixedsearch(leader, val->index);
+          if(iiqueryval(leader, val->index))
+          op->addr0.regnum = iisearch(leader, val->index);
         }
       }
       break;
@@ -706,14 +706,14 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
           op->opcode = NOP_3;
           break;
         }
-        if(op->dest.regnum != (long) fixedsearch(leader, val->index)) {
+        if(op->dest.regnum != (unsigned) iisearch(leader, val->index)) {
           op->opcode = NOP_3;
           break;
         }
       } else {
         val = derefwithnodefromaddr(eq, op->dest_type, op->dest, prog);
-        if(val && fixedqueryval(leader, val->index)) {
-          op->dest.regnum = (long) fixedsearch(leader, val->index);
+        if(val && iiqueryval(leader, val->index)) {
+          op->dest.regnum = iisearch(leader, val->index);
         }
       }
       val = derefwithnodefromaddr(eq, op->addr0_type, op->addr0, prog);
@@ -721,8 +721,8 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
         if(val->hasconst != NOCONST && !(op->addr0_type & ISDEREF)) {
           op->addr0_type = (op->addr0_type & GENREGMASK) | ISCONST;
           op->addr0.intconst_64 = val->intconst; //could be anything
-        } else if(fixedqueryval(leader, val->index)) {
-            op->addr0.regnum = (long) fixedsearch(leader, val->index);
+        } else if(iiqueryval(leader, val->index)) {
+            op->addr0.regnum = iisearch(leader, val->index);
         }
       }
       break;
@@ -730,11 +730,11 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
       val = nodefromaddr(eq, op->dest_type, op->dest, prog);
       if(val) {
         assert(val->hasconst == NOCONST);
-        assert(op->dest.regnum == (long) fixedsearch(leader, val->index));
+        assert(op->dest.regnum == (unsigned) iisearch(leader, val->index));
       } else {
         val = derefwithnodefromaddr(eq, op->dest_type, op->dest, prog);
-        if(val && fixedqueryval(leader, val->index)) {
-          op->dest.regnum = (long) fixedsearch(leader, val->index);
+        if(val && iiqueryval(leader, val->index)) {
+          op->dest.regnum = iisearch(leader, val->index);
         }
       }
       break;
@@ -742,32 +742,32 @@ static void replaceop(BBLOCK* blk, EQONTAINER* eq, PROGRAM* prog, OPERATION* op)
       val = nodefromaddr(eq, op->dest_type, op->dest, prog);
       if(val) {
         assert(val->hasconst == NOCONST);
-        assert(op->dest.regnum == (long) fixedsearch(leader, val->index));
+        assert(op->dest.regnum == (unsigned) iisearch(leader, val->index));
       } //no need to handle deref for i.e. PARAM_3, INIT_3
       break;
     case PHI: 
       for(int k = 0; k < blk->inedges->length; k++) {
         FULLADDR* fadrs = op->addr0.joins;
         val = derefwithnodefromaddr(eq, fadrs[k].addr_type, fadrs[k].addr, prog);
-        HASHTABLE* predled = ((BBLOCK*) daget(blk->inedges, k))->leader;
+        IIHASHTABLE* predled = ((BBLOCK*) daget(blk->inedges, k))->leader;
         if(val) {
           if(val->hasconst != NOCONST && !(fadrs[k].addr_type & ISDEREF)) {
             fadrs[k].addr_type = (fadrs[k].addr_type & GENREGMASK) | ISCONST;
             fadrs[k].addr.intconst_64 = val->intconst; //could be anything
-          } else if(fixedqueryval(predled, val->index)) {
-              fadrs[k].addr.regnum = (long) fixedsearch(predled, val->index);
+          } else if(iiqueryval(predled, val->index)) {
+              fadrs[k].addr.regnum = iisearch(predled, val->index);
           }
         }
       }
       val = nodefromaddr(eq, op->dest_type, op->dest, prog);
       if(val) {
         assert(val->hasconst == NOCONST);
-        assert(op->dest.regnum == (long) fixedsearch(leader, val->index));
+        assert(op->dest.regnum == (long) iisearch(leader, val->index));
       } else {
         //this should only probably be the case for ternary phis
         val = derefwithnodefromaddr(eq, op->dest_type, op->dest, prog);
-        if(val && fixedqueryval(leader, val->index)) {
-          op->dest.regnum = (long) fixedsearch(leader, val->index);
+        if(val && iiqueryval(leader, val->index)) {
+          op->dest.regnum = iisearch(leader, val->index);
         }
       }
       break;
@@ -831,7 +831,7 @@ static void debuggo(EQONTAINER* eq, PROGRAM* prog) {
 
 //number values
 static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
-  blk->leader = fhtclone(blk->dom->leader);
+  blk->leader = iiclone(blk->dom->leader);
   blk->antileader_in = htctor();
   blk->antileader_in_list = dinctor(64);
   if(blk->lastop) {
@@ -1164,9 +1164,9 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
         case ASM:
           assert(0); //unimplemented
       }
-      if(destval && !fixedqueryval(blk->leader, destval->index)) {
+      if(destval && !iiqueryval(blk->leader, destval->index)) {
         assert(finalval->o == INIT_3);
-        fixedinsert(blk->leader, destval->index, (void*) (long) finalval->p1);
+        iiinsert(blk->leader, destval->index, finalval->p1);
       }
     } while(op != blk->lastop && (op = op->nextop));
   }
@@ -1414,8 +1414,8 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
       a.regnum = (unsigned int) fullval;
       GVNNUM* g = nodefromaddr(eq, downsize(fullval >> 32), a, prog);
 
-      if(fixedqueryval(blk->leader, g->index)) {
-        long ex2rm = (long) fixedsearch(blk->leader, g->index);
+      if(iiqueryval(blk->leader, g->index)) {
+        long ex2rm = iisearch(blk->leader, g->index);
         if(a.regnum == ex2rm) {
           dipush(rmstack, g->index);
           while(rmstack->length > 0) {
@@ -1459,8 +1459,8 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   return changed;
 }
 
-static void recdomins(BBLOCK* blk, long key, void* value) {
-  fixedinsert(blk->leader, key, value);
+static void recdomins(BBLOCK* blk, int key, int value) {
+  iiinsert(blk->leader, key, value);
   if(blk->idominates) {
     for(int i = 0; i < blk->idominates->length; i++) {
       recdomins((BBLOCK*) daget(blk->idominates, i), key, value);
@@ -1485,7 +1485,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
         if(antil->o == INIT_3) continue;
         for(int j = 0; j < blk->inedges->length; j++) {
             BBLOCK* oblk = daget(blk->inedges, j);
-            if(oblk->leader && fixedqueryval(oblk->leader, antiint)) {
+            if(oblk->leader && iiqueryval(oblk->leader, antiint)) {
                 dapush(stubbornblocks, oblk);
             }
         }
@@ -1514,8 +1514,8 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
             if(stubbornindex < stubbornblocks->length && 
                oblk == daget(stubbornblocks, stubbornindex)) {
               stubbornindex++;
-              assert(fixedqueryval(oblk->leader, antiint));
-              int stubbornval = (int) (long) fixedsearch(oblk->leader, antiint);
+              assert(iiqueryval(oblk->leader, antiint));
+              int stubbornval = iisearch(oblk->leader, antiint);
               joins.joins[j].addr_type = phi->dest_type;
               joins.joins[j].addr.regnum = stubbornval;
             } else {
@@ -1557,7 +1557,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                       assert(0);
                     }
                   } else {
-                    int prevleader = (long) fixedsearch(blk->leader, actionable.p2);
+                    int prevleader = iisearch(blk->leader, actionable.p2);
                     int origp2 = actionable.p2;
                     provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, prevleader) : 0;
                     if(provisional.regnum) actionable.p2 = nodefromaddr(eq, phi->dest_type, provisional, prog)->index;
@@ -1566,7 +1566,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                       int beginp2 = actionable.p2;
                       int equivind = 0;
                       DYNARR* equivlist = ((GVNNUM*) daget(eq->uniq_vals, actionable.p2))->equivs;
-                      while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p2))) {
+                      while(!(leadreg = iisearch(oblk->leader, actionable.p2))) {
                         VALUESTRUCT* vs;
                         do {
                           if(equivind >= equivlist->length) {
@@ -1604,7 +1604,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                       assert(0);
                     }
                   } else {
-                    int prevleader = (long) fixedsearch(blk->leader, actionable.p1);
+                    int prevleader = iisearch(blk->leader, actionable.p1);
                     int origp1 = actionable.p1;
                     provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, prevleader) : 0;
                     if(provisional.regnum) actionable.p1 = nodefromaddr(eq, phi->dest_type, provisional, prog)->index;
@@ -1613,7 +1613,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                       int beginp1 = actionable.p1;
                       int equivind = 0;
                       DYNARR* equivlist = ((GVNNUM*) daget(eq->uniq_vals, actionable.p1))->equivs;
-                      while(!(leadreg = (long) fixedsearch(oblk->leader, actionable.p1))) {
+                      while(!(leadreg = iisearch(oblk->leader, actionable.p1))) {
                         VALUESTRUCT* vs;
                         //Done: This used to be subject to a bug wherein we too eagerly translated the values across phi.
                         //This also used to not assign the new generated calculations  to the same value. These bugs have been fixed.
@@ -1647,13 +1647,13 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
               }
 
               if(antilnode->hasconst == NOCONST) {
-                assert(!fixedqueryval(oblk->leader, antiint));
+                assert(!iiqueryval(oblk->leader, antiint));
 
                 if(!oblk->translator) oblk->translator = htctor();
                 if(!oblk->revtranslator) oblk->revtranslator = htctor();
                 fixedinsert(oblk->revtranslator, phi->dest.regnum, (void*) (long) genop->dest.regnum);
                 fixedinsert(oblk->translator, genop->dest.regnum, (void*) (long) phi->dest.regnum);
-                fixedinsert(oblk->leader, antiint, (void*) (long) genop->dest.regnum);
+                iiinsert(oblk->leader, antiint, genop->dest.regnum);
                 bigfinsertfr(eq->ophash, (char*) ctvalstruct(INIT_3, genop->dest.regnum, 0, supersize(genop->dest_type), 0), antilnode, sizeof(VALUESTRUCT));
                 bigfinsertfr(eq->ophash, (char*) valdup(&genvalue), antilnode, sizeof(VALUESTRUCT));
               }
@@ -1672,7 +1672,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
           }
           changed = 1;
 
-          recdomins(blk, antiint, (void*) (long) phi->dest.regnum);
+          recdomins(blk, antiint, phi->dest.regnum);
 
           bigfinsertfr(eq->ophash, (char*) ctvalstruct(INIT_3, phi->dest.regnum, 0, supersize(phi->dest_type), 0), antilnode, sizeof(VALUESTRUCT));
           dapush(antilnode->equivs, ctvalstruct(INIT_3, phi->dest.regnum, 0, supersize(phi->dest_type), 0));
@@ -1707,9 +1707,9 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
 void gvn(PROGRAM* prog) {
   BBLOCK* first = daget(prog->allblocks, 0);
   EQONTAINER* eq = cteq(prog);
-  HASHTABLE* h1 = first->leader = htctor();
+  IIHASHTABLE* h1 = first->leader = iihtctor();
   gensall(prog, eq, first);
-  free(h1);
+  iihtdtor(h1);
   first->pidominates = dactor(0);
   while(antics(prog->finalblock, prog, eq)) ;
   //buildsets calculated

@@ -209,7 +209,7 @@ typedef struct bblock {
   int work;
 
   DYNARR* tmp_gen;
-  HASHTABLE* leader;
+  IIHASHTABLE* leader;
 
   HASHTABLE* antileader_in;
   DYNINT* antileader_in_list;

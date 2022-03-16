@@ -82,7 +82,7 @@ void prefix ## insert(type_prefix ## TABLE* qh, const keytype key, valtype value
       int hashloc = ((hashval + i * i) & qh->slotmask); \
       type_prefix ## PAIR *qhp = qh->hashtable + hashloc; \
       if(bfget(qh->bf, hashloc)) { \
-        if(!cmpfunc(qhp->key, key)) { \
+        if(cmpfunc(qhp->key, key)) { \
           qhp->value = value; \
           break; \
         } \
@@ -108,7 +108,7 @@ valtype prefix ## search(type_prefix ## TABLE* qh, const keytype key) { \
     int hashloc = (hashval + i * i) & qh->slotmask; \
     if(bfget(qh->bf, hashloc)) { \
       type_prefix ## PAIR *qhp = qh->hashtable + hashloc; \
-      if(!cmpfunc(qhp->key, key)) { \
+      if(cmpfunc(qhp->key, key)) { \
         return qhp->value; \
       } \
     } \
@@ -121,7 +121,7 @@ char prefix ## queryval(type_prefix ## TABLE* qh, const keytype key) { \
     int hashloc = (hashval + i * i) & qh->slotmask; \
     if(bfget(qh->bf, hashloc)) { \
       type_prefix ## PAIR *qhp = qh->hashtable + hashloc; \
-      if(!cmpfunc(qhp->key, key)) { \
+      if(cmpfunc(qhp->key, key)) { \
         return 1; \
       } \
     } \
@@ -134,7 +134,7 @@ void prefix ## rmpair(type_prefix ## TABLE* qh, const keytype key) { \
     int hashloc = (hashval + i * i) & qh->slotmask; \
     if(bfget(qh->bf, hashloc)) { \
       type_prefix ## PAIR *qhp = qh->hashtable + hashloc; \
-      if(!cmpfunc(qhp->key, key)) { \
+      if(cmpfunc(qhp->key, key)) { \
         freefunc(qhp->key); \
         --qh->keys; \
         bfunset(qh->bf, hashloc); \
@@ -168,11 +168,12 @@ DYNARR* prefix ## htpairs(type_prefix ## TABLE* ht) { \
   return da; \
 }
 
-HASHIMPL(QHASH, q, qhash, strcmp, free, strdup, char*, void*)
+HASHIMPL(QHASH, q, qhash, !strcmp, free, strdup, char*, void*)
 #define NOP(X) (void) X
 #define VERBATIM(X) X
 #define COMPARATOR(i1, i2) ((i1) == (i2))
 HASHIMPL(IIHASH, ii, inthash, COMPARATOR, NOP, VERBATIM, int, int)
+HASHIMPL(LVHASH, lv, inthash, COMPARATOR, NOP, VERBATIM, long, void*)
 #undef COMPARATOR
 #undef VERBATIM
 #undef NOP
@@ -266,6 +267,15 @@ void qchtdtor(QHASHTABLE* ht, void (*freep)(void*)) {
   free(ht);
 }
 
+IIHASHTABLE* iiclone(IIHASHTABLE* ht) {
+  IIHASHTABLE* newht = malloc(sizeof(IIHASHTABLE));
+  newht->keys = ht->keys;
+  newht->slotmask = ht->slotmask;
+  newht->hashtable = malloc((ht->slotmask + 1) * sizeof(IIHASHPAIR));
+  newht->bf = bfclone(ht->bf, ht->slotmask + 1);
+  memcpy(newht->hashtable, ht->hashtable, (ht->slotmask + 1) * sizeof(IIHASHPAIR));
+  return newht;
+}
 
 /*
 #include "stdio.h"

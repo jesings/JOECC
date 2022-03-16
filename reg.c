@@ -243,29 +243,29 @@ void liveness(PROGRAM* prog) {
 void lastuse(PROGRAM* prog, DYNARR** chains, BITFIELD* varbs) {
   for(int blockind = 0; blockind < prog->allblocks->length; blockind++) {
     BBLOCK* blk = daget(prog->allblocks, blockind);
-    HASHTABLE* reglasts = htctor();
+    LVHASHTABLE* reglasts = lvchtctor(32);
     LOOPOPS(
       OPARGCASES(
         if(!(op->addr0_type & (ISLABEL | ISCONST | GARBAGEVAL)) && !islive_out(prog, blk, chains, varbs, op->addr0.regnum))
-          fixedinsert(reglasts, op->addr0.regnum, &op->addr0_type);
+          lvinsert(reglasts, op->addr0.regnum, &op->addr0_type);
         ,
         if(!(op->addr1_type & (ISLABEL | ISCONST | GARBAGEVAL)) && !islive_out(prog, blk, chains, varbs, op->addr1.regnum))
-          fixedinsert(reglasts, op->addr1.regnum, &op->addr1_type);
+          lvinsert(reglasts, op->addr1.regnum, &op->addr1_type);
         ,
         if(!(op->dest_type & (ISLABEL | ISCONST | GARBAGEVAL)) && !islive_out(prog, blk, chains, varbs, op->dest.regnum))
-          fixedinsert(reglasts, op->dest.regnum, &op->dest_type); //if this is the case we'll free! then maybe we need to consider what happens if we entirely get rid of a variable?
+          lvinsert(reglasts, op->dest.regnum, &op->dest_type); //if this is the case we'll free! then maybe we need to consider what happens if we entirely get rid of a variable?
         ,
         if(!(phijoinaddr->addr_type & (ISLABEL | ISCONST)) && !islive_out(prog, blk, chains, varbs, phijoinaddr->addr.regnum))
-          fixedinsert(reglasts, phijoinaddr->addr.regnum, &phijoinaddr->addr_type); //this should never ever be the actual lastuse, if it is that's an error
+          lvinsert(reglasts, phijoinaddr->addr.regnum, &phijoinaddr->addr_type); //this should never ever be the actual lastuse, if it is that's an error
       )
     )
-    DYNARR* da = htfpairs(reglasts);
+    DYNARR* da = lvhtpairs(reglasts);
     for(int i = 0; i < da->length; i++) {
       HASHPAIR* hp = daget(da, i);
       *((ADDRTYPE*) hp->value) |= LASTUSE;
     }
     dadtor(da);
-    fhtdtor(reglasts);
+    lvhtdtor(reglasts);
   }
 }
 

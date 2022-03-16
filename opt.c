@@ -733,41 +733,41 @@ static int compar(const void* blk1, const void* blk2) {
 }
 
 #define X(op) case op:
-static void renumber_registers(BBLOCK* blk, HASHTABLE* ht) {
+static void renumber_registers(BBLOCK* blk, IIHASHTABLE* ht) {
   LOOPOPS(
     OPARGCASES(
       if(!(op->addr0_type & (ISLABEL | ISCONST | GARBAGEVAL))) {
-        int regnum = (long) fixedsearch(ht, op->addr0.regnum);
+        int regnum = iisearch(ht, op->addr0.regnum);
         assert(regnum);
         op->addr0.regnum = regnum;
       }
       ,
       if(!(op->addr1_type & (ISLABEL | ISCONST | GARBAGEVAL))) {
-        int regnum = (long) fixedsearch(ht, op->addr1.regnum);
+        int regnum = iisearch(ht, op->addr1.regnum);
         assert(regnum);
         op->addr1.regnum = regnum;
       }
       ,
       if(!(op->dest_type & (ISLABEL | ISCONST | GARBAGEVAL))) {
-        if(fixedqueryval(ht, op->dest.regnum)) {
+        if(iiqueryval(ht, op->dest.regnum)) {
           //it either must have been a deref or have come from a phi!!!
-          int regnum = (long) fixedsearch(ht, op->dest.regnum);
+          int regnum = iisearch(ht, op->dest.regnum);
           assert(regnum);
           op->dest.regnum = regnum;
         } else {
           int newreg = ht->keys + 1;
-          fixedinsertint(ht, op->dest.regnum, newreg);
+          iiinsert(ht, op->dest.regnum, newreg);
           op->dest.regnum = newreg; //perhaps indicate here whether it's an int or a float? 2 separate hash tables?
         }
       }
       ,
       if(!(phijoinaddr->addr_type & (ISLABEL | ISCONST | GARBAGEVAL))) {
-        if(fixedqueryval(ht, phijoinaddr->addr.regnum)) {
-          int regnum = (long) fixedsearch(ht, phijoinaddr->addr.regnum);
+        if(iiqueryval(ht, phijoinaddr->addr.regnum)) {
+          int regnum =  iisearch(ht, phijoinaddr->addr.regnum);
           assert(regnum);
           phijoinaddr->addr.regnum = regnum;
         } else {
-          fixedinsertint(ht, phijoinaddr->addr.regnum, ht->keys + 1);
+          iiinsert(ht, phijoinaddr->addr.regnum, ht->keys + 1);
           phijoinaddr->addr.regnum = ht->keys; //perhaps indicate here whether it's an int or a float? 2 separate hash tables?
         }
       }
@@ -786,9 +786,9 @@ void renumber(PROGRAM* prog) {
     blk->domind = i;
   }
 
-  HASHTABLE* regtransht = htctor();
+  IIHASHTABLE* regtransht = iihtctor();
   renumber_registers(daget(prog->allblocks, 0), regtransht);
   prog->regcnt = regtransht->keys + 1;
-  fhtdtor(regtransht);
+  iihtdtor(regtransht);
   //change dynvars and dynchars?
 }
