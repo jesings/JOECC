@@ -1100,6 +1100,7 @@ char handle_eof(yyscan_t yyscanner) {
   return 1;
 }
 
+//frominitial is 0 when it's actually from an ifdef, 1 if from intiial, and 2 if other (i.e. macro)
 int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) {
   struct macrodef* macdef = qsearch(lctx->defines, symb);
   if(macdef && !qqueryval(lctx->withindefines, symb)) {
@@ -1140,8 +1141,8 @@ int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) 
           default:
             --yltg->last_column;
             unput(c, yyscanner);
+            lctx->ls->defname = oldname;
             goto nofcall;
-
         }
       }
       whiledone:
@@ -1185,7 +1186,7 @@ int check_type(char* symb, char frominitial, YYLTYPE* yltg, yyscan_t yyscanner) 
     return TYPE_NAME;
   }
 #if PPDEBUG
-    printf("Token %s treated as generic\n", symb);
+  printf("Token %s treated as generic\n", symb);
 #endif
   return SYMBOL;
 }
