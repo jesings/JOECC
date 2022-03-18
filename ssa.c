@@ -1189,14 +1189,14 @@ static VALUESTRUCT* translate(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk, BBLOCK
     case DEALOC:
       return NULL;
     OPS_3_3ac
-      if((translated = (long) fixedsearch(blk->translator, prevex->p1))) {
+      if((translated = iisearch(blk->translator, prevex->p1))) {
         a1.regnum = translated;
         val1 = supernodefromaddr(eq, prevex->size1, a1, prog);
       } else {
         a1.regnum = prevex->p1;
         val1 = supernodefromaddr(eq, prevex->size1, a1, prog);
       }
-      if((translated = (long) fixedsearch(blk->translator, prevex->p2))) {
+      if((translated = iisearch(blk->translator, prevex->p2))) {
         a2.regnum = translated;
         val2 = supernodefromaddr(eq, prevex->size2, a2, prog);
       } else {
@@ -1206,7 +1206,7 @@ static VALUESTRUCT* translate(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk, BBLOCK
       if(!(val1 && val2)) return NULL;
       return ctvalstruct(prevex->o, val1->index, val2->index, prevex->size1, prevex->size2);
     OPS_2_3ac_MUT
-      if((translated = (long) fixedsearch(blk->translator, prevex->p1))) {
+      if((translated = iisearch(blk->translator, prevex->p1))) {
         a1.regnum = translated;
         val1 = supernodefromaddr(eq, prevex->size1, a1, prog);
       } else {
@@ -1216,7 +1216,7 @@ static VALUESTRUCT* translate(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk, BBLOCK
       if(!val1) return NULL;
       return ctvalstruct(prevex->o, val1->index, 0, prevex->size1, 0);
     OPS_1_ASSIGN_3ac case ADDR_3:
-      if((translated = (long) fixedsearch(blk->translator, prevex->p1))) {
+      if((translated = iisearch(blk->translator, prevex->p1))) {
         a1.regnum = translated;
         val1 = supernodefromaddr(eq, prevex->size1, a1, prog);
       } else {
@@ -1237,13 +1237,13 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
     if(!blk->translator) { //translators will be properly populated the first time
       if(blkn->lastop && blkn->firstop->opcode == PHI) {
         OPERATION* op = blkn->firstop;
-        blk->translator = htctor(); //would be more efficient to keep dag of references?
-        blk->revtranslator = htctor(); //would be more efficient to keep dag of references?
+        blk->translator = iihtctor(); //would be more efficient to keep dag of references?
+        blk->revtranslator = iihtctor(); //would be more efficient to keep dag of references?
         while(op->opcode == PHI) {
           int prephi = op->addr0.joins[index].addr.regnum;
           int postphi = op->dest.regnum;
-          fixedinsertint(blk->translator, prephi, postphi);
-          fixedinsertint(blk->revtranslator, postphi, prephi);
+          iiinsert(blk->translator, prephi, postphi);
+          iiinsert(blk->revtranslator, postphi, prephi);
           if(op == blkn->lastop) break;
           op = op->nextop;
         }
@@ -1559,7 +1559,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                   } else {
                     int prevleader = iisearch(blk->leader, actionable.p2);
                     int origp2 = actionable.p2;
-                    provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, prevleader) : 0;
+                    provisional.regnum = oblk->revtranslator ? iisearch(oblk->revtranslator, prevleader) : 0;
                     if(provisional.regnum) actionable.p2 = nodefromaddr(eq, phi->dest_type, provisional, prog)->index;
                     while(1) {
                       char contflag = 0;
@@ -1579,7 +1579,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                           vs = daget(equivlist, equivind++);
                         } while(vs->o != INIT_3);
                         if(contflag) break;
-                        provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, vs->p1) : 0;
+                        provisional.regnum = oblk->revtranslator ? iisearch(oblk->revtranslator, vs->p1) : 0;
                         if(provisional.regnum) actionable.p2 = nodefromaddr(eq, phi->dest_type, provisional, prog)->index;
                       }
                       if(!contflag) break;
@@ -1606,7 +1606,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                   } else {
                     int prevleader = iisearch(blk->leader, actionable.p1);
                     int origp1 = actionable.p1;
-                    provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, prevleader) : 0;
+                    provisional.regnum = oblk->revtranslator ? iisearch(oblk->revtranslator, prevleader): 0;
                     if(provisional.regnum) actionable.p1 = nodefromaddr(eq, phi->dest_type, provisional, prog)->index;
                     while(1) {
                       char contflag = 0;
@@ -1628,7 +1628,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                           vs = daget(equivlist, equivind++);
                         } while(vs->o != INIT_3);
                         if(contflag) break;
-                        provisional.regnum = oblk->revtranslator ? (long) fixedsearch(oblk->revtranslator, vs->p1) : 0;
+                        provisional.regnum = oblk->revtranslator ? iisearch(oblk->revtranslator, vs->p1) : 0;
                         if(provisional.regnum) actionable.p1 = nodefromaddr(eq, phi->dest_type, provisional, prog)->index;
                       }
                       if(!contflag) break;
@@ -1649,10 +1649,10 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
               if(antilnode->hasconst == NOCONST) {
                 assert(!iiqueryval(oblk->leader, antiint));
 
-                if(!oblk->translator) oblk->translator = htctor();
-                if(!oblk->revtranslator) oblk->revtranslator = htctor();
-                fixedinsert(oblk->revtranslator, phi->dest.regnum, (void*) (long) genop->dest.regnum);
-                fixedinsert(oblk->translator, genop->dest.regnum, (void*) (long) phi->dest.regnum);
+                if(!oblk->translator) oblk->translator = iihtctor();
+                if(!oblk->revtranslator) oblk->revtranslator = iihtctor();
+                iiinsert(oblk->revtranslator, phi->dest.regnum, genop->dest.regnum);
+                iiinsert(oblk->translator, genop->dest.regnum, phi->dest.regnum);
                 iiinsert(oblk->leader, antiint, genop->dest.regnum);
                 bigfinsertfr(eq->ophash, (char*) ctvalstruct(INIT_3, genop->dest.regnum, 0, supersize(genop->dest_type), 0), antilnode, sizeof(VALUESTRUCT));
                 bigfinsertfr(eq->ophash, (char*) valdup(&genvalue), antilnode, sizeof(VALUESTRUCT));

@@ -219,8 +219,8 @@ typedef struct bblock {
   HASHTABLE* exp_gen;
   DYNINT* exp_gen_list;
 
-  HASHTABLE* translator;
-  HASHTABLE* revtranslator;
+  IIHASHTABLE* translator;
+  IIHASHTABLE* revtranslator;
 
   BITFIELD simply_reachable;
   BITFIELD back_reachable;
