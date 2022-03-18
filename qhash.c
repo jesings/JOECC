@@ -166,6 +166,21 @@ DYNARR* prefix ## htpairs(type_prefix ## TABLE* ht) { \
     } \
   } \
   return da; \
+} \
+void prefix ## chtdtor(type_prefix ## TABLE* ht, void (*freep)(valtype)) { \
+  if(ht->keys != 0) { \
+    for(int i = 0; i <= ht->slotmask; i++) { \
+      if(bfget(ht->bf, i)) { \
+        type_prefix ## PAIR* current = &(ht->hashtable[i]); \
+        freefunc(current->key); \
+        freep(current->value); \
+        if(!--ht->keys) break; \
+      } \
+    } \
+  } \
+  free(ht->bf); \
+  free(ht->hashtable); \
+  free(ht); \
 }
 
 HASHIMPL(QHASH, q, qhash, !strcmp, free, strdup, char*, void*)
@@ -249,22 +264,6 @@ char qhtequal(QHASHTABLE* ht1, QHASHTABLE* ht2) {
     }
   }
   return 1;
-}
-
-void qchtdtor(QHASHTABLE* ht, void (*freep)(void*)) {
-  if(ht->keys != 0) {
-    for(int i = 0; i <= ht->slotmask; i++) {
-      if(bfget(ht->bf, i)) {
-        QHASHPAIR* current = &(ht->hashtable[i]);
-        free(current->key);
-        freep(current->value);
-        if(!--ht->keys) break;
-      }
-    }
-  }
-  free(ht->bf);
-  free(ht->hashtable);
-  free(ht);
 }
 
 IIHASHTABLE* iiclone(IIHASHTABLE* ht) {

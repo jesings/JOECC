@@ -64,6 +64,7 @@ IIHASHTABLE* iihtctor(void);
 IIHASHTABLE* iichtctor(int size);
 void iihtdtor(IIHASHTABLE* ht);
 IIHASHTABLE* iiclone(IIHASHTABLE* ht);
+void iichtdtor(IIHASHTABLE* ht, void (*freep)(int));
 
 typedef struct lvhp {
   long key;
@@ -87,4 +88,5 @@ DYNARR* lvhtpairs(LVHASHTABLE* ht);
 LVHASHTABLE* lvhtctor(void);
 LVHASHTABLE* lvchtctor(int size);
 void lvhtdtor(LVHASHTABLE* ht);
+void lvchtdtor(LVHASHTABLE* ht, void (*freep)(void*));
 #endif

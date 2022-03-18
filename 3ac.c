@@ -1678,7 +1678,7 @@ void freeblock(void* blk) {
   if(blk2->df) dadtor(blk2->df);
   if(blk2->lastop) freeop(blk2->firstop, blk2->lastop);
   if(blk2->tmp_gen) dadtor(blk2->tmp_gen);
-  if(blk2->exp_gen) fhtdtorcfr(blk2->exp_gen, free);
+  if(blk2->exp_gen) lvchtdtor(blk2->exp_gen, free);
   if(blk2->exp_gen_list) didtor(blk2->exp_gen_list);
   if(blk2->leader) iihtdtor(blk2->leader);
   if(blk2->antileader_in) fhtdtorcfr(blk2->antileader_in, free);

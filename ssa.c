@@ -836,7 +836,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
   blk->antileader_in_list = dinctor(64);
   if(blk->lastop) {
     blk->tmp_gen = dactor(32);
-    blk->exp_gen = htctor();
+    blk->exp_gen = lvhtctor();
     blk->exp_gen_list = dinctor(64);
     blk->antileader_out = htctor();
     blk->antileader_out_list = dinctor(64);
@@ -1042,8 +1042,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
                 status++;
                 //slightly inefficient, could query and insert in same traversal
                 //however it might be worse to have to re-free the value struct if not used
-                if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
-                  fixedinsert(blk->exp_gen, chosenval->index, valdup(&valst));
+                if(!lvqueryval(blk->exp_gen, chosenval->index)) {
+                  lvinsert(blk->exp_gen, chosenval->index, valdup(&valst));
                   dipush(blk->exp_gen_list, chosenval->index);
                 }
               }
@@ -1058,8 +1058,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
               chosenval = bigsearch(eq->ophash, (char*) &valst, sizeof(VALUESTRUCT));
               if(chosenval) {
                 status++;
-                if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
-                  fixedinsert(blk->exp_gen, chosenval->index, valdup(&valst));
+                if(!lvqueryval(blk->exp_gen, chosenval->index)) {
+                  lvinsert(blk->exp_gen, chosenval->index, valdup(&valst));
                   dipush(blk->exp_gen_list, chosenval->index);
                 }
               }
@@ -1073,8 +1073,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
             VALUESTRUCT refex = {op->opcode, n0->index, n1->index, supersize(op->addr0_type), supersize(op->addr1_type)};
             chosenval = bigsearch(eq->ophash, (char*) &refex, sizeof(VALUESTRUCT));
 
-            if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
-              fixedinsert(blk->exp_gen, chosenval->index, valdup(&refex));
+            if(chosenval && !lvqueryval(blk->exp_gen, chosenval->index)) {
+              lvinsert(blk->exp_gen, chosenval->index, valdup(&refex));
               dipush(blk->exp_gen_list, chosenval->index);
             }
           } else {
@@ -1094,8 +1094,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
               chosenval = bigsearch(eq->ophash, (char*) &valst, sizeof(VALUESTRUCT));
               if(chosenval) {
                 status++;
-                if(!fixedqueryval(blk->exp_gen, chosenval->index)) {
-                  fixedinsert(blk->exp_gen, chosenval->index, valdup(&valst));
+                if(!lvqueryval(blk->exp_gen, chosenval->index)) {
+                  lvinsert(blk->exp_gen, chosenval->index, valdup(&valst));
                   dipush(blk->exp_gen_list, chosenval->index);
                 }
               }
@@ -1106,8 +1106,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
             if(!n0) break;
             VALUESTRUCT refex = {op->opcode, n0->index, 0, supersize(n0->index), 0};
             chosenval = bigsearch(eq->ophash, (char*) &refex, sizeof(VALUESTRUCT));
-            if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
-              fixedinsert(blk->exp_gen, chosenval->index, valdup(&refex));
+            if(chosenval && !lvqueryval(blk->exp_gen, chosenval->index)) {
+              lvinsert(blk->exp_gen, chosenval->index, valdup(&refex));
               dipush(blk->exp_gen_list, chosenval->index);
             }
           } else {
@@ -1139,8 +1139,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
               valst.p1 = op->addr1.regnum;
               valst.size1 = supersize(op->addr1_type);
               chosenval = bigsearch(eq->ophash, (char*) &valst, sizeof(VALUESTRUCT));
-              if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
-                fixedinsert(blk->exp_gen, chosenval->index, valdup(&valst));
+              if(chosenval && !lvqueryval(blk->exp_gen, chosenval->index)) {
+                lvinsert(blk->exp_gen, chosenval->index, valdup(&valst));
                 dipush(blk->exp_gen_list, chosenval->index);
               }
             }
@@ -1152,8 +1152,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
               valst.p1 = op->addr0.regnum;
               valst.size1 = supersize(op->addr0_type);
               chosenval = bigsearch(eq->ophash, (char*) &valst, sizeof(VALUESTRUCT));
-              if(chosenval && !fixedqueryval(blk->exp_gen, chosenval->index)) {
-                fixedinsert(blk->exp_gen, chosenval->index, valdup(&valst));
+              if(chosenval && !lvqueryval(blk->exp_gen, chosenval->index)) {
+                lvinsert(blk->exp_gen, chosenval->index, valdup(&valst));
                 dipush(blk->exp_gen_list, chosenval->index);
               }
             }
@@ -1340,7 +1340,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   blk->antileader_in_list = diclone(blk->antileader_out_list);
   if(blk->exp_gen) {
     for(int i = 0; i < blk->exp_gen_list->length; i++) {
-      VALUESTRUCT* exs = fixedsearch(blk->exp_gen, blk->exp_gen_list->arr[i]);
+      VALUESTRUCT* exs = lvsearch(blk->exp_gen, blk->exp_gen_list->arr[i]);
       ADDRESS a;
       GVNNUM* n3;
       switch((int) exs->o) {

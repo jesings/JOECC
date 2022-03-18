@@ -216,7 +216,7 @@ typedef struct bblock {
   HASHTABLE* antileader_out;
   DYNINT* antileader_out_list;
 
-  HASHTABLE* exp_gen;
+  LVHASHTABLE* exp_gen;
   DYNINT* exp_gen_list;
 
   IIHASHTABLE* translator;
