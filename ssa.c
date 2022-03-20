@@ -1335,7 +1335,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
     blk->antileader_out = lvhtctor();
     blk->antileader_out_list = dinctor(32);
   }
-  HASHTABLE* antiin_users = htctor(); //ht of dynarrs of expressions which would be killed by a kill of the value number
+  LVHASHTABLE* antiin_users = lvchtctor(32); //ht of dynarrs of expressions which would be killed by a kill of the value number
   blk->antileader_in = lvhtcclone(blk->antileader_out, (void*(*)(void*)) valdup);
   blk->antileader_in_list = diclone(blk->antileader_out_list);
   if(blk->exp_gen) {
@@ -1386,21 +1386,21 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
         case DEALOC:
           continue;
         OPS_3_3ac
-          if(!fixedqueryval(antiin_users, exs->p1)) {
-            fixedinsert(antiin_users, exs->p1, dinctor(4));
+          if(!lvqueryval(antiin_users, exs->p1)) {
+            lvinsert(antiin_users, exs->p1, dinctor(4));
           }
-          dipush(fixedsearch(antiin_users, exs->p1), n3->index);
-          if(!fixedqueryval(antiin_users, exs->p2)) {
-            fixedinsert(antiin_users, exs->p2, dinctor(4));
+          dipush(lvsearch(antiin_users, exs->p1), n3->index);
+          if(!lvqueryval(antiin_users, exs->p2)) {
+            lvinsert(antiin_users, exs->p2, dinctor(4));
           }
-          dipush(fixedsearch(antiin_users, exs->p2), n3->index);
+          dipush(lvsearch(antiin_users, exs->p2), n3->index);
           break;
         OPS_2_3ac
         OPS_1_ASSIGN_3ac case ADDR_3: //these also should be killed?
-          if(!fixedqueryval(antiin_users, exs->p1)) {
-            fixedinsert(antiin_users, exs->p1, dinctor(4));
+          if(!lvqueryval(antiin_users, exs->p1)) {
+            lvinsert(antiin_users, exs->p1, dinctor(4));
           }
-          dipush(fixedsearch(antiin_users, exs->p1), n3->index);
+          dipush(lvsearch(antiin_users, exs->p1), n3->index);
           break;
       }
     }
@@ -1428,8 +1428,9 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
                     break;
                 }
             }
-            DYNINT* tokill = frmpair(antiin_users, removalind);
+            DYNINT* tokill = lvsearch(antiin_users, removalind);
             if(tokill) rmstack = dimerge(rmstack, tokill);
+            lvrmpair(antiin_users, removalind);
           }
         }
       }
@@ -1451,7 +1452,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   if(oldanticout) lvchtdtor(oldanticout, free);
   if(oldanticinlist) didtor(oldanticinlist);
   if(oldanticoutlist) didtor(oldanticoutlist);
-  fhtdtorcfr(antiin_users, (void(*)(void*)) didtor);
+  lvchtdtor(antiin_users, (void(*)(void*)) didtor);
   for(int i = 0; i < blk->pidominates->length; i++)
     changed |= antics(daget(blk->pidominates, i), prog, eq);
   return changed;
