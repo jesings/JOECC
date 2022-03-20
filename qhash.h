@@ -65,6 +65,8 @@ IIHASHTABLE* iichtctor(int size);
 void iihtdtor(IIHASHTABLE* ht);
 IIHASHTABLE* iiclone(IIHASHTABLE* ht);
 void iichtdtor(IIHASHTABLE* ht, void (*freep)(int));
+void iirmpaircfr(IIHASHTABLE* qh, const int key, void (*cfree)(int));
+char iihtequal(IIHASHTABLE* ht1, IIHASHTABLE* ht2);
 
 typedef struct lvhp {
   long key;
@@ -89,4 +91,7 @@ LVHASHTABLE* lvhtctor(void);
 LVHASHTABLE* lvchtctor(int size);
 void lvhtdtor(LVHASHTABLE* ht);
 void lvchtdtor(LVHASHTABLE* ht, void (*freep)(void*));
+LVHASHTABLE* lvhtcclone(LVHASHTABLE* ht, void*(*clonefunc)(void*));
+void lvrmpaircfr(LVHASHTABLE* qh, const long key, void (*cfree)(void*));
+char lvhtequal(LVHASHTABLE* ht1, LVHASHTABLE* ht2);
 #endif

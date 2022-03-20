@@ -211,9 +211,9 @@ typedef struct bblock {
   DYNARR* tmp_gen;
   IIHASHTABLE* leader;
 
-  HASHTABLE* antileader_in;
+  LVHASHTABLE* antileader_in;
   DYNINT* antileader_in_list;
-  HASHTABLE* antileader_out;
+  LVHASHTABLE* antileader_out;
   DYNINT* antileader_out_list;
 
   LVHASHTABLE* exp_gen;

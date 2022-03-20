@@ -15,6 +15,12 @@ static unsigned int inthash(unsigned int x) {
     return x;
 }
 
+static unsigned long longhash(long data) {
+  data = (data ^ (data >> 30)) * 0xbf58476d1ce4e5b9l;
+  data = (data ^ (data >> 27)) * 0x94d049bb133111ebl;
+  return data ^ (data >> 31);
+}
+
 #define HASHIMPL(type_prefix, prefix, hashfunc, cmpfunc, freefunc, dupfunc, keytype, valtype) \
 type_prefix ## TABLE* prefix ## htctor(void) { \
   type_prefix ## TABLE* ht = malloc(sizeof(type_prefix ## TABLE)); \
@@ -181,14 +187,53 @@ void prefix ## chtdtor(type_prefix ## TABLE* ht, void (*freep)(valtype)) { \
   free(ht->bf); \
   free(ht->hashtable); \
   free(ht); \
+} \
+void prefix ## rmpaircfr(type_prefix ## TABLE* qh, const keytype key, void (*cfree)(valtype)) { \
+  int hashval = hashfunc(key); \
+  for(int i = 0; i < PROBECOUNT; i++) { \
+    int hashloc = ((hashval + i * i) & qh->slotmask); \
+    if(bfget(qh->bf, hashloc)) { \
+      type_prefix ## PAIR *qhp = qh->hashtable + hashloc; \
+      if(cmpfunc(qhp->key, key)) { \
+        freefunc(qhp->key); \
+        cfree(qhp->value); \
+        --qh->keys; \
+        bfunset(qh->bf, hashloc); \
+        break; \
+      } \
+    } else { \
+      break; \
+    } \
+  } \
+} \
+char prefix ## htequal(type_prefix ## TABLE* ht1, type_prefix ## TABLE* ht2) { \
+  if(ht1) if(!ht2) return 0; \
+  if(!ht1) return 0; \
+  if(ht1->slotmask != ht2->slotmask || \
+     ht1->keys != ht2->keys) return 0; \
+  for(int i = 0; i <= ht1->slotmask; i++) { \
+    if(bfget(ht1->bf, i)) { \
+      if(bfget(ht2->bf, i)) { \
+        type_prefix ## PAIR* current1 = &(ht1->hashtable[i]); \
+        type_prefix ## PAIR* current2 = &(ht2->hashtable[i]); \
+        if(current1->key != current2->key) return 0; /*we compare only keys, not values*/\
+      } else { \
+        return 0; \
+      } \
+    } else if(bfget(ht2->bf, i)) { \
+      return 0; \
+    } \
+  } \
+  return 1; \
 }
+
 
 HASHIMPL(QHASH, q, qhash, !strcmp, free, strdup, char*, void*)
 #define NOP(X) (void) X
 #define VERBATIM(X) X
 #define COMPARATOR(i1, i2) ((i1) == (i2))
 HASHIMPL(IIHASH, ii, inthash, COMPARATOR, NOP, VERBATIM, int, int)
-HASHIMPL(LVHASH, lv, inthash, COMPARATOR, NOP, VERBATIM, long, void*)
+HASHIMPL(LVHASH, lv, longhash, COMPARATOR, NOP, VERBATIM, long, void*)
 #undef COMPARATOR
 #undef VERBATIM
 #undef NOP
@@ -224,48 +269,6 @@ void qinsertcfr(QHASHTABLE* qh, const char* key, void* value, void (*cfree)(void
 }
 
 
-void qrmpaircfr(QHASHTABLE* qh, const char* key, void (*cfree)(void*)) {
-  int hashval = qhash(key);
-  for(int i = 0; i < PROBECOUNT; i++) {
-    int hashloc = ((hashval + i * i) & qh->slotmask);
-    if(bfget(qh->bf, hashloc)) {
-      QHASHPAIR *qhp = qh->hashtable + hashloc;
-      if(!strcmp(qhp->key, key)) {
-        free(qhp->key);
-        cfree(qhp->value);
-        qhp->key = NULL;
-        --qh->keys;
-        bfunset(qh->bf, hashloc);
-        break;
-      }
-    } else {
-      break;
-    }
-  }
-}
-
-char qhtequal(QHASHTABLE* ht1, QHASHTABLE* ht2) {
-  if(ht1) if(!ht2) return 0;
-  if(!ht1) return 0;
-  if(ht1->slotmask != ht2->slotmask ||
-     ht1->keys != ht2->keys) return 0;
-  for(int i = 0; i <= ht1->slotmask; i++) {
-    if(bfget(ht1->bf, i)) {
-      if(bfget(ht2->bf, i)) {
-        QHASHPAIR* current1 = &(ht1->hashtable[i]);
-        QHASHPAIR* current2 = &(ht2->hashtable[i]);
-        if(current1->key != current2->key) return 0;
-        //we don't compare values actually
-      } else {
-        return 0;
-      }
-    } else if(bfget(ht2->bf, i)) {
-      return 0;
-    }
-  }
-  return 1;
-}
-
 IIHASHTABLE* iiclone(IIHASHTABLE* ht) {
   IIHASHTABLE* newht = malloc(sizeof(IIHASHTABLE));
   newht->keys = ht->keys;
@@ -273,6 +276,21 @@ IIHASHTABLE* iiclone(IIHASHTABLE* ht) {
   newht->hashtable = malloc((ht->slotmask + 1) * sizeof(IIHASHPAIR));
   newht->bf = bfclone(ht->bf, ht->slotmask + 1);
   memcpy(newht->hashtable, ht->hashtable, (ht->slotmask + 1) * sizeof(IIHASHPAIR));
+  return newht;
+}
+
+LVHASHTABLE* lvhtcclone(LVHASHTABLE* ht, void*(*clonefunc)(void*)) {
+  LVHASHTABLE* newht = malloc(sizeof(LVHASHTABLE));
+  newht->keys = ht->keys;
+  newht->slotmask = ht->slotmask;
+  newht->hashtable = malloc((ht->slotmask + 1) * sizeof(LVHASHPAIR));
+  newht->bf = bfclone(ht->bf, ht->slotmask + 1);
+  for(int i = 0; i <= ht->slotmask; i++) {
+      if(bfget(newht->bf, i)) {
+          newht->hashtable[i].key = ht->hashtable[i].key;
+          newht->hashtable[i].value = clonefunc(ht->hashtable[i].value);
+      }
+  }
   return newht;
 }
 

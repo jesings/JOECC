@@ -1681,9 +1681,9 @@ void freeblock(void* blk) {
   if(blk2->exp_gen) lvchtdtor(blk2->exp_gen, free);
   if(blk2->exp_gen_list) didtor(blk2->exp_gen_list);
   if(blk2->leader) iihtdtor(blk2->leader);
-  if(blk2->antileader_in) fhtdtorcfr(blk2->antileader_in, free);
+  if(blk2->antileader_in) lvchtdtor(blk2->antileader_in, free);
   if(blk2->antileader_in_list) didtor(blk2->antileader_in_list);
-  if(blk2->antileader_out) fhtdtorcfr(blk2->antileader_out, free);
+  if(blk2->antileader_out) lvchtdtor(blk2->antileader_out, free);
   if(blk2->antileader_out_list) didtor(blk2->antileader_out_list);
   if(blk2->translator) iihtdtor(blk2->translator);
   if(blk2->revtranslator) iihtdtor(blk2->revtranslator);

@@ -832,13 +832,13 @@ static void debuggo(EQONTAINER* eq, PROGRAM* prog) {
 //number values
 static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
   blk->leader = iiclone(blk->dom->leader);
-  blk->antileader_in = htctor();
+  blk->antileader_in = lvhtctor();
   blk->antileader_in_list = dinctor(64);
   if(blk->lastop) {
     blk->tmp_gen = dactor(32);
     blk->exp_gen = lvhtctor();
     blk->exp_gen_list = dinctor(64);
-    blk->antileader_out = htctor();
+    blk->antileader_out = lvhtctor();
     blk->antileader_out_list = dinctor(64);
     OPERATION* op = blk->firstop;
     VALUESTRUCT valst = {INIT_3, 0, 0, 0, 0};
@@ -1254,8 +1254,8 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
     return 0;
   }
 
-  HASHTABLE* oldanticin = blk->antileader_in;
-  HASHTABLE* oldanticout = blk->antileader_out;
+  LVHASHTABLE* oldanticin = blk->antileader_in;
+  LVHASHTABLE* oldanticout = blk->antileader_out;
   DYNINT* oldanticinlist = blk->antileader_in_list;
   DYNINT* oldanticoutlist = blk->antileader_out_list;
 
@@ -1264,11 +1264,11 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
     BBLOCK* blkn = blk->nextblock;
     for(; daget(blkn->inedges,index) != blk; index++) ;
     if(blkn->lastop && blkn->firstop->opcode == PHI) {
-      blk->antileader_out = htctor();
+      blk->antileader_out = lvhtctor();
       blk->antileader_out_list = dinctor(64);
       if(!blk->translator) { //translators will be properly populated the first time
         for(int i = 0; i < blkn->antileader_in_list->length; i++) {
-          void* value = fixedsearch(blkn->antileader_in, blkn->antileader_in_list->arr[i]);
+          void* value = lvsearch(blkn->antileader_in, blkn->antileader_in_list->arr[i]);
           VALUESTRUCT* translated = translate(prog, eq, blk, blkn, value);
           int valnum;
           if(translated) {
@@ -1284,31 +1284,31 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
               valnum = translated->p1;
             }
             void* storage;
-            if((storage = fixedsearch(blk->antileader_out, valnum))) {
+            if((storage = lvsearch(blk->antileader_out, valnum))) {
                 free(storage);
             } else {
                 dipush(blk->antileader_out_list, valnum); //only add to list if it wasn't already there
             }
-            fixedinsert(blk->antileader_out, valnum, translated);
+            lvinsert(blk->antileader_out, valnum, translated);
           }
         }
       }
     } else {
-      blk->antileader_out = fhtcclone(blkn->antileader_in, (void*(*)(void*)) valdup);
+      blk->antileader_out = lvhtcclone(blkn->antileader_in, (void*(*)(void*)) valdup);
       blk->antileader_out_list = diclone(blkn->antileader_in_list);
     }
   } else if(blk->branchblock) {
     //the first block isn't populated here if next block has phi
     if(blk->nextblock->antileader_in) {
-      blk->antileader_out = fhtcclone(blk->nextblock->antileader_in, (void*(*)(void*)) valdup);
+      blk->antileader_out = lvhtcclone(blk->nextblock->antileader_in, (void*(*)(void*)) valdup);
       blk->antileader_out_list = diclone(blk->nextblock->antileader_in_list);
       if(blk->branchblock->antileader_in) {
         for(int i = 0; i < blk->antileader_out_list->length; i++) {
           int key = blk->antileader_out_list->arr[i];
           void* val;
-          if((val = fixedsearch(blk->branchblock->antileader_in, key))) {
+          if((val = lvsearch(blk->branchblock->antileader_in, key))) {
             free(val);
-            frmpair(blk->antileader_out, key);
+            lvrmpair(blk->antileader_out, key);
             blk->antileader_out_list->arr[i] = -1;
           }
         }
@@ -1323,20 +1323,20 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
         blk->antileader_out_list->length = newlen;
       }
     } else if(blk->branchblock->antileader_in) {
-      blk->antileader_out = fhtcclone(blk->branchblock->antileader_in, (void*(*)(void*)) valdup);
+      blk->antileader_out = lvhtcclone(blk->branchblock->antileader_in, (void*(*)(void*)) valdup);
       blk->antileader_out_list = diclone(blk->branchblock->antileader_in_list);
     } else {
-      blk->antileader_out = htctor();
+      blk->antileader_out = lvhtctor();
       blk->antileader_out_list = dinctor(32);
     }
     //and with branchblock
     //>1 succ
   } else {
-    blk->antileader_out = htctor();
+    blk->antileader_out = lvhtctor();
     blk->antileader_out_list = dinctor(32);
   }
   HASHTABLE* antiin_users = htctor(); //ht of dynarrs of expressions which would be killed by a kill of the value number
-  blk->antileader_in = fhtcclone(blk->antileader_out, (void*(*)(void*)) valdup);
+  blk->antileader_in = lvhtcclone(blk->antileader_out, (void*(*)(void*)) valdup);
   blk->antileader_in_list = diclone(blk->antileader_out_list);
   if(blk->exp_gen) {
     for(int i = 0; i < blk->exp_gen_list->length; i++) {
@@ -1352,23 +1352,23 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
           continue;
         OPS_3_3ac
           n3 = bigsearch(eq->ophash, (char*) exs, sizeof(VALUESTRUCT));
-          if(!fixedqueryval(blk->antileader_in, n3->index)) {
-            fixedinsert(blk->antileader_in, n3->index, valdup(exs));
+          if(!lvqueryval(blk->antileader_in, n3->index)) {
+            lvinsert(blk->antileader_in, n3->index, valdup(exs));
             dipush(blk->antileader_in_list, n3->index);
           }
           break;
         OPS_2_3ac_MUT
           n3 = bigsearch(eq->ophash, (char*) exs, sizeof(VALUESTRUCT));
-          if(!fixedqueryval(blk->antileader_in, n3->index)) {
-            fixedinsert(blk->antileader_in, n3->index, valdup(exs));
+          if(!lvqueryval(blk->antileader_in, n3->index)) {
+            lvinsert(blk->antileader_in, n3->index, valdup(exs));
             dipush(blk->antileader_in_list, n3->index);
           }
           break;
         OPS_1_ASSIGN_3ac case ADDR_3:
           a.regnum = exs->p1;
           n3 = supernodefromaddr(eq, exs->size1, a, prog);
-          if(!fixedqueryval(blk->antileader_in, n3->index)) {
-            fixedinsert(blk->antileader_in, n3->index, valdup(exs));
+          if(!lvqueryval(blk->antileader_in, n3->index)) {
+            lvinsert(blk->antileader_in, n3->index, valdup(exs));
             dipush(blk->antileader_in_list, n3->index);
           }
           break;
@@ -1378,7 +1378,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
 
   if(blk->antileader_in->keys != 0) {
     for(int i = 0; i < blk->antileader_in_list->length; i++) {
-      VALUESTRUCT* exs = fixedsearch(blk->antileader_in, blk->antileader_in_list->arr[i]);
+      VALUESTRUCT* exs = lvsearch(blk->antileader_in, blk->antileader_in_list->arr[i]);
       GVNNUM* n3 = bigsearch(eq->ophash, (char*) exs, sizeof(VALUESTRUCT));
       switch(exs->o) {
         default:
@@ -1420,9 +1420,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
           dipush(rmstack, g->index);
           while(rmstack->length > 0) {
             int removalind = dipop(rmstack);
-            void* fr = frmpair(blk->antileader_in, removalind);
-            if(fr)
-              free(fr);
+            lvrmpaircfr(blk->antileader_in, removalind, free);
             //remove instance of removalind! more efficient way to do this?
             for(int i = 0; i < blk->antileader_in_list->length; i++) {
                 if(blk->antileader_in_list->arr[i] == removalind) {
@@ -1448,9 +1446,9 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
 
     didtor(rmstack);
   }
-  char changed = !(fhtequal(blk->antileader_out, oldanticout) && fhtequal(blk->antileader_in, oldanticin));
-  if(oldanticin) fhtdtorcfr(oldanticin, free);
-  if(oldanticout) fhtdtorcfr(oldanticout, free);
+  char changed = !(lvhtequal(blk->antileader_out, oldanticout) && lvhtequal(blk->antileader_in, oldanticin));
+  if(oldanticin) lvchtdtor(oldanticin, free);
+  if(oldanticout) lvchtdtor(oldanticout, free);
   if(oldanticinlist) didtor(oldanticinlist);
   if(oldanticoutlist) didtor(oldanticoutlist);
   fhtdtorcfr(antiin_users, (void(*)(void*)) didtor);
@@ -1481,7 +1479,7 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
       for(int antiind = 0; antiind < blk->antileader_in_list->length; antiind++) {
         int antiint = blk->antileader_in_list->arr[antiind];
         GVNNUM* antilnode = daget(eq->uniq_vals, antiint);
-        VALUESTRUCT* antil = fixedsearch(blk->antileader_in, antiint);
+        VALUESTRUCT* antil = lvsearch(blk->antileader_in, antiint);
         if(antil->o == INIT_3) continue;
         for(int j = 0; j < blk->inedges->length; j++) {
             BBLOCK* oblk = daget(blk->inedges, j);
@@ -1677,10 +1675,8 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
           bigfinsertfr(eq->ophash, (char*) ctvalstruct(INIT_3, phi->dest.regnum, 0, supersize(phi->dest_type), 0), antilnode, sizeof(VALUESTRUCT));
           dapush(antilnode->equivs, ctvalstruct(INIT_3, phi->dest.regnum, 0, supersize(phi->dest_type), 0));
 
-          void* prevval = frmpair(blk->antileader_in, antiint);
+          lvrmpaircfr(blk->antileader_in, antiint, free);
           blk->antileader_in_list->arr[antiind] = -1;
-
-          if(prevval) free(prevval);
         } else if (stubbornblocks->length == blk->inedges->length) {
             //TODO: insert phi here, update leader info?
         }
