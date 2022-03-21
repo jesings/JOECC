@@ -15,83 +15,38 @@
  * Can store values either as ints or pointers.
  * Keys are typically string pointers. 
 **/
-typedef struct qhp {
-  char* key;
-  void* value;
-} QHASHPAIR;
 
-typedef struct {
-  int keys;
-  int slotmask; //this is in the form of 2^n - 1 for a ht with n bits
-  QHASHPAIR* hashtable;
-  BITFIELD bf;
-} QHASHTABLE;
+#define HASHPROTO(type_prefix, prefix, keytype, valtype) \
+typedef struct prefix ## hp { \
+  keytype key; \
+  valtype value; \
+} type_prefix ## PAIR; \
+typedef struct { \
+  int keys;\
+  int slotmask; /*this is in the form of 2^n - 1 for a ht with n bits*/ \
+  type_prefix ## PAIR* hashtable; \
+  BITFIELD bf; \
+} type_prefix ## TABLE; \
+void prefix ## insert(type_prefix ## TABLE* qh, const keytype key, valtype value); \
+valtype prefix ## search(type_prefix ## TABLE* qh, const keytype key); \
+char prefix ## queryval(type_prefix ## TABLE* qh, const keytype key); \
+void prefix ## rmpaircfr(type_prefix ## TABLE* qh, const keytype key, void (*cfree)(valtype)); \
+void prefix ## rmpair(type_prefix ## TABLE* qh, const keytype key); \
+void prefix ## resize(type_prefix ## TABLE* qh); \
+char prefix ## htequal(type_prefix ## TABLE* ht1, type_prefix ## TABLE* ht2); \
+DYNARR* prefix ## htpairs(type_prefix ## TABLE* ht); \
+type_prefix ## TABLE* prefix ## htctor(void); \
+type_prefix ## TABLE* prefix ## chtctor(int size); \
+void prefix ## htdtor(type_prefix ## TABLE* ht); \
+void prefix ## chtdtor(type_prefix ## TABLE* ht, void (*freep)(valtype));
 
-void qinsert(QHASHTABLE* qh, const char* key, void* value);
-void* qsearch(QHASHTABLE* qh, const char* key);
-char qqueryval(QHASHTABLE* qh, const char* key);
-void qrmpaircfr(QHASHTABLE* qh, const char* key, void (*cfree)(void*));
-void qrmpair(QHASHTABLE* qh, const char* key);
+HASHPROTO(QHASH, q, char*, void*);
+HASHPROTO(IIHASH, ii, int, int);
+HASHPROTO(LVHASH, lv, long, void*);
+HASHPROTO(LFHASH, lf, long, double);
+
 void qinsertcfr(QHASHTABLE* qh, const char* key, void* value, void (*cfree)(void*));
-void qresize(QHASHTABLE* qh);
-char qhtequal(QHASHTABLE* ht1, QHASHTABLE* ht2);
-DYNARR* qhtpairs(QHASHTABLE* ht);
-QHASHTABLE* qhtctor(void);
-QHASHTABLE* qchtctor(int size);
-void qhtdtor(QHASHTABLE* ht);
-void qchtdtor(QHASHTABLE* ht, void (*freep)(void*));
-
-typedef struct ihp {
-  int key;
-  int value;
-} IIHASHPAIR;
-
-typedef struct {
-  int keys;
-  int slotmask; //this is in the form of 2^n - 1 for a ht with n bits
-  IIHASHPAIR* hashtable;
-  BITFIELD bf;
-} IIHASHTABLE;
-
-
-void iiinsert(IIHASHTABLE* qh, const int key, int value);
-int iisearch(IIHASHTABLE* qh, const int key);
-char iiqueryval(IIHASHTABLE* qh, const int key);
-void iirmpair(IIHASHTABLE* qh, const int key);
-void iiresize(IIHASHTABLE* qh);
-DYNARR* iihtpairs(IIHASHTABLE* ht);
-IIHASHTABLE* iihtctor(void);
-IIHASHTABLE* iichtctor(int size);
-void iihtdtor(IIHASHTABLE* ht);
 IIHASHTABLE* iiclone(IIHASHTABLE* ht);
-void iichtdtor(IIHASHTABLE* ht, void (*freep)(int));
-void iirmpaircfr(IIHASHTABLE* qh, const int key, void (*cfree)(int));
-char iihtequal(IIHASHTABLE* ht1, IIHASHTABLE* ht2);
-
-typedef struct lvhp {
-  long key;
-  void* value;
-} LVHASHPAIR;
-
-typedef struct {
-  int keys;
-  int slotmask; //this is in the form of 2^n - 1 for a ht with n bits
-  LVHASHPAIR* hashtable;
-  BITFIELD bf;
-} LVHASHTABLE;
-
-
-void lvinsert(LVHASHTABLE* qh, const long key, void* value);
-void* lvsearch(LVHASHTABLE* qh, const long key);
-char lvqueryval(LVHASHTABLE* qh, const long key);
-void lvrmpair(LVHASHTABLE* qh, const long key);
-void lvresize(LVHASHTABLE* qh);
-DYNARR* lvhtpairs(LVHASHTABLE* ht);
-LVHASHTABLE* lvhtctor(void);
-LVHASHTABLE* lvchtctor(int size);
-void lvhtdtor(LVHASHTABLE* ht);
-void lvchtdtor(LVHASHTABLE* ht, void (*freep)(void*));
 LVHASHTABLE* lvhtcclone(LVHASHTABLE* ht, void*(*clonefunc)(void*));
-void lvrmpaircfr(LVHASHTABLE* qh, const long key, void (*cfree)(void*));
-char lvhtequal(LVHASHTABLE* ht1, LVHASHTABLE* ht2);
+
 #endif

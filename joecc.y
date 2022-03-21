@@ -119,6 +119,7 @@ program:
       dadtor($1);
     }
   }
+| program ';' {}
 | program function {
     $$ = $1;
     char* cs = $2->name;

@@ -234,6 +234,7 @@ HASHIMPL(QHASH, q, qhash, !strcmp, free, strdup, char*, void*)
 #define COMPARATOR(i1, i2) ((i1) == (i2))
 HASHIMPL(IIHASH, ii, inthash, COMPARATOR, NOP, VERBATIM, int, int)
 HASHIMPL(LVHASH, lv, longhash, COMPARATOR, NOP, VERBATIM, long, void*)
+HASHIMPL(LFHASH, lf, longhash, COMPARATOR, NOP, VERBATIM, long, double)
 #undef COMPARATOR
 #undef VERBATIM
 #undef NOP
