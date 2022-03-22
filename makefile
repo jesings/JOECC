@@ -74,7 +74,7 @@ flamegraph:
 
 clean:
 	-rm *.o *.joecco *.joeccs
-	-rm ./dstest ./functions/*
+	-rm ./functions/*
 	-rm *.tab.*
 	-rm ./compiler
 	-rm precompilation*
