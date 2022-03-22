@@ -262,10 +262,10 @@ static int statemeant(STATEMENT* stmt) {
       dprintf(funcfile, "n%d -> n%d [color=green];\n", statenode, statemeant(stmt->thencond)); 
       break;
     case SWITCH: //not final, should be working better
-      for(int i = 0; i < stmt->labeltable->da->length; i++) {
+      for(int i = 0; i < stmt->switchinfo->caseorder->length; i++) {
         int scnn = nodenumber++;
-        unsigned long key = (unsigned long) stmt->labeltable->da->arr[i];
-        char* lname = fixedsearch(stmt->labeltable->ht, key);
+        unsigned long key = (unsigned long) stmt->switchinfo->caseorder->arr[i];
+        char* lname = lvsearch(stmt->switchinfo->cases, key);
         dprintf(funcfile, "n%d[label=\"%s\"];\n", scnn, lname);
         dprintf(funcfile, "n%d -> n%d [color=blue];\n", statenode, scnn); 
         dprintf(funcfile, "n%d -> n%ld;\n", scnn, key); 

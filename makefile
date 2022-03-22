@@ -20,8 +20,8 @@ perftest: CFLAGS = -O2 -D NODEBUG -g -march=native -D HEADERS_VERSION=\"$(VERSIO
 perftest: LEXFLAGS = -Cfer -p -p
 perftest: profile
 CFLAGS += -D HEADERS_VERSION=\"$(VERSION)\"
-compiler: joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o  dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o opt.o ssa.o reg.o codegen.o qhash.o
-	$(CC) joecc.tab.o lex.yy.o ifjoecc.tab.o hash.o fixedhash.o dynarr.o compintern.o compmain.o dynstr.o printree.o parallel.o treeduce.o 3ac.o opt.o ssa.o reg.o codegen.o qhash.o -o compiler $(LDFLAGS)
+compiler: joecc.tab.o lex.yy.o ifjoecc.tab.o dynarr.o compintern.o compmain.o dynstr.o printree.o treeduce.o 3ac.o opt.o ssa.o reg.o codegen.o qhash.o
+	$(CC) joecc.tab.o lex.yy.o ifjoecc.tab.o dynarr.o compintern.o compmain.o dynstr.o printree.o treeduce.o 3ac.o opt.o ssa.o reg.o codegen.o qhash.o -o compiler $(LDFLAGS)
 gotest: compiler
 	./compiler dynarr.c
 lex.yy.c: joecc.lex
@@ -30,10 +30,6 @@ joecc.tab.c: joecc.y
 	bison -d joecc.y
 ifjoecc.tab.c: ifjoecc.y
 	bison -d ifjoecc.y
-hash.o: hash.c
-	$(CC) hash.c -c $(CFLAGS)
-fixedhash.o: fixedhash.c
-	$(CC) fixedhash.c -c $(CFLAGS)
 dynarr.o: dynarr.c
 	$(CC) dynarr.c -c $(CFLAGS)
 dynstr.o: dynstr.c
@@ -50,8 +46,6 @@ compmain.o: compmain.c
 	$(CC) compmain.c -c $(CFLAGS)
 printree.o: printree.c
 	$(CC) printree.c -c $(CFLAGS)
-parallel.o: parallel.c
-	$(CC) parallel.c -c $(CFLAGS)
 3ac.o: 3ac.c
 	$(CC) 3ac.c -c $(CFLAGS)
 opt.o: opt.c
@@ -84,9 +78,3 @@ clean:
 	-rm *.tab.*
 	-rm ./compiler
 	-rm precompilation*
-
-dstest.o: dstest.c
-	$(CC) dstest.c -c $(CFLAGS)
-dstest: dynarr.o hash.o dstest.o
-	$(CC) dynarr.o hash.o dstest.o -o dstest
-	./dstest

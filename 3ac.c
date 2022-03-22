@@ -1219,21 +1219,21 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       breakblock = mpblk();
       FULLADDR fad = linearitree(cst->cond, prog);
       dapush(prog->breaklabels, breakblock);
-      DYNARR* cll = cst->labeltable->da;
-      HASHTABLE* htl = cst->labeltable->ht;
+      DYNARR* cll = cst->switchinfo->caseorder;
+      LVHASHTABLE* htl = cst->switchinfo->cases;
       for(int i = 0; i < cll->length; i++) {
         ADDRESS caseval, caselbl;
         caseval.intconst_64 = (long) daget(cll, i);
-        caselbl.labelname = fixedsearch(htl, caseval.intconst_64);
+        caselbl.labelname = lvsearch(htl, caseval.intconst_64);
         //maybe signed is unnecessary
         opn(prog, ct_3ac_op3(JEQ_I, fad.addr_type, fad.addr, ISCONST | ISSIGNED | 0x8, caseval,
                                      ISCONST | ISLABEL, caselbl));
         lbljmp(caselbl.labelname, prog->curblock, &prog->curblock->branchblock, prog);
         prog->curblock = NULL;
       }
-      if(cst->defaultlbl) {
+      if(cst->switchinfo->defaultval) {
         ctblk(prog);
-        lbljmp(cst->defaultlbl, prog->curblock, &prog->curblock->nextblock, prog);
+        lbljmp(cst->switchinfo->defaultval, prog->curblock, &prog->curblock->nextblock, prog);
       } else {
         topblock = dapeek(prog->allblocks);
         if(!topblock->nextblock) {

@@ -43,11 +43,6 @@ int yyset_debug(int flag, void*);
 void yylex_init_extra(void*, void**);
 void yylex_destroy(void*);
 
-static void freev(void* v) {
-  HASHPAIR* v2 = v;
-  rfreefunc(v2->value);
-}
-
 static char* explainjoke(char* filename, char lastchar) {
   char* lastind = strrchr(filename, '.');
   int len;
@@ -118,7 +113,7 @@ static void filecomp(char* filename) {
   DEBUG(pthread_mutex_lock(&printlock));
   puts("Functions defined:");
   for(int i = 0; i < funcky->length; i++) {
-    HASHPAIR* pairthere = daget(funcky, i);
+    QHASHPAIR* pairthere = daget(funcky, i);
     if(pairthere->value) {
       FUNC* f = pairthere->value;
       //treefunc(pairthere->value);
@@ -160,12 +155,12 @@ static void filecomp(char* filename) {
 
   DEBUG(pthread_mutex_unlock(&printlock));
   scopepop(lctx);
-  dadtorcfr(funcky, freev);
+  dadtor(funcky);
+  qchtdtor(lctx->funcs, (void(*)(void*)) &rfreefunc);
   dadtor(lctx->scopes);
   dadtorcfr(lctx->enstruct2free, (void(*)(void*)) wipestruct);
   dadtorcfr(lctx->externglobals, (void(*)(void*)) freeinit);
   dadtorcfr(lctx->globals, (void(*)(void*)) freeinit);
-  qhtdtor(lctx->funcs);
   free(lctx->ls);
   free(lctx);
   return;

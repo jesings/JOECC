@@ -625,9 +625,9 @@ void rfreestate(STATEMENT* s) {
     case CASE:
       break;
     case SWITCH:
-      fhtdtor(s->labeltable->ht);//labels already freed in 3ac
-      dadtor(s->labeltable->da);
-      free(s->labeltable);
+      lvhtdtor(s->switchinfo->cases);//labels already freed in 3ac
+      dadtor(s->switchinfo->caseorder);
+      free(s->switchinfo);
       //fall through
     case WHILEL: case DOWHILEL:
       rfreestate(s->body);
@@ -852,8 +852,7 @@ STATEMENT* mkswitchstmt(EXPRESSION* contingent, STATEMENT* bdy, SWITCHINFO* swi,
   retval->type = SWITCH;
   retval->cond = contingent;
   retval->body = bdy;
-  retval->labeltable = swi->cases;
-  retval->defaultlbl = swi->defaultval;
+  retval->switchinfo = swi;
   retval->location = loc;
   return retval;
 }
@@ -891,11 +890,12 @@ STATEMENT* mklblstmt(struct lexctx* lct, char* lblval, LOCTYPE loc) {
 }
 
 STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label, LOCTYPE loc) {
-  PARALLEL* pl = ((SWITCHINFO*) dapeek(lct->func->switchstack))->cases;
+  SWITCHINFO* swi =  dapeek(lct->func->switchstack);
   while(foldconst(casexpr)) ;
   switch(casexpr->type) {
     case INT: case UINT:
-      pfinsert(pl, casexpr->uintconst, label);
+      lvinsert(swi->cases, casexpr->uintconst, label);
+      dapush(swi->caseorder, (void*) casexpr->uintconst);
       free(casexpr);
       break;
     default:

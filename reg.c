@@ -261,7 +261,7 @@ void lastuse(PROGRAM* prog, DYNARR** chains, BITFIELD* varbs) {
     )
     DYNARR* da = lvhtpairs(reglasts);
     for(int i = 0; i < da->length; i++) {
-      HASHPAIR* hp = daget(da, i);
+      QHASHPAIR* hp = daget(da, i);
       *((ADDRTYPE*) hp->value) |= LASTUSE;
     }
     dadtor(da);

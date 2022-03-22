@@ -37,7 +37,6 @@
 %code requires{
   #include "compintern.h"
   #include "dynarr.h"
-  #include "parallel.h"
   #include "treeduce.h"
 
   #define aget(param, index) ((INITIALIZER*) (param)->arr[(index)])
@@ -68,7 +67,6 @@
   DECLARATION* declvariant;
   struct declarator_part* declpartvariant;
   FUNC* funcvariant;
-  PARALLEL* paravariant;
   void* vvar;
 }
 
@@ -916,7 +914,6 @@ statement:
 | "switch" '(' expression ')' switch_midrule compound_statement {
     SWITCHINFO* swi = dapop(ctx->func->switchstack);
     $$ = mkswitchstmt($3, $6, swi, @$);
-    free(swi);
     }
 | "while" '(' expression ')' statement {$$ = mklsstmt(WHILEL, $3, $5, @$);}
 | "do" statement "while" '(' expression ')' ';' {$$ = mklsstmt(DOWHILEL, $5, $2, @$);}
@@ -959,7 +956,8 @@ soiorno:
 switch_midrule:
   %empty {
     SWITCHINFO* swi = calloc(1, sizeof(SWITCHINFO));
-    swi->cases = paralector();
+    swi->cases = lvchtctor(32);
+    swi->caseorder = dactor(32);
     dapush(ctx->func->switchstack, swi);
     };
 

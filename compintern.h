@@ -8,11 +8,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include "bf.h"
-#include "hash.h"
 #include "qhash.h"
 #include "dynarr.h"
 #include "dynstr.h"
-#include "parallel.h"
 
 #define PPDEBUG 0
 
@@ -210,6 +208,15 @@ typedef struct {
 } DESIGNARR;
 
 /**
+ * Contains the info for constructing a switch statement--the names of each case label, and the name of the default case
+**/
+typedef struct {
+  LVHASHTABLE* cases;
+  DYNARR* caseorder;
+  char* defaultval;
+} SWITCHINFO;
+
+/**
  * Stores some "global" state information for the lexer, which we need in a struct for the reentrant parser.
  * argpp is the array of arguments passed to the current macro that is being called
  * locs is the stack of location information structs
@@ -290,8 +297,7 @@ typedef struct stmt {
     struct { //while or dowhile, switch
       EXPRESSION* cond;
       struct stmt* body;
-      PARALLEL* labeltable;
-      char* defaultlbl;
+      SWITCHINFO* switchinfo;
     };
     struct { //for
       EOI* forinit;
@@ -382,14 +388,6 @@ typedef struct {
   EXPRESSION* expr;
   LOCTYPE location;
 } INITIALIZER;
-
-/**
- * Contains the info for constructing a switch statement--the names of each case label, and the name of the default case
-**/
-typedef struct {
-  PARALLEL* cases;
-  char* defaultval;
-} SWITCHINFO;
 
 /**
  * Tags the type of a scope member
