@@ -238,8 +238,8 @@ typedef struct {
   DYNARR* allblocks;
   DYNARR* dynvars;
   DYNARR* dynchars;
-  HASHTABLE* labels;
-  HASHTABLE* unfilledlabels;
+  QHASHTABLE* labels;
+  QHASHTABLE* unfilledlabels;
   BBLOCK* curblock;
   BBLOCK* finalblock;
   int* tmpstore;

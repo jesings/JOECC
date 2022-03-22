@@ -1,7 +1,7 @@
 VERSION = $(shell gcc --version | grep "[0-9]\+\.[0-9]\+\.[0-9]\+" -o)
 CC = gcc
 LDFLAGS = -lpthread
-CFLAGS = -ggdb -g3 -Wall -Wextra -Wwrite-strings -Winit-self -Wcast-align -Wcast-qual -Wpointer-arith -Wstrict-aliasing -Wformat=2 -Wmissing-declarations -Wmissing-include-dirs -Wno-unused-parameter -Wuninitialized -Wold-style-definition -Wstrict-prototypes -Wmissing-prototypes -march=native -D USEGCC
+CFLAGS = -ggdb -g3 -gdwarf -Wall -Wextra -Wwrite-strings -Winit-self -Wcast-align -Wcast-qual -Wpointer-arith -Wstrict-aliasing -Wformat=2 -Wmissing-declarations -Wmissing-include-dirs -Wno-unused-parameter -Wuninitialized -Wold-style-definition -Wstrict-prototypes -Wmissing-prototypes -march=native -D USEGCC
 LEXFLAGS = -d -Cfe --yylineno
 compilerasan: CFLAGS += -fsanitize=address
 compilerasan: LDFLAGS += -fsanitize=address

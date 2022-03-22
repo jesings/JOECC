@@ -41,10 +41,10 @@ typedef struct {
 **/
 typedef struct {
   DYNARR* uniq_vals;//of GVNNUMS
-  HASHTABLE* intconsthash;
-  HASHTABLE* floatconsthash;
-  HASHTABLE* strconsthash;
-  BIGHASHTABLE* ophash;
+  LVHASHTABLE* intconsthash;
+  FVHASHTABLE* floatconsthash;
+  QHASHTABLE* strconsthash;
+  OPHASHTABLE* ophash;
 } EQONTAINER;
 
 void ssa(PROGRAM* prog);

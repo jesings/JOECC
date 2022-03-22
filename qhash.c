@@ -20,6 +20,25 @@ static unsigned long longhash(long data) {
   data = (data ^ (data >> 27)) * 0x94d049bb133111ebl;
   return data ^ (data >> 31);
 }
+static int memophash(const void* mem) {
+    const long* memlong = mem; //16 bytes which is the length of op, is 2 longs
+    return longhash(memlong[0]) + longhash(memlong[1]);
+}
+
+static unsigned long doublehash(double data) {
+    return longhash(*(long*)&data);
+}
+
+
+static char opmemcmp(const void* mem1, const void* mem2) {
+    return memcmp(mem1, mem2, 16);
+}
+static void* opmemdup(const void* oldmem) {
+    void* newmem = malloc(16);
+    memcpy(newmem, oldmem, 16);
+    return newmem;
+}
+
 
 #define HASHIMPL(type_prefix, prefix, hashfunc, cmpfunc, freefunc, dupfunc, keytype, valtype) \
 type_prefix ## TABLE* prefix ## htctor(void) { \
@@ -40,6 +59,7 @@ type_prefix ## TABLE* prefix ## chtctor(int size) { \
   return ht; \
 } \
 static void prefix ## resizeinsert(type_prefix ## TABLE* qh, keytype key, valtype value) { \
+  /*no need for any holes logic as nothing is ever removed before/in a resizeinsert*/ \
   int hashval; \
   int i; \
   do { \
@@ -82,30 +102,36 @@ void prefix ## resize(type_prefix ## TABLE* qh) { \
 void prefix ## insert(type_prefix ## TABLE* qh, const keytype key, valtype value) { \
   int hashval; \
   int i; \
-  do { \
+  int minempty = -1; \
+  while(1) { \
     hashval = hashfunc(key); \
     for(i = 0; i < PROBECOUNT; i++) { \
       int hashloc = ((hashval + i * i) & qh->slotmask); \
-      type_prefix ## PAIR *qhp = qh->hashtable + hashloc; \
       if(bfget(qh->bf, hashloc)) { \
+        type_prefix ## PAIR *qhp = qh->hashtable + hashloc; \
         if(cmpfunc(qhp->key, key)) { \
           qhp->value = value; \
           break; \
         } \
       } else { \
-        qhp->key = dupfunc(key); \
-        qhp->value = value; \
-        bfset(qh->bf, hashloc); \
-        break; \
+        if(minempty == -1) { \
+          minempty = hashloc; \
+        } \
       } \
     } \
     if(i == PROBECOUNT) { \
+      if(minempty != -1) { \
+        type_prefix ## PAIR *qhp = qh->hashtable + minempty; \
+        qhp->key = dupfunc(key); \
+        qhp->value = value; \
+        bfset(qh->bf, minempty); \
+        break; \
+      } \
       prefix ## resize(qh); \
     } else { \
       break; \
     } \
-  } while(1); \
- \
+  } \
   ++qh->keys; \
 } \
 valtype prefix ## search(type_prefix ## TABLE* qh, const keytype key) { \
@@ -225,49 +251,58 @@ char prefix ## htequal(type_prefix ## TABLE* ht1, type_prefix ## TABLE* ht2) { \
     } \
   } \
   return 1; \
+} \
+void prefix ## insertcfr(type_prefix ## TABLE* qh, const keytype key, valtype value, void (*cfree)(valtype)) { \
+  int hashval; \
+  int i; \
+  int minempty = -1; \
+  while(1) { \
+    hashval = hashfunc(key); \
+    for(i = 0; i < PROBECOUNT; i++) { \
+      int hashloc = ((hashval + i * i) & qh->slotmask); \
+      if(bfget(qh->bf, hashloc)) { \
+        type_prefix ## PAIR *qhp = qh->hashtable + hashloc; \
+        if(cmpfunc(qhp->key, key)) { \
+          cfree(qhp->value); \
+          qhp->value = value; \
+          break; \
+        } \
+      } else { \
+        if(minempty == -1) { \
+          minempty = hashloc; \
+        } \
+      } \
+    } \
+    if(i == PROBECOUNT) { \
+      if(minempty != -1) { \
+        type_prefix ## PAIR *qhp = qh->hashtable + minempty; \
+        qhp->key = dupfunc(key); \
+        qhp->value = value; \
+        bfset(qh->bf, minempty); \
+        break; \
+      } else { \
+        prefix ## resize(qh); \
+      } \
+    } else { \
+      break; \
+    } \
+  } \
+  ++qh->keys; \
 }
 
-
 HASHIMPL(QHASH, q, qhash, !strcmp, free, strdup, char*, void*)
+HASHIMPL(OPHASH, op, memophash, !opmemcmp, free, opmemdup, void*, void*)
 #define NOP(X) (void) X
 #define VERBATIM(X) X
 #define COMPARATOR(i1, i2) ((i1) == (i2))
 HASHIMPL(IIHASH, ii, inthash, COMPARATOR, NOP, VERBATIM, int, int)
 HASHIMPL(LVHASH, lv, longhash, COMPARATOR, NOP, VERBATIM, long, void*)
-HASHIMPL(LFHASH, lf, longhash, COMPARATOR, NOP, VERBATIM, long, double)
+HASHIMPL(FVHASH, fv, doublehash, COMPARATOR, NOP, VERBATIM, double, void*)
 #undef COMPARATOR
 #undef VERBATIM
 #undef NOP
 
-void qinsertcfr(QHASHTABLE* qh, const char* key, void* value, void (*cfree)(void*)) {
-  int hashval;
-  int i;
-  do {
-    hashval = qhash(key);
-    for(i = 0; i < PROBECOUNT; i++) {
-      int hashloc = ((hashval + i * i) & qh->slotmask);
-      if(!bfget(qh->bf, hashloc)) {
-        QHASHPAIR *qhp = qh->hashtable + hashloc;
-        qhp->key = strdup(key);
-        qhp->value = value;
-        bfset(qh->bf, hashloc);
-        break;
-      }
-      QHASHPAIR *qhp = qh->hashtable + hashloc;
-      if(!strcmp(qhp->key , key)) {
-        free((void*) qhp->value);
-        qhp->value = value;
-      }
-    }
-    if(i == PROBECOUNT) {
-      qresize(qh);
-    } else {
-      break;
-    }
-  } while(1);
 
-  ++qh->keys;
-}
 
 
 IIHASHTABLE* iiclone(IIHASHTABLE* ht) {

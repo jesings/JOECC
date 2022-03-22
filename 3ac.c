@@ -1068,11 +1068,11 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
 //Does necessary actions for jumping to a named label, this might involve
 //forward defining the label for later resolution or connecting 2 basic blocks
 static void lbljmp(char* lblname, BBLOCK* block, BBLOCK** loc, PROGRAM* prog) {
-  if(!(*loc = search(prog->labels, lblname))) {
+  if(!(*loc = qsearch(prog->labels, lblname))) {
     DYNARR* pushto,* inedges;
-    if(!(pushto = search(prog->unfilledlabels, lblname))) {
+    if(!(pushto = qsearch(prog->unfilledlabels, lblname))) {
       pushto = dactor(9);
-      insert(prog->unfilledlabels, lblname, pushto);
+      qinsert(prog->unfilledlabels, lblname, pushto);
       inedges = dactor(8);
       dapushc(pushto, inedges);
     } else {
@@ -1251,15 +1251,15 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
     case LABEL:
       prog->curblock = NULL;
       opn(prog, ct_3ac_op1(LBL_3, ISCONST | ISLABEL, (ADDRESS) strdup(cst->glabel)));
-      insert(prog->labels, cst->glabel, prog->curblock);
+      qinsert(prog->labels, cst->glabel, prog->curblock);
       DYNARR* toempty;
-      if((toempty = search(prog->unfilledlabels, cst->glabel))) {
+      if((toempty = qsearch(prog->unfilledlabels, cst->glabel))) {
         for(int i = 1; i < toempty->length; i++) {
           *(void**) daget(toempty, i) = prog->curblock;
         }
         prog->curblock->inedges = damerge(prog->curblock->inedges, daget(toempty, 0));
         dadtor(toempty);
-        rmpair(prog->unfilledlabels, cst->glabel);
+        qrmpair(prog->unfilledlabels, cst->glabel);
       }
       return;
     case CMPND:
@@ -1297,8 +1297,8 @@ PROGRAM* linefunc(FUNC* f) {
   prog->continuelabels = dactor(8);
   prog->dynvars = dactor(256);//handle this better
   prog->dynchars = dactor(256);//handle this better
-  prog->labels = htctor();
-  prog->unfilledlabels = htctor();
+  prog->labels = qhtctor();
+  prog->unfilledlabels = qchtctor(64);
   prog->allblocks = dactor(256);
   prog->finalblock = mpblk();
   prog->curblock = fctblk(prog);
@@ -1716,8 +1716,8 @@ void freeprog(PROGRAM* prog) {
   dadtor(prog->continuelabels);
   dadtorfr(prog->dynvars);
   dadtor(prog->dynchars);
-  htdtor(prog->labels);
+  qhtdtor(prog->labels);
   assert(prog->unfilledlabels->keys == 0);
-  htdtor(prog->unfilledlabels);
+  qhtdtor(prog->unfilledlabels);
   free(prog);
 }

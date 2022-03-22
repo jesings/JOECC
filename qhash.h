@@ -38,14 +38,15 @@ DYNARR* prefix ## htpairs(type_prefix ## TABLE* ht); \
 type_prefix ## TABLE* prefix ## htctor(void); \
 type_prefix ## TABLE* prefix ## chtctor(int size); \
 void prefix ## htdtor(type_prefix ## TABLE* ht); \
-void prefix ## chtdtor(type_prefix ## TABLE* ht, void (*freep)(valtype));
+void prefix ## chtdtor(type_prefix ## TABLE* ht, void (*freep)(valtype)); \
+void prefix ## insertcfr(type_prefix ## TABLE* qh, const keytype key, valtype value, void (*cfree)(valtype));
 
 HASHPROTO(QHASH, q, char*, void*);
+HASHPROTO(OPHASH, op, void*, void*);
 HASHPROTO(IIHASH, ii, int, int);
 HASHPROTO(LVHASH, lv, long, void*);
-HASHPROTO(LFHASH, lf, long, double);
+HASHPROTO(FVHASH, fv, double, void*);
 
-void qinsertcfr(QHASHTABLE* qh, const char* key, void* value, void (*cfree)(void*));
 IIHASHTABLE* iiclone(IIHASHTABLE* ht);
 LVHASHTABLE* lvhtcclone(LVHASHTABLE* ht, void*(*clonefunc)(void*));
 

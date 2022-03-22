@@ -566,10 +566,10 @@ static EQONTAINER* cteq(PROGRAM* prog) {
   EQONTAINER* retval = malloc(sizeof(EQONTAINER));
   retval->uniq_vals = dactor(1024);
   ctgvnnum(retval, NOCONST); //have a dummy value in the zero position
-  retval->intconsthash = htctor();
-  retval->floatconsthash = htctor();
-  retval->strconsthash = htctor();
-  retval->ophash = bightctor();
+  retval->intconsthash = lvhtctor();
+  retval->floatconsthash = fvchtctor(32);
+  retval->strconsthash = qhtctor();
+  retval->ophash = opchtctor(8192);
   return retval;
 }
 
@@ -580,10 +580,10 @@ static void freegvnnum(GVNNUM* eqnode) {
 
 static void freeq(EQONTAINER* eq) {
   dadtorcfr(eq->uniq_vals, (void(*)(void*)) freegvnnum);
-  fhtdtor(eq->intconsthash);
-  fhtdtor(eq->floatconsthash);
-  htdtor(eq->strconsthash);
-  bightdtor(eq->ophash);
+  lvhtdtor(eq->intconsthash);
+  fvhtdtor(eq->floatconsthash);
+  qhtdtor(eq->strconsthash);
+  ophtdtor(eq->ophash);
   free(eq);
 }
 
@@ -598,20 +598,28 @@ static GVNNUM* nodefromaddr(EQONTAINER* eq, ADDRTYPE adt, ADDRESS adr, PROGRAM* 
   GVNNUM* cn;
   if(adt & ISCONST) {
     if(adt & ISSTRCONST) {
-      cn = search(eq->strconsthash, adr.strconst);
+      cn = qsearch(eq->strconsthash, adr.strconst);
       if(!cn) {
         cn = ctgvnnum(eq, STRCONST);
         cn->strconst = adr.strconst;
-        insert(eq->strconsthash, adr.strconst, cn);
+        qinsert(eq->strconsthash, adr.strconst, cn);
       }
 
     } else {
-      char floatness = adt & ISFLOAT;
-      cn = fixedsearch(floatness ? eq->floatconsthash : eq->intconsthash, adr.intconst_64);
-      if(!cn) {
-        cn = ctgvnnum(eq, floatness ? FLOATCONST : INTCONST);
-        cn->intconst = adr.intconst_64;
-        fixedinsert(floatness ? eq->floatconsthash : eq->intconsthash, adr.intconst_64, cn);
+      if(adt & ISFLOAT) {
+          cn = fvsearch(eq->floatconsthash, adr.floatconst_64);
+          if(!cn) {
+              cn = ctgvnnum(eq, FLOATCONST);
+              cn->floatconst = adr.floatconst_64;
+              fvinsert(eq->floatconsthash, adr.floatconst_64, cn);
+          }
+      } else {
+          cn = lvsearch(eq->intconsthash, adr.intconst_64);
+          if(!cn) {
+              cn = ctgvnnum(eq, INTCONST);
+              cn->intconst = adr.intconst_64;;
+              lvinsert(eq->intconsthash, adr.intconst_64, cn);
+          }
       }
     }
   } else {
@@ -624,11 +632,11 @@ static GVNNUM* nodefromaddr(EQONTAINER* eq, ADDRTYPE adt, ADDRESS adr, PROGRAM* 
       if(adstore->addr_type & ADDRSVAR) return NULL;
     }
     VALUESTRUCT valst = {INIT_3, adr.regnum, 0, supersize(adt), 0};
-    cn = bigsearch(eq->ophash, (char*) &valst, sizeof(VALUESTRUCT));
+    cn = opsearch(eq->ophash, &valst);
     if(!cn) {
       cn = ctgvnnum(eq, NOCONST);
       VALUESTRUCT* exn = ctvalstruct(INIT_3, adr.regnum, 0, supersize(adt), 0);
-      bigfinsertfr(eq->ophash, (char*) valdup(exn), cn, sizeof(VALUESTRUCT));
+      opinsert(eq->ophash, exn, cn);
       dapush(cn->equivs, exn);
     }
   }
@@ -847,8 +855,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
       GVNNUM* val2;
       GVNNUM* destval = NULL;
       GVNNUM* otherval = NULL;
-      VALUESTRUCT* finalval;
-      BIGHASHTABLE* ophash = eq->ophash;
+      VALUESTRUCT finalval;
+      OPHASHTABLE* ophash = eq->ophash;
       switch(op->opcode) {
         OPS_NOVAR_3ac
           break; //nothing for nop, lbl, jmp, branching ops, or arg/ret
@@ -862,24 +870,29 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
             }
             if(val1 && val2) {
               VALUESTRUCT combind = {op->opcode, val1->index, val2->index, supersize(op->addr0_type), supersize(op->addr1_type)};
-              destval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
+              destval = opsearch(ophash, &combind);
               if(!destval) {
                 destval = ctgvnnum(eq, NOCONST);
                 dapush(destval->equivs, valdup(&combind));
-                bigfinsertfr(ophash, (char*) valdup(&combind), destval, sizeof(VALUESTRUCT));
+                opinsert(ophash, &combind, destval);
               }
             } else {
               destval = ctgvnnum(eq, NOCONST);
             }
             dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0));
-            bigfinsertfr(ophash, (char*) (finalval = ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0)), destval, sizeof(VALUESTRUCT));
+            finalval.o = INIT_3;
+            finalval.p1 = op->dest.regnum;
+            finalval.p2 = 0;
+            finalval.size1 = supersize(op->dest_type);
+            finalval.size2 = 0;
+            opinsert(ophash, &finalval, destval);
           } else if(val1 && val2) {
             VALUESTRUCT combind = {op->opcode, val1->index, val2->index, supersize(op->addr0_type), supersize(op->addr1_type)};
-            otherval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
+            otherval = opsearch(ophash, &combind);
             if(!otherval) {
               otherval = ctgvnnum(eq, NOCONST);
               dapush(otherval->equivs, valdup(&combind));
-              bigfinsertfr(ophash, (char*) valdup(&combind), otherval, sizeof(VALUESTRUCT));
+              opinsert(ophash, &combind, otherval);
             }
           }
           break;
@@ -893,28 +906,33 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
             }
             if(val1 && val2) {
               VALUESTRUCT combind = {op->opcode, val1->index, val2->index, supersize(op->addr0_type), supersize(op->addr1_type)};
-              destval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
+              destval = opsearch(ophash, &combind);
               if(!destval) {
                 destval = ctgvnnum(eq, NOCONST);
                 dapush(destval->equivs, valdup(&combind));
-                bigfinsertfr(ophash, (char*) valdup(&combind), destval, sizeof(VALUESTRUCT));
-                VALUESTRUCT* combind2 = ctvalstruct(op->opcode, val2->index, val1->index, supersize(op->addr1_type), supersize(op->addr0_type));
-                bigfinsertfr(ophash, (char*) combind2, destval, sizeof(VALUESTRUCT));
+                opinsert(ophash, &combind, destval);
+                VALUESTRUCT combind2 = {op->opcode, val2->index, val1->index, supersize(op->addr1_type), supersize(op->addr0_type)};
+                opinsert(ophash, &combind2, destval);
               }
             } else {
               destval = ctgvnnum(eq, NOCONST);
             }
             dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0));
-            bigfinsertfr(ophash, (char*) (finalval = ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0)), destval, sizeof(VALUESTRUCT));
+            finalval.o = INIT_3;
+            finalval.p1 = op->dest.regnum;
+            finalval.p2 = 0;
+            finalval.size1 = supersize(op->dest_type);
+            finalval.size2 = 0;
+            opinsert(ophash, &finalval, destval);
           } else if(val1 && val2) {
             VALUESTRUCT combind = {op->opcode, val1->index, val2->index, supersize(op->addr0_type), supersize(op->addr1_type)};
-            otherval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
+            otherval = opsearch(ophash, &combind);
             if(!otherval) {
               otherval = ctgvnnum(eq, NOCONST);
               dapush(otherval->equivs, valdup(&combind));
-              bigfinsertfr(ophash, (char*) valdup(&combind), otherval, sizeof(VALUESTRUCT));
-              VALUESTRUCT* combind2 = ctvalstruct(op->opcode, val2->index, val1->index, supersize(op->addr1_type), supersize(op->addr0_type));
-              bigfinsertfr(ophash, (char*) combind2, otherval, sizeof(VALUESTRUCT));
+              opinsert(ophash, &combind, otherval);
+              VALUESTRUCT combind2 = {op->opcode, val2->index, val1->index, supersize(op->addr1_type), supersize(op->addr0_type)};
+              opinsert(ophash, &combind2, otherval);
             }
           }
           break;
@@ -927,24 +945,29 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
             }
             if(val1) {
               VALUESTRUCT combind = {op->opcode, val1->index, 0, supersize(op->addr0_type), 0};
-              destval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
+              destval = opsearch(ophash, &combind);
               if(!destval) {
                 destval = ctgvnnum(eq, NOCONST);
                 dapush(destval->equivs, valdup(&combind));
-                bigfinsertfr(ophash, (char*) valdup(&combind), destval, sizeof(VALUESTRUCT));
+                opinsert(ophash, &combind, destval);
               }
             } else {
               destval = ctgvnnum(eq, NOCONST);
             }
             dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0));
-            bigfinsertfr(ophash, (char*) (finalval = ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0)), destval, sizeof(VALUESTRUCT));
+            finalval.o = INIT_3;
+            finalval.p1 = op->dest.regnum;
+            finalval.p2 = 0;
+            finalval.size1 = supersize(op->dest_type);
+            finalval.size2 = 0;
+            opinsert(ophash, &finalval, destval);
           } else if(val1) {
             VALUESTRUCT combind = {op->opcode, val1->index, 0, supersize(op->addr0_type), 0};
-            otherval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
+            otherval = opsearch(ophash, &combind);
             if(!otherval) {
               otherval = ctgvnnum(eq, NOCONST);
               dapush(otherval->equivs, valdup(&combind));
-              bigfinsertfr(ophash, (char*) valdup(&combind), otherval, sizeof(VALUESTRUCT));
+              opinsert(ophash, &combind, otherval);
             }
           }
           break;
@@ -962,7 +985,12 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
               destval = ctgvnnum(eq, NOCONST);
             }
             dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0));
-            bigfinsertfr(ophash, (char*) (finalval = ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0)), destval, sizeof(VALUESTRUCT));
+            finalval.o = INIT_3;
+            finalval.p1 = op->dest.regnum;
+            finalval.p2 = 0;
+            finalval.size1 = supersize(op->dest_type);
+            finalval.size2 = 0;
+            opinsert(ophash, &finalval, destval);
           }
           break;
         case ADDR_3:
@@ -972,39 +1000,44 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
             //addrsvar is permissible
             if(val1) {
               VALUESTRUCT combind = {op->opcode, val1->index, 0, supersize(op->addr0_type), 0};
-              destval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
+              destval = opsearch(ophash, &combind);
               if(!destval) {
                 destval = ctgvnnum(eq, NOCONST);
                 dapush(destval->equivs, valdup(&combind));
-                bigfinsertfr(ophash, (char*) valdup(&combind), destval, sizeof(VALUESTRUCT));
+                opinsert(ophash, &combind, destval);
               }
             } else {
               destval = ctgvnnum(eq, NOCONST);
             }
             dapush(destval->equivs, ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0));
-            bigfinsertfr(ophash, (char*) (finalval = ctvalstruct(INIT_3, op->dest.regnum, 0, supersize(op->dest_type), 0)), destval, sizeof(VALUESTRUCT));
+            finalval.o = INIT_3;
+            finalval.p1 = op->dest.regnum;
+            finalval.p2 = 0;
+            finalval.size1 = supersize(op->dest_type);
+            finalval.size2 = 0;
+            opinsert(ophash, &finalval, destval);
           } else if(val1) {
             VALUESTRUCT combind = {op->opcode, val1->index, 0, supersize(op->addr0_type), 0};
-            otherval = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
+            otherval = opsearch(ophash, &combind);
             if(!otherval) {
               otherval = ctgvnnum(eq, NOCONST);
               dapush(otherval->equivs, valdup(&combind));
-              bigfinsertfr(ophash, (char*) valdup(&combind), otherval, sizeof(VALUESTRUCT));
+              opinsert(ophash, &combind, otherval);
             }
           }
           break;
         case PHI:
           destval = nodefromaddr(eq, op->dest_type, op->dest, prog);
-          finalval = daget(destval->equivs, 0);
+          finalval = *(VALUESTRUCT*) daget(destval->equivs, 0);
           break;
         case DEALOC:
           {
             VALUESTRUCT combind = {DEALOC, op->addr0.ssaind, 0, 0, 0};
-            val1 = bigsearch(ophash, (char*) &combind, sizeof(VALUESTRUCT));
+            val1 = opsearch(ophash, &combind);
             if(!val1) {
               val2 = ctgvnnum(eq, NOCONST);
               dapush(val2->equivs, ctvalstruct(DEALOC, op->addr0.ssaind, 0, 0, 0));
-              bigfinsertfr(ophash, (char*) valdup(&combind), val2, sizeof(VALUESTRUCT));
+              opinsert(ophash, &combind, val2);
             }
           }
           break;
@@ -1017,11 +1050,11 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
           break;
         case CALL_3: //no pure functions for now
           destval = nodefromaddr(eq, op->dest_type, op->dest, prog);
-          if(destval) finalval = daget(destval->equivs, 0);
+          if(destval) finalval = *(VALUESTRUCT*) daget(destval->equivs, 0);
           break;
         OPS_1_ASSIGN_3ac
           destval = nodefromaddr(eq, op->dest_type, op->dest, prog);
-          if(destval) finalval = daget(destval->equivs, 0);
+          if(destval) finalval = *(VALUESTRUCT*) daget(destval->equivs, 0);
           break;
         case ASM:
           assert(0); //unimplemented
@@ -1037,7 +1070,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
             } else {
               valst.p1 = op->addr0.regnum;
               valst.size1 = supersize(op->addr0_type);
-              chosenval = bigsearch(eq->ophash, (char*) &valst, sizeof(VALUESTRUCT));
+              chosenval = opsearch(eq->ophash, &valst);
               if(chosenval) {
                 status++;
                 //slightly inefficient, could query and insert in same traversal
@@ -1055,7 +1088,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
             } else {
               valst.p1 = op->addr1.regnum;
               valst.size1 = supersize(op->addr1_type);
-              chosenval = bigsearch(eq->ophash, (char*) &valst, sizeof(VALUESTRUCT));
+              chosenval = opsearch(eq->ophash, &valst);
               if(chosenval) {
                 status++;
                 if(!lvqueryval(blk->exp_gen, chosenval->index)) {
@@ -1071,7 +1104,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
 
             if(!(n0 && n1)) break;
             VALUESTRUCT refex = {op->opcode, n0->index, n1->index, supersize(op->addr0_type), supersize(op->addr1_type)};
-            chosenval = bigsearch(eq->ophash, (char*) &refex, sizeof(VALUESTRUCT));
+            chosenval = opsearch(eq->ophash, &refex);
 
             if(chosenval && !lvqueryval(blk->exp_gen, chosenval->index)) {
               lvinsert(blk->exp_gen, chosenval->index, valdup(&refex));
@@ -1091,7 +1124,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
             } else {
               valst.p1 = op->addr0.regnum;
               valst.size1 = supersize(op->addr0_type);
-              chosenval = bigsearch(eq->ophash, (char*) &valst, sizeof(VALUESTRUCT));
+              chosenval = opsearch(eq->ophash, &valst);
               if(chosenval) {
                 status++;
                 if(!lvqueryval(blk->exp_gen, chosenval->index)) {
@@ -1105,7 +1138,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
             GVNNUM* n0 = nodefromaddr(eq, op->addr0_type & ~ISVAR, op->addr0, prog);
             if(!n0) break;
             VALUESTRUCT refex = {op->opcode, n0->index, 0, supersize(n0->index), 0};
-            chosenval = bigsearch(eq->ophash, (char*) &refex, sizeof(VALUESTRUCT));
+            chosenval = opsearch(eq->ophash, &refex);
             if(chosenval && !lvqueryval(blk->exp_gen, chosenval->index)) {
               lvinsert(blk->exp_gen, chosenval->index, valdup(&refex));
               dipush(blk->exp_gen_list, chosenval->index);
@@ -1138,7 +1171,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
             if(!(op->addr0_type & ISCONST)) {
               valst.p1 = op->addr1.regnum;
               valst.size1 = supersize(op->addr1_type);
-              chosenval = bigsearch(eq->ophash, (char*) &valst, sizeof(VALUESTRUCT));
+              chosenval = opsearch(eq->ophash, &valst);
               if(chosenval && !lvqueryval(blk->exp_gen, chosenval->index)) {
                 lvinsert(blk->exp_gen, chosenval->index, valdup(&valst));
                 dipush(blk->exp_gen_list, chosenval->index);
@@ -1151,7 +1184,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
             if(!(op->addr0_type & ISCONST)) {
               valst.p1 = op->addr0.regnum;
               valst.size1 = supersize(op->addr0_type);
-              chosenval = bigsearch(eq->ophash, (char*) &valst, sizeof(VALUESTRUCT));
+              chosenval = opsearch(eq->ophash, &valst);
               if(chosenval && !lvqueryval(blk->exp_gen, chosenval->index)) {
                 lvinsert(blk->exp_gen, chosenval->index, valdup(&valst));
                 dipush(blk->exp_gen_list, chosenval->index);
@@ -1165,8 +1198,8 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
           assert(0); //unimplemented
       }
       if(destval && !iiqueryval(blk->leader, destval->index)) {
-        assert(finalval->o == INIT_3);
-        iiinsert(blk->leader, destval->index, finalval->p1);
+        assert(finalval.o == INIT_3);
+        iiinsert(blk->leader, destval->index, finalval.p1);
       }
     } while(op != blk->lastop && (op = op->nextop));
   }
@@ -1273,10 +1306,10 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
           int valnum;
           if(translated) {
             if(translated->o != INIT_3) {
-              GVNNUM* destval = bigsearch(eq->ophash, (char*) translated, sizeof(VALUESTRUCT));
+              GVNNUM* destval = opsearch(eq->ophash, translated);
               if(!destval) {
                 destval = ctgvnnum(eq, NOCONST);
-                bigfinsertfr(eq->ophash, (char*) valdup(translated), destval, sizeof(VALUESTRUCT));
+                opinsert(eq->ophash, translated, destval);
                 dapush(destval->equivs, valdup(translated));
               }
               valnum = destval->index;
@@ -1351,14 +1384,14 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
         case DEALOC:
           continue;
         OPS_3_3ac
-          n3 = bigsearch(eq->ophash, (char*) exs, sizeof(VALUESTRUCT));
+          n3 = opsearch(eq->ophash, exs);
           if(!lvqueryval(blk->antileader_in, n3->index)) {
             lvinsert(blk->antileader_in, n3->index, valdup(exs));
             dipush(blk->antileader_in_list, n3->index);
           }
           break;
         OPS_2_3ac_MUT
-          n3 = bigsearch(eq->ophash, (char*) exs, sizeof(VALUESTRUCT));
+          n3 = opsearch(eq->ophash, exs);
           if(!lvqueryval(blk->antileader_in, n3->index)) {
             lvinsert(blk->antileader_in, n3->index, valdup(exs));
             dipush(blk->antileader_in_list, n3->index);
@@ -1379,7 +1412,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   if(blk->antileader_in->keys != 0) {
     for(int i = 0; i < blk->antileader_in_list->length; i++) {
       VALUESTRUCT* exs = lvsearch(blk->antileader_in, blk->antileader_in_list->arr[i]);
-      GVNNUM* n3 = bigsearch(eq->ophash, (char*) exs, sizeof(VALUESTRUCT));
+      GVNNUM* n3 = opsearch(eq->ophash, exs);
       switch(exs->o) {
         default:
           assert(0);
@@ -1653,8 +1686,9 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                 iiinsert(oblk->revtranslator, phi->dest.regnum, genop->dest.regnum);
                 iiinsert(oblk->translator, genop->dest.regnum, phi->dest.regnum);
                 iiinsert(oblk->leader, antiint, genop->dest.regnum);
-                bigfinsertfr(eq->ophash, (char*) ctvalstruct(INIT_3, genop->dest.regnum, 0, supersize(genop->dest_type), 0), antilnode, sizeof(VALUESTRUCT));
-                bigfinsertfr(eq->ophash, (char*) valdup(&genvalue), antilnode, sizeof(VALUESTRUCT));
+                VALUESTRUCT generated_value = {INIT_3, genop->dest.regnum, 0, supersize(genop->dest_type), 0};
+                opinsert(eq->ophash, &generated_value, antilnode);
+                opinsert(eq->ophash, &genvalue, antilnode);
               }
 
               //insert calculation of value here in predecessor block
@@ -1672,9 +1706,9 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
           changed = 1;
 
           recdomins(blk, antiint, phi->dest.regnum);
-
-          bigfinsertfr(eq->ophash, (char*) ctvalstruct(INIT_3, phi->dest.regnum, 0, supersize(phi->dest_type), 0), antilnode, sizeof(VALUESTRUCT));
-          dapush(antilnode->equivs, ctvalstruct(INIT_3, phi->dest.regnum, 0, supersize(phi->dest_type), 0));
+          VALUESTRUCT* joinedval = ctvalstruct(INIT_3, phi->dest.regnum, 0, supersize(phi->dest_type), 0);
+          opinsert(eq->ophash, joinedval, antilnode);
+          dapush(antilnode->equivs, joinedval);
 
           lvrmpaircfr(blk->antileader_in, antiint, free);
           blk->antileader_in_list->arr[antiind] = -1;
