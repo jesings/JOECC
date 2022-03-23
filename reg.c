@@ -68,7 +68,7 @@ static void bfdtreepopulate(BBLOCK* blk, BITFIELD bf) {
 static void updompop(BBLOCK* liveblk, BITFIELD domtreeset, BITFIELD topop) {
   //I THINK only one of these cases is necessary?
   if(!bfget(domtreeset, liveblk->domind)) return;
-  if(!bfget(topop, liveblk->domind)) return;
+  if(bfget(topop, liveblk->domind)) return;
   bfset(topop, liveblk->domind);
   for(int i = 0; i < liveblk->inedges->length; i++)
       updompop(daget(liveblk->inedges, i), domtreeset, topop);
@@ -79,7 +79,7 @@ static void liveness_populate(PROGRAM* prog, DYNARR**chains, BITFIELD* varbs) {
   //allocate a bitfield for each block which should be NULL to start with and will be filled lazily with the dominance tree of that block
   short pal = prog->allblocks->length;//short to suppress warning about maximum calloc size, force less than 65k blocks later?
   BITFIELD* domtreeset = calloc(sizeof(BITFIELD), pal);
-  for(unsigned int i = 0; i < prog->regcnt; i++) {
+  for(unsigned int i = 1; i < prog->regcnt; i++) {
     DYNARR* localchain = chains[i];
     if(!localchain) continue;
     BBLOCK* defblk = daget(localchain, 0);
@@ -204,8 +204,8 @@ void liveness(PROGRAM* prog) {
   lastuse(prog, usedefchains, varbs);
 
   BITFIELD adjmatrix = genadjmatrix(prog, usedefchains, varbs);
-  printvarbs(prog->regcnt, prog->allblocks->length, varbs);
-  printadjmatrix(prog->regcnt, adjmatrix);
+  //printvarbs(prog->regcnt, prog->allblocks->length, varbs);
+  //printadjmatrix(prog->regcnt, adjmatrix);
 
   for(unsigned int i = 0; i < prog->regcnt; i++) {
       assert(varbs[i] || !usedefchains[i]);
