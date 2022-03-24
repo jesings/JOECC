@@ -108,20 +108,17 @@ static void liveness_populate(PROGRAM* prog, DYNARR**chains, BITFIELD* varbs) {
   free(domtreeset);
 }
 
-static void adjmatrixset(BITFIELD bf, int dim, int reg1, int reg2) {
-  bfset(bf, reg1 * dim + reg2);
-  bfset(bf, reg2 * dim + reg1);
-}
-
 static BITFIELD genadjmatrix(PROGRAM* prog, DYNARR** chains, BITFIELD* varbs) {
-  BITFIELD adjmatrix = bfalloc(prog->regcnt * prog->regcnt);
+  BITFIELD adjmatrix = bfalloc(prog->regcnt * (prog->regcnt / 2 + 1) ); //not really a matrix! Just a lower triangle!
   //for now let's handle things inefficiently and say if they're live at all in the same block it counts
   for(int blockind = 0; blockind < prog->allblocks->length; blockind++) {
     for(unsigned int i = 0; i < prog->regcnt; i++) {
       if(varbs[i] && bfget(varbs[i], blockind)) {
+        int rowstart = (i) * (prog->regcnt * 2 - i - 1) / 2;
         for(unsigned int j = i + 1; j < prog->regcnt; j++) {
           if(varbs[j] && bfget(varbs[j], blockind)) {
-              adjmatrixset(adjmatrix, prog->regcnt, i, j);
+            //get row index into triangle
+            bfset(adjmatrix, rowstart + j - i - 1);
           }
         }
       }
