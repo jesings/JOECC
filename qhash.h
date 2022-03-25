@@ -17,7 +17,7 @@
 **/
 
 #define HASHPROTO(type_prefix, prefix, keytype, valtype) \
-typedef struct prefix ## hp { \
+typedef struct { \
   keytype key; \
   valtype value; \
 } type_prefix ## PAIR; \
@@ -49,5 +49,24 @@ HASHPROTO(FVHASH, fv, double, void*);
 
 IIHASHTABLE* iiclone(IIHASHTABLE* ht);
 LVHASHTABLE* lvhtcclone(LVHASHTABLE* ht, void*(*clonefunc)(void*));
+
+
+#define SETPROTO(type_prefix, prefix, keytype) \
+typedef struct { \
+    keytype key; \
+} type_prefix ## SETENT; \
+typedef struct { \
+    int keys; \
+    int slotmask; \
+    type_prefix ## SETENT* hashtable; \
+    BITFIELD bf; \
+} type_prefix ## SET; \
+type_prefix ## SET* prefix ## setctor(int size); \
+void prefix ## setdtor(type_prefix ## SET*); \
+char prefix ## setcontains(type_prefix ## SET*, const keytype key); \
+void prefix ## setinsert(type_prefix ## SET*, const keytype key); \
+void prefix ## setresize(type_prefix ## SET* qh);
+
+SETPROTO(IHASH, i, int);
 
 #endif

@@ -54,7 +54,7 @@ type_prefix ## TABLE* prefix ## chtctor(int size) { \
   assert((size & (size-1)) == 0); /*assert that the size is a power of 2*/ \
   ht->keys = 0; \
   ht->slotmask = size - 1; \
-  ht->hashtable = calloc(sizeof(type_prefix ## PAIR), size); \
+  ht->hashtable = malloc(sizeof(type_prefix ## PAIR) * size); \
   ht->bf = bfalloc(size); \
   return ht; \
 } \
@@ -85,7 +85,7 @@ void prefix ## resize(type_prefix ## TABLE* qh) { \
   type_prefix ## PAIR* oldhashtable = qh->hashtable; \
   int qoldsize = qh->slotmask; \
   int qoldkeys = qh->keys; \
-  type_prefix ## PAIR* newq = calloc((qh->slotmask + 1) << 1, sizeof(type_prefix ## PAIR)); \
+  type_prefix ## PAIR* newq = malloc(((qh->slotmask + 1) << 1) * sizeof(type_prefix ## PAIR)); \
   BITFIELD oldbf = qh->bf; \
   qh->slotmask = (qh->slotmask << 1) | 1; \
   qh->hashtable = newq; \
@@ -290,6 +290,116 @@ void prefix ## insertcfr(type_prefix ## TABLE* qh, const keytype key, valtype va
   ++qh->keys; \
 }
 
+#define SETIMPL(type_prefix, prefix, hashfunc, cmpfunc, freefunc, dupfunc, keytype) \
+type_prefix ## SET* prefix ## setctor(int size) { \
+  type_prefix ## SET* ht = malloc(sizeof(type_prefix ## SET)); \
+  assert((size & (size-1)) == 0); /*assert that the size is a power of 2*/ \
+  ht->keys = 0; \
+  ht->slotmask = size - 1; \
+  ht->hashtable = malloc(sizeof(type_prefix ## SETENT) * size); \
+  ht->bf = bfalloc(size); \
+  return ht; \
+} \
+static void prefix ## setresizeinsert(type_prefix ## SET* qh, keytype key) { \
+  /*no need for any holes logic as nothing is ever removed before/in a resizeinsert*/ \
+  int hashval; \
+  int i; \
+  do { \
+    hashval = hashfunc(key); \
+    for(i = 0; i < PROBECOUNT; i++) { \
+      int hashloc = ((hashval + i * i) & qh->slotmask); \
+      if(!bfget(qh->bf, hashloc)) { \
+        type_prefix ## SETENT *qhp = qh->hashtable + hashloc; \
+        qhp->key = (keytype) key; \
+        bfset(qh->bf, hashloc); \
+        break; \
+      } \
+    } \
+    if(i == PROBECOUNT) { \
+      prefix ## setresize(qh); \
+    } else { \
+      break; \
+    } \
+  } while(1); \
+} \
+void prefix ## setresize(type_prefix ## SET* qh) { \
+  type_prefix ## SETENT* oldhashtable = qh->hashtable; \
+  int qoldsize = qh->slotmask; \
+  int qoldkeys = qh->keys; \
+  type_prefix ## SETENT* newq = malloc(((qh->slotmask + 1) << 1) * sizeof(type_prefix ## SETENT)); \
+  BITFIELD oldbf = qh->bf; \
+  qh->slotmask = (qh->slotmask << 1) | 1; \
+  qh->hashtable = newq; \
+  qh->bf = bfalloc(qh->slotmask + 1); \
+  for(int i = 0; i <= qoldsize; i++) { \
+    if(bfget(oldbf, i)) { \
+      prefix ## setresizeinsert(qh, oldhashtable[i].key); /*if this needs to resize we've got no problem*/ \
+    } \
+  } \
+  free(oldbf); \
+  qh->keys = qoldkeys; \
+  free(oldhashtable); \
+} \
+void prefix ## setinsert(type_prefix ## SET* qh, const keytype key) { \
+  int hashval; \
+  int i; \
+  int minempty = -1; \
+  while(1) { \
+    hashval = hashfunc(key); \
+    for(i = 0; i < PROBECOUNT; i++) { \
+      int hashloc = ((hashval + i * i) & qh->slotmask); \
+      if(bfget(qh->bf, hashloc)) { \
+        type_prefix ## SETENT *qhp = qh->hashtable + hashloc; \
+        if(cmpfunc(qhp->key, key)) \
+          break; \
+      } else { \
+        if(minempty == -1) { \
+          minempty = hashloc; \
+        } \
+      } \
+    } \
+    if(i == PROBECOUNT) { \
+      if(minempty != -1) { \
+        type_prefix ## SETENT *qhp = qh->hashtable + minempty; \
+        qhp->key = dupfunc(key); \
+        bfset(qh->bf, minempty); \
+        break; \
+      } \
+      prefix ## setresize(qh); \
+    } else { \
+      break; \
+    } \
+  } \
+  ++qh->keys; \
+} \
+char prefix ## setcontains(type_prefix ## SET* qh, const keytype key) { \
+  int hashval = hashfunc(key); \
+  for(int i = 0; i < PROBECOUNT; i++) { \
+    int hashloc = (hashval + i * i) & qh->slotmask; \
+    if(bfget(qh->bf, hashloc)) { \
+      type_prefix ## SETENT *qhp = qh->hashtable + hashloc; \
+      if(cmpfunc(qhp->key, key)) { \
+        return 1; \
+      } \
+    } \
+  } \
+  return 0; \
+} \
+void prefix ## setdtor(type_prefix ## SET* ht) { \
+  if(ht->keys != 0) { \
+    for(int i = 0; i <= ht->slotmask; i++) { \
+      if(bfget(ht->bf, i)) { \
+        type_prefix ## SETENT *current = ht->hashtable + i; \
+        freefunc(current->key); \
+        if(! --ht->keys) break; \
+      } \
+    } \
+  } \
+  free(ht->bf); \
+  free(ht->hashtable); \
+  free(ht); \
+} \
+
 HASHIMPL(QHASH, q, qhash, !strcmp, free, strdup, char*, void*)
 HASHIMPL(OPHASH, op, memophash, !opmemcmp, free, opmemdup, void*, void*)
 #define NOP(X) (void) X
@@ -298,6 +408,7 @@ HASHIMPL(OPHASH, op, memophash, !opmemcmp, free, opmemdup, void*, void*)
 HASHIMPL(IIHASH, ii, inthash, COMPARATOR, NOP, VERBATIM, int, int)
 HASHIMPL(LVHASH, lv, longhash, COMPARATOR, NOP, VERBATIM, long, void*)
 HASHIMPL(FVHASH, fv, doublehash, COMPARATOR, NOP, VERBATIM, double, void*)
+SETIMPL(IHASH, i, inthash, COMPARATOR, NOP, VERBATIM, int)
 #undef COMPARATOR
 #undef VERBATIM
 #undef NOP
