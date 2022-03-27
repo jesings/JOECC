@@ -69,4 +69,5 @@ void prefix ## setresize(type_prefix ## SET* qh);
 
 SETPROTO(IHASH, i, int);
 
+DYNINT* isetpairs(IHASHSET* ihs);
 #endif

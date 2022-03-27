@@ -409,6 +409,7 @@ HASHIMPL(IIHASH, ii, inthash, COMPARATOR, NOP, VERBATIM, int, int)
 HASHIMPL(LVHASH, lv, longhash, COMPARATOR, NOP, VERBATIM, long, void*)
 HASHIMPL(FVHASH, fv, doublehash, COMPARATOR, NOP, VERBATIM, double, void*)
 SETIMPL(IHASH, i, inthash, COMPARATOR, NOP, VERBATIM, int)
+SETIMPL(LHASH, l, longhash, COMPARATOR, NOP, VERBATIM, long)
 #undef COMPARATOR
 #undef VERBATIM
 #undef NOP
@@ -439,6 +440,16 @@ LVHASHTABLE* lvhtcclone(LVHASHTABLE* ht, void*(*clonefunc)(void*)) {
       }
   }
   return newht;
+}
+
+DYNINT* isetpairs(IHASHSET* ihs) {
+  DYNINT* di = dinctor(ihs->keys);
+  for(int i = 0; i <= ihs->slotmask; i++) {
+    if(bfget(ihs->bf, i)) {
+      dipush(di, ihs->hashtable[i].key);
+    }
+  }
+  return di;
 }
 
 /*
