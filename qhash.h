@@ -65,9 +65,11 @@ type_prefix ## SET* prefix ## setctor(int size); \
 void prefix ## setdtor(type_prefix ## SET*); \
 char prefix ## setcontains(type_prefix ## SET*, const keytype key); \
 void prefix ## setinsert(type_prefix ## SET*, const keytype key); \
-void prefix ## setresize(type_prefix ## SET* qh);
+void prefix ## setresize(type_prefix ## SET* qh); \
+type_prefix ## SET* prefix ## setclone(type_prefix ## SET* qh);
 
 SETPROTO(IHASH, i, int);
+SETPROTO(LHASH, l, long);
 
 DYNINT* isetpairs(IHASHSET* ihs);
 #endif

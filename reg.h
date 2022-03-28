@@ -42,7 +42,7 @@ extern const char* freg128[];
 //Separate things for floats, ints
 void liveness(PROGRAM* prog);
 void printadjmatrix(int dim, BITFIELD adjmatrix);
-void printvarbs(int count, int dim, BITFIELD* varbs);
+void printvarbs(int count, int dim, IHASHSET** varbs);
 
 /**
  * Represents the information for a regnum from the 3ac for our graph coloring algorithm to make use of.

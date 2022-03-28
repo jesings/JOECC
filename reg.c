@@ -12,7 +12,7 @@ const char* freg128[] = {"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6",
 const char* freg256[] = {"ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7", "ymm8", "ymm9", "ymm10", "ymm11", "ymm12", "ymm13", "ymm14", "ymm15"};
 
 //Returns whether a reg is live at the very beginning of this block, before any operations have been executed yet
-static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, BITFIELD* varbs, int varnum) {
+static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, IHASHSET** varbs, int varnum) {
   //if it's not the definition block, it's live_in provided it's live
   //if it is the definition block, it's only live in if it's joined
   //this is not true for addrsvar, variables where we conservatively say it's live
@@ -22,7 +22,7 @@ static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, BITFIEL
     if(usedefchains[varnum]->length == -1) {
       for(int i = 0; i < numpred; i++) {
         BBLOCK* predblk = daget(blk->inedges, i);
-        if(bfget(varbs[varnum], predblk->domind))
+        if(isetcontains(varbs[varnum], predblk->domind))
           return 1;
       }
     } else {
@@ -43,16 +43,16 @@ static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, BITFIEL
     }
     return 0;
   }
-  return bfget(varbs[varnum], blk->domind);
+  return isetcontains(varbs[varnum], blk->domind);
 }
 
 //Returns whether a reg is live at the very end of a block, after all operations have been executed
-static char islive_out(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, BITFIELD* varbs, int varnum) {
+static char islive_out(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, IHASHSET** varbs, int varnum) {
   //here we simply check whether the block is live in any successor
-  return bfget(varbs[varnum], blk->nextblock->domind) || (blk->branchblock && bfget(varbs[varnum], blk->branchblock->domind));
+  return isetcontains(varbs[varnum], blk->nextblock->domind) || (blk->branchblock && isetcontains(varbs[varnum], blk->branchblock->domind));
 }
 
-void lastuse(PROGRAM* prog, DYNARR** chains, BITFIELD* varbs);
+void lastuse(PROGRAM* prog, DYNARR** chains, IHASHSET** varbs);
 
 //populate a bitfield of blocks dominated by a given block, to prevent recalculation and make liveness easier
 static void bfdtreepopulate(BBLOCK* blk, IHASHSET* bf) {
@@ -65,17 +65,17 @@ static void bfdtreepopulate(BBLOCK* blk, IHASHSET* bf) {
 //populate all blocks in the dominance subtree of the definition where the variable is live
 //In order to do this, for each of the uses in the use def chain, for each of the variables
 //find recursively all predecessor blocks that lie within the dominance tree
-static void updompop(BBLOCK* liveblk, IHASHSET* domtreeset, BITFIELD topop) {
+static void updompop(BBLOCK* liveblk, IHASHSET* domtreeset, IHASHSET* topop) {
   //I THINK only one of these cases is necessary?
   if(!isetcontains(domtreeset, liveblk->domind)) return;
-  if(bfget(topop, liveblk->domind)) return;
-  bfset(topop, liveblk->domind);
+  if(isetcontains(topop, liveblk->domind)) return;
+  isetinsert(topop, liveblk->domind);
   for(int i = 0; i < liveblk->inedges->length; i++)
       updompop(daget(liveblk->inedges, i), domtreeset, topop);
 }
 
 //Populates liveness information for a PROGRAM, determining which variables have livenesses that overlap and register allocating
-static void liveness_populate(PROGRAM* prog, DYNARR**chains, BITFIELD* varbs) {
+static void liveness_populate(PROGRAM* prog, DYNARR**chains, IHASHSET** varbs) {
   //allocate a bitfield for each block which should be NULL to start with and will be filled lazily with the dominance tree of that block
   short pal = prog->allblocks->length;//short to suppress warning about maximum calloc size, force less than 65k blocks later?
   IHASHSET** domtreeset = calloc(sizeof(IHASHSET*), pal);
@@ -84,21 +84,21 @@ static void liveness_populate(PROGRAM* prog, DYNARR**chains, BITFIELD* varbs) {
     if(!localchain) continue;
     BBLOCK* defblk = daget(localchain, 0);
     assert(defblk);
-    IHASHSET* dombf = domtreeset[defblk->domind];
-    if(dombf == NULL) {
-      dombf = domtreeset[defblk->domind] = isetctor(64);
-      bfdtreepopulate(defblk, dombf);
+    IHASHSET* domset = domtreeset[defblk->domind];
+    if(domset == NULL) {
+      domset = domtreeset[defblk->domind] = isetctor(64);
+      bfdtreepopulate(defblk, domset);
     }
     if(localchain->length != -1L) {
       //normal variable
-      BITFIELD varb = bfalloc(pal);
+      IHASHSET* varb = isetctor(64);
       for(int j = 1; j < localchain->length; j++) {
-        updompop(daget(localchain, j), dombf, varb);
+        updompop(daget(localchain, j), domset, varb);
       }
       varbs[i] = varb;
     } else {
       //addrsvar case! consider it live from every point in its dominator tree
-      varbs[i] = bfclone(dombf, pal);
+      varbs[i] = isetclone(domset);
     }
     //for both of these cases, maybe we want to exclude the defblk from the live_in set?
   }
@@ -108,15 +108,15 @@ static void liveness_populate(PROGRAM* prog, DYNARR**chains, BITFIELD* varbs) {
   free(domtreeset);
 }
 
-static BITFIELD genadjmatrix(PROGRAM* prog, DYNARR** chains, BITFIELD* varbs) {
+static BITFIELD genadjmatrix(PROGRAM* prog, DYNARR** chains, IHASHSET** varbs) {
   BITFIELD adjmatrix = bfalloc(prog->regcnt * (prog->regcnt / 2 + 1) ); //not really a matrix! Just a lower triangle!
   //for now let's handle things inefficiently and say if they're live at all in the same block it counts
   for(int blockind = 0; blockind < prog->allblocks->length; blockind++) {
     for(unsigned int i = 0; i < prog->regcnt; i++) {
-      if(varbs[i] && bfget(varbs[i], blockind)) {
+      if(varbs[i] && isetcontains(varbs[i], blockind)) {
         int rowstart = (i) * (prog->regcnt * 2 - i - 1) / 2;
         for(unsigned int j = i + 1; j < prog->regcnt; j++) {
-          if(varbs[j] && bfget(varbs[j], blockind)) {
+          if(varbs[j] && isetcontains(varbs[j], blockind)) {
             //get row index into triangle
             bfset(adjmatrix, rowstart + j - i - 1);
           }
@@ -195,7 +195,7 @@ void liveness(PROGRAM* prog) {
     )
   )
 
-  BITFIELD* varbs = calloc(sizeof(BITFIELD), prog->regcnt);
+  IHASHSET** varbs = calloc(sizeof(IHASHSET*), prog->regcnt);
   liveness_populate(prog, usedefchains, varbs);
 
   lastuse(prog, usedefchains, varbs);
@@ -205,8 +205,8 @@ void liveness(PROGRAM* prog) {
   //printadjmatrix(prog->regcnt, adjmatrix);
 
   for(unsigned int i = 0; i < prog->regcnt; i++) {
-      assert(varbs[i] || !usedefchains[i]);
-      free(varbs[i]);
+      if(varbs[i]) isetdtor(varbs[i]);
+      else assert(!usedefchains[i]);
   }
   //generate liveness matrix
   free(varbs);
@@ -237,7 +237,7 @@ void liveness(PROGRAM* prog) {
 //This excludes when the very next use would be the definition of that reg except for the case where that definition is a phi statement
 //which takes in the reg itself as the parameter for a reachable predecessor block.
 //These liveness checks should be pretty cheap as in most cases they are 1 or 2 lookups
-void lastuse(PROGRAM* prog, DYNARR** chains, BITFIELD* varbs) {
+void lastuse(PROGRAM* prog, DYNARR** chains, IHASHSET** varbs) {
   for(int blockind = 0; blockind < prog->allblocks->length; blockind++) {
     BBLOCK* blk = daget(prog->allblocks, blockind);
     LVHASHTABLE* reglasts = lvchtctor(32);
@@ -277,11 +277,11 @@ void regalloc(PROGRAM* prog, BITFIELD adjmatrix) {
   //how coalesce and retry?
 }
 
-void printvarbs(int count, int dim, BITFIELD* varbs) {
+void printvarbs(int count, int dim, IHASHSET** varbs) {
   for(int i = 0; i < count; i++) {
     if(varbs[i]) {
       for(int j = 0; j < dim; j++) {
-          putchar(bfget(varbs[i], j) ? 'o' : 'x');//i, j or j, i doesn't matter because it's symmetric
+          putchar(isetcontains(varbs[i], j) ? 'o' : 'x');//i, j or j, i doesn't matter because it's symmetric
       }
     }
     putchar('\n');

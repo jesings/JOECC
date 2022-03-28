@@ -399,6 +399,15 @@ void prefix ## setdtor(type_prefix ## SET* ht) { \
   free(ht->hashtable); \
   free(ht); \
 } \
+type_prefix ## SET* prefix ## setclone(type_prefix ## SET* qh) { \
+    type_prefix ## SET* retval = malloc(sizeof(type_prefix ## SET)); \
+    retval->keys = qh->keys; \
+    retval->slotmask = qh->slotmask; \
+    retval->hashtable = malloc((qh->slotmask + 1) * sizeof(type_prefix ## SETENT)); \
+    memcpy(retval->hashtable, qh->hashtable, (qh->slotmask + 1) * sizeof(type_prefix ## SETENT)); \
+    retval->bf = bfclone(qh->bf, qh->slotmask + 1); \
+    return retval; \
+}
 
 HASHIMPL(QHASH, q, qhash, !strcmp, free, strdup, char*, void*)
 HASHIMPL(OPHASH, op, memophash, !opmemcmp, free, opmemdup, void*, void*)
@@ -409,6 +418,7 @@ HASHIMPL(IIHASH, ii, inthash, COMPARATOR, NOP, VERBATIM, int, int)
 HASHIMPL(LVHASH, lv, longhash, COMPARATOR, NOP, VERBATIM, long, void*)
 HASHIMPL(FVHASH, fv, doublehash, COMPARATOR, NOP, VERBATIM, double, void*)
 SETIMPL(IHASH, i, inthash, COMPARATOR, NOP, VERBATIM, int)
+SETIMPL(LHASH, l, longhash, COMPARATOR, NOP, VERBATIM, long)
 #undef COMPARATOR
 #undef VERBATIM
 #undef NOP
