@@ -55,8 +55,8 @@ static char islive_out(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, BITFIE
 void lastuse(PROGRAM* prog, DYNARR** chains, BITFIELD* varbs);
 
 //populate a bitfield of blocks dominated by a given block, to prevent recalculation and make liveness easier
-static void bfdtreepopulate(BBLOCK* blk, BITFIELD bf) {
-    bfset(bf, blk->domind);
+static void bfdtreepopulate(BBLOCK* blk, IHASHSET* bf) {
+    isetinsert(bf, blk->domind);
     if(blk->idominates)
       for(int i = 0; i < blk->idominates->length; i++)
         bfdtreepopulate(daget(blk->idominates, i), bf);
@@ -65,9 +65,9 @@ static void bfdtreepopulate(BBLOCK* blk, BITFIELD bf) {
 //populate all blocks in the dominance subtree of the definition where the variable is live
 //In order to do this, for each of the uses in the use def chain, for each of the variables
 //find recursively all predecessor blocks that lie within the dominance tree
-static void updompop(BBLOCK* liveblk, BITFIELD domtreeset, BITFIELD topop) {
+static void updompop(BBLOCK* liveblk, IHASHSET* domtreeset, BITFIELD topop) {
   //I THINK only one of these cases is necessary?
-  if(!bfget(domtreeset, liveblk->domind)) return;
+  if(!isetcontains(domtreeset, liveblk->domind)) return;
   if(bfget(topop, liveblk->domind)) return;
   bfset(topop, liveblk->domind);
   for(int i = 0; i < liveblk->inedges->length; i++)
@@ -78,15 +78,15 @@ static void updompop(BBLOCK* liveblk, BITFIELD domtreeset, BITFIELD topop) {
 static void liveness_populate(PROGRAM* prog, DYNARR**chains, BITFIELD* varbs) {
   //allocate a bitfield for each block which should be NULL to start with and will be filled lazily with the dominance tree of that block
   short pal = prog->allblocks->length;//short to suppress warning about maximum calloc size, force less than 65k blocks later?
-  BITFIELD* domtreeset = calloc(sizeof(BITFIELD), pal);
+  IHASHSET** domtreeset = calloc(sizeof(IHASHSET*), pal);
   for(unsigned int i = 1; i < prog->regcnt; i++) {
     DYNARR* localchain = chains[i];
     if(!localchain) continue;
     BBLOCK* defblk = daget(localchain, 0);
     assert(defblk);
-    BITFIELD dombf = domtreeset[defblk->domind];
+    IHASHSET* dombf = domtreeset[defblk->domind];
     if(dombf == NULL) {
-      dombf = domtreeset[defblk->domind] = bfalloc(pal);
+      dombf = domtreeset[defblk->domind] = isetctor(64);
       bfdtreepopulate(defblk, dombf);
     }
     if(localchain->length != -1L) {
@@ -104,7 +104,7 @@ static void liveness_populate(PROGRAM* prog, DYNARR**chains, BITFIELD* varbs) {
   }
 
   for(int i = 0; i < pal; i++)
-      if(domtreeset[i]) free(domtreeset[i]);
+      if(domtreeset[i]) isetdtor(domtreeset[i]);
   free(domtreeset);
 }
 

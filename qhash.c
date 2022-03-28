@@ -307,7 +307,7 @@ static void prefix ## setresizeinsert(type_prefix ## SET* qh, keytype key) { \
   do { \
     hashval = hashfunc(key); \
     for(i = 0; i < PROBECOUNT; i++) { \
-      int hashloc = ((hashval + i * i) & qh->slotmask); \
+      int hashloc = (hashval + i * i) & qh->slotmask; \
       if(!bfget(qh->bf, hashloc)) { \
         type_prefix ## SETENT *qhp = qh->hashtable + hashloc; \
         qhp->key = (keytype) key; \
@@ -347,7 +347,7 @@ void prefix ## setinsert(type_prefix ## SET* qh, const keytype key) { \
   while(1) { \
     hashval = hashfunc(key); \
     for(i = 0; i < PROBECOUNT; i++) { \
-      int hashloc = ((hashval + i * i) & qh->slotmask); \
+      int hashloc = (hashval + i * i) & qh->slotmask; \
       if(bfget(qh->bf, hashloc)) { \
         type_prefix ## SETENT *qhp = qh->hashtable + hashloc; \
         if(cmpfunc(qhp->key, key)) \
@@ -409,7 +409,6 @@ HASHIMPL(IIHASH, ii, inthash, COMPARATOR, NOP, VERBATIM, int, int)
 HASHIMPL(LVHASH, lv, longhash, COMPARATOR, NOP, VERBATIM, long, void*)
 HASHIMPL(FVHASH, fv, doublehash, COMPARATOR, NOP, VERBATIM, double, void*)
 SETIMPL(IHASH, i, inthash, COMPARATOR, NOP, VERBATIM, int)
-SETIMPL(LHASH, l, longhash, COMPARATOR, NOP, VERBATIM, long)
 #undef COMPARATOR
 #undef VERBATIM
 #undef NOP
