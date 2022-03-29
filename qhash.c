@@ -451,7 +451,7 @@ LVHASHTABLE* lvhtcclone(LVHASHTABLE* ht, void*(*clonefunc)(void*)) {
   return newht;
 }
 
-DYNINT* isetpairs(IHASHSET* ihs) {
+DYNINT* isetelems(IHASHSET* ihs) {
   DYNINT* di = dinctor(ihs->keys);
   for(int i = 0; i <= ihs->slotmask; i++) {
     if(bfget(ihs->bf, i)) {

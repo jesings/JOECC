@@ -71,5 +71,5 @@ type_prefix ## SET* prefix ## setclone(type_prefix ## SET* qh);
 SETPROTO(IHASH, i, int);
 SETPROTO(LHASH, l, long);
 
-DYNINT* isetpairs(IHASHSET* ihs);
+DYNINT* isetelems(IHASHSET* ihs);
 #endif

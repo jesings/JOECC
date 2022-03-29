@@ -22,7 +22,7 @@ static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, IHASHSE
     if(usedefchains[varnum]->length == -1) {
       for(int i = 0; i < numpred; i++) {
         BBLOCK* predblk = daget(blk->inedges, i);
-        if(isetcontains(varbs[varnum], predblk->domind))
+        if(isetcontains(varbs[predblk->domind], varnum))
           return 1;
       }
     } else {
@@ -43,13 +43,13 @@ static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, IHASHSE
     }
     return 0;
   }
-  return isetcontains(varbs[varnum], blk->domind);
+  return isetcontains(varbs[blk->domind], varnum);
 }
 
 //Returns whether a reg is live at the very end of a block, after all operations have been executed
 static char islive_out(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, IHASHSET** varbs, int varnum) {
   //here we simply check whether the block is live in any successor
-  return isetcontains(varbs[varnum], blk->nextblock->domind) || (blk->branchblock && isetcontains(varbs[varnum], blk->branchblock->domind));
+  return (varbs[blk->nextblock->domind] && isetcontains(varbs[blk->nextblock->domind], varnum)) || (blk->branchblock && (varbs[blk->branchblock->domind] && isetcontains(varbs[blk->branchblock->domind], varnum)));
 }
 
 void lastuse(PROGRAM* prog, DYNARR** chains, IHASHSET** varbs);
@@ -65,13 +65,15 @@ static void bfdtreepopulate(BBLOCK* blk, IHASHSET* bf) {
 //populate all blocks in the dominance subtree of the definition where the variable is live
 //In order to do this, for each of the uses in the use def chain, for each of the variables
 //find recursively all predecessor blocks that lie within the dominance tree
-static void updompop(BBLOCK* liveblk, IHASHSET* domtreeset, IHASHSET* topop) {
+static void updompop(BBLOCK* liveblk, IHASHSET* domtreeset, IHASHSET** topop, int regnum) {
   //I THINK only one of these cases is necessary?
   if(!isetcontains(domtreeset, liveblk->domind)) return;
-  if(isetcontains(topop, liveblk->domind)) return;
-  isetinsert(topop, liveblk->domind);
+  IHASHSET* curset = topop[liveblk->domind];
+  if(!curset) curset = topop[liveblk->domind] = isetctor(64);
+  if(isetcontains(curset, regnum)) return;
+  isetinsert(curset, regnum);
   for(int i = 0; i < liveblk->inedges->length; i++)
-      updompop(daget(liveblk->inedges, i), domtreeset, topop);
+      updompop(daget(liveblk->inedges, i), domtreeset, topop, regnum);
 }
 
 //Populates liveness information for a PROGRAM, determining which variables have livenesses that overlap and register allocating
@@ -91,14 +93,18 @@ static void liveness_populate(PROGRAM* prog, DYNARR**chains, IHASHSET** varbs) {
     }
     if(localchain->length != -1L) {
       //normal variable
-      IHASHSET* varb = isetctor(64);
       for(int j = 1; j < localchain->length; j++) {
-        updompop(daget(localchain, j), domset, varb);
+        updompop(daget(localchain, j), domset, varbs, i);
       }
-      varbs[i] = varb;
     } else {
       //addrsvar case! consider it live from every point in its dominator tree
-      varbs[i] = isetclone(domset);
+      DYNINT* blocklives = isetelems(domset);
+      for(int j = 0; j < blocklives->length; j++) {
+        IHASHSET* ih = varbs[blocklives->arr[j]];
+        if(!ih) ih = varbs[blocklives->arr[j]] = isetctor(64);
+        isetinsert(ih, i);
+      }
+      didtor(blocklives);
     }
     //for both of these cases, maybe we want to exclude the defblk from the live_in set?
   }
@@ -109,21 +115,23 @@ static void liveness_populate(PROGRAM* prog, DYNARR**chains, IHASHSET** varbs) {
 }
 
 static BITFIELD genadjmatrix(PROGRAM* prog, DYNARR** chains, IHASHSET** varbs) {
-  BITFIELD adjmatrix = bfalloc(prog->regcnt * (prog->regcnt / 2 + 1) ); //not really a matrix! Just a lower triangle!
+  BITFIELD adjmatrix = bfalloc(prog->regcnt * prog->regcnt ); //not really a matrix! Just a lower triangle!
   //for now let's handle things inefficiently and say if they're live at all in the same block it counts
   for(int blockind = 0; blockind < prog->allblocks->length; blockind++) {
-    for(unsigned int i = 0; i < prog->regcnt; i++) {
-      if(varbs[i] && isetcontains(varbs[i], blockind)) {
-        int rowstart = (i) * (prog->regcnt * 2 - i - 1) / 2;
-        for(unsigned int j = i + 1; j < prog->regcnt; j++) {
-          if(varbs[j] && isetcontains(varbs[j], blockind)) {
-            //get row index into triangle
-            bfset(adjmatrix, rowstart + j - i - 1);
-          }
+    if(varbs[blockind]) {
+      DYNINT* blockers = isetelems(varbs[blockind]);
+      for(int iind = 0; iind < blockers->length; iind++) {
+        int i = blockers->arr[iind]; //this is a block where it is live
+        for(int jind = iind+1; jind < blockers->length; jind++) {
+          int j = blockers->arr[jind];
+          bfset(adjmatrix, prog->regcnt * i + j);
+          bfset(adjmatrix, prog->regcnt * j + i);
         }
       }
+      didtor(blockers);
     }
   }
+  
   return adjmatrix;
 }
 
@@ -195,7 +203,7 @@ void liveness(PROGRAM* prog) {
     )
   )
 
-  IHASHSET** varbs = calloc(sizeof(IHASHSET*), prog->regcnt);
+  IHASHSET** varbs = calloc(sizeof(IHASHSET*), prog->allblocks->length);
   liveness_populate(prog, usedefchains, varbs);
 
   lastuse(prog, usedefchains, varbs);
@@ -204,9 +212,9 @@ void liveness(PROGRAM* prog) {
   //printvarbs(prog->regcnt, prog->allblocks->length, varbs);
   //printadjmatrix(prog->regcnt, adjmatrix);
 
-  for(unsigned int i = 0; i < prog->regcnt; i++) {
-      if(varbs[i]) isetdtor(varbs[i]);
-      else assert(!usedefchains[i]);
+  for(int i = 0; i < prog->allblocks->length; i++) {
+      if(varbs[i])
+          isetdtor(varbs[i]);
   }
   //generate liveness matrix
   free(varbs);
@@ -277,16 +285,6 @@ void regalloc(PROGRAM* prog, BITFIELD adjmatrix) {
   //how coalesce and retry?
 }
 
-void printvarbs(int count, int dim, IHASHSET** varbs) {
-  for(int i = 0; i < count; i++) {
-    if(varbs[i]) {
-      for(int j = 0; j < dim; j++) {
-          putchar(isetcontains(varbs[i], j) ? 'o' : 'x');//i, j or j, i doesn't matter because it's symmetric
-      }
-    }
-    putchar('\n');
-  }
-}
 void printadjmatrix(int dim, BITFIELD adjmatrix) {
   for(int i = 0; i < dim; i++) {
     for(int j = 0; j < dim; j++) {
