@@ -51,11 +51,12 @@ IDTYPE* fcid2(IDTYPE* idt) {
   return idr;
 }
 
-static EXPRESSION* allocexpr(EXPRTYPE ext, IDTYPE* rettype, LOCTYPE loc) {
+static EXPRESSION* allocexpr(EXPRTYPE ext, IDTYPE* rettype, int locstartind, int locendind) {
     EXPRESSION* retval = malloc(sizeof(EXPRESSION));
     retval->type = ext;
     retval->rettype = rettype;
-    retval->location = loc;
+    retval->locstartind = locstartind;
+    retval->locendind = locendind;
     return retval;
 }
 
@@ -106,32 +107,32 @@ DYNARR* ptrdaclone(DYNARR* opointerstack) {
   return npointerstack;
 }
 
-EXPRESSION* ct_nop_expr(LOCTYPE loc) {
-  EXPRESSION* retval = allocexpr(NOP, NULL, loc);
+EXPRESSION* ct_nop_expr(int locstartind, int locendind) {
+  EXPRESSION* retval = allocexpr(NOP, NULL, locstartind, locendind);
   return retval;
 }
 
-EXPRESSION* ct_unary_expr(EXPRTYPE t, EXPRESSION* param, LOCTYPE loc) {
-  EXPRESSION* retval = allocexpr(t, NULL, loc);
+EXPRESSION* ct_unary_expr(EXPRTYPE t, EXPRESSION* param, int locstartind, int locendind) {
+  EXPRESSION* retval = allocexpr(t, NULL, locstartind, locendind);
   retval->params = dactor(1);
   retval->params->arr[0] = param;
   retval->params->length = 1;
   return retval;
 }
 
-EXPRESSION* ct_sztype(IDTYPE* whichtype, LOCTYPE loc) {
+EXPRESSION* ct_sztype(IDTYPE* whichtype, int locstartind, int locendind) {
   if(!(whichtype->tb & (STRUCTVAL | ENUMVAL | UNIONVAL))) {
-    EXPRESSION* ic = ct_intconst_expr(whichtype->tb & 0xf, loc);
+    EXPRESSION* ic = ct_intconst_expr(whichtype->tb & 0xf, locstartind, locendind);
     free(whichtype);
     return ic;
   }
-  EXPRESSION* retval = allocexpr(SZOF, NULL, loc);
+  EXPRESSION* retval = allocexpr(SZOF, NULL, locstartind, locendind);
   retval->vartype = whichtype;
   return retval;
 }
 
-EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2, LOCTYPE loc) {
-  EXPRESSION* retval = allocexpr(t, NULL, loc);
+EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2) {
+  EXPRESSION* retval = allocexpr(t, NULL, param1->locstartind, param2->locendind);
   retval->params = dactor(2);
   retval->params->arr[0] = param1;
   retval->params->arr[1] = param2;
@@ -139,8 +140,8 @@ EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2, L
   return retval;
 }
 
-EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr, LOCTYPE loc) {
-  EXPRESSION* retval = allocexpr(CAST, type, loc);
+EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr, int locstartind) {
+  EXPRESSION* retval = allocexpr(CAST, type, locstartind, expr->locendind);
   retval->params = dactor(1);
   retval->params->arr[0] = expr;
   retval->params->length = 1;
@@ -148,8 +149,8 @@ EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr, LOCTYPE loc) {
   return retval;
 }
 
-EXPRESSION* ct_ternary_expr(EXPRESSION* param1, EXPRESSION* param2, EXPRESSION* param3, LOCTYPE loc) {
-  EXPRESSION* retval = allocexpr(TERNARY, NULL, loc);
+EXPRESSION* ct_ternary_expr(EXPRESSION* param1, EXPRESSION* param2, EXPRESSION* param3) {
+  EXPRESSION* retval = allocexpr(TERNARY, NULL, param1->locstartind, param3->locendind);
   retval->params = dactor(3);
   retval->params->arr[0] = param1;
   retval->params->arr[1] = param2;
@@ -158,10 +159,11 @@ EXPRESSION* ct_ternary_expr(EXPRESSION* param1, EXPRESSION* param2, EXPRESSION* 
   return retval;
 }
 
-EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params, LOCTYPE loc) {
+EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params, int locendind) {
   EXPRESSION* retval = malloc(sizeof(EXPRESSION));
   retval->type = FCALL;
-  retval->location = loc;
+  retval->locstartind = func->locstartind;
+  retval->locendind = locendind;
 
   assert(func->type & IDENT);
   DYNARR* ptrs = func->id->type->pointerstack;
@@ -185,8 +187,8 @@ EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params, LOCTYPE loc) {
   return retval;
 }
 
-EXPRESSION* ct_strconst_expr(const char* str, LOCTYPE loc) {
-  EXPRESSION* retval = allocexpr(STRING, malloc(sizeof(IDTYPE)), loc);
+EXPRESSION* ct_strconst_expr(const char* str, int locstartind, int locendind) {
+  EXPRESSION* retval = allocexpr(STRING, malloc(sizeof(IDTYPE)), locstartind, locendind);
   retval->rettype->pointerstack = dactor(1);
   dapushc(retval->rettype->pointerstack, mkdeclpart(POINTERSPEC, 0));
   retval->rettype->tb = 1 | UNSIGNEDNUM;
@@ -194,40 +196,40 @@ EXPRESSION* ct_strconst_expr(const char* str, LOCTYPE loc) {
   return retval;
 }
 
-EXPRESSION* ct_intconst_expr(long num, LOCTYPE loc) {
-  EXPRESSION* retval = allocexpr(INT, NULL, loc);
+EXPRESSION* ct_intconst_expr(long num, int locstartind, int locendind) {
+  EXPRESSION* retval = allocexpr(INT, NULL, locstartind, locendind);
   retval->intconst = num;
   return retval;
 }
 
-EXPRESSION* ct_uintconst_expr(unsigned long num, LOCTYPE loc) {
-  EXPRESSION* retval = allocexpr(UINT, NULL, loc);
+EXPRESSION* ct_uintconst_expr(unsigned long num, int locstartind, int locendind) {
+  EXPRESSION* retval = allocexpr(UINT, NULL, locstartind, locendind);
   retval->uintconst = num;
   return retval;
 }
 
-EXPRESSION* ct_floatconst_expr(double num, LOCTYPE loc) {
-  EXPRESSION* retval = allocexpr(FLOAT, malloc(sizeof(IDTYPE)), loc);
+EXPRESSION* ct_floatconst_expr(double num, int locstartind, int locendind) {
+  EXPRESSION* retval = allocexpr(FLOAT, malloc(sizeof(IDTYPE)), locstartind, locendind);
   retval->rettype->pointerstack = NULL;
   retval->rettype->tb = 8 | FLOATNUM;
   retval->floatconst = num;
   return retval;
 }
 
-EXPRESSION* ct_array_lit(DYNARR* da, LOCTYPE loc) {
-  EXPRESSION* retval = allocexpr(ARRAY_LIT, NULL, loc);
+EXPRESSION* ct_array_lit(DYNARR* da, int locstartind, int locendind) {
+  EXPRESSION* retval = allocexpr(ARRAY_LIT, NULL, locstartind, locendind);
   retval->params = da;
   return retval;
 }
 
-EXPRESSION* ct_member_expr(char* member, LOCTYPE loc) {
-  EXPRESSION* retval = allocexpr(MEMBER, NULL, loc);
+EXPRESSION* ct_member_expr(char* member, int locstartind, int locendind) {
+  EXPRESSION* retval = allocexpr(MEMBER, NULL, locstartind, locendind);
   retval->member = member;
   return retval;
 }
 
-EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident, LOCTYPE loc) {
-  EXPRESSION* retval = allocexpr(IDENT, NULL, loc);
+EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident, int locstartind, int locendind) {
+  EXPRESSION* retval = allocexpr(IDENT, NULL, locstartind, locendind);
   IDENTIFIERINFO* ids = scopesearch(lct, M_VARIABLE, ident);
   if(!ids) {
     assert(lct->func); //error out, this may be not to spec
@@ -281,7 +283,7 @@ char typecompat(IDTYPE* t1, IDTYPE* t2) {
 
 //TODO: handle NULLs default
 //Process array initializer expression, figuring out length and populating types
-int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, LOCTYPE loc) {
+int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr) {
   struct declarator_part* tdclp = dapeek(arr_memtype->pointerstack);
   tdclp->arrlen = 0;
   arr_memtype->pointerstack->length -= 1;
@@ -297,13 +299,13 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, LOCTYPE loc) {
         int i;
         for(i = 0; i < arr_expr->params->length; i++) {
           EXPRESSION* arrv = daget(arr_expr->params, i);
-          process_struct_lit(arr_memtype, arrv, loc);
+          process_struct_lit(arr_memtype, arrv);
           arrv->rettype = fcid2(arr_memtype);
           tdclp->arrlen += szstep;
         }
         for(; i < tdclp->arrmaxind; i++) {
-          EXPRESSION* tofill = ct_array_lit(dactor(8), loc);
-          process_struct_lit(arr_memtype, tofill, loc);
+          EXPRESSION* tofill = ct_array_lit(dactor(8), arr_expr->locstartind, arr_expr->locendind);
+          process_struct_lit(arr_memtype, tofill);
           tofill->rettype = fcid2(arr_memtype);
           dapush(arr_expr->params, tofill);
           tdclp->arrlen += szstep;
@@ -315,19 +317,19 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, LOCTYPE loc) {
           if(!arrv) {
             if(ispointer(arr_memtype)) {
               if(((struct declarator_part*) dapeek(arr_memtype->pointerstack))->type == ARRAYSPEC) {
-                EXPRESSION* tofill = ct_array_lit(dactor(8), loc);
-                process_array_lit(arr_memtype, tofill, loc);
+                EXPRESSION* tofill = ct_array_lit(dactor(8), arr_expr->locstartind, arr_expr->locendind);
+                process_array_lit(arr_memtype, tofill);
                 tofill->rettype = fcid2(arr_memtype);
                 arr_expr->params->arr[i] = tofill;
               } else {
-                arr_expr->params->arr[i] = ct_uintconst_expr(0, loc);
+                arr_expr->params->arr[i] = ct_uintconst_expr(0, arr_expr->locstartind, arr_expr->locendind);
               }
             } else if(arr_memtype->tb & FLOATNUM) {
-              arr_expr->params->arr[i] = ct_floatconst_expr(0.0, loc);
+              arr_expr->params->arr[i] = ct_floatconst_expr(0.0, arr_expr->locstartind, arr_expr->locendind);
             } else if(arr_memtype->tb & UNSIGNEDNUM) {
-              arr_expr->params->arr[i] = ct_uintconst_expr(0, loc);
+              arr_expr->params->arr[i] = ct_uintconst_expr(0, arr_expr->locstartind, arr_expr->locendind);
             } else {
-              arr_expr->params->arr[i] = ct_intconst_expr(0, loc);
+              arr_expr->params->arr[i] = ct_intconst_expr(0, arr_expr->locstartind, arr_expr->locendind);
             }
           } else {
             IDTYPE arrt = typex(arrv);
@@ -338,19 +340,19 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, LOCTYPE loc) {
         for(; i < tdclp->arrmaxind; i++) {
           if(ispointer(arr_memtype)) {
             if(((struct declarator_part*) dapeek(arr_memtype->pointerstack))->type == ARRAYSPEC) {
-              EXPRESSION* tofill = ct_array_lit(dactor(8), loc);
-              process_array_lit(arr_memtype, tofill, loc);
+              EXPRESSION* tofill = ct_array_lit(dactor(8), arr_expr->locstartind, arr_expr->locendind);
+              process_array_lit(arr_memtype, tofill);
               tofill->rettype = fcid2(arr_memtype);
               dapush(arr_expr->params, tofill);
             } else {
-              dapush(arr_expr->params, ct_uintconst_expr(0, loc));
+              dapush(arr_expr->params, ct_uintconst_expr(0, arr_expr->locstartind, arr_expr->locendind));
             }
           } else if(arr_memtype->tb & FLOATNUM) {
-            dapush(arr_expr->params, ct_floatconst_expr(0.0, loc));
+            dapush(arr_expr->params, ct_floatconst_expr(0.0, arr_expr->locstartind, arr_expr->locendind));
           } else if(arr_memtype->tb & UNSIGNEDNUM) {
-            dapush(arr_expr->params, ct_uintconst_expr(0, loc));
+            dapush(arr_expr->params, ct_uintconst_expr(0, arr_expr->locstartind, arr_expr->locendind));
           } else {
-            dapush(arr_expr->params, ct_intconst_expr(0, loc));
+            dapush(arr_expr->params, ct_intconst_expr(0, arr_expr->locstartind, arr_expr->locendind));
           }
           tdclp->arrlen += szstep;
         }
@@ -365,7 +367,7 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, LOCTYPE loc) {
         tdclp->arrlen += szstep;
       }
       for(; i < tdclp->arrmaxind; i++) {
-        dapush(arr_expr->params, ct_uintconst_expr(0, loc));
+        dapush(arr_expr->params, ct_uintconst_expr(0, arr_expr->locstartind, arr_expr->locendind));
         tdclp->arrlen += szstep;
       }
       //params are fine, no further processing necessary
@@ -374,14 +376,14 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, LOCTYPE loc) {
     int i;
     for(i = 0; i < arr_expr->params->length; i++) {
       EXPRESSION* arrv = daget(arr_expr->params, i);
-      tdclp->arrlen += process_array_lit(arr_memtype, arrv, loc);
+      tdclp->arrlen += process_array_lit(arr_memtype, arrv);
       arrv->rettype = fcid2(arr_memtype);
       assert(typecompat(arrv->rettype, arr_memtype));
     }
     for(; i < tdclp->arrmaxind; i++) {
       struct declarator_part* ldclp = dapeek(arr_memtype->pointerstack);
-      EXPRESSION* arrv = ct_array_lit(dactor(ldclp->arrmaxind), loc);
-      tdclp->arrlen += process_array_lit(arr_memtype, arrv, loc);
+      EXPRESSION* arrv = ct_array_lit(dactor(ldclp->arrmaxind), arr_expr->locstartind, arr_expr->locendind);
+      tdclp->arrlen += process_array_lit(arr_memtype, arrv);
       arrv->rettype = fcid2(arr_memtype);
       assert(typecompat(arrv->rettype, arr_memtype));
     }
@@ -392,7 +394,7 @@ int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, LOCTYPE loc) {
 }
 
 //Process struct initializer expression, figuring out length and populating types
-int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr, LOCTYPE loc) {
+int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
   struct_expr->type = STRUCT_LIT;
   USTRUCT* imptype = struct_memtype->structtype;
   feedstruct(imptype);
@@ -415,10 +417,10 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr, LOCTYPE 
           if(pointtop->type != ARRAYSPEC) break;
         }
         assert(arrdim);
-        process_array_lit(decl->type, member, loc);
+        process_array_lit(decl->type, member);
         member->rettype = fcid2(decl->type);
       } else if(decl->type->tb & (STRUCTVAL | UNIONVAL)) {
-        process_struct_lit(decl->type, member, loc);
+        process_struct_lit(decl->type, member);
         member->rettype = fcid2(decl->type);
       } else {
         assert(0);
@@ -432,24 +434,24 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr, LOCTYPE 
     DECLARATION* decl = daget(imptype->fields, i);
     if(ispointer(decl->type)) {
       if(((struct declarator_part*) dapeek(decl->type->pointerstack))->type == ARRAYSPEC) {
-        EXPRESSION* tofill = ct_array_lit(dactor(8), loc);
-        process_array_lit(decl->type, tofill, loc);
+        EXPRESSION* tofill = ct_array_lit(dactor(8), struct_expr->locstartind, struct_expr->locendind);
+        process_array_lit(decl->type, tofill);
         tofill->rettype = fcid2(decl->type);
         dapush(struct_expr->params, tofill);
       } else {
-        dapush(struct_expr->params, ct_uintconst_expr(0, loc));
+        dapush(struct_expr->params, ct_uintconst_expr(0, struct_expr->locstartind, struct_expr->locendind));
       }
     } else if(decl->type->tb & (STRUCTVAL | UNIONVAL)) {
-      EXPRESSION* tofill = ct_array_lit(dactor(8), loc);
-      process_struct_lit(decl->type, tofill, loc);
+      EXPRESSION* tofill = ct_array_lit(dactor(8), struct_expr->locstartind, struct_expr->locendind);
+      process_struct_lit(decl->type, tofill);
       tofill->rettype = fcid2(decl->type);
       dapush(struct_expr->params, tofill);
     } else if(decl->type->tb & FLOATNUM) {
-      dapush(struct_expr->params, ct_floatconst_expr(0.0, loc));
+      dapush(struct_expr->params, ct_floatconst_expr(0.0, struct_expr->locstartind, struct_expr->locendind));
     } else if(decl->type->tb & UNSIGNEDNUM) {
-      dapush(struct_expr->params, ct_uintconst_expr(0, loc));
+      dapush(struct_expr->params, ct_uintconst_expr(0, struct_expr->locstartind, struct_expr->locendind));
     } else {
-      dapush(struct_expr->params, ct_intconst_expr(0, loc));
+      dapush(struct_expr->params, ct_intconst_expr(0, struct_expr->locstartind, struct_expr->locendind));
     }
   }
   return imptype->size;
@@ -781,11 +783,12 @@ DECLARATION* mkdeclaration(char* name) {
   return retval;
 }
 
-INITIALIZER* geninit(DECLARATION* decl, EXPRESSION* expr, LOCTYPE loc) {
+INITIALIZER* geninit(DECLARATION* decl, EXPRESSION* expr, int locstartind, int locendind) {
   INITIALIZER* retval = malloc(sizeof(INITIALIZER));
   retval->decl = decl;
   retval->expr = expr;
-  retval->location = loc;
+  retval->locstartind = locstartind;
+  retval->locendind = locendind;
   return retval;
 }
 
@@ -805,91 +808,103 @@ SOI* soii(DYNARR* init) {
   return retval;
 }
 
-STATEMENT* mkexprstmt(enum stmttype type, EXPRESSION* express, LOCTYPE loc) {
+STATEMENT* mkexprstmt(enum stmttype type, EXPRESSION* express, int locstartind, int locendind) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = type;
   retval->expression = express;
-  retval->location = loc;
+  retval->locstartind = locstartind;
+  retval->locendind = locendind;
   return retval;
 }
 
 STATEMENT* mknopstmt(void) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = NOPSTMT;
+  retval->locstartind = -1;
+  retval->locendind = -1;
   return retval;
 }
 
-STATEMENT* mkgotostmt(char* gotoloc, LOCTYPE loc) {
+STATEMENT* mkgotostmt(char* gotoloc, int locstartind, int locendind) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = JGOTO;
   retval->glabel = gotoloc;
-  retval->location = loc;
+  retval->locstartind = locstartind;
+  retval->locendind = locendind;
   return retval;
 }
 
-STATEMENT* mkforstmt(EOI* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy, LOCTYPE loc) {
+STATEMENT* mkforstmt(EOI* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy, int locstartind) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = FORL;
   retval->forinit = e1;
   retval->forcond = e2;
   retval->increment = e3;
   retval->forbody = bdy;
-  retval->location = loc;
+  retval->locstartind = locstartind;
+  retval->locendind = bdy->locendind;
   return retval;
 }
 
-STATEMENT* mklsstmt(enum stmttype type, EXPRESSION* condition, STATEMENT* bdy, LOCTYPE loc) {
+STATEMENT* mklsstmt(enum stmttype type, EXPRESSION* condition, STATEMENT* bdy, int locstartind, int locendind) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = type;
   retval->cond = condition;
   retval->body = bdy;
-  retval->location = loc;
+  retval->locstartind = locstartind;
+  retval->locendind = locendind;
   return retval;
 }
 
-STATEMENT* mkswitchstmt(EXPRESSION* contingent, STATEMENT* bdy, SWITCHINFO* swi, LOCTYPE loc) {
+STATEMENT* mkswitchstmt(EXPRESSION* contingent, STATEMENT* bdy, SWITCHINFO* swi, int locstartind) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = SWITCH;
   retval->cond = contingent;
   retval->body = bdy;
   retval->switchinfo = swi;
-  retval->location = loc;
+  retval->locstartind = locstartind;
+  retval->locendind = bdy->locendind;
   return retval;
 }
 
-STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy, LOCTYPE loc) {
+STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy, int locstartind) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->ifcond = condition;
   retval->thencond = ifbdy;
   if(elsebdy) {
     retval->elsecond = elsebdy;
     retval->type = IFELSES;
+    retval->locendind = elsebdy->locendind;
   } else {
     retval->type = IFS;
+    retval->locendind = ifbdy->locendind;
   }
-  retval->location = loc;
+  retval->locstartind = locstartind;
   return retval;
 }
 
-STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits, LOCTYPE loc) {
+STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits, int locstartind, int locendind) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = CMPND;
   retval->stmtsandinits = stmtsandinits;
-  retval->location = loc;
+  retval->locstartind = locstartind;
+  retval->locendind = locendind;
   return retval;
 }
 
-STATEMENT* mklblstmt(struct lexctx* lct, char* lblval, LOCTYPE loc) {
+STATEMENT* mklblstmt(struct lexctx* lct, char* lblval, int locstartind, int locendind) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->type = LABEL;
   retval->glabel = lblval;
+  retval->locstartind = locstartind;
+  retval->locendind = locendind;
   if(!lct->func->lbls) lct->func->lbls = qhtctor();
   qinsert(lct->func->lbls, lblval, NULL);
   //confirm no collision
   return retval;
 }
 
-STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label, LOCTYPE loc) {
+STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label, int locstartind, int locendind) {
   SWITCHINFO* swi =  dapeek(lct->func->switchstack);
   while(foldconst(casexpr)) ;
   switch(casexpr->type) {
@@ -902,21 +917,22 @@ STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label, LOCT
       fprintf(stderr, "Error: case has nonrectifiable value\n");
       assert(0);
   }
-  return mklblstmt(lct, label, loc);
+  return mklblstmt(lct, label, locstartind, locendind);
 }
 
-STATEMENT* mkdefaultstmt(struct lexctx* lct, char* label, LOCTYPE loc) {
+STATEMENT* mkdefaultstmt(struct lexctx* lct, char* label, int locstartind, int locendind) {
   ((SWITCHINFO*) dapeek(lct->func->switchstack))->defaultval = label;
-  return mklblstmt(lct, label, loc);
+  return mklblstmt(lct, label, locstartind, locendind);
 }
 
-STATEMENT* mkasmstmt(char* asmstmts, DYNARR* outputs, DYNARR* inputs, DYNARR* clobbers, LOCTYPE loc) {
+STATEMENT* mkasmstmt(char* asmstmts, DYNARR* outputs, DYNARR* inputs, DYNARR* clobbers, int locstartind, int locendind) {
   STATEMENT* retval = malloc(sizeof(STATEMENT));
   retval->asmstmts = asmstmts;
   retval->outputs = outputs;
   retval->inputs = inputs;
   retval->clobbers = clobbers;
-  retval->location = loc;
+  retval->locstartind = locstartind;
+  retval->locendind = locendind;
   return retval;
 }
 
@@ -1128,16 +1144,17 @@ static void declfmacro(QHASHTABLE* ht, const char* macroname, const char* param,
 struct lexctx* ctxinit(FILE* ar, char* rn) {
   struct lexctx* lct =  malloc(sizeof(struct lexctx));
   lct->funcs = qchtctor(256);
+  lct->defines = qchtctor(8192);
+  lct->withindefines = qchtctor(32);
   lct->definestack = dactor(64);
   lct->scopes = dactor(64);
-  lct->func = NULL;
   dapush(lct->scopes, mkscope());
   lct->enstruct2free = dactor(512);
   lct->enumerat2free = dactor(256);
   lct->globals = dactor(512);
   lct->externglobals = dactor(128);
-  lct->defines = qchtctor(8192);
-  lct->withindefines = qchtctor(32);
+  lct->halflocs = dactor(16384);
+  lct->func = NULL;
   lct->actualroot = ar;
   lct->rootname = rn;
   declmacro(lct->defines, "__STDC__", "1");
@@ -1254,8 +1271,8 @@ void freemd2(struct macrodef* mds) {
 }
 
 //declares variable, adds it to scope
-INITIALIZER* decl2scope(DECLARATION* dec, EXPRESSION* ex, struct lexctx* lct, LOCTYPE loc) {
-  INITIALIZER* ac = geninit(dec, ex, loc);
+INITIALIZER* decl2scope(DECLARATION* dec, EXPRESSION* ex, struct lexctx* lct) {
+  INITIALIZER* ac = geninit(dec, ex, dec->locstartind, ex ? ex->locendind : -1);
   if(lct->func) {
     QHASHTABLE* ht = scopepeek(lct)->members;
     SCOPEMEMBER* sm = qsearch(ht, dec->varname);

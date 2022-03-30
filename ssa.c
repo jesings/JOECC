@@ -1712,8 +1712,6 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
 
           lvrmpaircfr(blk->antileader_in, antiint, free);
           blk->antileader_in_list->arr[antiind] = -1;
-        } else if (stubbornblocks->length == blk->inedges->length) {
-            //TODO: insert phi here, update leader info?
         }
 
         stubbornblocks->length = 0;

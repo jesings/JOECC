@@ -131,7 +131,7 @@ static BITFIELD genadjmatrix(PROGRAM* prog, DYNARR** chains, IHASHSET** varbs) {
       didtor(blockers);
     }
   }
-  
+
   return adjmatrix;
 }
 

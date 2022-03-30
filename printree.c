@@ -242,11 +242,15 @@ static int prinit(DYNARR* dinit) {
 }
 
 //Prints out graph representation for statement in AST recursively
-static int statemeant(STATEMENT* stmt) {
+static int statemeant(struct lexctx* lctx, STATEMENT* stmt) {
   int statenode = nodenumber++;
   dprintf(funcfile, "n%d [label=\"%s\"] [tooltip=\"%s %d.%d-%d.%d\"];\n", 
           statenode, name_STMTTYPE[stmt->type],
-          locprint(stmt->location));
+          ((HALFLOC*) lctx->halflocs->arr[stmt->locstartind])->filename,
+          ((HALFLOC*) lctx->halflocs->arr[stmt->locstartind])->line,
+          ((HALFLOC*) lctx->halflocs->arr[stmt->locstartind])->column,
+          ((HALFLOC*) lctx->halflocs->arr[stmt->locendind])->line,
+          ((HALFLOC*) lctx->halflocs->arr[stmt->locendind])->column);
   switch(stmt->type) {
     case ASMSTMT:
       break; //not handled yet, maybe never
@@ -255,11 +259,11 @@ static int statemeant(STATEMENT* stmt) {
       dprintf(funcfile, "n%d -> n%d;\n", statenode, nodenumber - 1); 
       break; 
     case IFELSES:
-      dprintf(funcfile, "n%d -> n%d [color=blue];\n", statenode, statemeant(stmt->elsecond)); 
+      dprintf(funcfile, "n%d -> n%d [color=blue];\n", statenode, statemeant(lctx, stmt->elsecond)); 
       //fall through
     case IFS:
       dprintf(funcfile, "n%d -> n%d [color=red];\n", statenode, treexpr(stmt->ifcond)); 
-      dprintf(funcfile, "n%d -> n%d [color=green];\n", statenode, statemeant(stmt->thencond)); 
+      dprintf(funcfile, "n%d -> n%d [color=green];\n", statenode, statemeant(lctx, stmt->thencond)); 
       break;
     case SWITCH: //not final, should be working better
       for(int i = 0; i < stmt->switchinfo->caseorder->length; i++) {
@@ -273,7 +277,7 @@ static int statemeant(STATEMENT* stmt) {
       //fall through
     case WHILEL: case DOWHILEL: 
       dprintf(funcfile, "n%d -> n%d [color=red];\n", statenode, treexpr(stmt->cond)); 
-      dprintf(funcfile, "n%d -> n%d [color=green];\n", statenode, statemeant(stmt->body)); 
+      dprintf(funcfile, "n%d -> n%d [color=green];\n", statenode, statemeant(lctx, stmt->body)); 
       break;
     case FORL:
       if(stmt->forinit->isE) {
@@ -284,7 +288,7 @@ static int statemeant(STATEMENT* stmt) {
       }
       dprintf(funcfile, "n%d -> n%d [color=green];\n", statenode, treexpr(stmt->forcond)); 
       dprintf(funcfile, "n%d -> n%d [color=yellow];\n", statenode, treexpr(stmt->increment)); 
-      dprintf(funcfile, "n%d -> n%d [color=blue];\n", statenode, statemeant(stmt->forbody));
+      dprintf(funcfile, "n%d -> n%d [color=blue];\n", statenode, statemeant(lctx, stmt->forbody));
     case LBREAK: case LCONT: case DEFAULT:
       break;
     case FRET: 
@@ -298,7 +302,7 @@ static int statemeant(STATEMENT* stmt) {
       if(stmt->stmtsandinits) {
         for(int i = 0; i < stmt->stmtsandinits->length; i++) {
           SOI* soi = daget(stmt->stmtsandinits, i);
-          int soiopt = soi->isstmt ? statemeant(soi->state) : prinit(soi->init);
+          int soiopt = soi->isstmt ? statemeant(lctx, soi->state) : prinit(soi->init);
           dprintf(funcfile, "n%d -> n%d;\n", statenode, soiopt); 
         }
       }
@@ -310,7 +314,7 @@ static int statemeant(STATEMENT* stmt) {
 }
 
 //Prints out graph representation for an entire function's AST
-void treefunc(FUNC* func) {
+void treefunc(struct lexctx* lctx, FUNC* func) {
   nodenumber = 0;
   char filename[256];
   sprintf(filename, "%s.dot", func->name);
@@ -331,7 +335,7 @@ void treefunc(FUNC* func) {
     }
   }
   //params above, separate from body---by shape?
-  int internode = statemeant(func->body);
+  int internode = statemeant(lctx, func->body);
   dprintf(funcfile, "n%d -> n%d;\n", fnn, internode);
   dprintf(funcfile, "}\n");
   close(funcfile);

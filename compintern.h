@@ -24,6 +24,27 @@ typedef struct {
   char* filename;
 } LOCTYPE;
 
+typedef struct {
+  int line;
+  int column;
+  char* filename;
+} HALFLOC;
+
+static inline HALFLOC* halvestart(LOCTYPE* l) {
+  HALFLOC* h = malloc(sizeof(HALFLOC));
+  h->line = l->first_line;
+  h->column = l->first_column;
+  h->filename = l->filename;
+  return h;
+}
+static inline HALFLOC* halveend(LOCTYPE* l) {
+  HALFLOC* h = malloc(sizeof(HALFLOC));
+  h->line = l->last_line;
+  h->column = l->last_column;
+  h->filename = l->filename;
+  return h;
+}
+
 /**
  * An enum describing a bitfield with a bunch of information about the type of an AST value.
  * The lowest 4 bits in this enum are not listed here, they describe the number of bytes of the value.
@@ -194,7 +215,8 @@ typedef struct expr {
     double floatconst;
     IDENTIFIERINFO* id;
   };
-  LOCTYPE location;
+  int locstartind;
+  int locendind;
 } EXPRESSION;
 
 
@@ -256,18 +278,19 @@ struct lstate {
 **/
 struct lexctx {
   QHASHTABLE* funcs;
-  DYNARR* scopes;
-  DYNARR* definestack;
-  FUNC* func;
   QHASHTABLE* defines;
   QHASHTABLE* withindefines;
+  DYNARR* scopes;
+  DYNARR* definestack;
   DYNARR* enstruct2free;
   DYNARR* enumerat2free;
   DYNARR* globals;
   DYNARR* externglobals;
-  struct lstate* ls;
+  DYNARR* halflocs;
+  FUNC* func;
   FILE* actualroot;
   char* rootname;
+  struct lstate* ls;
 };
 
 /**
@@ -286,7 +309,8 @@ typedef struct {
 **/
 typedef struct stmt {
   enum stmttype type;
-  LOCTYPE location;
+  int locstartind;
+  int locendind;
   union {
     EXPRESSION* expression;
     struct { //if or if/else
@@ -378,6 +402,8 @@ typedef struct {
   char* varname;
   IDTYPE* type;
   long varid;
+  int locstartind;
+  int locendind;
 } DECLARATION;
 
 /**
@@ -386,7 +412,8 @@ typedef struct {
 typedef struct {
   DECLARATION* decl;
   EXPRESSION* expr;
-  LOCTYPE location;
+  int locstartind;
+  int locendind;
 } INITIALIZER;
 
 /**
@@ -484,23 +511,23 @@ IDTYPE* fcid2(IDTYPE* idt);
 OPERAND* genoperand(char* constraint, EXPRESSION* varin);
 EXPRESSION* cloneexpr(EXPRESSION* orig);
 DYNARR* ptrdaclone(DYNARR* opointerstack);
-EXPRESSION* ct_nop_expr(LOCTYPE loc);
-EXPRESSION* ct_unary_expr(EXPRTYPE t, EXPRESSION* param, LOCTYPE loc);
-EXPRESSION* ct_sztype(IDTYPE* whichtype, LOCTYPE loc);
-EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2, LOCTYPE loc);
-EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr, LOCTYPE loc);
-EXPRESSION* ct_ternary_expr(EXPRESSION* param1, EXPRESSION* param2, EXPRESSION* param3, LOCTYPE loc);
-EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params, LOCTYPE loc);
-EXPRESSION* ct_strconst_expr(const char* str, LOCTYPE loc);
-EXPRESSION* ct_intconst_expr(long num, LOCTYPE loc); 
-EXPRESSION* ct_uintconst_expr(unsigned long num, LOCTYPE loc);
-EXPRESSION* ct_floatconst_expr(double num, LOCTYPE loc);
-EXPRESSION* ct_array_lit(DYNARR* da, LOCTYPE loc);
-EXPRESSION* ct_member_expr(char* member, LOCTYPE loc);
-EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident, LOCTYPE loc);
+EXPRESSION* ct_nop_expr(int locstartind, int locendind);
+EXPRESSION* ct_unary_expr(EXPRTYPE t, EXPRESSION* param, int locstartind, int locendind);
+EXPRESSION* ct_sztype(IDTYPE* whichtype, int locstartind, int locendind);
+EXPRESSION* ct_binary_expr(EXPRTYPE t, EXPRESSION* param1, EXPRESSION* param2);
+EXPRESSION* ct_cast_expr(IDTYPE* type, EXPRESSION* expr, int locstartind);
+EXPRESSION* ct_ternary_expr(EXPRESSION* param1, EXPRESSION* param2, EXPRESSION* param3);
+EXPRESSION* ct_fcall_expr(EXPRESSION* func, DYNARR* params, int locendind);
+EXPRESSION* ct_strconst_expr(const char* str, int locstartind, int locendind);
+EXPRESSION* ct_intconst_expr(long num, int locstartind, int locendind);
+EXPRESSION* ct_uintconst_expr(unsigned long num, int locstartind, int locendind);
+EXPRESSION* ct_floatconst_expr(double num, int locstartind, int locendind);
+EXPRESSION* ct_array_lit(DYNARR* da, int locstartind, int locendind);
+EXPRESSION* ct_member_expr(char* member, int locstartind, int locendind);
+EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident, int locstartind, int locendind);
 char typecompat(IDTYPE* t1, IDTYPE* t2);
-int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr, LOCTYPE loc);
-int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr, LOCTYPE loc);
+int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr);
+int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr);
 char type_compat(IDTYPE* id1, IDTYPE* id2);
 char isglobal(struct lexctx* lct, char* ident);
 void wipestruct(USTRUCT* strct);
@@ -514,21 +541,21 @@ void freemd(struct macrodef* mds);
 void freemd2(struct macrodef* mds);
 EXPRESSION* rclonexpr(EXPRESSION* e);
 DECLARATION* mkdeclaration(char* name);
-INITIALIZER* geninit(DECLARATION* decl, EXPRESSION* expr, LOCTYPE loc);
+INITIALIZER* geninit(DECLARATION* decl, EXPRESSION* expr, int locstartind, int locendind);
 SOI* sois(struct stmt* state);
 SOI* soii(DYNARR* init);
-STATEMENT* mkexprstmt(enum stmttype type, EXPRESSION* express, LOCTYPE loc);
+STATEMENT* mkexprstmt(enum stmttype type, EXPRESSION* express, int locstartind, int locendind);
 STATEMENT* mknopstmt(void);
-STATEMENT* mkgotostmt(char* gotoloc, LOCTYPE loc);
-STATEMENT* mkforstmt(EOI* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy, LOCTYPE loc);
-STATEMENT* mklsstmt(enum stmttype type, EXPRESSION* condition, STATEMENT* bdy, LOCTYPE loc);
-STATEMENT* mkswitchstmt(EXPRESSION* contingent, STATEMENT* bdy, SWITCHINFO* swi, LOCTYPE loc);
-STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy, LOCTYPE loc);
-STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits, LOCTYPE loc);
-STATEMENT* mklblstmt(struct lexctx* lct, char* lblval, LOCTYPE loc);
-STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label, LOCTYPE loc);
-STATEMENT* mkdefaultstmt(struct lexctx* lct, char* label, LOCTYPE loc);
-STATEMENT* mkasmstmt(char* asmstmts, DYNARR* outputs, DYNARR* inputs, DYNARR* clobbers, LOCTYPE loc);
+STATEMENT* mkgotostmt(char* gotoloc, int locstartind, int locendind);
+STATEMENT* mkforstmt(EOI* e1, EXPRESSION* e2, EXPRESSION* e3, STATEMENT* bdy, int locstartind);
+STATEMENT* mklsstmt(enum stmttype type, EXPRESSION* condition, STATEMENT* bdy, int locstartind, int locendind);
+STATEMENT* mkswitchstmt(EXPRESSION* contingent, STATEMENT* bdy, SWITCHINFO* swi, int locstartind);
+STATEMENT* mkifstmt(EXPRESSION* condition, STATEMENT* ifbdy, STATEMENT* elsebdy, int locstartind);
+STATEMENT* mkcmpndstmt(DYNARR* stmtsandinits, int locstartind, int locendind);
+STATEMENT* mklblstmt(struct lexctx* lct, char* lblval, int locstartind, int locendind);
+STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label, int locstartind, int locendind);
+STATEMENT* mkdefaultstmt(struct lexctx* lct, char* label, int locstartind, int locendind);
+STATEMENT* mkasmstmt(char* asmstmts, DYNARR* outputs, DYNARR* inputs, DYNARR* clobbers, int locstartind, int locendind);
 ENUMFIELD* genenumfield(char* name, EXPRESSION* value);
 struct declarator_part* mkdeclpart(enum declpart_info typ, void* d);
 struct declarator_part* mkdeclpartarr(enum declpart_info typ, EXPRESSION* d);
@@ -545,7 +572,7 @@ SCOPE* scopepeek(struct lexctx* lct);
 void* scopesearch(struct lexctx* lct, enum membertype mt, char* key);
 char scopequeryval(struct lexctx* lct, enum membertype mt, char* key);
 void defbackward(struct lexctx* lct, enum membertype mt, char* defnd, USTRUCT* assignval);
-INITIALIZER* decl2scope(DECLARATION* dec, EXPRESSION* ex, struct lexctx* lct, LOCTYPE loc);
+INITIALIZER* decl2scope(DECLARATION* dec, EXPRESSION* ex, struct lexctx* lct);
 void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* memberval);
 int feedstruct(USTRUCT* s);
 int unionlen(USTRUCT* u);

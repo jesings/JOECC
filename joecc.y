@@ -259,10 +259,10 @@ initializer:
     if(ac->expr && ac->expr->type == ARRAY_LIT) {
       DYNARR* pointy = ac->decl->type->pointerstack;
       if(pointy && pointy->length && ((struct declarator_part*) dapeek(pointy))->type == ARRAYSPEC) {
-        process_array_lit(ac->decl->type, ac->expr, @2);
+        process_array_lit(ac->decl->type, ac->expr);
         ac->expr->rettype = fcid2(ac->decl->type);
       } else if(!(pointy && pointy->length) && ac->decl->type->tb & (STRUCTVAL | UNIONVAL)) {
-        process_struct_lit(ac->decl->type, ac->expr, @2);
+        process_struct_lit(ac->decl->type, ac->expr);
         ac->expr->rettype = fcid2(ac->decl->type);
       } else {
         //disgusting unnecessary brace syntax allowed
@@ -305,23 +305,26 @@ initializer:
 | fullunion ';' {$$ = NULL;};
 cs_inits:
   cs_inits ',' declarator '=' escoa {$$ = $1;
-    LOCTYPE real = @5;
-    real.first_line = @3.first_line;
-    real.first_column = @3.first_column;
-    INITIALIZER* id = decl2scope($3, $5, ctx, real);
+    INITIALIZER* id = decl2scope($3, $5, ctx);
     if(id) dapush($$, id); else fprintf(stderr, "Error: redefinition of identifier in %s %d.%d-%d.%d\n", locprint(@3)); }
 | declarator '=' escoa {$$ = dactor(8);
-    INITIALIZER* id = decl2scope($1, $3, ctx, @$);
+    INITIALIZER* id = decl2scope($1, $3, ctx);
     if(id) dapushc($$, id); else fprintf(stderr, "Error: redefinition of identifier in %s %d.%d-%d.%d\n", locprint(@1)); }
 | cs_inits ',' declarator {$$ = $1;
-    INITIALIZER* id = decl2scope($3, NULL, ctx, @3);
+    INITIALIZER* id = decl2scope($3, NULL, ctx);
     if(id) dapush($$, id); else fprintf(stderr, "Error: redefinition of identifier in %s %d.%d-%d.%d\n", locprint(@1)); }
 | declarator {$$ = dactor(8);
-    INITIALIZER* id = decl2scope($1, NULL, ctx, @$);
+    INITIALIZER* id = decl2scope($1, NULL, ctx);
     if(id) dapushc($$, id); else fprintf(stderr, "Error: redefinition of identifier in %s %d.%d-%d.%d\n", locprint(@1)); };
 escoa:
   esc {$$ = $1;}
-| array_literal {$$ = ct_array_lit($1, @$);};
+| array_literal {
+  int index1 = ctx->halflocs->length;
+  dapush(ctx->halflocs, halvestart(&@1));
+  int index2 = ctx->halflocs->length;
+  dapush(ctx->halflocs, halveend(&@1));
+  $$ = ct_array_lit($1, index1, index2);
+  };
 cs_minutes:
   cs_minutes ',' declarator {$$ = $1; dapush($1, $3);}
 | declarator {$$ = dactor(8); dapushc($$, $1);};
@@ -555,131 +558,247 @@ arbitrary_cast:
   $$ = $2;};
 
 expression:
-  expression ',' esc {$$ = ct_binary_expr(COMMA, $1, $3, @$);}
+  expression ',' esc {$$ = ct_binary_expr(COMMA, $1, $3);}
 | esc {$$ = $1;};
 esc:
-  esc '=' esa {$$ = ct_binary_expr(ASSIGN, $1, $3, @$);}
-| esc "/=" esa {$$ = ct_binary_expr(DIVASSIGN, $1, $3, @$);}
-| esc "*=" esa {$$ = ct_binary_expr(MULTASSIGN, $1, $3, @$);}
-| esc "%=" esa {$$ = ct_binary_expr(MODASSIGN, $1, $3, @$);}
-| esc "+=" esa {$$ = ct_binary_expr(ADDASSIGN, $1, $3, @$);}
-| esc "-=" esa {$$ = ct_binary_expr(SUBASSIGN, $1, $3, @$);}
-| esc "<<=" esa {$$ = ct_binary_expr(SHLASSIGN, $1, $3, @$);}
-| esc ">>=" esa {$$ = ct_binary_expr(SHRASSIGN, $1, $3, @$);}
-| esc "&=" esa {$$ = ct_binary_expr(ANDASSIGN, $1, $3, @$);}
-| esc "^=" esa {$$ = ct_binary_expr(XORASSIGN, $1, $3, @$);}
-| esc "|=" esa {$$ = ct_binary_expr(ORASSIGN, $1, $3, @$);}
+  esc '=' esa {$$ = ct_binary_expr(ASSIGN, $1, $3);}
+| esc "/=" esa {$$ = ct_binary_expr(DIVASSIGN, $1, $3);}
+| esc "*=" esa {$$ = ct_binary_expr(MULTASSIGN, $1, $3);}
+| esc "%=" esa {$$ = ct_binary_expr(MODASSIGN, $1, $3);}
+| esc "+=" esa {$$ = ct_binary_expr(ADDASSIGN, $1, $3);}
+| esc "-=" esa {$$ = ct_binary_expr(SUBASSIGN, $1, $3);}
+| esc "<<=" esa {$$ = ct_binary_expr(SHLASSIGN, $1, $3);}
+| esc ">>=" esa {$$ = ct_binary_expr(SHRASSIGN, $1, $3);}
+| esc "&=" esa {$$ = ct_binary_expr(ANDASSIGN, $1, $3);}
+| esc "^=" esa {$$ = ct_binary_expr(XORASSIGN, $1, $3);}
+| esc "|=" esa {$$ = ct_binary_expr(ORASSIGN, $1, $3);}
 | esa {$$ = $1;};
 esa:
-  est '?' expression ':' esa {$$ = ct_ternary_expr($1, $3, $5, @$);}
+  est '?' expression ':' esa {$$ = ct_ternary_expr($1, $3, $5);}
 | est {$$ = $1;};
 est:
-  est "||" eslo {$$ = ct_binary_expr(L_OR, $1, $3, @$);}
+  est "||" eslo {$$ = ct_binary_expr(L_OR, $1, $3);}
 | eslo {$$ = $1;};
 eslo:
-  eslo "&&" esla {$$ = ct_binary_expr(L_AND, $1, $3, @$);}
+  eslo "&&" esla {$$ = ct_binary_expr(L_AND, $1, $3);}
 | esla {$$ = $1;};
 esla:
-  esla '|' esbo {$$ = ct_binary_expr(B_OR, $1, $3, @$);}
+  esla '|' esbo {$$ = ct_binary_expr(B_OR, $1, $3);}
 | esbo {$$ = $1;};
 esbo:
-  esbo '^' esbx {$$ = ct_binary_expr(B_XOR, $1, $3, @$);}
+  esbo '^' esbx {$$ = ct_binary_expr(B_XOR, $1, $3);}
 | esbx {$$ = $1;};
 esbx:
-  esbx '&' esba {$$ = ct_binary_expr(B_AND, $1, $3, @$);}
+  esbx '&' esba {$$ = ct_binary_expr(B_AND, $1, $3);}
 | esba {$$ = $1;};
 esba:
-  esba "==" eseq {$$ = ct_binary_expr(EQ, $1, $3, @$);}
-| esba "!=" eseq {$$ = ct_binary_expr(NEQ, $1, $3, @$);}
+  esba "==" eseq {$$ = ct_binary_expr(EQ, $1, $3);}
+| esba "!=" eseq {$$ = ct_binary_expr(NEQ, $1, $3);}
 | eseq {$$ = $1;};
 eseq:
-  eseq '<' escmp {$$ = ct_binary_expr(LT, $1, $3, @$);}
-| eseq '>' escmp {$$ = ct_binary_expr(GT, $1, $3, @$);}
-| eseq "<=" escmp {$$ = ct_binary_expr(LTE, $1, $3, @$);}
-| eseq ">=" escmp {$$ = ct_binary_expr(GTE, $1, $3, @$);}
+  eseq '<' escmp {$$ = ct_binary_expr(LT, $1, $3);}
+| eseq '>' escmp {$$ = ct_binary_expr(GT, $1, $3);}
+| eseq "<=" escmp {$$ = ct_binary_expr(LTE, $1, $3);}
+| eseq ">=" escmp {$$ = ct_binary_expr(GTE, $1, $3);}
 | escmp {$$ = $1;};
 escmp:
-  escmp "<<" essh {$$ = ct_binary_expr(SHL, $1, $3, @$);}
-| escmp ">>" essh {$$ = ct_binary_expr(SHR, $1, $3, @$);}
+  escmp "<<" essh {$$ = ct_binary_expr(SHL, $1, $3);}
+| escmp ">>" essh {$$ = ct_binary_expr(SHR, $1, $3);}
 | essh;
 essh:
-  essh '+' esas {$$ = ct_binary_expr(ADD, $1, $3, @$);}
-| essh '-' esas {$$ = ct_binary_expr(SUB, $1, $3, @$);}
+  essh '+' esas {$$ = ct_binary_expr(ADD, $1, $3);}
+| essh '-' esas {$$ = ct_binary_expr(SUB, $1, $3);}
 | esas {$$ = $1;};
 esas:
-  esas '*' esm {$$ = ct_binary_expr(MULT, $1, $3, @$);}
-| esas '/' esm {$$ = ct_binary_expr(DIVI, $1, $3, @$);}
-| esas '%' esm {$$ = ct_binary_expr(MOD, $1, $3, @$);}
+  esas '*' esm {$$ = ct_binary_expr(MULT, $1, $3);}
+| esas '/' esm {$$ = ct_binary_expr(DIVI, $1, $3);}
+| esas '%' esm {$$ = ct_binary_expr(MOD, $1, $3);}
 | esm {$$ = $1;};
 esm:
-  arbitrary_cast esm {$$ = ct_cast_expr($1, $2, @$);}
+  arbitrary_cast esm {
+    int index = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    $$ = ct_cast_expr($1, $2, index);
+    }
 | esca {$$ = $1;};
 esca:
-  "++" esca {$$ = ct_unary_expr(PREINC, $2, @$);}
-| "--" esca {$$ = ct_unary_expr(PREDEC, $2, @$);}
-| '+' esm {$$ = $2;}
+  "++" esca {
+    int index = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    $$ = ct_unary_expr(PREINC, $2, index, $2->locendind);
+    }
+| "--" esca {
+    int index = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    $$ = ct_unary_expr(PREDEC, $2, index, $2->locendind);
+    }
+| '+' esm {$$ = $2;/*TODO: is this entirely correct? no promotion?*/}
 | '-' esm {
     switch($2->type) {
       case INT: case UINT:
         $$ = $2;
-        $2->intconst = -$2->intconst;
+        $2->intconst = -$2->intconst; //fix the locs?
         break;
       case FLOAT:
         $$ = $2;
         $2->floatconst = -$2->floatconst;
         break;
       default:
-        $$ = ct_unary_expr(NEG, $2, @$);
+        dapush(ctx->halflocs, halvestart(&@1));
+        $$ = ct_unary_expr(NEG, $2, ctx->halflocs->length - 1, $2->locendind);
         break;
     }}
-| '!' esm {$$ = ct_unary_expr(L_NOT, $2, @$);}
-| '~' esm {$$ = ct_unary_expr(B_NOT, $2, @$);}
-| '*' esm {$$ = ct_unary_expr(DEREF, $2, @$);}
-| '&' esm {$$ = ct_unary_expr(ADDR, $2, @$);}
-| "sizeof" '(' type abstract_ptr ')' {$$ = ct_uintconst_expr(sizeof(uintptr_t), @$); free($3); dadtorfr($4);}
+| '!' esm {
+    int index = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    $$ = ct_unary_expr(L_NOT, $2, index, $2->locendind);
+    }
+| '~' esm {
+    int index = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    $$ = ct_unary_expr(B_NOT, $2, index, $2->locendind);
+    }
+| '*' esm {
+    int index = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    $$ = ct_unary_expr(DEREF, $2, index, $2->locendind);
+    }
+| '&' esm {
+    int index = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    $$ = ct_unary_expr(ADDR, $2, index, $2->locendind);
+    }
+| "sizeof" '(' type abstract_ptr ')' {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@5));
+    $$ = ct_uintconst_expr(sizeof(uintptr_t), index1, index2);
+    free($3);
+    dadtorfr($4);
+    }
 | "sizeof" '(' type ')' {
     //exclude arrays from pointer check
     if(ispointer($3)) {
       free($3);
-      $$ = ct_uintconst_expr(sizeof(uintptr_t), @$);
+      int index1 = ctx->halflocs->length;
+      dapush(ctx->halflocs, halvestart(&@1));
+      int index2 = ctx->halflocs->length;
+      dapush(ctx->halflocs, halveend(&@4));
+      $$ = ct_uintconst_expr(sizeof(uintptr_t), index1, index2);
     } else {
-      $$ = ct_sztype($3, @$);
+      int index1 = ctx->halflocs->length;
+      dapush(ctx->halflocs, halvestart(&@1));
+      int index2 = ctx->halflocs->length;
+      dapush(ctx->halflocs, halveend(&@4));
+      $$ = ct_sztype($3, index1, index2);
     }
     }
-| "sizeof" esca {$$ = ct_unary_expr(SZOFEXPR,$2, @$);}
+| "sizeof" esca {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@2));
+    $$ = ct_unary_expr(SZOFEXPR, $2, index1, index2);
+    }
 | esp {$$ = $1;};
 esp:
-  esp "++" {$$ = ct_unary_expr(POSTINC, $1, @$);}
-| esp "--" {$$ = ct_unary_expr(POSTDEC, $1, @$);}
-| esp '(' ')' {$$ = ct_fcall_expr($1, dactor(0), @$);}
-| esp '(' escl ')' {$$ = ct_fcall_expr($1, $3, @$);}
-| esp '[' expression ']' {$$ = ct_unary_expr(DEREF, ct_binary_expr(ADD, $1, $3, @$), @$);}
-| esp '.' SYMBOL {$$ = ct_binary_expr(DOTOP, $1, ct_member_expr($3, @3), @$);}
-| esp "->" SYMBOL {$$ = ct_binary_expr(ARROW, $1, ct_member_expr($3, @3), @$);}
+  esp "++" {
+    int index = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@2));
+    $$ = ct_unary_expr(POSTINC, $1, $1->locstartind, index);
+    }
+| esp "--" {
+    int index = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@2));
+    $$ = ct_unary_expr(POSTDEC, $1, $1->locstartind, index);
+    }
+| esp '(' ')' {
+    int index = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@3));
+    $$ = ct_fcall_expr($1, dactor(0), index);
+    }
+| esp '(' escl ')' {
+    int index = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@4));
+    $$ = ct_fcall_expr($1, $3, index);
+    }
+| esp '[' expression ']' {
+    int index = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@4));
+    $$ = ct_unary_expr(DEREF, ct_binary_expr(ADD, $1, $3), $1->locstartind, index);
+    }
+| esp '.' SYMBOL {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@3));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@3));
+    $$ = ct_binary_expr(DOTOP, $1, ct_member_expr($3, index1, index2));
+    }
+| esp "->" SYMBOL {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@3));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@3));
+    $$ = ct_binary_expr(ARROW, $1, ct_member_expr($3, index1, index2));
+    }
 | esu {$$ = $1;};
 esu:
   '(' expression ')' {$$ = $2;}
-| multistring {$$ = ct_strconst_expr($1->strptr, @$); free($1);}
-| INTEGER_LITERAL {$$ = ct_intconst_expr($1, @$);}
-| UNSIGNED_LITERAL {$$ = ct_uintconst_expr($1, @$);}
-| FLOAT_LITERAL {$$ = ct_floatconst_expr($1, @$);}
+| multistring {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@1));
+    $$ = ct_strconst_expr($1->strptr, index1, index2);
+    free($1);
+    }
+| INTEGER_LITERAL {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@1));
+    $$ = ct_intconst_expr($1, index1, index2);
+    }
+| UNSIGNED_LITERAL {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@1));
+    $$ = ct_uintconst_expr($1, index1, index2);
+    }
+| FLOAT_LITERAL {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@1));
+    $$ = ct_floatconst_expr($1, index1, index2);
+    }
 | SYMBOL {
     EXPRESSION* expr = scopesearch(ctx, M_ENUM_CONST, $1);
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@1));
     if(!expr) {
-      $$ = ct_ident_expr(ctx, $1, @$);
+      $$ = ct_ident_expr(ctx, $1, index1, index2);
     } else {
       free($1);
-      $$ = ct_intconst_expr(expr->intconst, @$);
+      $$ = ct_intconst_expr(expr->intconst, index1, index2);
     }
     }
 | arbitrary_cast array_literal {
     DYNARR* pointy = $1->pointerstack;
-    $$ = ct_array_lit($2, @2);
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@1));
+    $$ = ct_array_lit($2, index1, index2);
     if(pointy && pointy->length && ((struct declarator_part*) dapeek(pointy))->type == ARRAYSPEC) {
-      process_array_lit($1, $$, @2);
+      process_array_lit($1, $$);
       $$->rettype = $1;
     } else if(!(pointy && pointy->length) && $1->tb & (STRUCTVAL | UNIONVAL)) {
-      process_struct_lit($1, $$, @2);
+      process_struct_lit($1, $$);
       $$->rettype = $1;
     } else {
       //disgusting unnecessary brace syntax allowed
@@ -692,7 +811,11 @@ esu:
     }
     }/*compound literal*/
 | error {
-    $$ = ct_nop_expr(@$);
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@1));
+    $$ = ct_nop_expr(index1, index2);
     fprintf (stderr, "Malformed expression at %s %d.%d-%d.%d\n", locprint(@1));
     };
 escl:
@@ -872,7 +995,11 @@ function:
     '{' soiorno '}' {
     scopepop(ctx);
     $$ = $3;
-    $$->body = mkcmpndstmt($5, @$);
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@4));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@6));
+    $$->body = mkcmpndstmt($5, index1, index2);
     ctx->func = NULL;
     };
 clobberlist:
@@ -889,57 +1016,189 @@ operands:
 | operandlist {$$ = $1;};
 statement:
   compound_statement {$$ = $1;}
-|  SYMBOL ':' {$$ = mklblstmt(ctx, $1, @1);}
+|  SYMBOL ':' {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@2));
+    $$ = mklblstmt(ctx, $1, index1, index2);
+    }
 | "case" esc ':' {
     char* caselbl = malloc(128);
     snprintf(caselbl, 128, "__joecc__%s__%d", ctx->func->name, (ctx->func->caseindex)++);
-    $$ = mkcasestmt(ctx, $2, caselbl, @$);
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@2));
+    $$ = mkcasestmt(ctx, $2, caselbl, index1, index2);
     }
 | "case" INTEGER_LITERAL "..." INTEGER_LITERAL ':' {
     DYNARR* cases = dactor($4 - $2 + 1);
     for(int i = $2; i <= $4; i++) {
       char* caselbl = malloc(128);
       snprintf(caselbl, 128, "__joecc__%s__%d", ctx->func->name, (ctx->func->caseindex)++);
-      dapushc(cases, sois(mkcasestmt(ctx, ct_intconst_expr(i, @3), caselbl, @$)));
+      int index1 = ctx->halflocs->length;
+      dapush(ctx->halflocs, halvestart(&@3));
+      int index2 = ctx->halflocs->length;
+      dapush(ctx->halflocs, halveend(&@3));
+      dapushc(cases, sois(mkcasestmt(ctx, ct_intconst_expr(i, index1, index2), caselbl, index1, index2)));
     }
-    $$ = mkcmpndstmt(cases, @$);
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@5));
+    $$ = mkcmpndstmt(cases, index1, index2);
     }
 | "default" ':' {
     char* caselbl = malloc(128);
     snprintf(caselbl, 128, "__joecc__%s__default__%d", ctx->func->name, (ctx->func->caseindex)++);
-    $$ = mkdefaultstmt(ctx, caselbl, @1);
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@2));
+    $$ = mkdefaultstmt(ctx, caselbl, index1, index2);
     }
-| "if" '(' expression ')' statement %prec THEN {$$ = mkifstmt($3, $5, NULL, @$);}
-| "if" '(' expression ')' statement "else" statement {$$ = mkifstmt($3, $5, $7, @$);}
+| "if" '(' expression ')' statement %prec THEN {
+    int index = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    $$ = mkifstmt($3, $5, NULL, index);
+    }
+| "if" '(' expression ')' statement "else" statement {
+    int index = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    $$ = mkifstmt($3, $5, $7, index);
+    }
 | "switch" '(' expression ')' switch_midrule compound_statement {
     SWITCHINFO* swi = dapop(ctx->func->switchstack);
-    $$ = mkswitchstmt($3, $6, swi, @$);
+    int index = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    $$ = mkswitchstmt($3, $6, swi, index);
     }
-| "while" '(' expression ')' statement {$$ = mklsstmt(WHILEL, $3, $5, @$);}
-| "do" statement "while" '(' expression ')' ';' {$$ = mklsstmt(DOWHILEL, $5, $2, @$);}
+| "while" '(' expression ')' statement {
+    int index = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    $$ = mklsstmt(WHILEL, $3, $5, index, $5->locendind);
+    }
+| "do" statement "while" '(' expression ')' ';' {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@7));
+    $$ = mklsstmt(DOWHILEL, $5, $2, index1, index2);
+    }
 | "for" '(' {
     scopepush(ctx);
-    } dee  ee ';' ee ')' statement {$$ = mkforstmt($4, $5, $7, $9, @$); scopepop(ctx);}
-| "goto" SYMBOL ';' {$$ = mkgotostmt($2, @$);}
-| "break" ';' {$$ = mkexprstmt(LBREAK, NULL, @$);}
-| "continue" ';' {$$ = mkexprstmt(LCONT, NULL, @$);}
-| "return" ';' {$$ = mkexprstmt(FRET, NULL, @$);}
-| "return" expression ';' {$$ = mkexprstmt(FRET, $2, @$);}
-| expression ';' {$$ = mkexprstmt(EXPR, $1, @$);}
-| "asm" '(' multistring ')' ';' {$$ = mkasmstmt($3->strptr, NULL, NULL, NULL, @$); free($3);}
-| "asm" '(' multistring ':' operands ')' ';' {$$ = mkasmstmt($3->strptr, $5, NULL, NULL, @$); free($3);}
-| "asm" '(' multistring ':' operands ':' operands ')' ';' {$$ = mkasmstmt($3->strptr, $5, $7, NULL, @$); free($3);}
-| "asm" '(' multistring ':' operands ':' operands ':' clobbers ')' ';' {$$ = mkasmstmt($3->strptr, $5, $7, $9, @$); free($3);}
-| ';' {$$ = mknopstmt();};
+    } dee  ee ';' ee ')' statement {
+    int index = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    $$ = mkforstmt($4, $5, $7, $9, index); 
+    scopepop(ctx);
+    }
+| "goto" SYMBOL ';' {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@2));
+    $$ = mkgotostmt($2, index1, index2);
+    }
+| "break" ';' {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@2));
+    $$ = mkexprstmt(LBREAK, NULL, index1, index2);
+    }
+| "continue" ';' {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@2));
+    $$ = mkexprstmt(LCONT, NULL, index1, index2);
+    }
+| "return" ';' {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@2));
+    $$ = mkexprstmt(FRET, NULL, index1, index2);
+    }
+| "return" expression ';' {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@3));
+    $$ = mkexprstmt(FRET, $2, index1, index2);
+    }
+| expression ';' {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@2));
+    $$ = mkexprstmt(EXPR, $1, index1, index2);
+    }
+| "asm" '(' multistring ')' ';' {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@5));
+    $$ = mkasmstmt($3->strptr, NULL, NULL, NULL, index1, index2);
+    free($3);
+    }
+| "asm" '(' multistring ':' operands ')' ';' {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@7));
+    $$ = mkasmstmt($3->strptr, $5, NULL, NULL, index1, index2);
+    free($3);
+    }
+| "asm" '(' multistring ':' operands ':' operands ')' ';' {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@9));
+    $$ = mkasmstmt($3->strptr, $5, $7, NULL, index1, index2);
+    free($3);
+    }
+| "asm" '(' multistring ':' operands ':' operands ':' clobbers ')' ';' {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@11));
+    $$ = mkasmstmt($3->strptr, $5, $7, $9, index1, index2);
+    free($3);
+    }
+| ';' {
+    $$ = mknopstmt();
+    };
 ee:
   expression {$$ = $1;}
-| %empty {$$ = ct_nop_expr(@$);};
+| %empty {
+    $$ = ct_nop_expr(-1, -1);
+    };
 dee:
-  initializer {if($1) {$$ = malloc(sizeof(EOI)); $$->isE = 0; $$->I = $1;} else {$$ = malloc(sizeof(EOI)); $$->isE = 1; $$->E = ct_nop_expr(@$);};}
+  initializer {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@1));
+    if($1) {
+      $$ = malloc(sizeof(EOI));
+      $$->isE = 0;
+      $$->I = $1;
+    } else {
+      $$ = malloc(sizeof(EOI));
+      $$->isE = 1;
+      $$->E = ct_nop_expr(index1, index2);
+    };}
 | ee ';' {$$ = malloc(sizeof(EOI)); $$->isE = 1; $$->E = $1;};
 compound_statement:/*add new scope to scope stack, remove when done*/
-  '{' compound_midrule soiorno'}' {
-    $$ = mkcmpndstmt($3, @$);
+  '{' compound_midrule soiorno '}' {
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@4));
+    $$ = mkcmpndstmt($3, index1, index2);
     scopepop(ctx);
     };
 compound_midrule: %empty {
@@ -1155,7 +1414,11 @@ enumbody:
   '{' enums commaopt '}' {$$ = $2;};
 enums:
   SYMBOL {$$ = dactor(256);
-    EXPRESSION* const0 = ct_intconst_expr(0, @$);
+    int index1 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halvestart(&@1));
+    int index2 = ctx->halflocs->length;
+    dapush(ctx->halflocs, halveend(&@1));
+    EXPRESSION* const0 = ct_intconst_expr(0, index1, index2);
     dapushc($$, genenumfield($1,const0));
     add2scope(ctx, $1, M_ENUM_CONST, const0);
     }

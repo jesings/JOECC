@@ -104,6 +104,7 @@ static void filecomp(char* filename) {
   dadtor(lctx->definestack);
   dadtor(lctx->ls->locs);
   dadtor(lctx->ls->argpp);
+  dadtorfr(lctx->halflocs);
   DYNARR* funcky = qhtpairs(lctx->funcs);
 
   char* newname = explainjoke(filename, 's');
