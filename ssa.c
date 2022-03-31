@@ -98,7 +98,7 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
   DYNINT* assigns = NULL;
   block->visited = 1;
   if(block->lastop) {
-    assigns = dinctor(32);
+    assigns = dictor(32);
     OPERATION* op = block->firstop;
     DYNINT* bdarr;
     while(1) {
@@ -841,13 +841,13 @@ static void debuggo(EQONTAINER* eq, PROGRAM* prog) {
 static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
   blk->leader = iiclone(blk->dom->leader);
   blk->antileader_in = lvhtctor();
-  blk->antileader_in_list = dinctor(64);
+  blk->antileader_in_list = dictor(64);
   if(blk->lastop) {
     blk->tmp_gen = dactor(32);
     blk->exp_gen = lvhtctor();
-    blk->exp_gen_list = dinctor(64);
+    blk->exp_gen_list = dictor(64);
     blk->antileader_out = lvhtctor();
-    blk->antileader_out_list = dinctor(64);
+    blk->antileader_out_list = dictor(64);
     OPERATION* op = blk->firstop;
     VALUESTRUCT valst = {INIT_3, 0, 0, 0, 0};
     do {
@@ -1298,7 +1298,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
     for(; daget(blkn->inedges,index) != blk; index++) ;
     if(blkn->lastop && blkn->firstop->opcode == PHI) {
       blk->antileader_out = lvhtctor();
-      blk->antileader_out_list = dinctor(64);
+      blk->antileader_out_list = dictor(64);
       if(!blk->translator) { //translators will be properly populated the first time
         for(int i = 0; i < blkn->antileader_in_list->length; i++) {
           void* value = lvsearch(blkn->antileader_in, blkn->antileader_in_list->arr[i]);
@@ -1360,13 +1360,13 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
       blk->antileader_out_list = diclone(blk->branchblock->antileader_in_list);
     } else {
       blk->antileader_out = lvhtctor();
-      blk->antileader_out_list = dinctor(32);
+      blk->antileader_out_list = dictor(32);
     }
     //and with branchblock
     //>1 succ
   } else {
     blk->antileader_out = lvhtctor();
-    blk->antileader_out_list = dinctor(32);
+    blk->antileader_out_list = dictor(32);
   }
   LVHASHTABLE* antiin_users = lvchtctor(32); //ht of dynarrs of expressions which would be killed by a kill of the value number
   blk->antileader_in = lvhtcclone(blk->antileader_out, (void*(*)(void*)) valdup);
@@ -1420,18 +1420,18 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
           continue;
         OPS_3_3ac
           if(!lvqueryval(antiin_users, exs->p1)) {
-            lvinsert(antiin_users, exs->p1, dinctor(4));
+            lvinsert(antiin_users, exs->p1, dictor(4));
           }
           dipush(lvsearch(antiin_users, exs->p1), n3->index);
           if(!lvqueryval(antiin_users, exs->p2)) {
-            lvinsert(antiin_users, exs->p2, dinctor(4));
+            lvinsert(antiin_users, exs->p2, dictor(4));
           }
           dipush(lvsearch(antiin_users, exs->p2), n3->index);
           break;
         OPS_2_3ac
         OPS_1_ASSIGN_3ac case ADDR_3: //these also should be killed?
           if(!lvqueryval(antiin_users, exs->p1)) {
-            lvinsert(antiin_users, exs->p1, dinctor(4));
+            lvinsert(antiin_users, exs->p1, dictor(4));
           }
           dipush(lvsearch(antiin_users, exs->p1), n3->index);
           break;
@@ -1440,7 +1440,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
   }
 
   if(blk->tmp_gen) {
-    DYNINT* rmstack = dinctor(8);
+    DYNINT* rmstack = dictor(8);
     for(int i = 0; i < blk->tmp_gen->length; i++) {
       long fullval = (long) blk->tmp_gen->arr[i];
       ADDRESS a;

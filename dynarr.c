@@ -2,55 +2,65 @@
 #include <string.h>
 #include "dynarr.h"
 
-DYNARR* dactor(int initiallen) {
-  DYNARR* retval = malloc(sizeof(DYNARR));
-  retval->length = 0;
-  retval->maxlength = initiallen;
-  if(initiallen)
-    retval->arr = malloc(sizeof(void*) * initiallen);
-  return retval;
+#define DYNIMPL(type_suffix, prefix, elemtype) \
+DYN ## type_suffix* prefix ## ctor(int initiallen) { \
+  DYN ## type_suffix* retval = malloc(sizeof(DYN ## type_suffix)); \
+  retval->length = 0; \
+  retval->maxlength = initiallen; \
+  if(initiallen) \
+    retval->arr = malloc(sizeof(elemtype) * initiallen); \
+  return retval; \
+} \
+void prefix ## dtor(DYN ## type_suffix* da) { \
+  if(da == NULL) return; \
+  if(da->maxlength) \
+    free(da->arr); \
+  free(da); \
+} \
+void prefix ## push(DYN ## type_suffix* da, elemtype val) { \
+  if(da->length == da->maxlength) \
+    da->arr = reallocarray(da->arr, da->maxlength *= 1.5, sizeof(elemtype)); \
+  da->arr[(da->length)++] = val; \
+} \
+DYN ## type_suffix* prefix ## merge(DYN ## type_suffix* arr1, DYN ## type_suffix* arr2) { \
+  if(!arr1->length) { \
+    if(arr1->maxlength) free(arr1->arr); \
+    *arr1 = *arr2; \
+    free(arr2); \
+    return arr1; \
+  } else if(!arr2->length) { \
+    prefix ## dtor(arr2); \
+    return arr1; \
+  } else if(arr1->length + arr2->length < arr1->maxlength) { \
+    memcpy(arr1->arr + arr1->length, arr2->arr, arr2->length * sizeof(elemtype)); \
+    arr1->length += arr2->length; \
+    prefix ## dtor(arr2); \
+    return arr1; \
+  } \
+  DYN ## type_suffix* retval = malloc(sizeof(DYN ## type_suffix)); \
+  retval->maxlength = arr1->maxlength + arr2->maxlength; \
+  retval->arr = realloc(arr1->arr, retval->maxlength * sizeof(elemtype)); \
+  retval->length = arr1->length + arr2->length; \
+  memcpy(retval->arr + arr1->length, arr2->arr, arr2->length * sizeof(elemtype)); \
+  free(arr1); \
+  prefix ## dtor(arr2); \
+  return retval; \
+} \
+DYN ## type_suffix* prefix ## clone(DYN ## type_suffix* orig) { \
+  DYN ## type_suffix* retval = malloc(sizeof(DYN ## type_suffix)); \
+  retval->length = orig->length; \
+  retval->maxlength = orig->maxlength; \
+  retval->arr = malloc(sizeof(elemtype) * orig->maxlength); \
+  memcpy(retval->arr, orig->arr, orig->length * sizeof(elemtype)); \
+  return retval; \
+} \
+elemtype prefix ## pop(DYN ## type_suffix* da) { \
+  return da->arr[--(da->length)]; \
 }
 
-DYNARR* damerge(DYNARR* arr1, DYNARR* arr2) {
-  if(!arr1->length) {
-    if(arr1->maxlength) free(arr1->arr);
-    *arr1 = *arr2;
-    free(arr2);
-    return arr1;
-  } else if(!arr2->length) {
-    dadtor(arr2);
-    return arr1;
-  } else if(arr1->length + arr2->length < arr1->maxlength) {
-    memcpy(arr1->arr + arr1->length, arr2->arr, arr2->length * sizeof(void*));
-    arr1->length += arr2->length;
-    dadtor(arr2);
-    return arr1;
-  }
-  DYNARR* retval = malloc(sizeof(DYNARR));
-  retval->maxlength = arr1->maxlength + arr2->maxlength;
-  retval->arr = realloc(arr1->arr, retval->maxlength * sizeof(void*));
-  retval->length = arr1->length + arr2->length;
-  memcpy(retval->arr + arr1->length, arr2->arr, arr2->length * sizeof(void*));
-  free(arr1);
-  dadtor(arr2);
-  return retval;
-}
+DYNIMPL(ARR, da, void*)
+DYNIMPL(INT, di, int)
 
-DYNARR* daclone(DYNARR* orig) {
-  DYNARR* retval = malloc(sizeof(DYNARR));
-  retval->length = orig->length;
-  retval->maxlength = orig->maxlength;
-  retval->arr = malloc(sizeof(void*) * orig->maxlength);
-  memcpy(retval->arr, orig->arr, orig->length * sizeof(void*));
-  return retval;
-}
-
-void dadtor(DYNARR* da) {
-  if(da == NULL) return;
-  if(da->maxlength)
-    free(da->arr);
-  free(da);
-}
 void dadtorfr(DYNARR* da) {
   for(int i = 0; i< da->length; i++)
     free((da->arr)[i]);
@@ -66,19 +76,10 @@ void dadtorcfr(DYNARR* da, void (*freep)(void*)) {
   free(da);
 }
 
-void dainsert(DYNARR* da, void* val) {
-  if(da->length == da->maxlength)
-    da->arr = reallocarray(da->arr, da->maxlength *= 1.5, sizeof(void*));
+void dapushc(DYNARR* da, void* val) {
   da->arr[(da->length)++] = val;
 }
 
-void dainsertc(DYNARR* da, void* val) {
-  da->arr[(da->length)++] = val;
-}
-
-void* dapop(DYNARR* da) {
-  return da->arr[--(da->length)];
-}
 
 //dynamic array remove value (was going to be called darm, but couldn't pass up opportunity for punny name)
 //returns null if no element is removed, returns removed value otherwise (could be null, beware)
@@ -95,52 +96,6 @@ void darpa(DYNARR* da, void* val, void* rpval) { //order not preserved
   int i;
   for(i = 0; i < da->length && da->arr[i] != val; i++) ;
   if(i != da->length) da->arr[i] = rpval;
-}
-
-DYNINT* dinctor(int initiallen) {
-  DYNINT* retval = malloc(sizeof(DYNINT));
-  retval->length = 0;
-  retval->maxlength = initiallen;
-  if(initiallen)
-    retval->arr = malloc(sizeof(int) * initiallen);
-  return retval;
-}
-void dipush(DYNINT* di, int i) {
-  if(di->length == di->maxlength)
-    di->arr = reallocarray(di->arr, di->maxlength *= 1.5, sizeof(int));
-  di->arr[(di->length)++] = i;
-}
-int dipop(DYNINT* di) {
-  return di->arr[--(di->length)];
-}
-void didtor(DYNINT* di) {
-  if(di->maxlength) free(di->arr);
-  free(di);
-}
-
-DYNINT* dimerge(DYNINT* arr1, DYNINT* arr2) {
-  if(!arr1->length) {
-    if(arr1->maxlength) free(arr1->arr);
-    *arr1 = *arr2;
-    free(arr2);
-    return arr1;
-  } else if(!arr2->length) {
-    didtor(arr2);
-    return arr1;
-  } else if(arr1->length + arr2->length < arr1->maxlength) {
-    memcpy(arr1->arr + arr1->length, arr2->arr, arr2->length * sizeof(int));
-    arr1->length += arr2->length;
-    didtor(arr2);
-    return arr1;
-  }
-  DYNINT* retval = malloc(sizeof(DYNARR));
-  retval->maxlength = arr1->maxlength + arr2->maxlength;
-  retval->arr = realloc(arr1->arr, retval->maxlength * sizeof(int));
-  retval->length = arr1->length + arr2->length;
-  memcpy(retval->arr + arr1->length, arr2->arr, arr2->length * sizeof(int));
-  free(arr1);
-  didtor(arr2);
-  return retval;
 }
 
 void disort(DYNINT* di) {
@@ -181,14 +136,4 @@ void didup(DYNINT* di) {
     }
   }
   di->length = wrind;
-}
-
-DYNINT* diclone(DYNINT* di) {
-  DYNINT* newdi = dinctor(di->maxlength);
-  int* diarr = newdi->arr;
-  int* diarro = di->arr;
-  for(int i = 0; i < di->length; i++)
-    diarr[i] = diarro[i];
-  newdi->length = di->length;
-  return newdi;
 }

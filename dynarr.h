@@ -28,7 +28,7 @@ void dadtor(DYNARR* da);
 void dadtorfr(DYNARR* da);
 void dadtorcfr(DYNARR* da, void (*freep)(void*));
 
-DYNINT* dinctor(int initiallen);
+DYNINT* dictor(int initiallen);
 void dipush(DYNINT* di, int i);
 int dipop(DYNINT* di);
 void didtor(DYNINT* di);
@@ -37,10 +37,8 @@ void didup(DYNINT* di);
 DYNINT* dimerge(DYNINT* arr1, DYNINT* arr2);
 DYNINT* diclone(DYNINT* di);
 
-void dainsert(DYNARR* da, void* val);
-void dainsertc(DYNARR* da, void* val);
-#define dapush dainsert
-#define dapushc dainsertc
+void dapush(DYNARR* da, void* val);
+void dapushc(DYNARR* da, void* val);
 void* dapop(DYNARR* da);
 void* dharma(DYNARR* da, void* val);
 void darpa(DYNARR* da, void* val, void* rpval);

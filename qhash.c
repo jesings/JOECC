@@ -452,7 +452,7 @@ LVHASHTABLE* lvhtcclone(LVHASHTABLE* ht, void*(*clonefunc)(void*)) {
 }
 
 DYNINT* isetelems(IHASHSET* ihs) {
-  DYNINT* di = dinctor(ihs->keys);
+  DYNINT* di = dictor(ihs->keys);
   for(int i = 0; i <= ihs->slotmask; i++) {
     if(bfget(ihs->bf, i)) {
       dipush(di, ihs->hashtable[i].key);
