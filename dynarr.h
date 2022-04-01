@@ -21,30 +21,32 @@ typedef struct {
   int maxlength;
 } DYNINT;
 
-DYNARR* dactor(int initiallen);
-DYNARR* damerge(DYNARR* arr1, DYNARR* arr2);
-DYNARR* daclone(DYNARR* orig);
-void dadtor(DYNARR* da);
+#define DYNDECL(type_suffix, prefix, elemtype) \
+DYN ## type_suffix* prefix ## ctor(int initiallen) ; \
+void prefix ## dtor(DYN ## type_suffix* da) ; \
+void prefix ## push(DYN ## type_suffix* da, elemtype val) ; \
+DYN ## type_suffix* prefix ## merge(DYN ## type_suffix* arr1, DYN ## type_suffix* arr2) ; \
+DYN ## type_suffix* prefix ## clone(DYN ## type_suffix* orig) ; \
+elemtype prefix ## pop(DYN ## type_suffix* da) ;
+
+DYNDECL(ARR, da, void*)
+DYNDECL(INT, di, int)
+#define dapeek(A) ((A)->arr[(A)->length-1])
+#define daget(A,I) ((A)->arr[(I)])
+#define dipeek(A) ((A)->arr[(A)->length-1])
+#define diget(A,I) ((A)->arr[(I)])
+
 void dadtorfr(DYNARR* da);
 void dadtorcfr(DYNARR* da, void (*freep)(void*));
+void dapushc(DYNARR* da, void* val);
+void* dapop(DYNARR* da);
+void* dharma(DYNARR* da, void* val);
+void darpa(DYNARR* da, void* val, void* rpval);
 
-DYNINT* dictor(int initiallen);
-void dipush(DYNINT* di, int i);
-int dipop(DYNINT* di);
-void didtor(DYNINT* di);
 void disort(DYNINT* di);
 void didup(DYNINT* di);
 DYNINT* dimerge(DYNINT* arr1, DYNINT* arr2);
 DYNINT* diclone(DYNINT* di);
 
-void dapush(DYNARR* da, void* val);
-void dapushc(DYNARR* da, void* val);
-void* dapop(DYNARR* da);
-void* dharma(DYNARR* da, void* val);
-void darpa(DYNARR* da, void* val, void* rpval);
-#define dapeek(A) ((A)->arr[(A)->length-1])
-#define dipeek(A) ((A)->arr[(A)->length-1])
-#define daget(A,I) ((A)->arr[(I)])
-#define diget(A,I) ((A)->arr[(I)])
 // vim: set ft=c:
 #endif
