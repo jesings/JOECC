@@ -39,14 +39,11 @@ DYNDECL(INT, di, int)
 void dadtorfr(DYNARR* da);
 void dadtorcfr(DYNARR* da, void (*freep)(void*));
 void dapushc(DYNARR* da, void* val);
-void* dapop(DYNARR* da);
 void* dharma(DYNARR* da, void* val);
 void darpa(DYNARR* da, void* val, void* rpval);
 
 void disort(DYNINT* di);
 void didup(DYNINT* di);
-DYNINT* dimerge(DYNINT* arr1, DYNINT* arr2);
-DYNINT* diclone(DYNINT* di);
 
 // vim: set ft=c:
 #endif
