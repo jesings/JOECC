@@ -51,12 +51,10 @@ enum opcode_3ac {
 extern const char* opcode_3ac_names[];
 
 #define LOOPOPS(body) \
-    if(blk->lastop) { \
-      OPERATION* op = blk->firstop; \
-      while(1) { \
+    if(blk->operations && blk->operations->length) { \
+      while(int opind = 0; opind < blk->operations->length; opind++) { \
+        OPERATION* op = blk->operations->arr[opind]; \
         body \
-        if(op == blk->lastop) break; \
-        op = op->nextop; \
       } \
     }
 
@@ -177,7 +175,6 @@ typedef struct op {
   ADDRESS addr1;
   ADDRTYPE dest_type;
   ADDRESS dest;
-  struct op* nextop;
 } OPERATION;
 
 /**
@@ -193,8 +190,7 @@ typedef struct fulladdr {
  * passes as well as information about the operations and the block's place in the CFG
 **/
 typedef struct bblock {
-  OPERATION* firstop;
-  OPERATION* lastop;
+  DYNARR* operations;
   DYNARR* inedges;
   struct bblock* nextblock;
   struct bblock* branchblock;

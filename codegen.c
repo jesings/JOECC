@@ -86,10 +86,10 @@ struct opinfo op2op[] = {
 void ldstrsep(PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
-    if(!blk->lastop) continue;
-    OPERATION* op = blk->firstop;
-    OPERATION** prevptr = &blk->firstop;
-    while(1) {
+    if(!blk->operations || !blk->operations->length) continue;
+    DYNARR* newops = dactor(blk->operations->length * 9 / 8);
+    for(int opind = 0; opind < blk->operations->length; opind++) {
+      OPERATION* op = blk->operations->arr[opind];
       char inplace;
       switch(op->opcode) {
         OPS_NOVAR_3ac OPS_1_3ac OPS_1_ASSIGN_3ac case COPY_3: case CALL_3: case DEALOC: case ASM:
@@ -98,16 +98,13 @@ void ldstrsep(PROGRAM* prog) {
           break;
         case ADDR_3:
           if(op->addr0_type & ISDEREF && op->dest_type & ISDEREF) {
+            ADDRTYPE adrt = op->dest_type & GENREGMASK;
             ADDRESS adr;
             adr.regnum = prog->regcnt++;
-            ADDRTYPE adrt = op->dest_type & GENREGMASK;
-            OPERATION* newop= ct_3ac_op2(MOV_3, adrt, adr, op->dest_type, op->dest);
-            newop->nextop = op->nextop;
-            op->nextop = newop;
             op->dest_type = adrt;
             op->dest = adr;
-            if(blk->lastop == op) blk->lastop = op;
-            op = newop; //prevent useless iteration
+            dapush(newops, op);
+            dapush(newops, ct_3ac_op2(MOV_3, adrt, adr, op->dest_type, op->dest));
           }
           break;
         OPS_3_3ac
@@ -121,13 +118,13 @@ void ldstrsep(PROGRAM* prog) {
                  (op->addr0_type & ISLABEL ? strcmp(op->addr0.labelname, op->dest.labelname): op->addr0.regnum == op->dest.regnum)) {
                 inplace = 1;
               } else {
+                ADDRTYPE adrt = op->addr0_type & GENREGMASK & ~(ISCONST | ISSTRCONST);
                 ADDRESS adr;
                 adr.regnum = prog->regcnt++;
-                ADDRTYPE adrt = op->addr0_type & GENREGMASK & ~(ISCONST | ISSTRCONST);
-                *prevptr = ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr);
-                (*prevptr)->nextop = op;
+                dapush(newops, ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr));
                 op->addr0_type = adrt;
                 op->addr0 = adr;
+                dapush(newops, op);
               }
             }
             if(addr1badness) {
@@ -135,36 +132,36 @@ void ldstrsep(PROGRAM* prog) {
                  (op->addr1_type & ISLABEL ? strcmp(op->addr1.labelname, op->dest.labelname): op->addr1.regnum == op->dest.regnum)) {
                 inplace = 1;
               } else {
+                ADDRTYPE adrt = op->addr1_type & GENREGMASK & ~(ISCONST | ISSTRCONST);
                 ADDRESS adr;
                 adr.regnum = prog->regcnt++;
-                ADDRTYPE adrt = op->addr1_type & GENREGMASK & ~(ISCONST | ISSTRCONST);
-                *prevptr = ct_3ac_op2(MOV_3, op->addr1_type, op->addr1, adrt, adr);
-                (*prevptr)->nextop = op;
                 op->addr1_type = adrt;
                 op->addr1 = adr;
+                dapush(newops, ct_3ac_op2(MOV_3, op->addr1_type, op->addr1, adrt, adr));
+                dapush(newops, op);
               }
             }
           } else if(addr0badness && addr1badness) {
             //if deref then both badnesses must have been rectified
             //instead, for this case we arbitrarily choose addr 0
+            ADDRTYPE adrt = op->addr0_type & GENREGMASK & ~(ISCONST | ISSTRCONST);
             ADDRESS adr;
             adr.regnum = prog->regcnt++;
-            ADDRTYPE adrt = op->addr0_type & GENREGMASK & ~(ISCONST | ISSTRCONST);
-            *prevptr = ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr);
-            (*prevptr)->nextop = op;
             op->addr0_type = adrt;
             op->addr0 = adr;
+            dapush(newops, ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr));
+            dapush(newops, op);
           }
           break;
         case MTP_OFF: case ARRMOV:
           if(op->addr0_type & (ISDEREF | ISSTRCONST) || (op->addr0_type & (ISFLOAT | ISCONST)) == (ISFLOAT | ISCONST)) {
+            ADDRTYPE adrt = op->addr0_type & GENREGMASK & ~(ISCONST | ISSTRCONST);
             ADDRESS adr;
             adr.regnum = prog->regcnt++;
-            ADDRTYPE adrt = op->addr0_type & GENREGMASK & ~(ISCONST | ISSTRCONST);
-            *prevptr = ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr);
-            (*prevptr)->nextop = op;
             op->addr0_type = adrt;
             op->addr0 = adr;
+            dapush(newops, ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr));
+            dapush(newops, op);
           }
           break;
         OPS_2_3ac
@@ -174,32 +171,32 @@ void ldstrsep(PROGRAM* prog) {
                (op->addr0_type & ISLABEL ? strcmp(op->addr0.labelname, op->dest.labelname): op->addr0.regnum == op->dest.regnum)) {
               //do nothing?
             } else {
+              ADDRTYPE adrt = op->addr0_type & GENREGMASK & ~(ISCONST | ISSTRCONST);
               ADDRESS adr;
               adr.regnum = prog->regcnt++;
-              ADDRTYPE adrt = op->addr0_type & GENREGMASK & ~(ISCONST | ISSTRCONST);
-              *prevptr = ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr);
-              (*prevptr)->nextop = op;
               op->addr0_type = adrt;
               op->addr0 = adr;
+              dapush(newops, ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr));
+              dapush(newops, op);
             }
           }
           break;
         OPS_NODEST_3ac
           if(op->addr0_type & ISDEREF && op->addr1_type & ISDEREF) {
+            ADDRTYPE adrt = op->addr0_type & GENREGMASK;
             ADDRESS adr;
             adr.regnum = prog->regcnt++;
-            ADDRTYPE adrt = op->addr0_type & GENREGMASK;
-            *prevptr = ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr);
-            (*prevptr)->nextop = op;
             op->addr0_type = adrt;
             op->addr0 = adr;
+            dapush(newops, ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr));
+            dapush(newops, op);
           }
           break;
       }
-      if(op == blk->lastop) break;
-      prevptr = &op->nextop;
-      op = op->nextop;
     }
+    DYNARR* tmp = blk->operations;
+    dadtor(blk->operations);
+    blk->operations = tmp;
   }
 }
 #undef X
@@ -252,11 +249,12 @@ static void addrgen(FILE* of, ADDRTYPE adt, ADDRESS addr) {
 }
 
 static void cgblock(FILE* outputfile, char* fname, BBLOCK* blk) {
-  if(blk->lastop) {
-    OPERATION* op = blk->firstop;
+  if(blk->operations && blk->operations->length) {
     int iparamno = 0;
     int fparamno = 0;
-    do {
+    OPERATION* op;
+    for(int opind = 0; opind < blk->operations->length; opind++) {
+      op = blk->operations->arr[opind];
       switch(op->opcode) {
         case NOP_3:
           break;
@@ -309,8 +307,7 @@ static void cgblock(FILE* outputfile, char* fname, BBLOCK* blk) {
           //assert(0);
           break;
       }
-      if(op == blk->lastop) break;
-    } while((op = op->nextop));
+    };
     if(blk->branchblock) {
       if(blk->branchblock->work != blk->work + 1) {
         switch(op->opcode) {
