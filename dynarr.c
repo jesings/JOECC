@@ -98,6 +98,14 @@ void darpa(DYNARR* da, void* val, void* rpval) { //order not preserved
   if(i != da->length) da->arr[i] = rpval;
 }
 
+void dainsertat(DYNARR* da, int index, void* val) {
+  if(da->length == da->maxlength)
+    da->arr = reallocarray(da->arr, da->maxlength *= 1.5, sizeof(void*));
+  memmove(da->arr + index + 1, da->arr + index, (da->length - index) * sizeof(void*));
+  ++da->length;
+  da->arr[index] = val;
+}
+
 void disort(DYNINT* di) {
   //mergesort for stability
   int n = di->maxlength;

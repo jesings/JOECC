@@ -52,7 +52,7 @@ extern const char* opcode_3ac_names[];
 
 #define LOOPOPS(body) \
     if(blk->operations && blk->operations->length) { \
-      while(int opind = 0; opind < blk->operations->length; opind++) { \
+      for(int opind = 0; opind < blk->operations->length; opind++) { \
         OPERATION* op = blk->operations->arr[opind]; \
         body \
       } \
@@ -321,18 +321,13 @@ static inline BBLOCK* ctblk(PROGRAM* prog) {
 
 //Add op to end of current block
 static inline void opn(PROGRAM* prog, OPERATION* op) {
-  if(prog->curblock) {
-    if(prog->curblock->lastop) {
-      prog->curblock->lastop->nextop = op;
-    } else {
-      prog->curblock->firstop = op;
-    }
-    prog->curblock->lastop = op;
-  } else {
-    BBLOCK* blk = ctblk(prog);
-    blk->firstop = op;
-    blk->lastop = op;
+  if(!prog->curblock) {
+    ctblk(prog);
   }
+  if(!(prog->curblock->operations && prog->curblock->operations->length)) {
+    prog->curblock->operations = dactor(8);
+  }
+  dapush(prog->curblock->operations, op);
 }
 
 //put constructed block into curblock field

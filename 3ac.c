@@ -894,16 +894,14 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
     case FCALL:
       if(cexpr->params->length > 1) {
-        OPERATION* fparam,* lparam;
+        OPERATION* fparam;
         curaddr = linearitree(daget(cexpr->params, 1), prog);
-        lparam = fparam = ct_3ac_op1(ARG_3, curaddr.addr_type, curaddr.addr);
+        fparam = ct_3ac_op1(ARG_3, curaddr.addr_type, curaddr.addr);
         for(int i = 2; i < cexpr->params->length; ++i) {
           curaddr = linearitree(daget(cexpr->params, i), prog);
-          lparam->nextop = ct_3ac_op1(ARG_3, curaddr.addr_type, curaddr.addr);
-          lparam = lparam->nextop;
+          opn(prog, ct_3ac_op1(ARG_3, curaddr.addr_type, curaddr.addr));
         }
         opn(prog, fparam);
-        prog->curblock->lastop = lparam;
       }
       IDTYPE* frettype = cexpr->rettype;
       if(ispointer(frettype)) {
@@ -1632,15 +1630,15 @@ void treeprog(PROGRAM* prog, char* fname, const char* pass) {
       fprintf(f, "\"%p\" -> \"%p\" [color=blue]\n", blk, blk->nextblock);
     if(blk->branchblock)
       fprintf(f, "\"%p\" -> \"%p\" [color=red]\n", blk, blk->branchblock);
-    if(!blk->lastop) {
+    if(!blk->operations || !blk->operations->length) {
       fprintf(f, "\"%p\" [tooltip=\"domind: %d, dominator %d\" fontcolor=white]", blk, blk->domind, blk->dom ? blk->dom->domind : -1);
       continue;
     }
     fprintf(f, "\"%p\" [label=<<TABLE BORDER=\"0\" CELLBORDER=\"1\" BGCOLOR=\"#353632\"><TR><TD><FONT COLOR=\"#e3f2e6\">", blk);
-    for(OPERATION* op = blk->firstop; ; op = op->nextop) {
+    for(int opind = 0; opind < blk->operations->length; opind++) {
+      OPERATION* op = blk->operations->arr[opind];
       printop(op, 0, blk, f, prog);
       fprintf(f, "<BR ALIGN=\"LEFT\"/>");
-      if(op == blk->lastop) break;
     }
     fprintf(f, "</FONT></TD></TR></TABLE>> fontcolor=white tooltip=\"domind: %d, dominator: %d\"]\n", blk->domind, blk->dom ? blk->dom->domind : -1);
   }
@@ -1649,22 +1647,16 @@ void treeprog(PROGRAM* prog, char* fname, const char* pass) {
 }
 
 //Frees memory for all operations from op to stop
-static void freeop(OPERATION* op, OPERATION* stop) {
-  while(1) {
-    switch(op->opcode) {
-      case LBL_3:
-        free(op->addr0.labelname);
-        break;
-      case PHI:
-        free(op->addr0.joins);
-        break;
-      default:
-        break;
-    }
-    if(op == stop) break;
-    OPERATION* nope = op;
-    op = op->nextop;
-    free(nope);
+static void freeop(OPERATION* op) {
+  switch(op->opcode) {
+    case LBL_3:
+      free(op->addr0.labelname);
+      break;
+    case PHI:
+      free(op->addr0.joins);
+      break;
+    default:
+      break;
   }
   free(op);
 }
@@ -1676,7 +1668,7 @@ void freeblock(void* blk) {
   if(blk2->idominates) dadtor(blk2->idominates);
   if(blk2->pidominates) dadtor(blk2->pidominates);
   if(blk2->df) dadtor(blk2->df);
-  if(blk2->lastop) freeop(blk2->firstop, blk2->lastop);
+  if(blk2->operations) dadtorcfr(blk2->operations, (void(*)(void*)) freeop);
   if(blk2->tmp_gen) dadtor(blk2->tmp_gen);
   if(blk2->exp_gen) lvchtdtor(blk2->exp_gen, free);
   if(blk2->exp_gen_list) didtor(blk2->exp_gen_list);

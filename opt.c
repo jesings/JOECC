@@ -47,19 +47,13 @@ void blockunblock(PROGRAM* prog) {
         BBLOCK* prevblock = daget(curblock->inedges, 0);
         assert(prevblock != curblock);
         if(!prevblock->branchblock) {
-          if(prevblock->lastop) {
-            if(curblock->lastop) {
-              prevblock->lastop->nextop = curblock->firstop;
-              prevblock->lastop = curblock->lastop;
-            }
-          } else {
-            if(curblock->lastop) {
-              prevblock->firstop = curblock->firstop;
-              prevblock->lastop = curblock->lastop;
-            }
+          if(!prevblock->operations) {
+            prevblock->operations = curblock->operations;
+          } else if(curblock->operations) {
+              prevblock->operations = damerge(prevblock->operations, curblock->operations);
           }
           prevblock->nextblock = curblock->nextblock;
-          curblock->lastop = NULL;
+          curblock->operations = NULL;
           prevblock->postdom = curblock->postdom;
           prevblock->postdomind = curblock->postdomind; //shouldn't be strictly necessary
           darpa(curblock->nextblock->inedges, curblock, prevblock);
@@ -80,35 +74,18 @@ char remove_nops(PROGRAM* prog) {
   DYNARR* da = prog->allblocks;
   for(int i = 0; i < da->length; i++) {
     BBLOCK* b = daget(da, i);
-    if(!b->lastop) continue;
-    OPERATION* op = b->firstop;
-    while(op->opcode == NOP_3 && op != b->lastop) {
-      OPERATION* prevop = op;
-      op = op->nextop;
-      free(prevop);
-    } //first ops
-    b->firstop = op;
-    OPERATION* lastop;
-    if(op == b->lastop) {
-      lastop = NULL;
-    } else {
-      lastop = op;
-      op = op->nextop;
-      while(op != b->lastop) {
-        if(op->opcode == NOP_3) {
-          lastop->nextop = op->nextop;
-          free(op);
-          op = lastop;
-        } else {
-          lastop = op;
-        }
-        op = op->nextop;
-      }
+    if(!b->operations || !b->operations->length) continue;
+    int opoff;
+    for(opoff = 0; opoff < b->operations->length; opoff++) {
+        OPERATION* op = b->operations->arr[opoff];
+        if(op->opcode != NOP_3) 
+            break;
     }
-    if(op->opcode == NOP_3) {
-      free(op);
-      b->lastop = lastop;
-    } //last op
+    if(opoff != 0) {
+        for(int opind = opoff; opind < b->operations->length; opind++)
+            b->operations->arr[opind - opoff] = b->operations->arr[opind];
+        b->operations->length -= opoff;
+    }
   }
   return 0;
 }
@@ -123,7 +100,7 @@ static char feq(OPERATION* op) {
 
 #define PRUNE(check, condition) \
    if(check) { \
-     blk->lastop->opcode = NOP_3; \
+     lastone->opcode = NOP_3; \
      if(condition) { \
        dharma(blk->nextblock->inedges, blk); \
        blk->nextblock = blk->branchblock; \
@@ -136,16 +113,16 @@ static char feq(OPERATION* op) {
 
 #define PRUNEFEQ(check, condition) \
   PRUNE(check, condition) \
-  else if(feq(blk->lastop)) { \
-    blk->lastop->opcode = NOP_3; \
+  else if(feq(lastone)) { \
+    lastone->opcode = NOP_3; \
     dharma(blk->branchblock->inedges, blk); \
     goto cleantrue; \
   }
 
 #define PRUNEFEQBR(check, condition) \
   PRUNE(check, condition) \
-  else if(feq(blk->lastop)) { \
-    blk->lastop->opcode = NOP_3; \
+  else if(feq(lastone)) { \
+    lastone->opcode = NOP_3; \
     dharma(blk->nextblock->inedges, blk); \
     blk->nextblock = blk->branchblock; \
     goto cleantrue; \
@@ -155,45 +132,46 @@ static char feq(OPERATION* op) {
 void prunebranch(PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
-    if(blk->lastop) {
-      switch(blk->lastop->opcode) {
+    if(blk->operations && blk->operations->length) {
+      OPERATION* lastone = dapeek(blk->operations);
+      switch(lastone->opcode) {
         case BNZ_3:
-          PRUNE(blk->lastop->addr0_type & ISCONST, blk->lastop->addr0.intconst_64 != 0)
+          PRUNE(lastone->addr0_type & ISCONST, lastone->addr0.intconst_64 != 0)
           break;
         case BEZ_3:
-          PRUNE(blk->lastop->addr0_type & ISCONST, blk->lastop->addr0.intconst_64 == 0)
+          PRUNE(lastone->addr0_type & ISCONST, lastone->addr0.intconst_64 == 0)
           break;
         case BEQ_U:
-          PRUNEFEQ(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST,
-                   blk->lastop->addr0.intconst_64 == blk->lastop->addr1.intconst_64)
+          PRUNEFEQ(lastone->addr0_type & ISCONST && lastone->addr1_type & ISCONST,
+                   lastone->addr0.intconst_64 == lastone->addr1.intconst_64)
           break;
         case BEQ_F:
-          PRUNEFEQ(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST,
-                   blk->lastop->addr0.floatconst_64 == blk->lastop->addr1.floatconst_64)
+          PRUNEFEQ(lastone->addr0_type & ISCONST && lastone->addr1_type & ISCONST,
+                   lastone->addr0.floatconst_64 == lastone->addr1.floatconst_64)
           break;
         case BGT_U:
-          PRUNEFEQBR(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST,
-                     blk->lastop->addr0.uintconst_64 > blk->lastop->addr1.uintconst_64)
+          PRUNEFEQBR(lastone->addr0_type & ISCONST && lastone->addr1_type & ISCONST,
+                     lastone->addr0.uintconst_64 > lastone->addr1.uintconst_64)
           break;
         case BGT_I:
-          PRUNEFEQBR(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST,
-                     blk->lastop->addr0.intconst_64 > blk->lastop->addr1.intconst_64)
+          PRUNEFEQBR(lastone->addr0_type & ISCONST && lastone->addr1_type & ISCONST,
+                     lastone->addr0.intconst_64 > lastone->addr1.intconst_64)
           break;
         case BGT_F:
-          PRUNEFEQBR(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST,
-                     blk->lastop->addr0.floatconst_64 > blk->lastop->addr1.floatconst_64)
+          PRUNEFEQBR(lastone->addr0_type & ISCONST && lastone->addr1_type & ISCONST,
+                     lastone->addr0.floatconst_64 > lastone->addr1.floatconst_64)
           break;
         case BGE_U:
-          PRUNEFEQ(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST,
-                   blk->lastop->addr0.uintconst_64 >= blk->lastop->addr1.uintconst_64)
+          PRUNEFEQ(lastone->addr0_type & ISCONST && lastone->addr1_type & ISCONST,
+                   lastone->addr0.uintconst_64 >= lastone->addr1.uintconst_64)
           break;
         case BGE_I:
-          PRUNEFEQ(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST,
-                   blk->lastop->addr0.intconst_64 >= blk->lastop->addr1.intconst_64)
+          PRUNEFEQ(lastone->addr0_type & ISCONST && lastone->addr1_type & ISCONST,
+                   lastone->addr0.intconst_64 >= lastone->addr1.intconst_64)
           break;
         case BGE_F:
-          PRUNEFEQ(blk->lastop->addr0_type & ISCONST && blk->lastop->addr1_type & ISCONST,
-                   blk->lastop->addr0.floatconst_64 >= blk->lastop->addr1.floatconst_64)
+          PRUNEFEQ(lastone->addr0_type & ISCONST && lastone->addr1_type & ISCONST,
+                   lastone->addr0.floatconst_64 >= lastone->addr1.floatconst_64)
           break;
         default:
           break;
@@ -585,9 +563,11 @@ char constfold(PROGRAM* prog) {
 
 int countops(PROGRAM* prog) {
   int opcount = 0;
-  LOOPALLBLOCKS(
-    ++opcount;
-  );
+  for(int blockind = 0; blockind < prog->allblocks->length; blockind++) {
+    BBLOCK* blk = daget(prog->allblocks, blockind);
+    if(blk->operations)
+      opcount += blk->operations->length;
+  }
   return opcount;
 }
 
@@ -625,24 +605,23 @@ void splitcrit(PROGRAM* prog) {
 //Does not yet but will perform tail call elimination optimization
 void tailcall(PROGRAM* prog) {
   //assume prog actually returns a value if this is being called
+  BBLOCK* firstblock = daget(prog->allblocks, 0);
+  OPERATION* fbfo = firstblock->operations->arr[0];
   for(int i = 0; i < prog->finalblock->inedges->length; i++) {
     BBLOCK* retb = daget(prog->finalblock->inedges, i);
-    OPERATION* op = retb->firstop;
-    if(op == retb->lastop) continue;
-    while(op->nextop != retb->lastop) {
-      op = op->nextop;
-    }
-    if(op->opcode == CALL_3) {
-      if(op->nextop->opcode == RET_3 && (op->nextop->addr0_type & ~0xf) == (op->dest_type & ~0xf) && op->nextop->addr0.intconst_64 == op->dest.intconst_64) {
-        if(op->addr0_type & ISLABEL && !strcmp(op->addr0.labelname, ((BBLOCK*) daget(prog->allblocks, 0))->firstop->addr0.labelname)) {
-          //tail recursion!! more optimization potential?
-          //insert block immediately after arguments with phi nodes for all the params
+    if(retb->operations->length >= 2) {
+      OPERATION* op = retb->operations->arr[retb->operations->length - 2];
+      OPERATION* lastop = retb->operations->arr[retb->operations->length - 1];
+      if(op->opcode == CALL_3) {
+        if(lastop->opcode == RET_3 && (lastop->addr0_type & ~0xf) == (op->dest_type & ~0xf) && lastop->addr0.intconst_64 == op->dest.intconst_64) {
+          if(op->addr0_type & ISLABEL && !strcmp(op->addr0.labelname, fbfo->addr0.labelname)) {
+            //tail recursion!! more optimization potential?
+            //insert block immediately after arguments with phi nodes for all the params
+          }
+          //op->opcode = JMP_3;
+          //free(dapop(blk->opeartions));
+          //TODO: wait until interprocedural or codegen
         }
-        //free(op->nextop);
-        //op->nextop = NULL;
-        //op->opcode = JMP_3;
-        //retb->lastop = op;
-        //TODO: wait until interprocedural or codegen
       }
     }
   }
@@ -667,22 +646,15 @@ void collatealloc(PROGRAM* prog) {
         dapushc(allocfrontier, blk);
         while(allocfrontier->length) {
           BBLOCK* inquestion = dapop(allocfrontier);
-          if(inquestion->lastop && inquestion->lastop->opcode == DEALOC
-             && inquestion->lastop->addr0.regnum == op->dest.regnum) continue;
+          if(inquestion->operations && inquestion->operations->length != 0 && 
+            ((OPERATION*) dapeek(inquestion->operations))->opcode == DEALOC &&
+            ((OPERATION*) dapeek(inquestion->operations))->addr0.regnum == op->dest.regnum) 
+            continue;
           //removal of critical edges should remove the issue that arises if one branch leaves dominance but the other doesn't
           if(inquestion->nextblock == prog->finalblock) {
-            OPERATION* preretop = inquestion->firstop;
-            OPERATION** insertloc;
-            if(preretop == inquestion->lastop) {
-              insertloc = &inquestion->firstop;
-            } else {
-              while(preretop->nextop != inquestion->lastop) preretop = preretop->nextop;
-              insertloc = &preretop->nextop;
-            }
             OPERATION* deallocop = ct_3ac_op1(DEALOC, op->dest_type, op->dest);
+            dainsertat(inquestion->operations, inquestion->operations->length - 1, deallocop);
             //repetition would be handled by PRE
-            deallocop->nextop = *insertloc;
-            *insertloc = deallocop;
           } else {
             if(inquestion->nextblock->dom == inquestion || fixedintersect(blk, inquestion->nextblock)) {
               if(fixedintersect(inquestion->nextblock, blk)) {
@@ -697,12 +669,10 @@ void collatealloc(PROGRAM* prog) {
             } else {
               OPERATION* deallocop = ct_3ac_op1(DEALOC, op->dest_type, op->dest);
               //repetition would be handled by PRE
-              if(inquestion->lastop) {
-                inquestion->lastop->nextop = deallocop;
-              } else {
-                inquestion->firstop = deallocop;
+              if(!inquestion->operations || !inquestion->operations->length) {
+                inquestion->operations = dactor(8);
               }
-              inquestion->lastop = deallocop;
+              dapush(inquestion->operations, deallocop);
             }
           }
         }
@@ -716,12 +686,13 @@ void collatealloc(PROGRAM* prog) {
     OPERATION* epsilop = ct_3ac_op2(ALOC_3, ISCONST | 8, alloccnt, baseptr.addr_type, baseptr.addr);
 
     BBLOCK* firstblock = (BBLOCK*) daget(prog->allblocks, 0);
-    OPERATION* fbop;
-    for(fbop = firstblock->firstop; fbop->nextop->opcode == PARAM_3; fbop = fbop->nextop) ;
-
-    epsilop->nextop = fbop->nextop;
-    if(fbop == firstblock->lastop) firstblock->lastop = epsilop;
-    fbop->nextop = epsilop;
+    int paramcnt;
+    for(paramcnt = 0; paramcnt < firstblock->operations->length; paramcnt++) {
+        OPERATION* op = daget(firstblock->operations, paramcnt);
+        if(op->opcode != PARAM_3)
+            break;
+    }
+    dainsertat(firstblock->operations, paramcnt, epsilop);
 #ifndef NODEBUG
     printf("total allocated %lu\n", totalalloc);
 #endif

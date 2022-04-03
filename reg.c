@@ -26,9 +26,9 @@ static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, IHASHSE
           return 1;
       }
     } else {
-      assert(blk->lastop);//if it's the defining block there must be an op
-      OPERATION* op = blk->firstop;
-      while(op->opcode == PHI) {
+      assert(blk->operations && blk->operations->length);//if it's the defining block there must be an op
+      for(int opind = 0; opind < blk->operations->length; opind++) {
+        OPERATION* op = blk->operations->arr[opind];
         for(int i = 0; i < numpred; i++) {
           FULLADDR f = op->addr0.joins[i];
           //deref is not necessary because derefs should never be used in phis
@@ -37,8 +37,6 @@ static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, IHASHSE
               return 1;
           }
         }
-        if(op == blk->lastop) break;
-        op = op->nextop;
       }
     }
     return 0;

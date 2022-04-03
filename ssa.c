@@ -97,11 +97,11 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
   if(!block || block->visited) return;
   DYNINT* assigns = NULL;
   block->visited = 1;
-  if(block->lastop) {
+  if(block->operations && block->operations->length) {
     assigns = dictor(32);
-    OPERATION* op = block->firstop;
-    DYNINT* bdarr;
-    while(1) {
+    for(int opind = 0; opind < block->operations->length; opind++) {
+      OPERATION* op = block->operations->arr[opind];
+      DYNINT* bdarr;
       switch(op->opcode) {
         OPS_3_3ac OPS_3_PTRDEST_3ac
           //rename second input operand if it's a variable
@@ -200,17 +200,17 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
         case ASM:
           assert(0);//unimplemented
       }
-      if(op == block->lastop) break;
-      op = op->nextop;
     }
   }
 
   //for nextblock, rename the values within the PHI, based on this block's names
-  if(block->nextblock && block->nextblock->lastop) {
+  if(block->nextblock && block->nextblock->operations && block->nextblock->operations->length) {
     int i = -1;
     while(daget(block->nextblock->inedges, ++i) != block) ;
-    OPERATION* op = block->nextblock->firstop;
-    while(op->opcode == PHI) {
+    for(int opind = 0; opind < block->nextblock->operations->length; opind++) {
+      OPERATION* op = block->nextblock->operations->arr[opind];
+      if(op->opcode != PHI) 
+        break;
       if(!(op->addr0_type & GARBAGEVAL)) {
         DYNINT* bdarr = daget(S, op->dest.varnum);
         if(bdarr->length) {
@@ -219,22 +219,20 @@ static void rrename(BBLOCK* block, int* C, DYNARR* S, PROGRAM* prog) {
         op->addr0.joins[i].addr.varnum = op->dest.varnum;
         op->addr0.joins[i].addr_type = op->dest_type;
       }
-      if(op == block->nextblock->lastop) break;
-      op = op->nextop;
     }
   }
   //for branch, rename the values within the PHI, based on this block's names
-  if(block->branchblock && block->branchblock->lastop) {
+  if(block->branchblock && block->branchblock->operations && block->branchblock->operations->length) {
     int i = -1;
     while(daget(block->branchblock->inedges, ++i) != block) ;
-    OPERATION* op = block->branchblock->firstop;
-    while(op->opcode == PHI) {
+    for(int opind = 0; opind < block->branchblock->operations->length; opind++) {
+      OPERATION* op = block->branchblock->operations->arr[i];
+      if(op->opcode != PHI)
+          break;
       assert(!(op->addr0_type & GARBAGEVAL)); //no ternaries can join at a branch block
       op->addr0.joins[i].addr.ssaind = dipeek((DYNINT*) daget(S, op->dest.varnum));
       op->addr0.joins[i].addr.varnum = op->dest.varnum;
       op->addr0.joins[i].addr_type = op->dest_type;
-      if(op == block->branchblock->lastop) break;
-      op = op->nextop;
     }
   }
 
@@ -278,9 +276,9 @@ void ssa(PROGRAM* prog) {
   for(int i = 0; i < blocks->length; i++) {
     BBLOCK* dtn = daget(blocks, i);
     if(dtn->domind == -1) {
-      if(dtn->nextblock && dtn->nextblock->lastop) {
+      if(dtn->nextblock && dtn->nextblock->operations && dtn->nextblock->operations->length) {
         //we don't need to check that it's a join and we also don't need to rearrange PHIs, because there must be a maximum of one ternary phi per block
-        OPERATION* possphi = dtn->nextblock->firstop;
+        OPERATION* possphi = dtn->nextblock->operations->arr[0];
         if(possphi->opcode == PHI) {
           DYNARR* possum = dtn->nextblock->inedges;
           //ternary phis must have 2 source operands
@@ -508,10 +506,10 @@ void ssa(PROGRAM* prog) {
             ADDRESS jadr;
             jadr.joins = malloc(domblock->inedges->length * sizeof(FULLADDR));
             //prepend phi to the block
+            if(!domblock->operations)
+              domblock->operations = dactor(4);
             OPERATION* phi = ct_3ac_op2(PHI, ISCONST, jadr, fadr->addr_type, fadr->addr);
-            phi->nextop = domblock->firstop;
-            if(!domblock->lastop) domblock->lastop = phi;
-            domblock->firstop = phi;
+            dainsertat(domblock->operations, 0, phi);
             domblock->visited = itercount;
             //if the block has not been edited yet for this variable, then put it back on the list??????????
             if(domblock->work < itercount) {
@@ -842,15 +840,15 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
   blk->leader = iiclone(blk->dom->leader);
   blk->antileader_in = lvhtctor();
   blk->antileader_in_list = dictor(64);
-  if(blk->lastop) {
+  if(blk->operations && blk->operations->length) {
     blk->tmp_gen = dactor(32);
     blk->exp_gen = lvhtctor();
     blk->exp_gen_list = dictor(64);
     blk->antileader_out = lvhtctor();
     blk->antileader_out_list = dictor(64);
-    OPERATION* op = blk->firstop;
     VALUESTRUCT valst = {INIT_3, 0, 0, 0, 0};
-    do {
+    for(int opind = 0; opind < blk->operations->length; opind++) {
+      OPERATION* op = blk->operations->arr[opind];
       GVNNUM* val1;
       GVNNUM* val2;
       GVNNUM* destval = NULL;
@@ -1201,7 +1199,7 @@ static void gensall(PROGRAM* prog, EQONTAINER* eq, BBLOCK* blk) {
         assert(finalval.o == INIT_3);
         iiinsert(blk->leader, destval->index, finalval.p1);
       }
-    } while(op != blk->lastop && (op = op->nextop));
+    }
   }
   if(blk->idominates)
     for(int i = 0; i < blk->idominates->length; i++)
@@ -1268,17 +1266,19 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
     BBLOCK* blkn = blk->nextblock;
     for(; daget(blkn->inedges,index) != blk; index++) ;
     if(!blk->translator) { //translators will be properly populated the first time
-      if(blkn->lastop && blkn->firstop->opcode == PHI) {
-        OPERATION* op = blkn->firstop;
-        blk->translator = iihtctor(); //would be more efficient to keep dag of references?
-        blk->revtranslator = iihtctor(); //would be more efficient to keep dag of references?
-        while(op->opcode == PHI) {
-          int prephi = op->addr0.joins[index].addr.regnum;
-          int postphi = op->dest.regnum;
-          iiinsert(blk->translator, prephi, postphi);
-          iiinsert(blk->revtranslator, postphi, prephi);
-          if(op == blkn->lastop) break;
-          op = op->nextop;
+      if(blkn->operations && blkn->operations->length) {
+        OPERATION* op = blkn->operations->arr[0];
+        if(op->opcode == PHI) {
+          blk->translator = iihtctor(); //would be more efficient to keep dag of references?
+          blk->revtranslator = iihtctor(); //would be more efficient to keep dag of references?
+          for(int opind = 0; opind < blkn->operations->length; opind++) {
+            OPERATION* op = blkn->operations->arr[opind];
+            if(op->opcode != PHI) break;
+            int prephi = op->addr0.joins[index].addr.regnum;
+            int postphi = op->dest.regnum;
+            iiinsert(blk->translator, prephi, postphi);
+            iiinsert(blk->revtranslator, postphi, prephi);
+          }
         }
       }
     }
@@ -1296,7 +1296,8 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
     int index = 0;
     BBLOCK* blkn = blk->nextblock;
     for(; daget(blkn->inedges,index) != blk; index++) ;
-    if(blkn->lastop && blkn->firstop->opcode == PHI) {
+    if(blkn->operations && blkn->operations->length && 
+            ((OPERATION*) blkn->operations->arr[0])->opcode == PHI) {
       blk->antileader_out = lvhtctor();
       blk->antileader_out_list = dictor(64);
       if(!blk->translator) { //translators will be properly populated the first time
@@ -1672,11 +1673,10 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
                   break;
               }
 
-              if(oblk->lastop) {
-                oblk->lastop = oblk->lastop->nextop = genop;
-              } else {
-                oblk->firstop = oblk->lastop = genop;
+              if(!oblk->operations) {
+                oblk->operations = dactor(4);
               }
+              dapush(oblk->operations, genop);
 
               if(antilnode->hasconst == NOCONST) {
                 assert(!iiqueryval(oblk->leader, antiint));
@@ -1697,12 +1697,10 @@ static char hoist(PROGRAM* prog, EQONTAINER* eq) {
             }
           }
           //insert phi at top of block
-          if(blk->lastop) {
-            phi->nextop = blk->firstop;
-            blk->firstop = phi;
-          } else {
-            blk->firstop = blk->lastop = phi;
-          }
+          if(!blk->operations) {
+            blk->operations = dactor(4);
+          } 
+          dainsertat(blk->operations, 0, phi);
           changed = 1;
 
           recdomins(blk, antiint, phi->dest.regnum);
@@ -1755,9 +1753,11 @@ void gvn(PROGRAM* prog) {
 void ssaout(PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
-    if(blk->lastop) {
-      OPERATION* phiop = blk->firstop;
-      while(phiop->opcode == PHI) {
+    if(blk->operations && blk->operations->length) {
+      for(int opind = 0; opind < blk->operations->length; opind++) {
+        OPERATION* phiop = blk->operations->arr[opind];
+        if(phiop->opcode != PHI)
+          break;
         FULLADDR paraddr;
         paraddr.addr_type = phiop->dest_type & GENREGMASK;
         paraddr.addr = phiop->dest;
@@ -1765,18 +1765,15 @@ void ssaout(PROGRAM* prog) {
         for(int j = 0; j < blk->inedges->length; j++) {
            BBLOCK* predblock = daget(blk->inedges, j);
            FULLADDR fadradr = phiop->addr0.joins[j];
-           if(predblock->lastop) {
-             predblock->lastop = predblock->lastop->nextop = ct_3ac_op2(MOV_3, fadradr.addr_type, fadradr.addr, paraddr.addr_type, paraddr.addr);
-           } else {
-             predblock->firstop = predblock->lastop = ct_3ac_op2(MOV_3, fadradr.addr_type, fadradr.addr, paraddr.addr_type, paraddr.addr);
+           if(!predblock->operations) {
+             predblock->operations = dactor(4);
            }
+           dapush(predblock->operations, ct_3ac_op2(MOV_3, fadradr.addr_type, fadradr.addr, paraddr.addr_type, paraddr.addr));
         }
         free(phiop->addr0.joins);
         phiop->opcode = MOV_3;
         phiop->addr0_type = paraddr.addr_type;
         phiop->addr0 = paraddr.addr;
-        if(phiop == blk->lastop) break;
-        phiop = phiop->nextop;
       }
     }
   }

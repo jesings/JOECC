@@ -93,8 +93,10 @@ void ldstrsep(PROGRAM* prog) {
       char inplace;
       switch(op->opcode) {
         OPS_NOVAR_3ac OPS_1_3ac OPS_1_ASSIGN_3ac case COPY_3: case CALL_3: case DEALOC: case ASM:
+          dapush(newops, op);
           break;
         case PHI: //all phis should be gone by this point
+          dapush(newops, op);
           break;
         case ADDR_3:
           if(op->addr0_type & ISDEREF && op->dest_type & ISDEREF) {
@@ -124,7 +126,6 @@ void ldstrsep(PROGRAM* prog) {
                 dapush(newops, ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr));
                 op->addr0_type = adrt;
                 op->addr0 = adr;
-                dapush(newops, op);
               }
             }
             if(addr1badness) {
@@ -135,10 +136,9 @@ void ldstrsep(PROGRAM* prog) {
                 ADDRTYPE adrt = op->addr1_type & GENREGMASK & ~(ISCONST | ISSTRCONST);
                 ADDRESS adr;
                 adr.regnum = prog->regcnt++;
+                dapush(newops, ct_3ac_op2(MOV_3, op->addr1_type, op->addr1, adrt, adr));
                 op->addr1_type = adrt;
                 op->addr1 = adr;
-                dapush(newops, ct_3ac_op2(MOV_3, op->addr1_type, op->addr1, adrt, adr));
-                dapush(newops, op);
               }
             }
           } else if(addr0badness && addr1badness) {
@@ -147,22 +147,22 @@ void ldstrsep(PROGRAM* prog) {
             ADDRTYPE adrt = op->addr0_type & GENREGMASK & ~(ISCONST | ISSTRCONST);
             ADDRESS adr;
             adr.regnum = prog->regcnt++;
+            dapush(newops, ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr));
             op->addr0_type = adrt;
             op->addr0 = adr;
-            dapush(newops, ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr));
-            dapush(newops, op);
           }
+          dapush(newops, op);
           break;
         case MTP_OFF: case ARRMOV:
           if(op->addr0_type & (ISDEREF | ISSTRCONST) || (op->addr0_type & (ISFLOAT | ISCONST)) == (ISFLOAT | ISCONST)) {
             ADDRTYPE adrt = op->addr0_type & GENREGMASK & ~(ISCONST | ISSTRCONST);
             ADDRESS adr;
             adr.regnum = prog->regcnt++;
+            dapush(newops, ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr));
             op->addr0_type = adrt;
             op->addr0 = adr;
-            dapush(newops, ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr));
-            dapush(newops, op);
           }
+          dapush(newops, op);
           break;
         OPS_2_3ac
         //shouldn't really work for F2F, NEG_F
@@ -174,29 +174,28 @@ void ldstrsep(PROGRAM* prog) {
               ADDRTYPE adrt = op->addr0_type & GENREGMASK & ~(ISCONST | ISSTRCONST);
               ADDRESS adr;
               adr.regnum = prog->regcnt++;
+              dapush(newops, ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr));
               op->addr0_type = adrt;
               op->addr0 = adr;
-              dapush(newops, ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr));
-              dapush(newops, op);
             }
           }
+          dapush(newops, op);
           break;
         OPS_NODEST_3ac
           if(op->addr0_type & ISDEREF && op->addr1_type & ISDEREF) {
             ADDRTYPE adrt = op->addr0_type & GENREGMASK;
             ADDRESS adr;
             adr.regnum = prog->regcnt++;
+            dapush(newops, ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr));
             op->addr0_type = adrt;
             op->addr0 = adr;
-            dapush(newops, ct_3ac_op2(MOV_3, op->addr0_type, op->addr0, adrt, adr));
-            dapush(newops, op);
           }
+          dapush(newops, op);
           break;
       }
     }
-    DYNARR* tmp = blk->operations;
     dadtor(blk->operations);
-    blk->operations = tmp;
+    blk->operations = newops;
   }
 }
 #undef X

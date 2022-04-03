@@ -41,6 +41,7 @@ void dadtorcfr(DYNARR* da, void (*freep)(void*));
 void dapushc(DYNARR* da, void* val);
 void* dharma(DYNARR* da, void* val);
 void darpa(DYNARR* da, void* val, void* rpval);
+void dainsertat(DYNARR* da, int index, void* value);
 
 void disort(DYNINT* di);
 void didup(DYNINT* di);
