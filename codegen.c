@@ -87,7 +87,7 @@ void ldstrsep(PROGRAM* prog) {
   for(int i = 0; i < prog->allblocks->length; i++) {
     BBLOCK* blk = daget(prog->allblocks, i);
     if(!blk->operations || !blk->operations->length) continue;
-    DYNARR* newops = dactor(blk->operations->length * 9 / 8);
+    DYNARR* newops = dactor(blk->operations->length + 8);
     for(int opind = 0; opind < blk->operations->length; opind++) {
       OPERATION* op = blk->operations->arr[opind];
       char inplace;
@@ -107,6 +107,8 @@ void ldstrsep(PROGRAM* prog) {
             op->dest = adr;
             dapush(newops, op);
             dapush(newops, ct_3ac_op2(MOV_3, adrt, adr, op->dest_type, op->dest));
+          } else {
+            dapush(newops, op);
           }
           break;
         OPS_3_3ac

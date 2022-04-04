@@ -80,6 +80,7 @@ char remove_nops(PROGRAM* prog) {
         OPERATION* op = b->operations->arr[opoff];
         if(op->opcode != NOP_3) 
             break;
+        free(op);
     }
     if(opoff != 0) {
         for(int opind = opoff; opind < b->operations->length; opind++)
