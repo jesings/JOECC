@@ -41,11 +41,11 @@ void prefix ## htdtor(type_prefix ## TABLE* ht); \
 void prefix ## chtdtor(type_prefix ## TABLE* ht, void (*freep)(valtype)); \
 void prefix ## insertcfr(type_prefix ## TABLE* qh, const keytype key, valtype value, void (*cfree)(valtype));
 
-HASHPROTO(QHASH, q, char*, void*);
-HASHPROTO(OPHASH, op, void*, void*);
-HASHPROTO(IIHASH, ii, int, int);
-HASHPROTO(LVHASH, lv, long, void*);
-HASHPROTO(FVHASH, fv, double, void*);
+HASHPROTO(QHASH, q, char*, void*); //qhash, named for generic quadratic probing
+HASHPROTO(OPHASH, op, void*, void*); //ophash, has OPERATIONs as keys! Special checking needs to be done
+HASHPROTO(IIHASH, ii, int, int); //IIhash, goes from ints to ints
+HASHPROTO(LVHASH, lv, long, void*); //lvhash, goes from longs to void*s
+HASHPROTO(FVHASH, fv, double, void*); //fvhash, goes from floats (doubles) to void*s
 
 IIHASHTABLE* iiclone(IIHASHTABLE* ht);
 LVHASHTABLE* lvhtcclone(LVHASHTABLE* ht, void*(*clonefunc)(void*));
@@ -68,8 +68,8 @@ void prefix ## setinsert(type_prefix ## SET*, const keytype key); \
 void prefix ## setresize(type_prefix ## SET* qh); \
 type_prefix ## SET* prefix ## setclone(type_prefix ## SET* qh);
 
-SETPROTO(IHASH, i, int);
-SETPROTO(LHASH, l, long);
+SETPROTO(IHASH, i, int); //ihashset, uses integer keys
+SETPROTO(LHASH, l, long); //lhashset, uses long keys
 
 DYNINT* isetelems(IHASHSET* ihs);
 #endif

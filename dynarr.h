@@ -29,8 +29,8 @@ DYN ## type_suffix* prefix ## merge(DYN ## type_suffix* arr1, DYN ## type_suffix
 DYN ## type_suffix* prefix ## clone(DYN ## type_suffix* orig) ; \
 elemtype prefix ## pop(DYN ## type_suffix* da) ;
 
-DYNDECL(ARR, da, void*)
-DYNDECL(INT, di, int)
+DYNDECL(ARR, da, void*) //DYNARR/dapush etc. generic dynamic array
+DYNDECL(INT, di, int) //DYNINT/dipush etc. dynamic array of integers
 #define dapeek(A) ((A)->arr[(A)->length-1])
 #define daget(A,I) ((A)->arr[(I)])
 #define dipeek(A) ((A)->arr[(A)->length-1])
