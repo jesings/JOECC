@@ -21,6 +21,7 @@ typedef struct {
   int maxlength;
 } DYNINT;
 
+//constructs the function prototypes necessary for our dynamic array interface on invocation, see dynarr.c's comment for more information
 #define DYNDECL(type_suffix, prefix, elemtype) \
 DYN ## type_suffix* prefix ## ctor(int initiallen) ; \
 void prefix ## dtor(DYN ## type_suffix* da) ; \

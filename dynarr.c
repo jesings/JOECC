@@ -2,6 +2,21 @@
 #include <string.h>
 #include "dynarr.h"
 
+/*
+ * The following macro, DYNIMPL, defines a factory for implementing a dynamic array for the given types.
+ * The parameters of the macro are as follows:
+ * type_suffix defines the suffix to be added on to DYN for the type of the array: i.e. ARR for DYNARR
+ * prefix defines the prefix to be put before the functions to differentiate them: i.e. da -> dactor di ->dictor
+ * elemtype defines the type of an element of the array, i.e. void*, or int
+ * Calling this macro on a certain type defines the following functions, prefix omitted
+ * ctor, which constructs a dynamic array of the requisite type with an initial max length of initiallen
+ * dtor, which destructs and frees a dynamic array of the requisite type
+ * push, which pushes a value on to the end of the filled part of the dynamic array of the requisite type
+ * merge, which takes in two dynamic arrays of the requisite type, and returns a new dynamic array of the requisite type
+ * destructing the two passed in dynamic arrays, and placing in the returned array the elements of the first concatenated with the elements of the second parameter array
+ * clone, which constructs a copy of the dynamic array of the requisite type
+ * pop, which removes the last populated element of a dynamic array from the array, and returns it
+ */
 #define DYNIMPL(type_suffix, prefix, elemtype) \
 DYN ## type_suffix* prefix ## ctor(int initiallen) { \
   DYN ## type_suffix* retval = malloc(sizeof(DYN ## type_suffix)); \
