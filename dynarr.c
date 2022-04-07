@@ -52,6 +52,7 @@ DYN ## type_suffix* prefix ## merge(DYN ## type_suffix* arr1, DYN ## type_suffix
     prefix ## dtor(arr2); \
     return arr1; \
   } \
+  /*we don't do an arr2 length check after the above case because the arr1 elements must come before the arr2 ones*/ \
   DYN ## type_suffix* retval = malloc(sizeof(DYN ## type_suffix)); \
   retval->maxlength = arr1->maxlength + arr2->maxlength; \
   retval->arr = realloc(arr1->arr, retval->maxlength * sizeof(elemtype)); \
@@ -76,12 +77,14 @@ elemtype prefix ## pop(DYN ## type_suffix* da) { \
 DYNIMPL(ARR, da, void*)
 DYNIMPL(INT, di, int)
 
+//dynamic array destructor/free, which frees every element in it as it destructs
 void dadtorfr(DYNARR* da) {
   for(int i = 0; i< da->length; i++)
     free((da->arr)[i]);
   dadtor(da);
 }
 
+//dynamic array destructor which calls a custom free method on every element in it as it destructs
 void dadtorcfr(DYNARR* da, void (*freep)(void*)) {
   if(da->maxlength) {
     for(int i = 0; i< da->length; i++)
@@ -91,6 +94,7 @@ void dadtorcfr(DYNARR* da, void (*freep)(void*)) {
   free(da);
 }
 
+//dapush but doesn't do bounds check, slightly more efficient for cases where we construct and immediately push, so we know we don't need to resize
 void dapushc(DYNARR* da, void* val) {
   da->arr[(da->length)++] = val;
 }
@@ -98,7 +102,8 @@ void dapushc(DYNARR* da, void* val) {
 
 //dynamic array remove value (was going to be called darm, but couldn't pass up opportunity for punny name)
 //returns null if no element is removed, returns removed value otherwise (could be null, beware)
-void* dharma(DYNARR* da, void* val) { //order not preserved
+//this removal replaces that value with the last value in the array, then reduces the length by 1, so order is not preserved
+void* dharma(DYNARR* da, void* val) {
   int i;
   for(i = 0; i < da->length && da->arr[i] != val; i++) ;
   if(i != da->length)
@@ -113,6 +118,7 @@ void darpa(DYNARR* da, void* val, void* rpval) { //order not preserved
   if(i != da->length) da->arr[i] = rpval;
 }
 
+//inserts value at index in the dynamic array, moving all later elements over by one slot
 void dainsertat(DYNARR* da, int index, void* val) {
   if(da->length == da->maxlength)
     da->arr = reallocarray(da->arr, da->maxlength *= 1.5, sizeof(void*));
@@ -121,33 +127,23 @@ void dainsertat(DYNARR* da, int index, void* val) {
   da->arr[index] = val;
 }
 
-void disort(DYNINT* di) {
-  //mergesort for stability
-  int n = di->maxlength;
-  int* other = malloc(sizeof(int) * n);
-  for(int width = 1; width < n; width *= 2) {
-    for(int i = 0; i < n; i += 2 * width) {
-      int left = i;
-      int right = i + width < n ? i + width : n;
-      int end = i + 2 * width < n ? i + 2 * width : n;
-      int origright = right;
-      for(int k = left; k < end; k++) {
-        if(left < origright && (right >= end || di->arr[left] <= di->arr[right])) {
-          other[k] = di->arr[left];
-          left++;
-        } else {
-          other[k] = di->arr[right];
-          right++;
-        }
-      }
-    }
-    int* tmp = di->arr;
-    di->arr = other;
-    other = tmp;
+static int intcompar(const void* arg1, const void* arg2) {
+  int int1 = *(const int*) arg1;
+  int int2 = *(const int*) arg2;
+  if(int1 > int2) {
+      return 1;
+  } else if(int1 == int2) {
+      return 0;
+  } else {
+      return -1;
   }
-  free(other);
+}
+//sorts dynamic int array!
+void disort(DYNINT* di) {
+  qsort(di->arr, di->length, sizeof(int), intcompar);
 }
 
+//removes duplicates from dynamic int array. This is accomplished by first sorting and then removing consecutive duplicates
 void didup(DYNINT* di) {
   disort(di);
   int last = -1;
