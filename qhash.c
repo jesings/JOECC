@@ -40,6 +40,18 @@ static void* opmemdup(const void* oldmem) {
 }
 
 
+/**
+ * The following macro, HASHIMPL, defines a factory for implementing a hashtable for the given types.
+ * The parameters of the macro are as follows:
+ * type_prefix defines the prefix to be added on to TABLE for the type of the hash table: i.e. ARR for DYNARR
+ * prefix defines the prefix to be put before the functions to differentiate them: i.e. qh -> qhtctor ii -> iisearch
+ * hashfunc specifies the function that is used to hash the keys for the hashtable
+ * cmpfunc specifies the function that is used in order to compare the equality of 2 different keys (not their hashed values
+ * freefunc specifies the function that is used to free the keys when we remove or destroy etc.
+ * dupfunc specifies the function that is used to duplicate the key from the param when we insert
+ * keytype defines the type of the key of the hashmap
+ * valtype defines the type of the value of the hashmap
+**/
 #define HASHIMPL(type_prefix, prefix, hashfunc, cmpfunc, freefunc, dupfunc, keytype, valtype) \
 type_prefix ## TABLE* prefix ## htctor(void) { \
   type_prefix ## TABLE* ht = malloc(sizeof(type_prefix ## TABLE)); \
