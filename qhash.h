@@ -33,7 +33,6 @@ char prefix ## queryval(type_prefix ## TABLE* qh, const keytype key); \
 void prefix ## rmpaircfr(type_prefix ## TABLE* qh, const keytype key, void (*cfree)(valtype)); \
 void prefix ## rmpair(type_prefix ## TABLE* qh, const keytype key); \
 void prefix ## resize(type_prefix ## TABLE* qh); \
-char prefix ## htequal(type_prefix ## TABLE* ht1, type_prefix ## TABLE* ht2); \
 DYNARR* prefix ## htpairs(type_prefix ## TABLE* ht); \
 type_prefix ## TABLE* prefix ## htctor(void); \
 type_prefix ## TABLE* prefix ## chtctor(int size); \

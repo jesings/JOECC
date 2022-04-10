@@ -8,6 +8,7 @@
  * type_suffix defines the suffix to be added on to DYN for the type of the array: i.e. ARR for DYNARR
  * prefix defines the prefix to be put before the functions to differentiate them: i.e. da -> dactor di ->dictor
  * elemtype defines the type of an element of the array, i.e. void*, or int
+ *
  * Calling this macro on a certain type defines the following functions, prefix omitted
  * ctor, which constructs a dynamic array of the requisite type with an initial max length of initiallen
  * dtor, which destructs and frees a dynamic array of the requisite type

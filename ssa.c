@@ -1481,7 +1481,7 @@ static char antics(BBLOCK* blk, PROGRAM* prog, EQONTAINER* eq) {
 
     didtor(rmstack);
   }
-  char changed = !(lvhtequal(blk->antileader_out, oldanticout) && lvhtequal(blk->antileader_in, oldanticin));
+  char changed = !oldanticout || blk->antileader_out->keys != oldanticout->keys || !oldanticin || blk->antileader_in->keys != oldanticin->keys;
   if(oldanticin) lvchtdtor(oldanticin, free);
   if(oldanticout) lvchtdtor(oldanticout, free);
   if(oldanticinlist) didtor(oldanticinlist);

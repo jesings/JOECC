@@ -49,8 +49,22 @@ static void* opmemdup(const void* oldmem) {
  * cmpfunc specifies the function that is used in order to compare the equality of 2 different keys (not their hashed values
  * freefunc specifies the function that is used to free the keys when we remove or destroy etc.
  * dupfunc specifies the function that is used to duplicate the key from the param when we insert
- * keytype defines the type of the key of the hashmap
- * valtype defines the type of the value of the hashmap
+ * keytype defines the type of the key of the hashtable
+ * valtype defines the type of the value of the hashtable
+ *
+ * Calling this macro on types with a prefix defines the following functions (prefix omitted
+ * htctor, which constructs/allocates a hashtable of the given types which can store HASHSIZE values
+ * chtctor, which constructs/allocates a hastable of the given types of a specified size
+ * resizeinsert, a static function not intended to be called by users which inserts an element of the old backing hashtable after we have run out of space and allocated a new backing hashtable
+ * resize, a function not intended to be called by users, which expands the backing store of the hashtable if we have too many collisions (see PROBECOUNT)
+ * insert, which inserts a key, value pair of the requisite type into the hashtable, replacing an old value if one exists there. Insertion uses quadratic probing with a depth of PROBECOUNT
+ * insertcfr, which inserts a key, value pair of the requisite type into the hashtable, replacing an old value if one exists there, and freeing the old value with the passed in function. Insertion uses quadratic probing with a depth of PROBECOUNT. 
+ * queryval, which returns 1 if the key is present in the hashtable, otherwise it returns 0
+ * search, which returns the value associated with a key if one exists otherwise returns 0/NULL
+ * rmpair, which removes the key/value pair associated with the passed-in key if it exists
+ * rmpaircfr, which removes the key/value pair associated with the passed-in key if it exists, and frees the value with the provided function if it exists
+ * htdtor, which destructs/frees a hashtable
+ * chtdtor, which destructs/frees a hashtable and runs the passed-in freeing function on all of the values remaining in the hashmap
 **/
 #define HASHIMPL(type_prefix, prefix, hashfunc, cmpfunc, freefunc, dupfunc, keytype, valtype) \
 type_prefix ## TABLE* prefix ## htctor(void) { \
@@ -243,26 +257,6 @@ void prefix ## rmpaircfr(type_prefix ## TABLE* qh, const keytype key, void (*cfr
       break; \
     } \
   } \
-} \
-char prefix ## htequal(type_prefix ## TABLE* ht1, type_prefix ## TABLE* ht2) { \
-  if(ht1) if(!ht2) return 0; \
-  if(!ht1) return 0; \
-  if(ht1->slotmask != ht2->slotmask || \
-     ht1->keys != ht2->keys) return 0; \
-  for(int i = 0; i <= ht1->slotmask; i++) { \
-    if(bfget(ht1->bf, i)) { \
-      if(bfget(ht2->bf, i)) { \
-        type_prefix ## PAIR* current1 = &(ht1->hashtable[i]); \
-        type_prefix ## PAIR* current2 = &(ht2->hashtable[i]); \
-        if(current1->key != current2->key) return 0; /*we compare only keys, not values*/\
-      } else { \
-        return 0; \
-      } \
-    } else if(bfget(ht2->bf, i)) { \
-      return 0; \
-    } \
-  } \
-  return 1; \
 } \
 void prefix ## insertcfr(type_prefix ## TABLE* qh, const keytype key, valtype value, void (*cfree)(valtype)) { \
   int hashval; \
