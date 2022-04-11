@@ -64,7 +64,8 @@ static void* opmemdup(const void* oldmem) {
  * rmpair, which removes the key/value pair associated with the passed-in key if it exists
  * rmpaircfr, which removes the key/value pair associated with the passed-in key if it exists, and frees the value with the provided function if it exists
  * htdtor, which destructs/frees a hashtable
- * chtdtor, which destructs/frees a hashtable and runs the passed-in freeing function on all of the values remaining in the hashmap
+ * chtdtor, which destructs/frees a hashtable and runs the passed-in freeing function on all of the values remaining in the hashtable
+ * htpairs which constructs a dynamic array which contains references to the key/value pairs present in the hashtable. Note that modifications to the hashtable may cause the pointers in the dynamic array over to have information we don't expect in them.
 **/
 #define HASHIMPL(type_prefix, prefix, hashfunc, cmpfunc, freefunc, dupfunc, keytype, valtype) \
 type_prefix ## TABLE* prefix ## htctor(void) { \
@@ -430,8 +431,7 @@ SETIMPL(LHASH, l, longhash, COMPARATOR, NOP, VERBATIM, long)
 #undef NOP
 
 
-
-
+//clones integer->integer hash table into new hash table
 IIHASHTABLE* iiclone(IIHASHTABLE* ht) {
   IIHASHTABLE* newht = malloc(sizeof(IIHASHTABLE));
   newht->keys = ht->keys;
@@ -442,6 +442,7 @@ IIHASHTABLE* iiclone(IIHASHTABLE* ht) {
   return newht;
 }
 
+//clones long->void* hash table into new hash table, cloning the values as well using the specified function
 LVHASHTABLE* lvhtcclone(LVHASHTABLE* ht, void*(*clonefunc)(void*)) {
   LVHASHTABLE* newht = malloc(sizeof(LVHASHTABLE));
   newht->keys = ht->keys;
@@ -466,46 +467,3 @@ DYNINT* isetelems(IHASHSET* ihs) {
   }
   return di;
 }
-
-/*
-#include "stdio.h"
-int main() {
-  QHASHTABLE* q = htctor();
-  QHASHTABLE* q2 = chtctor(16);
-  insert(q, "asdf", strdup("hooray"));
-  insert(q2, "foo", strdup("bar"));
-  for(int i = 0; i < 0x2000; i++) {
-    char numstrbuffer[10];
-    snprintf(numstrbuffer, 10, "%d", i);
-    insert(q, numstrbuffer, strdup("number"));
-  }
-  for(int i = -76; i < 0x1000; i++) {
-    char numstrbuffer[10];
-    snprintf(numstrbuffer, 10, "%d", i);
-    rmpaircfr(q, numstrbuffer, free);
-  }
-  printf("queried %d for asdf\n", queryval(q, "asdf"));
-  printf("searched %s for foo\n", (char*) search(q2, "foo"));
-  printf("searched %s for shoe\n", (char*) search(q2, "shoe"));
-  printf("queried %d for banana\n", queryval(q, "banana"));
-  printf("searched %s for 6459\n", (char*) search(q, "6459"));
-
-  for(int i = 0x1100; i < 0x2000; i++) {
-    char numstrbuffer[10];
-    snprintf(numstrbuffer, 10, "%d", i);
-    rmpaircfr(q, numstrbuffer, free);
-  }
-
-  DYNARR* da = htpairs(q);
-  printf("{\n");
-  for(int i = 0; i < da->length; i++) {
-    QHASHPAIR* qhp = daget(da, i);
-    printf("%s: %s\n", qhp->key, (char*) qhp->value);
-  }
-  printf("}\n");
-
-  dadtor(da);
-  htdtor(q, free);
-  htdtor(q2, free);
-}
-*/

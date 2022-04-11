@@ -11,7 +11,7 @@
 #include "bf.h"
 
 /**
- * Represents a key/value pair in the hashmap with quadratic probing.
+ * Represents a key/value pair in the hashtable with quadratic probing.
  * Can store values either as ints or pointers.
  * Keys are typically string pointers. 
 **/

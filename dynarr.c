@@ -128,6 +128,7 @@ void dainsertat(DYNARR* da, int index, void* val) {
   da->arr[index] = val;
 }
 
+//comparison function for disort
 static int intcompar(const void* arg1, const void* arg2) {
   int int1 = *(const int*) arg1;
   int int2 = *(const int*) arg2;
