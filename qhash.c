@@ -297,6 +297,26 @@ void prefix ## insertcfr(type_prefix ## TABLE* qh, const keytype key, valtype va
   ++qh->keys; \
 }
 
+/**
+ * The following macro, SETIMPL, defines a factory for implementing a hashset for the given types.
+ * The parameters of the macro are as follows:
+ * type_prefix defines the prefix to be added on to TABLE for the type of the hashset: i.e. ARR for DYNARR
+ * prefix defines the prefix to be put before the functions to differentiate them: i.e. qh -> qhtctor ii -> iisearch
+ * hashfunc specifies the function that is used to hash the entries for the hashtable
+ * cmpfunc specifies the function that is used in order to compare the equality of 2 different entries (not their hashed values
+ * freefunc specifies the function that is used to free the entries when we remove or destroy etc.
+ * dupfunc specifies the function that is used to duplicate the key from the param when we insert
+ * keytype defines the type of the hashset entry
+ *
+ * Calling this macro on types with a prefix defines the following functions (prefix omitted
+ * setctor, which constructs/allocates a hashset of the given types of a specified size
+ * setresizeinsert, a static function not intended to be called by users which inserts an element of the old backing hashset after we have run out of space and allocated a new backing hashset
+ * setresize, a function not intended to be called by users, which expands the backing store of the hashset if we have too many collisions (see PROBECOUNT)
+ * setinsert, which inserts an entry into the hashset, replacing an old value if one exists there. Insertion uses quadratic probing with a depth of PROBECOUNT
+ * setcontains, which returns 1 if the key is present in the hashset, otherwise it returns 0
+ * setdtor, which destructs/frees a hash set
+ * setclone which clones a hash table and returns a newly allocated hash table with the same entries as the previous one
+**/
 #define SETIMPL(type_prefix, prefix, hashfunc, cmpfunc, freefunc, dupfunc, keytype) \
 type_prefix ## SET* prefix ## setctor(int size) { \
   type_prefix ## SET* ht = malloc(sizeof(type_prefix ## SET)); \
@@ -458,6 +478,7 @@ LVHASHTABLE* lvhtcclone(LVHASHTABLE* ht, void*(*clonefunc)(void*)) {
   return newht;
 }
 
+//returns and constructs a DYNINT array containing the entries of an integer hash set, this one contains ints, not pointers, so the hashset can be modified while this is in use
 DYNINT* isetelems(IHASHSET* ihs) {
   DYNINT* di = dictor(ihs->keys);
   for(int i = 0; i <= ihs->slotmask; i++) {
