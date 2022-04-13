@@ -11,6 +11,20 @@ const char* ireg8[] = {"al", "bl", "cl", "dl", "dil", "sil", "bpl", "spl", "r8b"
 const char* freg128[] = {"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"};
 const char* freg256[] = {"ymm0", "ymm1", "ymm2", "ymm3", "ymm4", "ymm5", "ymm6", "ymm7", "ymm8", "ymm9", "ymm10", "ymm11", "ymm12", "ymm13", "ymm14", "ymm15"};
 
+static void printvarbs(int dim, int count, IHASHSET** varbs) {
+  for(int i = 0; i < count; i++) {
+    if(varbs[i]) {
+      printf("block %d has vars: ", i);
+      DYNINT* varberinos = isetelems(varbs[i]);
+      for(int j = 0; j < varberinos->length; j++) {
+        printf("%d, ", varberinos->arr[j]);//i, j or j, i doesn't matter because it's symmetric
+      }
+      didtor(varberinos);
+      putchar('\n');
+    }
+  }
+}
+
 //Returns whether a reg is live at the very beginning of this block, before any operations have been executed yet
 static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, IHASHSET** varbs, int varnum) {
   //if it's not the definition block, it's live_in provided it's live
@@ -207,7 +221,7 @@ void liveness(PROGRAM* prog) {
   lastuse(prog, usedefchains, varbs);
 
   BITFIELD adjmatrix = genadjmatrix(prog, usedefchains, varbs);
-  //printvarbs(prog->regcnt, prog->allblocks->length, varbs);
+  printvarbs(prog->regcnt, prog->allblocks->length, varbs);
   //printadjmatrix(prog->regcnt, adjmatrix);
 
   for(int i = 0; i < prog->allblocks->length; i++) {
