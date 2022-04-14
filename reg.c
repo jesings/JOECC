@@ -24,6 +24,18 @@ static void printvarbs(int dim, int count, IHASHSET** varbs) {
     }
   }
 }
+static void printusedefs(int count, DYNARR** usedefchains) {
+  for(int i = 0; i < count; i++) {
+    DYNARR* chain = usedefchains[i];
+    if(!chain)
+      continue;
+    printf("variable %d use/def chain: ", i);
+    for(int j = 0; j < chain->length; j++) {
+      printf("%d -> ", ((BBLOCK*) chain->arr[j])->domind);
+    }
+    putchar('\n');
+  }
+}
 
 //Returns whether a reg is live at the very beginning of this block, before any operations have been executed yet
 static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, IHASHSET** varbs, int varnum) {
@@ -55,6 +67,8 @@ static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, IHASHSE
     }
     return 0;
   }
+
+  //fall through here if it's not the definition block
   return isetcontains(varbs[blk->domind], varnum);
 }
 
@@ -215,12 +229,14 @@ void liveness(PROGRAM* prog) {
     )
   )
 
+  //vabs is an array of hash sets, indexed by block numbers, of variables live on entry to that block
   IHASHSET** varbs = calloc(sizeof(IHASHSET*), prog->allblocks->length);
   liveness_populate(prog, usedefchains, varbs);
 
   lastuse(prog, usedefchains, varbs);
 
   BITFIELD adjmatrix = genadjmatrix(prog, usedefchains, varbs);
+  printusedefs(prog->regcnt, usedefchains);
   printvarbs(prog->regcnt, prog->allblocks->length, varbs);
   //printadjmatrix(prog->regcnt, adjmatrix);
 
