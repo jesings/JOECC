@@ -518,6 +518,8 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
   }
 }
 
+//Start the generation of the assembly file, this outputs the extern functions and the global variables
+//Eventually this will also output the string and float literals to be loaded
 void startgenfile(FILE* outputfile, struct lexctx* lctx) {
   for(int i = 0; i < lctx->externglobals->length; i++) {
     INITIALIZER* in = daget(lctx->externglobals, i);
