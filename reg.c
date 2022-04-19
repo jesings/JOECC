@@ -75,7 +75,13 @@ static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, IHASHSE
 //Returns whether a reg is live at the very end of a block, after all operations have been executed
 static char islive_out(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, IHASHSET** varbs, int varnum) {
   //here we simply check whether the block is live in any successor
-  return (varbs[blk->nextblock->domind] && isetcontains(varbs[blk->nextblock->domind], varnum)) || (blk->branchblock && (varbs[blk->branchblock->domind] && isetcontains(varbs[blk->branchblock->domind], varnum)));
+  char nextcheck = varbs[blk->nextblock->domind] && isetcontains(varbs[blk->nextblock->domind], varnum);
+  if(nextcheck) {
+      //no possible join in the next block in this case because of how we've broken the CFG into simplified form
+      return blk->branchblock && (varbs[blk->branchblock->domind] && isetcontains(varbs[blk->branchblock->domind], varnum));
+  } else {
+      return blk->translator && iiqueryval(blk->translator, varnum);//if it's not in the translator
+  }
 }
 
 void lastuse(PROGRAM* prog, DYNARR** chains, IHASHSET** varbs);
@@ -221,9 +227,9 @@ void liveness(PROGRAM* prog) {
             for(int i = chain->length - 1; i >= 0; i--) {
               BBLOCK* ith = daget(chain, i);
               if(ith->domind < prebblock->domind) {
-                dainsertat(chain, i + 1, blk); //prevent adjacent duplicates
+                dainsertat(chain, i + 1, blk);
               } else if (ith == prebblock) {
-                break;
+                break; //prevent duplicates
               }
             }
           }
@@ -244,8 +250,8 @@ void liveness(PROGRAM* prog) {
   lastuse(prog, usedefchains, varbs);
 
   BITFIELD adjmatrix = genadjmatrix(prog, usedefchains, varbs);
-  printusedefs(prog->regcnt, usedefchains);
-  printvarbs(prog->regcnt, prog->allblocks->length, varbs);
+  //printusedefs(prog->regcnt, usedefchains);
+  //printvarbs(prog->regcnt, prog->allblocks->length, varbs);
   //printadjmatrix(prog->regcnt, adjmatrix);
 
   for(int i = 0; i < prog->allblocks->length; i++) {
@@ -297,7 +303,7 @@ void lastuse(PROGRAM* prog, DYNARR** chains, IHASHSET** varbs) {
           lvinsert(reglasts, op->dest.regnum, &op->dest_type); //if this is the case we'll free! then maybe we need to consider what happens if we entirely get rid of a variable?
         ,
         if(!(phijoinaddr->addr_type & (ISLABEL | ISCONST)) && !islive_out(prog, blk, chains, varbs, phijoinaddr->addr.regnum))
-          lvinsert(reglasts, phijoinaddr->addr.regnum, &phijoinaddr->addr_type); //this should never ever be the actual lastuse, if it is that's an error
+          lvinsert(reglasts, phijoinaddr->addr.regnum, &phijoinaddr->addr_type);
       )
     )
     DYNARR* da = lvhtpairs(reglasts);
