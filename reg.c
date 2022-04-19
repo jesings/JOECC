@@ -210,28 +210,28 @@ void liveness(PROGRAM* prog) {
           chain->arr[0] = blk;
         }
       },
+      //phis count as uses in the previous block!
       if(!(phijoinaddr->addr_type & (ISDEREF | ISLABEL | ISCONST))) {
         DYNARR* chain;
+        BBLOCK* prebblock = daget(blk->inedges, phiindex);
         unsigned int reg = phijoinaddr->addr.regnum;
         assert(reg < prog->regcnt);
-        //we need to handle phis differently
-        //This is because what is live going into a phi block from one edge is not the same
-        //as what is live going into other edges. Therefore, when we populate the liveness information
-        //we are going to have to check whether it's a phi, and only check the blocks that join with this value
-        //How do we mark a use def chain entry as a PHI beforehand? I don't want to take us out of SSA form yet
-        //Perhaps we can just check all the PHIs
-        //To check which blocks use we can just check the translator field
         if((chain = usedefchains[reg])) {
           if(chain->length != -1) {//if it's not an addrsvar
-            if(dapeek(chain) != blk) {
-              dapush(chain, blk); //prevent adjacent duplicates
+            for(int i = chain->length - 1; i >= 0; i--) {
+              BBLOCK* ith = daget(chain, i);
+              if(ith->domind < prebblock->domind) {
+                dainsertat(chain, i + 1, blk); //prevent adjacent duplicates
+              } else if (ith == prebblock) {
+                break;
+              }
             }
           }
         } else {
           chain = usedefchains[reg] = dactor(8);
           chain->length = 2;
           chain->arr[0] = NULL;
-          chain->arr[1] = blk;
+          chain->arr[1] = prebblock;
         }
       }
     )
