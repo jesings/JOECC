@@ -76,10 +76,13 @@ static char islive_in(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, IHASHSE
 static char islive_out(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, IHASHSET** varbs, int varnum) {
   //here we simply check whether the block is live in any successor
   char nextcheck = varbs[blk->nextblock->domind] && isetcontains(varbs[blk->nextblock->domind], varnum);
-  if(nextcheck) {
+  if(nextcheck) return 1;
+  if(blk->branchblock) {
       //no possible join in the next block in this case because of how we've broken the CFG into simplified form
-      return blk->branchblock && (varbs[blk->branchblock->domind] && isetcontains(varbs[blk->branchblock->domind], varnum));
+      return varbs[blk->branchblock->domind] && isetcontains(varbs[blk->branchblock->domind], varnum);
   } else {
+      //TODO: translator values are not preserved after renumber! 
+      //This does not work! We must manually look at the next block's PHIs
       return blk->translator && iiqueryval(blk->translator, varnum);//if it's not in the translator
   }
 }
@@ -226,8 +229,14 @@ void liveness(PROGRAM* prog) {
           if(chain->length != -1) {//if it's not an addrsvar
             for(int i = chain->length - 1; i >= 0; i--) {
               BBLOCK* ith = daget(chain, i);
+              if(ith == NULL) {
+                assert(i == 0);
+                dainsertat(chain, 1, blk);
+                break;
+              }
               if(ith->domind < prebblock->domind) {
                 dainsertat(chain, i + 1, blk);
+                break;
               } else if (ith == prebblock) {
                 break; //prevent duplicates
               }
