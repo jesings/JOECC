@@ -78,12 +78,19 @@ static char islive_out(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, IHASHS
   char nextcheck = varbs[blk->nextblock->domind] && isetcontains(varbs[blk->nextblock->domind], varnum);
   if(nextcheck) return 1;
   if(blk->branchblock) {
-      //no possible join in the next block in this case because of how we've broken the CFG into simplified form
-      return varbs[blk->branchblock->domind] && isetcontains(varbs[blk->branchblock->domind], varnum);
+    //no possible join in the next block in this case because of how we've broken the CFG into simplified form
+    return varbs[blk->branchblock->domind] && isetcontains(varbs[blk->branchblock->domind], varnum);
   } else {
-      //TODO: translator values are not preserved after renumber! 
-      //This does not work! We must manually look at the next block's PHIs
-      return blk->translator && iiqueryval(blk->translator, varnum);//if it's not in the translator
+    if(!blk->nextblock->operations) return 0;
+    int joindex = -1;
+    while(daget(blk->nextblock->inedges, ++joindex) != blk) ;
+    for(int i = 0; i < blk->nextblock->operations->length; i++) {
+      OPERATION* op = daget(blk->nextblock->operations, i);
+      if(op->opcode != PHI) break;
+      FULLADDR ad = op->addr0.joins[joindex];
+      if(!(ad.addr_type & (ISCONST | ISLABEL)) && ad.addr.regnum == varnum) return 1;
+    }
+    return 0;
   }
 }
 
@@ -177,7 +184,7 @@ void liveness(PROGRAM* prog) {
   //first calculate the use-def chains
   LOOPALLBLOCKS(
     OPARGCASES(
-      if(!(op->addr0_type & (ISDEREF | ISLABEL | ISCONST | GARBAGEVAL))) {
+      if(!(op->addr0_type & (ISLABEL | ISCONST | GARBAGEVAL))) {
         unsigned int reg = op->addr0.regnum;
         DYNARR* chain = usedefchains[reg];
         assert(reg < prog->regcnt);
@@ -187,7 +194,7 @@ void liveness(PROGRAM* prog) {
             dapush(chain, blk); //prevent adjacent duplicates
         }
       },
-      if(!(op->addr1_type & (ISDEREF | ISLABEL | ISCONST))) {
+      if(!(op->addr1_type & (ISLABEL | ISCONST))) {
         unsigned int reg = op->addr1.regnum;
         DYNARR* chain = usedefchains[reg];
         assert(reg < prog->regcnt);
@@ -197,30 +204,39 @@ void liveness(PROGRAM* prog) {
             dapush(chain, blk); //prevent adjacent duplicates
         }
       },
-      if(!(op->dest_type & (ISDEREF | ISLABEL))) {
+      if(!(op->dest_type & ISLABEL)) {
         DYNARR* chain;
         unsigned int reg = op->dest.regnum;
         assert(reg < prog->regcnt);
 
-        if(op->dest_type & ADDRSVAR) {
-          assert(!usedefchains[reg]);
-          chain = usedefchains[reg] = dactor(1);
-          usedefchains[reg]->length = -1;
-          usedefchains[reg]->arr[0] = blk;
+        if(!(op->dest_type & ISDEREF)) {
+          if(op->dest_type & ADDRSVAR) {
+            assert(!usedefchains[reg]);
+            chain = usedefchains[reg] = dactor(1);
+            usedefchains[reg]->length = -1;
+            usedefchains[reg]->arr[0] = blk;
+          } else {
+            chain = usedefchains[reg];
+            if(chain) {
+              if(chain->length == -1) break;
+              assert(daget(chain, 0) == NULL);
+            } else {
+              chain = usedefchains[reg] = dactor(8);
+              chain->length = 1;
+            }
+            chain->arr[0] = blk;
+          }
         } else {
           chain = usedefchains[reg];
-          if(chain) {
-            if(chain->length == -1) break;
-            assert(daget(chain, 0) == NULL);
-          } else {
-            chain = usedefchains[reg] = dactor(8);
-            chain->length = 1;
+          assert(chain); //forward use that is not a phi
+          if(chain->length != -1) {//if it's not an addrsvar
+            if(dapeek(chain) != blk)
+              dapush(chain, blk); //prevent adjacent duplicates
           }
-          chain->arr[0] = blk;
         }
       },
       //phis count as uses in the previous block!
-      if(!(phijoinaddr->addr_type & (ISDEREF | ISLABEL | ISCONST))) {
+      if(!(phijoinaddr->addr_type & (ISLABEL | ISCONST))) {
         DYNARR* chain;
         BBLOCK* prebblock = daget(blk->inedges, phiindex);
         unsigned int reg = phijoinaddr->addr.regnum;
