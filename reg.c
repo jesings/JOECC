@@ -333,8 +333,11 @@ void lastuse(PROGRAM* prog, DYNARR** chains, IHASHSET** varbs) {
     )
     DYNARR* da = lvhtpairs(reglasts);
     for(int i = 0; i < da->length; i++) {
-      QHASHPAIR* hp = daget(da, i);
-      *((ADDRTYPE*) hp->value) |= LASTUSE;
+      LVHASHPAIR* hp = daget(da, i);
+      if(chains[hp->key]->length != -1) { //if it's not an addrsvar
+        ADDRTYPE* ad = hp->value;
+        *ad |= LASTUSE;
+      }
     }
     dadtor(da);
     lvhtdtor(reglasts);
