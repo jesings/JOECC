@@ -480,7 +480,7 @@ LVHASHTABLE* lvhtcclone(LVHASHTABLE* ht, void*(*clonefunc)(void*)) {
 
 //returns and constructs a DYNINT array containing the entries of an integer hash set, this one contains ints, not pointers, so the hashset can be modified while this is in use
 DYNINT* isetelems(IHASHSET* ihs) {
-  DYNINT* di = dictor(ihs->keys);
+  DYNINT* di = dictor(ihs->keys + 2);
   for(int i = 0; i <= ihs->slotmask; i++) {
     if(bfget(ihs->bf, i)) {
       dipush(di, ihs->hashtable[i].key);

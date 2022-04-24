@@ -107,15 +107,14 @@ static void bfdtreepopulate(BBLOCK* blk, IHASHSET* bf) {
 //populate all blocks in the dominance subtree of the definition where the variable is live
 //In order to do this, for each of the uses in the use def chain, for each of the variables
 //find recursively all predecessor blocks that lie within the dominance tree
-static void updompop(BBLOCK* liveblk, IHASHSET* domtreeset, IHASHSET** topop, int regnum) {
-  //I THINK only one of these cases is necessary?
+static void updompop(BBLOCK* liveblk, IHASHSET* domtreeset, IHASHSET** varbs, int regnum) {
   if(!isetcontains(domtreeset, liveblk->domind)) return;
-  IHASHSET* curset = topop[liveblk->domind];
-  if(!curset) curset = topop[liveblk->domind] = isetctor(64);
+  IHASHSET* curset = varbs[liveblk->domind];
+  if(!curset) curset = varbs[liveblk->domind] = isetctor(64);
   if(isetcontains(curset, regnum)) return;
   isetinsert(curset, regnum);
   for(int i = 0; i < liveblk->inedges->length; i++)
-      updompop(daget(liveblk->inedges, i), domtreeset, topop, regnum);
+      updompop(daget(liveblk->inedges, i), domtreeset, varbs, regnum);
 }
 
 //Populates liveness information for a PROGRAM, determining which variables have livenesses that overlap and register allocating
@@ -158,11 +157,14 @@ static void liveness_populate(PROGRAM* prog, DYNARR**chains, IHASHSET** varbs) {
 }
 
 static BITFIELD genadjmatrix(PROGRAM* prog, DYNARR** chains, IHASHSET** varbs) {
-  BITFIELD adjmatrix = bfalloc(prog->regcnt * prog->regcnt ); //not really a matrix! Just a lower triangle!
-  //for now let's handle things inefficiently and say if they're live at all in the same block it counts
+  BITFIELD adjmatrix = bfalloc(prog->regcnt * prog->regcnt); //not really a matrix! Just a lower triangle!
+
   for(int blockind = 0; blockind < prog->allblocks->length; blockind++) {
+    BBLOCK* blk = daget(prog->allblocks, blockind);
+    DYNINT* blockers;
     if(varbs[blockind]) {
-      DYNINT* blockers = isetelems(varbs[blockind]);
+      blockers = isetelems(varbs[blockind]);
+      //mark off the variables live at the start of a block
       for(int iind = 0; iind < blockers->length; iind++) {
         int i = blockers->arr[iind]; //this is a block where it is live
         for(int jind = iind+1; jind < blockers->length; jind++) {
@@ -171,8 +173,19 @@ static BITFIELD genadjmatrix(PROGRAM* prog, DYNARR** chains, IHASHSET** varbs) {
           bfset(adjmatrix, prog->regcnt * j + i);
         }
       }
-      didtor(blockers);
+    } else {
+      blockers = dictor(8);
     }
+    for(int opind = 0; opind < blk->operations->length; opind++) {
+      OPERATION* op = daget(blk->operations, opind);
+      OPARGCASES(
+        ,
+        ,
+        ,
+        (void) phijoinaddr;
+      )
+    }
+    didtor(blockers);
   }
 
   return adjmatrix;
@@ -269,7 +282,7 @@ void liveness(PROGRAM* prog) {
   )
 
   //vabs is an array of hash sets, indexed by block numbers, of variables live on entry to that block
-  IHASHSET** varbs = calloc(sizeof(IHASHSET*), prog->allblocks->length);
+  IHASHSET** varbs = calloc(prog->allblocks->length, sizeof(IHASHSET*));
   liveness_populate(prog, usedefchains, varbs);
 
   lastuse(prog, usedefchains, varbs);
@@ -300,8 +313,6 @@ void liveness(PROGRAM* prog) {
   //    assert(!(phijoinaddr.addr_type & LASTUSE));
   //  )
   //)
-
-  //liveadjmatrix(prog, usedefchains);
 
   for(unsigned int i = 0; i < prog->regcnt; i++)
     if(usedefchains[i]) dadtor(usedefchains[i]);
