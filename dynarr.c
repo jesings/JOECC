@@ -73,6 +73,15 @@ DYN ## type_suffix* prefix ## clone(DYN ## type_suffix* orig) { \
 } \
 elemtype prefix ## pop(DYN ## type_suffix* da) { \
   return da->arr[--(da->length)]; \
+} \
+/* returns null if no element is removed, returns removed value otherwise (could be null, beware) */ \
+/* this removal replaces that value with the last value in the array, then reduces the length by 1, so order is not preserved */ \
+elemtype prefix ## remove_swap(DYN ## type_suffix* da, elemtype val) { \
+  int i; \
+  for(i = 0; i < da->length && da->arr[i] != val; i++) ; \
+  if(i != da->length) \
+    return da->arr[i] = da->arr[--da->length]; \
+  return (elemtype) 0; \
 }
 
 DYNIMPL(ARR, da, void*)
@@ -98,18 +107,6 @@ void dadtorcfr(DYNARR* da, void (*freep)(void*)) {
 //dapush but doesn't do bounds check, slightly more efficient for cases where we construct and immediately push, so we know we don't need to resize
 void dapushc(DYNARR* da, void* val) {
   da->arr[(da->length)++] = val;
-}
-
-
-//dynamic array remove value (was going to be called darm, but couldn't pass up opportunity for punny name)
-//returns null if no element is removed, returns removed value otherwise (could be null, beware)
-//this removal replaces that value with the last value in the array, then reduces the length by 1, so order is not preserved
-void* dharma(DYNARR* da, void* val) {
-  int i;
-  for(i = 0; i < da->length && da->arr[i] != val; i++) ;
-  if(i != da->length)
-    return da->arr[i] = da->arr[--da->length];
-  return NULL;
 }
 
 //dynamic array replace value (was going to be called darp, but couldn't pass up opportunity for punny name)

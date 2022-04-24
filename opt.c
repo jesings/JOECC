@@ -8,11 +8,11 @@
 void domark(BBLOCK* blk) {
   blk->domind = -1;
   if(blk->nextblock) {
-    dharma(blk->nextblock->inedges, blk);
+    daremove_swap(blk->nextblock->inedges, blk);
     if(blk->nextblock->inedges == 0) domark(blk->nextblock);
   }
   if(blk->branchblock) {
-    dharma(blk->branchblock->inedges, blk);
+    daremove_swap(blk->branchblock->inedges, blk);
     if(blk->branchblock->inedges == 0) domark(blk->branchblock);
   }
 }
@@ -103,11 +103,11 @@ static char feq(OPERATION* op) {
    if(check) { \
      lastone->opcode = NOP_3; \
      if(condition) { \
-       dharma(blk->nextblock->inedges, blk); \
+       daremove_swap(blk->nextblock->inedges, blk); \
        blk->nextblock = blk->branchblock; \
      } else { \
        if(blk->branchblock == prog->finalblock) continue;  \
-       dharma(blk->branchblock->inedges, blk); \
+       daremove_swap(blk->branchblock->inedges, blk); \
      } \
      goto cleantrue; \
    }
@@ -116,7 +116,7 @@ static char feq(OPERATION* op) {
   PRUNE(check, condition) \
   else if(feq(lastone)) { \
     lastone->opcode = NOP_3; \
-    dharma(blk->branchblock->inedges, blk); \
+    daremove_swap(blk->branchblock->inedges, blk); \
     goto cleantrue; \
   }
 
@@ -124,7 +124,7 @@ static char feq(OPERATION* op) {
   PRUNE(check, condition) \
   else if(feq(lastone)) { \
     lastone->opcode = NOP_3; \
-    dharma(blk->nextblock->inedges, blk); \
+    daremove_swap(blk->nextblock->inedges, blk); \
     blk->nextblock = blk->branchblock; \
     goto cleantrue; \
   }

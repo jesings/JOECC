@@ -88,7 +88,7 @@ static char islive_out(PROGRAM* prog, BBLOCK* blk, DYNARR** usedefchains, IHASHS
       OPERATION* op = daget(blk->nextblock->operations, i);
       if(op->opcode != PHI) break;
       FULLADDR ad = op->addr0.joins[joindex];
-      if(!(ad.addr_type & (ISCONST | ISLABEL)) && ad.addr.regnum == varnum) return 1;
+      if(!(ad.addr_type & (ISCONST | ISLABEL)) && ad.addr.regnum == (unsigned) varnum) return 1;
     }
     return 0;
   }
@@ -176,14 +176,23 @@ static BITFIELD genadjmatrix(PROGRAM* prog, DYNARR** chains, IHASHSET** varbs) {
     } else {
       blockers = dictor(8);
     }
-    for(int opind = 0; opind < blk->operations->length; opind++) {
-      OPERATION* op = daget(blk->operations, opind);
-      OPARGCASES(
-        ,
-        ,
-        ,
-        (void) phijoinaddr;
-      )
+    if(blk->operations) {
+      for(int opind = 0; opind < blk->operations->length; opind++) {
+        OPERATION* op = daget(blk->operations, opind);
+        OPARGCASES(
+          if(op->addr0_type & LASTUSE) {
+          }
+          ,
+          if(op->addr1_type & LASTUSE) {
+          }
+          ,
+          if(op->dest_type & LASTUSE) {
+          } else if(!(op->dest_type & (ISLABEL | ISDEREF | ADDRSVAR))) {
+          }
+          ,
+          (void) phijoinaddr;
+        )
+      }
     }
     didtor(blockers);
   }

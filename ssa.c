@@ -432,7 +432,7 @@ void ssa(PROGRAM* prog) {
 
   //say finalblock doesn't postdominate itself
   if(prog->finalblock->pidominates) {
-    dharma(prog->finalblock->pidominates, prog->finalblock);
+    daremove_swap(prog->finalblock->pidominates, prog->finalblock);
   }
   //dominator tree (immediate dominators) calculated
   dfpdt(first); //populate dominance frontiers dfs
