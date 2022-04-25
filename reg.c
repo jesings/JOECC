@@ -157,7 +157,7 @@ static void liveness_populate(PROGRAM* prog, DYNARR**chains, IHASHSET** varbs) {
 }
 
 static BITFIELD genadjmatrix(PROGRAM* prog, DYNARR** chains, IHASHSET** varbs) {
-  BITFIELD adjmatrix = bfalloc(prog->regcnt * prog->regcnt); //not really a matrix! Just a lower triangle!
+  BITFIELD adjmatrix = bfalloc(prog->regcnt * prog->regcnt);
 
   for(int blockind = 0; blockind < prog->allblocks->length; blockind++) {
     BBLOCK* blk = daget(prog->allblocks, blockind);
@@ -181,13 +181,21 @@ static BITFIELD genadjmatrix(PROGRAM* prog, DYNARR** chains, IHASHSET** varbs) {
         OPERATION* op = daget(blk->operations, opind);
         OPARGCASES(
           if(op->addr0_type & LASTUSE) {
+            diremove_swap(blockers, op->addr0.regnum);
           }
           ,
           if(op->addr1_type & LASTUSE) {
+            diremove_swap(blockers, op->addr0.regnum);
           }
           ,
           if(op->dest_type & LASTUSE) {
+            diremove_swap(blockers, op->addr0.regnum);
           } else if(!(op->dest_type & (ISLABEL | ISDEREF | ADDRSVAR))) {
+            for(int i = 0; i < blockers->length; i++) {
+              bfset(adjmatrix, prog->regcnt * blockers->arr[i] + op->dest.regnum);
+              bfset(adjmatrix, prog->regcnt * op->dest.regnum + blockers->arr[i]);
+            }
+            dipush(blockers, op->dest.regnum);
           }
           ,
           (void) phijoinaddr;
@@ -378,7 +386,7 @@ void regalloc(PROGRAM* prog, BITFIELD adjmatrix) {
 void printadjmatrix(int dim, BITFIELD adjmatrix) {
   for(int i = 0; i < dim; i++) {
     for(int j = 0; j < dim; j++) {
-      putchar(bfget(adjmatrix, i*dim + j) ? 'o' : 'x');//i, j or j, i doesn't matter because it's symmetric
+      putchar(bfget(adjmatrix, i*dim + j) ? ' ' : 'X');//i, j or j, i doesn't matter because it's symmetric
     }
     putchar('\n');
   }
