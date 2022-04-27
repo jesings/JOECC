@@ -1,8 +1,8 @@
 #ifndef _3AC_H
 #define _3AC_H
-#include <stdio.h>
 #include "compintern.h"
 #include "treeduce.h"
+#include <stdio.h>
 
 #define OPS_NOVAR_3ac \
   X(NOP_3) /*op0*/ X(LBL_3) /*op1 (special)*/

@@ -376,6 +376,19 @@ void lastuse(PROGRAM* prog, DYNARR** chains, IHASHSET** varbs) {
 //https://compilers.cs.uni-saarland.de/projects/ssara/hack_ssara_ssa09.pdf
 //https://www.rw.cdl.uni-saarland.de/people/grund/private/papers/cgo08-liveness.pdf
 
+static int comparcollisions(const void* v1, const void* v2, void* cb) {
+  int i1 = *(const int*) v1;
+  int i2 = *(const int*) v2;
+  int* comparbank = cb;
+  if(comparbank[i1] > comparbank[i2]) {
+      return 1;
+  } else if(comparbank[i1] == comparbank[i2]) {
+      return 0;
+  } else {
+      return -1;
+  }
+}
+
 void regalloc(PROGRAM* prog, BITFIELD adjmatrix) {
   //start out by coloring based on fewest collisions?!
   //attempt color
@@ -383,13 +396,18 @@ void regalloc(PROGRAM* prog, BITFIELD adjmatrix) {
   //how coalesce and retry?
   int orderedcollisions[prog->regcnt];
   memset(orderedcollisions, 0, prog->regcnt * sizeof(int));
-  for(int i = 0; i < prog->regcnt; i++) {
-    for(int j = 0; j < prog->regcnt; j++) {
+  for(unsigned int i = 0; i < prog->regcnt; i++) {
+    for(unsigned int j = 0; j < prog->regcnt; j++) {
       if(bfget(adjmatrix, i * prog->regcnt + j)) {
           orderedcollisions[i] += 1;
       }
     }
   }
+  int colliders[prog->regcnt];
+  for(unsigned int i = 0; i < prog->regcnt; i++) {
+      colliders[i] = i;
+  }
+  qsort_r(colliders, prog->regcnt, sizeof(int), &comparcollisions, colliders);
 }
 
 void printadjmatrix(int dim, BITFIELD adjmatrix) {

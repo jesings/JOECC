@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "compintern.h"
 #include "treeduce.h"
 #include "joecc.tab.h"

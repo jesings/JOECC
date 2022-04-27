@@ -511,7 +511,7 @@ char foldconst(EXPRESSION* ex) {
 
   //call on each param before the switch
   switch(ex->type) {
-    case UINT: case INT: case FLOAT: case STRING: case SZOF: case NOP: case IDENT:
+    case UINT: case INT: case FLOAT: case STRING: case SZOF: case NOP: case IDENT: case MEMBER:
       break;
     default:
       for(int i = 0; i < ex->params->length; i++) {

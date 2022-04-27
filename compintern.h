@@ -1,5 +1,7 @@
 #ifndef COMPINTERN_H
 #define COMPINTERN_H
+#undef _GNU_SOURCE
+#define _GNU_SOURCE
 #include <stdlib.h>
 #include <string.h>
 #include "joecc_assert.h"
