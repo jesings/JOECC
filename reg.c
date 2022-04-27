@@ -381,6 +381,15 @@ void regalloc(PROGRAM* prog, BITFIELD adjmatrix) {
   //attempt color
   //spill if fail--where/how to spill, with belady's algorithm?
   //how coalesce and retry?
+  int orderedcollisions[prog->regcnt];
+  memset(orderedcollisions, 0, prog->regcnt * sizeof(int));
+  for(int i = 0; i < prog->regcnt; i++) {
+    for(int j = 0; j < prog->regcnt; j++) {
+      if(bfget(adjmatrix, i * prog->regcnt + j)) {
+          orderedcollisions[i] += 1;
+      }
+    }
+  }
 }
 
 void printadjmatrix(int dim, BITFIELD adjmatrix) {
