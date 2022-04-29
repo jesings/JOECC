@@ -394,7 +394,9 @@ void regalloc(PROGRAM* prog, BITFIELD adjmatrix) {
   //attempt color
   //spill if fail--where/how to spill, with belady's algorithm?
   //how coalesce and retry?
+  char colors[prog->regcnt];
   int orderedcollisions[prog->regcnt];
+  memset(colors, -1, prog->regcnt);
   memset(orderedcollisions, 0, prog->regcnt * sizeof(int));
   for(unsigned int i = 0; i < prog->regcnt; i++) {
     for(unsigned int j = 0; j < prog->regcnt; j++) {
@@ -405,9 +407,36 @@ void regalloc(PROGRAM* prog, BITFIELD adjmatrix) {
   }
   int colliders[prog->regcnt];
   for(unsigned int i = 0; i < prog->regcnt; i++) {
-      colliders[i] = i;
+    colliders[i] = i;
   }
   qsort_r(colliders, prog->regcnt, sizeof(int), &comparcollisions, colliders);
+
+  char colfail = 0;
+  //now try to color!
+  for(int i = 0; i < prog->regcnt; i++) {
+    short posscolors = 0;
+    for(unsigned int j = 0; j < prog->regcnt; j++) {
+      if(bfget(adjmatrix, i * prog->regcnt + j)) {
+        if(colors[j] != -1)
+          posscolors |= 1 << colors[j];
+      }
+    }
+    short col = 1;
+    for(char colb = 0; colb < 16; colb++) {
+      if(!(col & posscolors)) {
+        colors[i] = colb;
+        break;
+      }
+      col <<= 1;
+    }
+    if(col == 0) {
+        colfail = 1;
+        break;
+    }
+  }
+  if(!colfail) {
+      printf("coloring succeeded!");
+  }
 }
 
 void printadjmatrix(int dim, BITFIELD adjmatrix) {
