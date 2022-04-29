@@ -314,22 +314,9 @@ void liveness(PROGRAM* prog) {
           isetdtor(varbs[i]);
   }
   //generate liveness matrix
+  regalloc(prog, adjmatrix);
   free(varbs);
   free(adjmatrix);
-
-
-  //LOOPALLBLOCKS(
-  //  OPARGCASES(
-  //    ,
-  //    ,
-  //    if((op->dest_type & (ISLABEL | ISCONST | GARBAGEVAL | ISDEREF | LASTUSE) == LASTUSE) && op->opcode != CALL_3) {
-  //      if(op->opcode == PHI) free(op->addr0.joins);
-  //      op->opcode = NOP_3;
-  //    }
-  //    ,
-  //    assert(!(phijoinaddr.addr_type & LASTUSE));
-  //  )
-  //)
 
   for(unsigned int i = 0; i < prog->regcnt; i++)
     if(usedefchains[i]) dadtor(usedefchains[i]);
@@ -413,7 +400,7 @@ void regalloc(PROGRAM* prog, BITFIELD adjmatrix) {
 
   char colfail = 0;
   //now try to color!
-  for(int i = 0; i < prog->regcnt; i++) {
+  for(unsigned int i = 0; i < prog->regcnt; i++) {
     short posscolors = 0;
     for(unsigned int j = 0; j < prog->regcnt; j++) {
       if(bfget(adjmatrix, i * prog->regcnt + j)) {
@@ -434,7 +421,9 @@ void regalloc(PROGRAM* prog, BITFIELD adjmatrix) {
         break;
     }
   }
-  if(!colfail) {
+  if(colfail) {
+      printf("coloring failed!");
+  } else {
       printf("coloring succeeded!");
   }
 }
