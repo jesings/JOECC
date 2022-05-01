@@ -24,6 +24,7 @@ enum reguse {
   //missing BP and SP
   //This is because we don't allow them to be used in that way
 };
+#define REGBIT(b) (1 << (b))
 
 #define callermask BX | R12 | R13 | R14 | R15
 

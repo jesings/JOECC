@@ -13,7 +13,7 @@ struct opinfo op2op[] = {
   [LBL_3] = {"", 1, 0, 0, 0}, //not sure?
   [ADD_U] = {"add", 2, 0, 0, 1},
   [ADD_F] = {"vadds", 3, 0, 0, 0},
-  [MULT_U] = {"mul", 1, DX, AX, 0}, //multiplies ax by operand, places result in dx:ax ax is low part
+  [MULT_U] = {"mul", 1, REGBIT(DX), REGBIT(AX), 0}, //multiplies ax by operand, places result in dx:ax ax is low part
   [MULT_I] = {"imul", 2, 0, 0, 1},
   [MULT_F] = {"vmuls", 3, 0, 0, 0},
   [AND_U] = {"and", 2, 0, 0, 1},
@@ -25,15 +25,15 @@ struct opinfo op2op[] = {
   [NE_F] = {"comis", 2, 0, 0, 0}, //then do a setnz
   [SUB_U] = {"sub", 2, 0, 0, 1},
   [SUB_F] = {"vsubs", 3, 0, 0, 0},
-  [DIV_U] = {"div", 1, DX, AX, 0}, //divides dx:ax by operand, places result in ax dx is remainder?
+  [DIV_U] = {"div", 1, REGBIT(DX), REGBIT(AX), 0}, //divides dx:ax by operand, places result in ax dx is remainder?
   [DIV_I] = {"idiv", 2, 0, 0, 1},
   [DIV_F] = {"vdivs", 3, 0, 0, 0},
-  [MOD_U] = {"div", 1, AX, DX, 0}, //divides dx:ax by operand, places result in ax dx is remainder?
-  [MOD_I] = {"idiv", 1, AX, DX, 0}, //single operand division, use cqo or cdq or cwd or cbw before, does same as above
-  [SHL_U] = {"shl", 2, CX, 0, 1}, //if right hand side is immediate, CX need not be clobbered
-  [SHL_I] = {"sal", 2, CX, 0, 1},
-  [SHR_U] = {"shr", 2, CX, 0, 1},
-  [SHR_I] = {"sar", 2, CX, 0, 1},
+  [MOD_U] = {"div", 1, REGBIT(AX), REGBIT(DX), 0}, //divides dx:ax by operand, places result in ax dx is remainder?
+  [MOD_I] = {"idiv", 1, REGBIT(AX), REGBIT(DX), 0}, //single operand division, use cqo or cdq or cwd or cbw before, does same as above
+  [SHL_U] = {"shl", 2, REGBIT(CX), 0, 1}, //if right hand side is immediate, CX need not be clobbered
+  [SHL_I] = {"sal", 2, REGBIT(CX), 0, 1},
+  [SHR_U] = {"shr", 2, REGBIT(CX), 0, 1},
+  [SHR_I] = {"sar", 2, REGBIT(CX), 0, 1},
   [GE_U] = {"cmp", 2, 0, 0, 0}, //then do a setae
   [GE_I] = {"cmp", 2, 0, 0, 0}, //then do a setge
   [GE_F] = {"comis", 2, 0, 0, 0}, //then do a setae
@@ -46,7 +46,7 @@ struct opinfo op2op[] = {
   [LT_U] = {"cmp", 2, 0, 0, 0}, //then do a setb
   [LT_I] = {"cmp", 2, 0, 0, 0}, //then do a setl
   [LT_F] = {"comis", 2, 0, 0, 0}, //then do a setb
-  [COPY_3] = {"repnz movs", 0, SI | DI | CX, 0, 0}, //clobbers si, di, move count into cx
+  [COPY_3] = {"repnz movs", 0, REGBIT(SI) | REGBIT(DI) | REGBIT(CX), 0, 0}, //clobbers si, di, move count into cx
   [ARRMOV] = {"mov", 2, 0, 0, 0}, //not sure, either way args are the same
   [MTP_OFF] = {"mov", 2, 0, 0, 0}, //not sure, either way args are the same
   [NOT_U] = {"not", 2, 0, 0, 0},
@@ -72,7 +72,7 @@ struct opinfo op2op[] = {
   [RET_3] = {"ret", 0, 0, 0, 0}, //put it in rax
   [INIT_3] = {"", 0, 0, 0, 0}, //not sure
   [PARAM_3] = {"mov", 2, 0, 0, 0}, //not sure
-  [CALL_3] = {"call", 1, DI | SI | DX | CX | R8 | R9 | R10 , AX, 0}, //call, may clobber any/all of these
+  [CALL_3] = {"call", 1, REGBIT(DI) | REGBIT(SI) | REGBIT(DX) | REGBIT(CX)| REGBIT(R8)| REGBIT(R9) | REGBIT(R10), REGBIT(AX), 0}, //call, may clobber any/all of these
   [PHI] = {"", 0, 0, 0, 0}, //no phi nodes by this point
   [DEALOC] = {"sub", 2, 0, 0, 0},
   [ADDR_3] = {"lea", 2, 0, 0, 0}, //most likely nop?
@@ -443,9 +443,9 @@ static void procinlit(FILE* outputfile, IDTYPE* ty, EXPRESSION* ex) {
             } else if(ty->tb & 4) {
               fprintf(outputfile, "%d", subex ? (int) subex->intconst : 0);
             } else if(ty->tb & 2) {
-              fprintf(outputfile, "%hd", subex ? (short) subex->intconst : 0);
+              fprintf(outputfile, "%hd", (short) (subex ? subex->intconst : 0));
             } else if(ty->tb & 1) {
-              fprintf(outputfile, "%hhd", subex ? (char) subex->intconst : 0);
+              fprintf(outputfile, "%hhd", (char) (subex ? subex->intconst : 0));
             } else {
               assert(0);
             }

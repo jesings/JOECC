@@ -12,8 +12,8 @@ void ldstrsep(PROGRAM* prog);
 struct opinfo {
   const char* opname;
   int numargs;
-  int fixedclobbers;
-  enum reguse retloc;
+  short fixedclobbers;
+  short retloc;
   char reqreg;
 };
 extern struct opinfo op2op[];

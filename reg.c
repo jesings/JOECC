@@ -1,8 +1,8 @@
 #include "reg.h"
+#include "codegen.h"
 #define X(op) case op:
 
 enum reguse callreg[6] = {DI, SI, DX, CX, R8, R9};
-
 
 const char* ireg64[] = {"rax", "rbx", "rcx", "rdx", "rdi", "rsi", "rbp", "rsp", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15"};
 const char* ireg32[] = {"eax", "ebx", "ecx", "edx", "edi", "esi", "ebp", "esp", "r8d", "r9d", "r10d", "r11d", "r12d", "r13d", "r14d", "r15d"};
@@ -156,7 +156,7 @@ static void liveness_populate(PROGRAM* prog, DYNARR**chains, IHASHSET** varbs) {
   free(domtreeset);
 }
 
-static BITFIELD genadjmatrix(PROGRAM* prog, DYNARR** chains, IHASHSET** varbs) {
+static BITFIELD genadjmatrix(PROGRAM* prog, DYNARR** chains, IHASHSET** varbs, short* clobberers) {
   BITFIELD adjmatrix = bfalloc(prog->regcnt * prog->regcnt);
 
   for(int blockind = 0; blockind < prog->allblocks->length; blockind++) {
@@ -179,6 +179,7 @@ static BITFIELD genadjmatrix(PROGRAM* prog, DYNARR** chains, IHASHSET** varbs) {
     if(blk->operations) {
       for(int opind = 0; opind < blk->operations->length; opind++) {
         OPERATION* op = daget(blk->operations, opind);
+        short allclobs = op2op[op->opcode].fixedclobbers | op2op[op->opcode].retloc;
         OPARGCASES(
           if(op->addr0_type & LASTUSE) {
             diremove_swap(blockers, op->addr0.regnum);
@@ -304,7 +305,8 @@ void liveness(PROGRAM* prog) {
 
   lastuse(prog, usedefchains, varbs);
 
-  BITFIELD adjmatrix = genadjmatrix(prog, usedefchains, varbs);
+  short* clobberers = malloc(sizeof(short) * sizeof(prog->regcnt));
+  BITFIELD adjmatrix = genadjmatrix(prog, usedefchains, varbs, clobberers);
   //printusedefs(prog->regcnt, usedefchains);
   //printvarbs(prog->regcnt, prog->allblocks->length, varbs);
   //printadjmatrix(prog->regcnt, adjmatrix);
