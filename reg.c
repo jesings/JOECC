@@ -201,6 +201,11 @@ static BITFIELD genadjmatrix(PROGRAM* prog, DYNARR** chains, IHASHSET** varbs, s
           ,
           (void) phijoinaddr;
         )
+        if(allclobs) {
+          for(int i = 0; i < blockers->length; i++) {
+            clobberers[blockers->arr[i]] |= allclobs;
+          }
+        }
       }
     }
     didtor(blockers);
@@ -305,7 +310,7 @@ void liveness(PROGRAM* prog) {
 
   lastuse(prog, usedefchains, varbs);
 
-  short* clobberers = malloc(sizeof(short) * sizeof(prog->regcnt));
+  short* clobberers = malloc(sizeof(short) * prog->regcnt);
   BITFIELD adjmatrix = genadjmatrix(prog, usedefchains, varbs, clobberers);
   //printusedefs(prog->regcnt, usedefchains);
   //printvarbs(prog->regcnt, prog->allblocks->length, varbs);
@@ -319,6 +324,7 @@ void liveness(PROGRAM* prog) {
   regalloc(prog, adjmatrix);
   free(varbs);
   free(adjmatrix);
+  free(clobberers);
 
   for(unsigned int i = 0; i < prog->regcnt; i++)
     if(usedefchains[i]) dadtor(usedefchains[i]);
