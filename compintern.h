@@ -531,7 +531,6 @@ char typecompat(IDTYPE* t1, IDTYPE* t2);
 int process_array_lit(IDTYPE* arr_memtype, EXPRESSION* arr_expr);
 int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr);
 char type_compat(IDTYPE* id1, IDTYPE* id2);
-char isglobal(struct lexctx* lct, char* ident);
 void wipestruct(USTRUCT* strct);
 void freenum(ENUM* enm);
 void freetype(IDTYPE* id);

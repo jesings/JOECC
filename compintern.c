@@ -246,11 +246,6 @@ EXPRESSION* ct_ident_expr(struct lexctx* lct, char* ident, int locstartind, int 
   return retval;
 }
 
-char isglobal(struct lexctx* lct, char* ident) {
-  SCOPE* sc = daget(lct->scopes, 0);
-  return qqueryval(sc->members, ident);
-}
-
 //returns whether two types are compatible: i.e. they can be added without an implicit or explicit cast
 char typecompat(IDTYPE* t1, IDTYPE* t2) {
   if(ispointer(t1))
@@ -604,6 +599,7 @@ void rfreexpr(EXPRESSION* e) {
   free(e);
 }
 
+//frees initializer
 void freeinit(INITIALIZER* i) {
   if(i->expr) {
     rfreexpr(i->expr);
@@ -1122,6 +1118,7 @@ char scopequeryval(struct lexctx* lct, enum membertype mt, char* key) {
   return 0;
 }
 
+//Declare macro
 static void declmacro(QHASHTABLE* ht, const char* macroname, const char* body) {
   struct macrodef* md = calloc(1, sizeof(struct macrodef));
   if(body) {
@@ -1131,6 +1128,7 @@ static void declmacro(QHASHTABLE* ht, const char* macroname, const char* body) {
   qinsert(ht, macroname, md);
 }
 
+//Declare function like macro
 static void declfmacro(QHASHTABLE* ht, const char* macroname, const char* param, const char* body) {
   struct macrodef* md = calloc(1, sizeof(struct macrodef));
   int blen = strlen(body);
@@ -1156,6 +1154,8 @@ struct lexctx* ctxinit(FILE* ar, char* rn) {
   lct->func = NULL;
   lct->actualroot = ar;
   lct->rootname = rn;
+
+  //Define macros that need to be defined in the implementation
   declmacro(lct->defines, "__STDC__", "1");
   declmacro(lct->defines, "__STDC_VERSION__", "201710L");
   declmacro(lct->defines, "__STDC_HOSTED__", "1");
@@ -1172,7 +1172,8 @@ struct lexctx* ctxinit(FILE* ar, char* rn) {
   declmacro(lct->defines, "__x86_64__", "1");
   declmacro(lct->defines, "__linux__", "1");
   declmacro(lct->defines, "__builtin_va_list", "byte*"); //should be typedef
-  declmacro(lct->defines, "SDL_DISABLE_IMMINTRIN_H", "1");
+
+  //define type macros that we need to provide in the preprocessor
   declmacro(lct->defines, "__SIZE_TYPE__", "unsigned long");
   declmacro(lct->defines, "__PTRDIFF_TYPE__", "unsigned long");
   declmacro(lct->defines, "__WCHAR_TYPE__", "unsigned long");
@@ -1186,6 +1187,10 @@ struct lexctx* ctxinit(FILE* ar, char* rn) {
   declmacro(lct->defines, "__UINT8_TYPE__", "unsigned char");
   declmacro(lct->defines, "__UINTPTR_TYPE__", "unsigned long int");
   declmacro(lct->defines, "__UINTPTR_MAX__", "((unsigned long int) -1L)");
+
+  //define macro for SDL compatibility by disabling the use of intrinsics
+  //declmacro(lct->defines, "SDL_DISABLE_IMMINTRIN_H", "1");
+
   char headv[256];
   snprintf(headv, 256, "\"%s\"", HEADERS_VERSION);
   declmacro(lct->defines, "HEADERS_VERSION", headv); //it's just convenient to do it here rather then when running tests for now, this will be removed before a larger release
