@@ -252,6 +252,7 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
             default: \
               return 0; \
           } \
+          if(rectexpr->rettype) freetype(rectexpr->rettype); \
           free(rectexpr); \
           if(ex->rettype) freetype(ex->rettype); \
           *ex = *subexpr; \
@@ -269,6 +270,7 @@ char typequality(IDTYPE* t1, IDTYPE* t2) {
             default: \
               return 0; \
           } \
+          if(rectexpr->rettype) freetype(rectexpr->rettype); \
           free(rectexpr); \
           if(ex->rettype) freetype(ex->rettype); \
           *ex = *subexpr; \
