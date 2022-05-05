@@ -105,58 +105,60 @@ static void filecomp(char* filename) {
   dadtor(lctx->ls->locs);
   dadtor(lctx->ls->argpp);
   dadtorfr(lctx->halflocs);
-  DYNARR* funcky = qhtpairs(lctx->funcs);
 
-  char* newname = explainjoke(filename, 's');
-  FILE* objf = fopen(newname, "w");
-  startgenfile(objf, lctx);
+  if(!lctx->failurestate) {
+    DYNARR* funcky = qhtpairs(lctx->funcs);
+    char* newname = explainjoke(filename, 's');
+    FILE* objf = fopen(newname, "w");
+    startgenfile(objf, lctx);
 
-  DEBUG(pthread_mutex_lock(&printlock));
-  puts("Functions defined:");
-  for(int i = 0; i < funcky->length; i++) {
-    QHASHPAIR* pairthere = daget(funcky, i);
-    if(pairthere->value) {
-      FUNC* f = pairthere->value;
-      //treefunc(pairthere->value);
-      DEBUG(putchar('\n'));
-      DEBUG(puts(pairthere->key));
-      PROGRAM* prog = linefunc(f); //fix main func
-      splitcrit(prog); //for GVN
-      prunebranch(prog); //esp for do while 0
-      blockunblock(prog);//remove unnecessary edges
-      rmunreach(prog);//maybe?
-      collatealloc(prog);
-      remove_nops(prog);
-      DEBUG(printf("Ops before SSA %d\n", countops(prog)));
-      DEBUG(treeprog(prog, pairthere->key, "pressa"));
-      ssa(prog); //no nops are generated here
-      DEBUG(printf("Ops after SSA %d\n", countops(prog)));
-      DEBUG(treeprog(prog, pairthere->key, "justssa"));
-      constfold(prog);
-      gvn(prog);
-      remove_nops(prog);
-      DEBUG(printf("Ops after GVN %d\n", countops(prog)));
-      DEBUG(treeprog(prog, pairthere->key, "withgvn"));
-      ldstrsep(prog);
-      DEBUG(printf("Ops after ldstrsep %d\n", countops(prog)));
-      DEBUG(treeprog(prog, pairthere->key, "ldstrsep"));
+    DEBUG(pthread_mutex_lock(&printlock));
+    puts("Functions defined:");
+    for(int i = 0; i < funcky->length; i++) {
+      QHASHPAIR* pairthere = daget(funcky, i);
+      if(pairthere->value) {
+        FUNC* f = pairthere->value;
+        //treefunc(pairthere->value);
+        DEBUG(putchar('\n'));
+        DEBUG(puts(pairthere->key));
+        PROGRAM* prog = linefunc(f); //fix main func
+        splitcrit(prog); //for GVN
+        prunebranch(prog); //esp for do while 0
+        blockunblock(prog);//remove unnecessary edges
+        rmunreach(prog);//maybe?
+        collatealloc(prog);
+        remove_nops(prog);
+        DEBUG(printf("Ops before SSA %d\n", countops(prog)));
+        DEBUG(treeprog(prog, pairthere->key, "pressa"));
+        ssa(prog); //no nops are generated here
+        DEBUG(printf("Ops after SSA %d\n", countops(prog)));
+        DEBUG(treeprog(prog, pairthere->key, "justssa"));
+        constfold(prog);
+        gvn(prog);
+        remove_nops(prog);
+        DEBUG(printf("Ops after GVN %d\n", countops(prog)));
+        DEBUG(treeprog(prog, pairthere->key, "withgvn"));
+        ldstrsep(prog);
+        DEBUG(printf("Ops after ldstrsep %d\n", countops(prog)));
+        DEBUG(treeprog(prog, pairthere->key, "ldstrsep"));
 
-      renumber(prog);
-      DEBUG(treeprog(prog, pairthere->key, "renumber"));
-      liveness(prog);
-      remove_nops(prog);
-      DEBUG(treeprog(prog, pairthere->key, "liveness"));
+        renumber(prog);
+        DEBUG(treeprog(prog, pairthere->key, "renumber"));
+        liveness(prog);
+        remove_nops(prog);
+        DEBUG(treeprog(prog, pairthere->key, "liveness"));
 
-      genprogfile(objf, f->retrn, pairthere->key, prog);
-      freeprog(prog);
+        genprogfile(objf, f->retrn, pairthere->key, prog);
+        freeprog(prog);
+      }
     }
+    fclose(objf);
+    free(newname);
+    dadtor(funcky);
   }
-  fclose(objf);
-  free(newname);
 
   DEBUG(pthread_mutex_unlock(&printlock));
   scopepop(lctx);
-  dadtor(funcky);
   qchtdtor(lctx->funcs, (void(*)(void*)) &rfreefunc);
   dadtor(lctx->scopes);
   dadtorcfr(lctx->enstruct2free, (void(*)(void*)) wipestruct);
