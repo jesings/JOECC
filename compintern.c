@@ -1154,6 +1154,7 @@ struct lexctx* ctxinit(FILE* ar, char* rn) {
   lct->func = NULL;
   lct->actualroot = ar;
   lct->rootname = rn;
+  lct->failurestate = 0;
 
   //Define macros that need to be defined in the implementation
   declmacro(lct->defines, "__STDC__", "1");

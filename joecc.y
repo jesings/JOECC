@@ -1091,7 +1091,7 @@ statement:
     } dee  ee ';' ee ')' statement {
     int index = ctx->halflocs->length;
     dapush(ctx->halflocs, halvestart(&@1));
-    $$ = mkforstmt($4, $5, $7, $9, index); 
+    $$ = mkforstmt($4, $5, $7, $9, index);
     scopepop(ctx);
     }
 | "goto" SYMBOL ';' {

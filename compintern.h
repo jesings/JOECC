@@ -293,6 +293,7 @@ struct lexctx {
   FILE* actualroot;
   char* rootname;
   struct lstate* ls;
+  char failurestate;
 };
 
 /**
