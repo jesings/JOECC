@@ -809,15 +809,7 @@ esu:
       dadtor(unnex->params);
       free(unnex);
     }
-    }/*compound literal*/
-| error {
-    int index1 = ctx->halflocs->length;
-    dapush(ctx->halflocs, halvestart(&@1));
-    int index2 = ctx->halflocs->length;
-    dapush(ctx->halflocs, halveend(&@1));
-    $$ = ct_nop_expr(index1, index2);
-    fprintf (stderr, "Malformed expression at %s %d.%d-%d.%d\n", locprint(@1));
-    };
+    }/*compound literal*/;
 escl:
   esc {$$ = dactor(32); dapushc($$, $1);}
 | escl ',' esc {$$ = $1; dapush($$, $3); };
@@ -1023,6 +1015,11 @@ statement:
     dapush(ctx->halflocs, halveend(&@2));
     $$ = mklblstmt(ctx, $1, index1, index2);
     }
+| error ':' {
+    $$ = mknopstmt();
+    fprintf (stderr, "Malformed label at %s %d.%d-%d.%d\n", locprint(@1));
+    ctx->failurestate = 1;
+    }
 | "case" esc ':' {
     char* caselbl = malloc(128);
     snprintf(caselbl, 128, "__joecc__%s__%d", ctx->func->name, (ctx->func->caseindex)++);
@@ -1049,6 +1046,11 @@ statement:
     dapush(ctx->halflocs, halveend(&@5));
     $$ = mkcmpndstmt(cases, index1, index2);
     }
+| "case" error ':' {
+    $$ = mknopstmt();
+    fprintf (stderr, "Malformed case at %s %d.%d-%d.%d\n", locprint(@1));
+    ctx->failurestate = 1;
+    }
 | "default" ':' {
     char* caselbl = malloc(128);
     snprintf(caselbl, 128, "__joecc__%s__default__%d", ctx->func->name, (ctx->func->caseindex)++);
@@ -1067,6 +1069,16 @@ statement:
     int index = ctx->halflocs->length;
     dapush(ctx->halflocs, halvestart(&@1));
     $$ = mkifstmt($3, $5, $7, index);
+    }
+| "case" "if" error statement %prec THEN {
+    $$ = mknopstmt();
+    fprintf (stderr, "Malformed if clause at %s %d.%d-%d.%d\n", locprint(@1));
+    ctx->failurestate = 1;
+    }
+| "case" "if" error statement "else" statement {
+    $$ = mknopstmt();
+    fprintf (stderr, "Malformed if/else clause at %s %d.%d-%d.%d\n", locprint(@1));
+    ctx->failurestate = 1;
     }
 | "switch" '(' expression ')' switch_midrule compound_statement {
     SWITCHINFO* swi = dapop(ctx->func->switchstack);
@@ -1135,6 +1147,11 @@ statement:
     int index2 = ctx->halflocs->length;
     dapush(ctx->halflocs, halveend(&@2));
     $$ = mkexprstmt(EXPR, $1, index1, index2);
+    }
+| error ';' {
+    $$ = mknopstmt();
+    fprintf (stderr, "Malformed expression statement at %s %d.%d-%d.%d\n", locprint(@1));
+    ctx->failurestate = 1;
     }
 | "asm" '(' multistring ')' ';' {
     int index1 = ctx->halflocs->length;
