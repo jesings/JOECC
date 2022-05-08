@@ -97,6 +97,20 @@
 %type<firforvariant> dee
 %type<vvar> program
 
+%destructor {free($$);} <str>
+%destructor {strdtor($$);} <dstr>
+%destructor {freetype($$);} <idvariant>
+%destructor {rfreexpr($$);} <exprvariant>
+%destructor {rfreestate($$);} <stmtvariant>
+//free arrvariant depending
+%destructor {wipestruct($$);} <structvariant>
+%destructor {freenum($$);} <enumvariant>
+//free declvariant depending
+//free declpart variant depending
+//free eoi shouldn't be that bad
+
+
+
 %%
 program:
   function {
@@ -300,9 +314,9 @@ initializer:
   }
   dadtor($2);
 }
-| fullstruct ';' {$$ = NULL;}
-| fullenum ';' {$$ = NULL;}
-| fullunion ';' {$$ = NULL;};
+| fullstruct ';' {(void) $1; $$ = NULL;}
+| fullenum ';' {(void) $1; $$ = NULL;}
+| fullunion ';' {(void) $1; $$ = NULL;};
 cs_inits:
   cs_inits ',' declarator '=' escoa {$$ = $1;
     INITIALIZER* id = decl2scope($3, $5, ctx);
@@ -1072,11 +1086,14 @@ statement:
     }
 | "case" "if" error statement %prec THEN {
     $$ = mknopstmt();
+    rfreestate($4);
     fprintf (stderr, "Malformed if clause at %s %d.%d-%d.%d\n", locprint(@1));
     ctx->failurestate = 1;
     }
 | "case" "if" error statement "else" statement {
     $$ = mknopstmt();
+    rfreestate($4);
+    rfreestate($6);
     fprintf (stderr, "Malformed if/else clause at %s %d.%d-%d.%d\n", locprint(@1));
     ctx->failurestate = 1;
     }
