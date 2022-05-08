@@ -536,6 +536,8 @@ void wipestruct(USTRUCT* strct);
 void freenum(ENUM* enm);
 void freetype(IDTYPE* id);
 void freeinit(INITIALIZER* i);
+void freesoi(SOI* soi);
+void freesai(DYNARR* stmtsandinits);
 void rfreexpr(EXPRESSION* e);
 void rfreestate(STATEMENT* s);
 void rfreefunc(FUNC* f);

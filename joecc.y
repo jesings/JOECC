@@ -103,6 +103,8 @@
 %destructor {rfreexpr($$);} <exprvariant>
 %destructor {rfreestate($$);} <stmtvariant>
 //free arrvariant depending
+%destructor {freesai($$);} statements_and_initializers
+%destructor {if($$) freesai($$);} soiorno
 %destructor {wipestruct($$);} <structvariant>
 %destructor {freenum($$);} <enumvariant>
 //free declvariant depending

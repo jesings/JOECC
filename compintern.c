@@ -609,6 +609,32 @@ void freeinit(INITIALIZER* i) {
   free(i);
 }
 
+void freesoi(SOI* soi) {
+  if(soi->isstmt) {
+    rfreestate(soi->state);
+  } else {
+    for(int j = 0; j < soi->init->length; j++) {
+      INITIALIZER* in = daget(soi->init, j);
+      if(in->expr) {
+        rfreexpr(in->expr);
+      }
+      freetype(in->decl->type);
+      free(in->decl->varname);
+      free(in->decl);
+      free(in);
+    }
+    dadtor(soi->init);
+  }
+  free(soi);
+}
+
+void freesai(DYNARR* stmtsandinits) {
+  for(int i = 0; i < stmtsandinits->length; i++) {
+    freesoi(daget(stmtsandinits, i));
+  }
+  dadtor(stmtsandinits);
+}
+
 //recursively frees statement
 void rfreestate(STATEMENT* s) {
   switch(s->type) {
@@ -643,26 +669,7 @@ void rfreestate(STATEMENT* s) {
       break;
     case CMPND:
       if(s->stmtsandinits) {
-        for(int i = 0; i < s->stmtsandinits->length; i++) {
-          SOI* soi = daget(s->stmtsandinits, i);
-          if(soi->isstmt) {
-            rfreestate(soi->state);
-          } else {
-            for(int j = 0; j < soi->init->length; j++) {
-              INITIALIZER* in = daget(soi->init, j);
-              if(in->expr) {
-                rfreexpr(in->expr);
-              }
-              freetype(in->decl->type);
-              free(in->decl->varname);
-              free(in->decl);
-              free(in);
-            }
-            dadtor(soi->init);
-          }
-          free(soi);
-        }
-        dadtor(s->stmtsandinits);
+        freesai(s->stmtsandinits);
       }
       break;
     case FRET:
