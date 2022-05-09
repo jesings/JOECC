@@ -451,19 +451,23 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
   return imptype->size;
 }
 
+void freedecl(DECLARATION* dcl) {
+  if(dcl->varname) {
+    free(dcl->varname);
+  }
+  if(!(ispointer(dcl->type)) && dcl->type->tb & (ANONMEMB)) {
+    wipestruct(dcl->type->structtype);
+  }
+  freetype(dcl->type);
+  free(dcl);
+}
+
 //completely frees struct or union container
 void wipestruct(USTRUCT* strct) {
   if(strct->fields) {
     for(int i = 0; i < strct->fields->length; ++i) {
       DECLARATION* dcl = strct->fields->arr[i];
-      if(dcl->varname) {
-        free(dcl->varname);
-      }
-      if(!(ispointer(dcl->type)) && dcl->type->tb & (ANONMEMB)) {
-        wipestruct(dcl->type->structtype);
-      }
-      freetype(dcl->type);
-      free(dcl);
+      freedecl(dcl);
     }
     dadtor(strct->fields);
   }

@@ -105,6 +105,9 @@
 //free arrvariant depending
 %destructor {freesai($$);} statements_and_initializers
 %destructor {if($$) freesai($$);} soiorno
+%destructor {dadtorcfr($$, (void(*)(void*))freedecl);} struct_decls struct_decl
+%destructor {dadtorcfr($$, (void(*)(void*))freenum);} enums
+%destructor {dadtorcfr($$, (void(*)(void*))rfreexpr);} escl
 %destructor {wipestruct($$);} <structvariant>
 %destructor {freenum($$);} <enumvariant>
 //free declvariant depending
