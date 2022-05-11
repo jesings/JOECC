@@ -110,6 +110,10 @@
 %destructor {dadtorcfr($$, (void(*)(void*))rfreexpr);} escl
 %destructor {dadtorcfr($$, (void(*)(void*))rfreexpr);} escoal
 %destructor {dadtorcfr($$, (void(*)(void*))freedeclpart);} abstract_ptr
+%destructor {dadtorcfr($$, (void(*)(void*))freedeclpart);} spefptr
+%destructor {dadtorcfr($$, (void(*)(void*))freeinit);} cs_inits
+%destructor {dadtorcfr($$, (void(*)(void*))freedecl);} cs_minutes
+%destructor {if($$) dadtorcfr($$, (void(*)(void*))freeinit);} initializer
 %destructor {wipestruct($$);} <structvariant>
 %destructor {freenum($$);} <enumvariant>
 //free declvariant depending
