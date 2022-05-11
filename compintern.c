@@ -503,6 +503,25 @@ static void fpdecl2(DECLARATION* dc) {
   free(dc);
 }
 
+void freedeclpart(struct declarator_part* dclp) {
+  switch(dclp->type) {
+    case PARAMSSPEC:
+      dadtorcfr(dclp->params, (void (*)(void*)) fpdecl2);
+      break;
+    case NAMELESS_PARAMSSPEC:
+      if(dclp->nameless_params) dadtorcfr(dclp->nameless_params, (void (*)(void*)) freetype);
+      break;
+    case VLASPEC:
+      rfreexpr(dclp->vlaent);
+      break;
+    case POINTERSPEC: case ARRAYSPEC:
+      break;
+    case BITFIELDSPEC:
+      assert(0); //TODO: handle bitfields
+  }
+  free(dclp);
+}
+
 //recursively frees idtype
 void freetype(IDTYPE* id) {
   if(!id)
@@ -510,22 +529,7 @@ void freetype(IDTYPE* id) {
   if(id->pointerstack) {
     for(int i = 0; i < id->pointerstack->length; i++) {
       struct declarator_part* dclp = id->pointerstack->arr[i];
-      switch(dclp->type) {
-        case PARAMSSPEC:
-          dadtorcfr(dclp->params, (void (*)(void*)) fpdecl2);
-          break;
-        case NAMELESS_PARAMSSPEC:
-          if(dclp->nameless_params) dadtorcfr(dclp->nameless_params, (void (*)(void*)) freetype);
-          break;
-        case VLASPEC:
-          rfreexpr(dclp->vlaent);
-          break;
-        case POINTERSPEC: case ARRAYSPEC:
-          break;
-        case BITFIELDSPEC:
-          assert(0); //TODO: handle bitfields
-      }
-      free(dclp);
+      freedeclpart(dclp);
     }
     dadtor(id->pointerstack);
     id->pointerstack = NULL;

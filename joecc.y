@@ -108,6 +108,8 @@
 %destructor {dadtorcfr($$, (void(*)(void*))freedecl);} struct_decls struct_decl
 %destructor {dadtorcfr($$, (void(*)(void*))freenum);} enums
 %destructor {dadtorcfr($$, (void(*)(void*))rfreexpr);} escl
+%destructor {dadtorcfr($$, (void(*)(void*))rfreexpr);} escoal
+%destructor {dadtorcfr($$, (void(*)(void*))freedeclpart);} abstract_ptr
 %destructor {wipestruct($$);} <structvariant>
 %destructor {freenum($$);} <enumvariant>
 //free declvariant depending

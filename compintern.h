@@ -535,6 +535,7 @@ char type_compat(IDTYPE* id1, IDTYPE* id2);
 void freedecl(DECLARATION* dcl);
 void wipestruct(USTRUCT* strct);
 void freenum(ENUM* enm);
+void freedeclpart(struct declarator_part* dclp);
 void freetype(IDTYPE* id);
 void freeinit(INITIALIZER* i);
 void freesoi(SOI* soi);
