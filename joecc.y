@@ -113,7 +113,12 @@
 %destructor {dadtorcfr($$, (void(*)(void*))freedeclpart);} spefptr
 %destructor {dadtorcfr($$, (void(*)(void*))freeinit);} cs_inits
 %destructor {dadtorcfr($$, (void(*)(void*))freedecl);} cs_minutes
-%destructor {if($$) dadtorcfr($$, (void(*)(void*))freeinit);} initializer
+%destructor {dadtorcfr($$, (void(*)(void*))freeinit);} initializer
+//still confused by array_literal
+%destructor {dadtorcfr($$, (void(*)(void*))freedecl);} structbody
+%destructor {dadtorcfr($$, (void(*)(void*))fef);} enumbody
+%destructor {dadtorcfr($$, (void(*)(void*))freetype);} nameless
+
 %destructor {wipestruct($$);} <structvariant>
 %destructor {freenum($$);} <enumvariant>
 //free declvariant depending

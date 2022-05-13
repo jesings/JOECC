@@ -534,6 +534,7 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr);
 char type_compat(IDTYPE* id1, IDTYPE* id2);
 void freedecl(DECLARATION* dcl);
 void wipestruct(USTRUCT* strct);
+void fef(ENUMFIELD* enf);
 void freenum(ENUM* enm);
 void freedeclpart(struct declarator_part* dclp);
 void freetype(IDTYPE* id);

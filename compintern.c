@@ -476,15 +476,15 @@ void wipestruct(USTRUCT* strct) {
   free(strct);
 }
 
+void fef(ENUMFIELD* enf) {
+  free(enf->name);
+  free(enf);
+}
+
 //completely frees enum container
 void freenum(ENUM* enm) {
   if(enm->name) free(enm->name);
-  for(int i = 0; i < enm->fields->length; i++) {
-    ENUMFIELD* enf = daget(enm->fields, i);
-    free(enf->name);
-    free(enf);
-  }
-  dadtor(enm->fields);
+  dadtorcfr(enm->fields, (void(*)(void*)) fef);
   free(enm);
 }
 
