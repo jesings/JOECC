@@ -451,13 +451,12 @@ int process_struct_lit(IDTYPE* struct_memtype, EXPRESSION* struct_expr) {
   return imptype->size;
 }
 
+//completely frees declaration, including if the type has an anonymous struct member
 void freedecl(DECLARATION* dcl) {
-  if(dcl->varname) {
+  if(dcl->varname)
     free(dcl->varname);
-  }
-  if(!(ispointer(dcl->type)) && dcl->type->tb & (ANONMEMB)) {
+  if(!(ispointer(dcl->type)) && dcl->type->tb & (ANONMEMB))
     wipestruct(dcl->type->structtype);
-  }
   freetype(dcl->type);
   free(dcl);
 }
@@ -476,6 +475,7 @@ void wipestruct(USTRUCT* strct) {
   free(strct);
 }
 
+//free enum field
 void fef(ENUMFIELD* enf) {
   free(enf->name);
   free(enf);
@@ -636,6 +636,7 @@ void freesoi(SOI* soi) {
   free(soi);
 }
 
+//frees list of statements and initializers such as that which composes a block statement
 void freesai(DYNARR* stmtsandinits) {
   for(int i = 0; i < stmtsandinits->length; i++) {
     freesoi(daget(stmtsandinits, i));
