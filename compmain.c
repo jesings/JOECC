@@ -59,34 +59,34 @@ static char* explainjoke(char* filename, char lastchar) {
   return newname;
 }
 
-static void filecomp(char* filename) {
+static char filecomp(char** filename) {
   FILE* precontext = fdopen(dup(predefines), "r");
-  FILE* yyin = fopen(filename, "r");
+  FILE* yyin = fopen(*filename, "r");
   if(yyin == NULL)
-    return;
+    return 0;
   char maymagic[16];
   size_t magiclen = fread(maymagic, 1, 16, yyin);
   if(magiclen == 16 && !memcmp(magic, maymagic, 16)) {
     fclose(yyin);
-    return;
+    return 0;
     //It's an ELF file
     char type = fgetc(yyin);
     switch(type) {
       case 0: case -1:
       case 4: //core dump
-        return; //error
+        return 1; //error
       case 1:
-        return; //need to link
+        return 1; //need to link
       case 2:
-        return; //static exe
+        return 1; //static exe
       case 3:
-        return; //dynamic exe
+        return 1; //dynamic exe
     }
   } else {
     rewind(yyin);
   }
   void* scanner;
-  struct lexctx* lctx = ctxinit(yyin, filename);
+  struct lexctx* lctx = ctxinit(yyin, *filename);
   yylex_init_extra(lctx, &scanner);
   struct yyltype* ylt = malloc(sizeof(LOCTYPE));
   ylt->last_line = ylt->first_line = 0;
@@ -95,7 +95,7 @@ static void filecomp(char* filename) {
   yyset_lloc(ylt, scanner);
   DEBUG(yyset_debug(0, scanner));//not debugging lexer for now
   yyset_in(precontext, scanner);
-  yyparse(scanner, filename);
+  yyparse(scanner, *filename);
   free(ylt);
   yylex_destroy(scanner);
   dadtorcfr(lctx->enumerat2free, (void(*)(void*)) freenum);
@@ -106,9 +106,11 @@ static void filecomp(char* filename) {
   dadtor(lctx->ls->argpp);
   dadtorfr(lctx->halflocs);
 
-  if(!lctx->failurestate) {
+  if(lctx->failurestate) {
+    *filename = NULL;
+  } else {
     DYNARR* funcky = qhtpairs(lctx->funcs);
-    char* newname = explainjoke(filename, 's');
+    char* newname = explainjoke(*filename, 's');
     FILE* objf = fopen(newname, "w");
     startgenfile(objf, lctx);
 
@@ -165,17 +167,18 @@ static void filecomp(char* filename) {
   dadtorcfr(lctx->externglobals, (void(*)(void*)) freeinit);
   dadtorcfr(lctx->globals, (void(*)(void*)) freeinit);
   free(lctx->ls);
+  char fsv = lctx->failurestate;
   free(lctx);
-  return;
+  return fsv;
 }
 
 static void* ldeleg(void* arg) {
   char** argv = arg;
   while(1) {
-    char* fn;
+    char** fn;
     pthread_mutex_lock(&listlock);
-    fn = argv[listptr];
-    if(!fn) {
+    fn = &argv[listptr];
+    if(!*fn) {
       pthread_mutex_unlock(&listlock);
       return NULL;
     }
@@ -185,28 +188,30 @@ static void* ldeleg(void* arg) {
   }
 }
 
-static void linkall(char const* outfile, char** argv) {
+static void linkall(char const* outfile, char** argv, int argc) {
   DYNARR* fnames = dactor(8);
   dapush(fnames, strdup("/bin/ld"));
-  char* humorless;
   //++ to skip first element
   int forkpid;
   char** newargy = argv + linkallstart;
-  while((humorless = *(newargy++))) {
-    char* humored = explainjoke(humorless, 's');
-    char* humored2 = explainjoke(humorless, 'o');
-    switch((forkpid = fork())) {
-      case -1:
-        exit(-1);
-      case 0:
-        execl("/bin/as", "/bin/as", humored, "-o", humored2, NULL);
-        break;
-      default:
-        waitpid(forkpid, NULL, 0);
-        break;
+  for(int i = 0; i < argc; i++) {
+    char* humorless = *(newargy++);
+    if(humorless) {
+      char* humored = explainjoke(humorless, 's');
+      char* humored2 = explainjoke(humorless, 'o');
+      switch((forkpid = fork())) {
+        case -1:
+          exit(-1);
+        case 0:
+          execl("/bin/as", "/bin/as", humored, "-o", humored2, NULL);
+          break;
+        default:
+          waitpid(forkpid, NULL, 0);
+          break;
+      }
+      dapush(fnames, humored2);
+      free(humored);
     }
-    dapush(fnames, humored2);
-    free(humored);
   }
   dapush(fnames, strdup(LIBDIR "crt1.o"));
   dapush(fnames, strdup(LIBDIR "crti.o"));
@@ -337,6 +342,6 @@ int main(int argc, char** argv) {
   }
   dadtorfr(includepath);
   close(predefines);
-  linkall(filedest, argv);
+  linkall(filedest, argv, argc);
   return 0;
 }
