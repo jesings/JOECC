@@ -121,6 +121,9 @@
 
 %destructor {wipestruct($$);} <structvariant>
 %destructor {freenum($$);} <enumvariant>
+
+%destructor {
+} <funcvariant> //oh boy
 //free declvariant depending
 //free declpart variant depending
 //free eoi shouldn't be that bad
@@ -1004,7 +1007,6 @@ function:
     qrmpaircfr(scopepeek(ctx)->members, $2->varname, free); //no-op if not predefined
     add2scope(ctx, $2->varname, M_GLOBAL, id);
     free($2);
-    free($1);
     ctx->func = $$;
 
     scopepush(ctx);
@@ -1015,6 +1017,7 @@ function:
     }
     }
     '{' soiorno '}' {
+    free($1);
     scopepop(ctx);
     $$ = $3;
     int index1 = ctx->halflocs->length;
