@@ -517,7 +517,8 @@ void freedeclpart(struct declarator_part* dclp) {
     case POINTERSPEC: case ARRAYSPEC:
       break;
     case BITFIELDSPEC:
-      assert(0); //TODO: handle bitfields
+      rfreexpr(dclp->bfspec);
+      break;
   }
   free(dclp);
 }
