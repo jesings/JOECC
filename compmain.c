@@ -26,12 +26,13 @@
 #endif
 
 
+//ELF magic bits
 const char magic[16] = {0x7f, 0x45, 0x4c, 0x46, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-pthread_mutex_t printlock, listlock;
-int listptr, linkallstart;
-int predefines;
+pthread_mutex_t printlock, listlock; //global mutexes for synchronizing printing, processing
+int listptr, linkallstart; //global variables for processing the list of files to compile, link
+int predefines; //file descriptor for file with command line -D options passed through to it
 DYNARR* includepath;
-char tmpname[32] = "precompilationXXXXXX";
+char tmpname[32] = "precompilationXXXXXX"; //name of precompile file
 
 struct yyltype {int first_line, last_line, first_column, last_column; char* filename;};
 
@@ -43,6 +44,7 @@ int yyset_debug(int flag, void*);
 void yylex_init_extra(void*, void**);
 void yylex_destroy(void*);
 
+//outputs file name for .joeccs object file
 static char* explainjoke(char* filename, char lastchar) {
   char* lastind = strrchr(filename, '.');
   int len;
@@ -59,6 +61,7 @@ static char* explainjoke(char* filename, char lastchar) {
   return newname;
 }
 
+//compiles a given file
 static char filecomp(char** filename) {
   FILE* precontext = fdopen(dup(predefines), "r");
   FILE* yyin = fopen(*filename, "r");
@@ -172,6 +175,7 @@ static char filecomp(char** filename) {
   return fsv;
 }
 
+//delegates to the threads which thing they compile next
 static void* ldeleg(void* arg) {
   char** argv = arg;
   while(1) {
@@ -188,6 +192,7 @@ static void* ldeleg(void* arg) {
   }
 }
 
+//links specified files
 static void linkall(char const* outfile, char** argv, int argc) {
   DYNARR* fnames = dactor(8);
   dapush(fnames, strdup("/bin/ld"));
