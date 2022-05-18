@@ -401,16 +401,21 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
   char* memname = ((EXPRESSION*) daget(cexpr->params, 1))->member;
   assert(!seaty.pointerstack || seaty.pointerstack->length <= 1);
   assert(seaty.tb & (STRUCTVAL | UNIONVAL));
-  if(seaty.tb & STRUCTVAL)
+  if(seaty.tb & STRUCTVAL) {
     feedstruct(seaty.structtype);
-  else
+  } else {
     unionlen(seaty.uniontype);
+  }
   FULLADDR retaddr;
   ADDRESS offaddr;
   STRUCTFIELD* sf = qsearch(seaty.structtype->offsets, memname);
   char pointerqual = ispointer(sf->type);
   offaddr.intconst_64 = sf->offset;
+  struct declarator_part* dclp = NULL;
+  if(sf->type->pointerstack && sf->type->pointerstack->length)
+    dclp = dapeek(sf->type->pointerstack);
   if(!pointerqual && (sf->type->tb & (STRUCTVAL | UNIONVAL))) {
+    //handle here
     if(offaddr.intconst_64) {
       FILLREG(retaddr, ISPOINTER | 8);
       opn(prog, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST | 0x8, offaddr, retaddr.addr_type, retaddr.addr));
@@ -423,6 +428,7 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
       }
     }
   } else {
+    assert(!dclp || dclp->type != BITFIELDSPEC);
     FULLADDR intermediate;
     if(offaddr.intconst_64) {
       FILLREG(intermediate, ISPOINTER | 8);
