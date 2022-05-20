@@ -125,13 +125,13 @@ enum declpart_info {
 struct stmt;
 
 /**
- * A struct containing the information to describe a struct or union: most imporatntly the fields, their byte offsets from the base location of the struct
+ * A struct containing the information to describe a struct or union: most imporatntly the fields, their bit offsets from the base location of the struct
 **/
 typedef struct {
   DYNARR* fields;//Each entry is a struct that contains a full identifier
   char* name;
-  QHASHTABLE* offsets; //each entry is a struct that contains a full identifier and offset
-  int size;
+  QHASHTABLE* offsets; //each entry is a struct that contains a full identifier and offset which is IN BITS rather than bytes in order to accommodate bitfields
+  int size; //size of the structure in bytes
 } USTRUCT;
 /**
  * A struct containing the information necessary to describe an enum

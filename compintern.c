@@ -1383,10 +1383,13 @@ int feedstruct(USTRUCT* s) {
         if(ispointer(mmi->type)) {
           struct declarator_part* declptop = dapeek(mmi->type->pointerstack);
           if(declptop->type == BITFIELDSPEC) {
-            assert(0);
+            //no bitfield pointers or floats!!!
+            assert(!(mmi->type->pointerstack->length > 1 || mmi->type->tb & FLOAT));
+
+          } else {
+            esize = 8;
+            dapush(newmm, mmi);
           }
-          esize = 8;
-          dapush(newmm, mmi);
         } else {
           TYPEBITS mtb = mmi->type->tb;
           if(mtb & (STRUCTVAL | UNIONVAL)) {
@@ -1421,7 +1424,7 @@ int feedstruct(USTRUCT* s) {
             dapush(newmm, mmi);
           }
         }
-        int padding = esize > 8 ? 8 : esize;
+        int padding = esize > 8 ? 64 : esize << 3;
         totalsize = (totalsize + padding - 1) & ~(padding - 1);
         if(keepmmi) {
           STRUCTFIELD* sf = malloc(sizeof(STRUCTFIELD));
@@ -1429,9 +1432,9 @@ int feedstruct(USTRUCT* s) {
           sf->offset = totalsize;
           qinsert(s->offsets, mmi->varname, sf);
         }
-        totalsize += esize;
+        totalsize += esize << 3;
       }
-      s->size = totalsize;
+      s->size = (totalsize + 7) >> 3;
       dadtor(mm);
       s->fields = newmm;
       return s->size;

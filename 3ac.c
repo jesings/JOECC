@@ -409,8 +409,9 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR retaddr;
   ADDRESS offaddr;
   STRUCTFIELD* sf = qsearch(seaty.structtype->offsets, memname);
+  if(sf->offset & 0x7) assert(0); //it's a bitfield thingy! We don't handle this yet!
   char pointerqual = ispointer(sf->type);
-  offaddr.intconst_64 = sf->offset;
+  offaddr.intconst_64 = sf->offset >> 3;
   struct declarator_part* dclp = NULL;
   if(sf->type->pointerstack && sf->type->pointerstack->length)
     dclp = dapeek(sf->type->pointerstack);
@@ -585,8 +586,9 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         EXPRESSION* member = daget(cexpr->params, i);
         DECLARATION* decl = daget(cexpr->rettype->structtype->fields, i);
         STRUCTFIELD* sf = qsearch(cexpr->rettype->structtype->offsets, decl->varname);
+        if(sf->offset & 0x7) assert(0); //it's a bitfield thingy! We don't handle this yet!
         curaddr = linearitree(member, prog);
-        otheraddr.addr.uintconst_64 = sf->offset;
+        otheraddr.addr.uintconst_64 = sf->offset >> 3;
         ADDRTYPE sft = addrconv(sf->type);
         if(sft & ISFLOAT && !(curaddr.addr_type & ISFLOAT)) {
           FULLADDR fad2;
