@@ -917,7 +917,7 @@ STATEMENT* mklblstmt(struct lexctx* lct, char* lblval, int locstartind, int loce
 }
 
 STATEMENT* mkcasestmt(struct lexctx* lct, EXPRESSION* casexpr, char* label, int locstartind, int locendind) {
-  SWITCHINFO* swi =  dapeek(lct->func->switchstack);
+  SWITCHINFO* swi = dapeek(lct->func->switchstack);
   while(foldconst(casexpr)) ;
   switch(casexpr->type) {
     case INT: case UINT:
@@ -1368,10 +1368,8 @@ void add2scope(struct lexctx* lct, char* memname, enum membertype mtype, void* m
 int feedstruct(USTRUCT* s) {
   switch(s->size) {
     case 0:
-      if(s->offsets) {
-        printf("sizeless struct\n");
+      if(s->offsets)
         return 0; //sizeless struct
-      }
       s->offsets = qchtctor(32);
       s->size = -1;
       DYNARR* mm = s->fields;
@@ -1383,6 +1381,10 @@ int feedstruct(USTRUCT* s) {
         //TODO: handle bitfield
         char keepmmi = 1;
         if(ispointer(mmi->type)) {
+          struct declarator_part* declptop = dapeek(mmi->type->pointerstack);
+          if(declptop->type == BITFIELDSPEC) {
+            assert(0);
+          }
           esize = 8;
           dapush(newmm, mmi);
         } else {
@@ -1459,6 +1461,10 @@ int unionlen(USTRUCT* u) {
 
         //if it's a pointer, then the size is known easily
         if(ispointer(mmi->type)) {
+          struct declarator_part* declptop = dapeek(mmi->type->pointerstack);
+          if(declptop->type == BITFIELDSPEC) {
+            assert(0); //bitfields in unions are an error
+          }
           esize = 8;
           dapush(newmm, mmi);
         } else {
