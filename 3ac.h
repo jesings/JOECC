@@ -248,7 +248,7 @@ OPERATION* ct_3ac_op1_assign(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRES
 OPERATION* ct_3ac_op2(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0, ADDRTYPE dest_type, ADDRESS dest);
 OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0,
                       ADDRTYPE addr1_type, ADDRESS addr1, ADDRTYPE dest_type, ADDRESS dest);
-FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog);
+FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog, char islvalue);
 FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog);
 void initializestate(INITIALIZER* i, PROGRAM* prog);
 void cmptype(EXPRESSION* cmpexpr, BBLOCK* failblock, BBLOCK* successblock, PROGRAM* prog);

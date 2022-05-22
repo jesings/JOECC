@@ -59,8 +59,8 @@ OPERATION* ct_3ac_op3(enum opcode_3ac opcode, ADDRTYPE addr0_type, ADDRESS addr0
 //Parses and creates operations from binary expression, doing implicit type casts (e.g. upgrading ints to floats
 //when multiplying an int by a float) and using the proper opcode for the types (i.e. MUL_I or ADD_F)
 OPERATION* implicit_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
-  FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
-  FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog);
+  FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog, 0);
+  FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog, 0);
   IDTYPE arg1id = typex(daget(cexpr->params, 0));
   IDTYPE arg2id = typex(daget(cexpr->params, 1));
   IDTYPE retid = typex(cexpr);
@@ -109,8 +109,8 @@ OPERATION* implicit_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* pro
 
 //Parses and creates operations for binary bitwise operation
 OPERATION* implicit_bitwise_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
-  FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
-  FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog);
+  FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog, 0);
+  FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog, 0);
   FULLADDR desta;
   IDTYPE retid = typex(cexpr);
   assert(!(retid.tb & FLOATNUM));
@@ -123,8 +123,8 @@ OPERATION* implicit_bitwise_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* pr
 FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srcexpr, PROGRAM* prog) {
   IDTYPE destidt = typex(destexpr);
   IDTYPE srcidt = typex(srcexpr);
-  FULLADDR srcaddr = linearitree(srcexpr, prog);
-  FULLADDR destaddr = linearitree(destexpr, prog);
+  FULLADDR srcaddr = linearitree(srcexpr, prog, 0);
+  FULLADDR destaddr = linearitree(destexpr, prog, 1);
   //do some implicit binary stuff
   if(ispointer2(destidt)) {
     if(ispointer2(srcidt)) {
@@ -183,8 +183,8 @@ FULLADDR cmpnd_assign(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srce
 static FULLADDR cmpnd_assign_addsub(enum opcode_3ac op, EXPRESSION* destexpr, EXPRESSION* srcexpr, PROGRAM* prog) {
   IDTYPE destidt = typex(destexpr);
   IDTYPE srcidt = typex(srcexpr);
-  FULLADDR srcaddr = linearitree(srcexpr, prog);
-  FULLADDR destaddr = linearitree(destexpr, prog);
+  FULLADDR srcaddr = linearitree(srcexpr, prog, 0);
+  FULLADDR destaddr = linearitree(destexpr, prog, 1);
   if(ispointer2(destidt)) {
     if(!ispointer2(srcidt)) {
       srcaddr = ptarith(destidt, srcaddr, prog);
@@ -235,7 +235,7 @@ static inline ADDRESS stepty(EXPRESSION* cexpr) {
 }
 //Parses and creates operations for a pre-increment expression
 static FULLADDR prestep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
-  FULLADDR destaddr = linearitree(daget(cexpr->params, 0), prog);
+  FULLADDR destaddr = linearitree(daget(cexpr->params, 0), prog, 1);
   char baseness = destaddr.addr_type & ISFLOAT ? 2 : 0;
   opn(prog, ct_3ac_op3((isinc ? ADD_U : SUB_U) + baseness, destaddr.addr_type, destaddr.addr, ISCONST | 0x8, stepty(cexpr), destaddr.addr_type, destaddr.addr));
   return destaddr;
@@ -243,7 +243,7 @@ static FULLADDR prestep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
 //Parses and creates operations for a post-increment expression
 static FULLADDR poststep(char isinc, EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR destaddr, actualaddr;
-  destaddr = linearitree(daget(cexpr->params, 0), prog);
+  destaddr = linearitree(daget(cexpr->params, 0), prog, 1);
   char baseness = destaddr.addr_type & ISFLOAT ? 2 : 0;
   FILLREG(actualaddr, destaddr.addr_type & GENREGMASK);
   opn(prog, ct_3ac_op2(MOV_3, destaddr.addr_type, destaddr.addr, actualaddr.addr_type, actualaddr.addr));
@@ -279,7 +279,7 @@ OPERATION* implicit_mtp_2(EXPRESSION* destexpr, EXPRESSION* fromexpr, FULLADDR a
 
 //Parses and creates operations for a unary expression
 OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
-  FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
+  FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog, 0);
   IDTYPE arg1id = typex(daget(cexpr->params, 0));
   IDTYPE retid = typex(cexpr);
   FULLADDR desta;
@@ -308,7 +308,7 @@ OPERATION* implicit_unary_2(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog
 void implicit_shortcircuit_noret(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, BBLOCK* branchto, PROGRAM* prog) {
   FULLADDR addr2use;
   for(int i = 0; i < cexpr->params->length; i++) {
-    addr2use = linearitree(daget(cexpr->params, i), prog);
+    addr2use = linearitree(daget(cexpr->params, i), prog, 0);
     opn(prog, ct_3ac_op1(op_to_cmp, addr2use.addr_type, addr2use.addr));
     prog->curblock->branchblock = branchto;
     dapush(branchto->inedges, prog->curblock);
@@ -324,7 +324,7 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
   failblock = mpblk();
   FULLADDR addr2use;
   for(int i = 0; i < cexpr->params->length; i++) {
-    addr2use = linearitree(daget(cexpr->params, i), prog);
+    addr2use = linearitree(daget(cexpr->params, i), prog, 0);
     opn(prog, ct_3ac_op1(op_to_cmp, addr2use.addr_type, addr2use.addr));
     prog->curblock->branchblock = failblock;
     dapush(failblock->inedges, prog->curblock);
@@ -343,8 +343,8 @@ FULLADDR implicit_shortcircuit_3(enum opcode_3ac op_to_cmp, EXPRESSION* cexpr, A
 
 //Parses and creates operations for a binary comparison expression, doing whatever casts are necessary
 OPERATION* cmpret_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog) {
-  FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
-  FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog);
+  FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog, 0);
+  FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog, 0);
   IDTYPE arg1id = typex(daget(cexpr->params, 0));
   IDTYPE arg2id = typex(daget(cexpr->params, 1));
   IDTYPE retid = typex(cexpr);
@@ -383,8 +383,8 @@ OPERATION* cmpret_binary_3(enum opcode_3ac op, EXPRESSION* cexpr, PROGRAM* prog)
 
 //Parses and creates operations for a binary bit shift operation
 OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRAM* prog) {
-  FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog);
-  FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog);
+  FULLADDR a1 = linearitree(daget(cexpr->params, 0), prog, 0);
+  FULLADDR a2 = linearitree(daget(cexpr->params, 1), prog, 0);
   assert(!(a1.addr_type & ISFLOAT) && !(a2.addr_type & ISFLOAT));
   enum opcode_3ac shlop = opcode_unsigned + (a1.addr_type & ISSIGNED ? 1 : 0);
   FULLADDR adr;
@@ -394,7 +394,7 @@ OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRA
 
 //Parses and creates operations for the accessing of a struct/union field, performing necessary casts
 FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
-  FULLADDR sead = linearitree(daget(cexpr->params, 0), prog);
+  FULLADDR sead = linearitree(daget(cexpr->params, 0), prog, 0);
   IDTYPE seaty = typex(daget(cexpr->params, 0));
   IDTYPE retty = typex(cexpr);
   assert(((EXPRESSION*) daget(cexpr->params, 1))->type == MEMBER);
@@ -409,7 +409,7 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
   FULLADDR retaddr;
   ADDRESS offaddr;
   STRUCTFIELD* sf = qsearch(seaty.structtype->offsets, memname);
-  if(sf->offset & 0x7) assert(0); //it's a bitfield thingy! We don't handle this yet!
+  assert(!(sf->offset & 0x7));
   char pointerqual = ispointer(sf->type);
   offaddr.intconst_64 = sf->offset >> 3;
   struct declarator_part* dclp = NULL;
@@ -453,12 +453,12 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
 static FULLADDR execvla(IDTYPE* idt, PROGRAM* prog) {
    FULLADDR curaddr, otheraddr, scratchaddr;
    struct declarator_part* dclp = dapeek(idt->pointerstack);
-   curaddr = linearitree(dclp->vlaent, prog);
+   curaddr = linearitree(dclp->vlaent, prog, 0);
    struct declarator_part* subdclp;
    int psentry;
    for(psentry = idt->pointerstack->length - 1; psentry >= 0 && (subdclp = daget(idt->pointerstack, psentry))->type == VLASPEC; psentry--) {
      FILLREG(otheraddr, curaddr.addr_type & GENREGMASK);
-     scratchaddr = linearitree(subdclp->vlaent, prog);
+     scratchaddr = linearitree(subdclp->vlaent, prog, 0);
      opn(prog, ct_3ac_op3(MULT_U, curaddr.addr_type, curaddr.addr, scratchaddr.addr_type, scratchaddr.addr, otheraddr.addr_type, otheraddr.addr));
      curaddr = otheraddr;
    }
@@ -475,7 +475,7 @@ static FULLADDR execvla(IDTYPE* idt, PROGRAM* prog) {
 }
 
 //Recursively parses and creates operations for an arbitrary expression
-FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
+FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog, char islvalue) {
   FULLADDR curaddr, otheraddr, destaddr;
   IDTYPE varty;
   OPERATION* genop;
@@ -529,7 +529,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       if(curaddr.addr.uintconst_64 < 0xf) {
         for(int i = 0; i < cexpr->params->length; i++) {
           EXPRESSION* dyne = daget(cexpr->params, i);
-          otheraddr = linearitree(dyne, prog);
+          otheraddr = linearitree(dyne, prog, 0);
           curaddr.addr.uintconst_64 = i;
           if(memtype & ISFLOAT && !(otheraddr.addr_type & ISFLOAT)) {
             FULLADDR fad2;
@@ -554,7 +554,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         a.uintconst_64 = curaddr.addr.uintconst_64;
         for(int i = 0; i < cexpr->params->length; i++) {
           EXPRESSION* dyne = daget(cexpr->params, i);
-          otheraddr = linearitree(dyne, prog);
+          otheraddr = linearitree(dyne, prog, 0);
           opn(prog, ct_3ac_op3(ADD_U, destaddr.addr_type, destaddr.addr, ISCONST | 0x8, a, destaddr.addr_type, destaddr.addr));
           if(destaddr.addr_type & ISFLOAT && !(otheraddr.addr_type & ISFLOAT)) {
             FULLADDR fad2;
@@ -587,7 +587,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         DECLARATION* decl = daget(cexpr->rettype->structtype->fields, i);
         STRUCTFIELD* sf = qsearch(cexpr->rettype->structtype->offsets, decl->varname);
         if(sf->offset & 0x7) assert(0); //it's a bitfield thingy! We don't handle this yet!
-        curaddr = linearitree(member, prog);
+        curaddr = linearitree(member, prog, 0);
         otheraddr.addr.uintconst_64 = sf->offset >> 3;
         ADDRTYPE sft = addrconv(sf->type);
         if(sft & ISFLOAT && !(curaddr.addr_type & ISFLOAT)) {
@@ -613,12 +613,12 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
 
     //for simple unary operations we just need to use the output of the operand easily
     case NEG:
-      curaddr = linearitree(daget(cexpr->params, 0), prog);
+      curaddr = linearitree(daget(cexpr->params, 0), prog, 0);
       FILLREG(destaddr, curaddr.addr_type & GENREGMASK);
       opn(prog, ct_3ac_op2(destaddr.addr_type & ISFLOAT ? NEG_F : NEG_I, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
       return destaddr;
     case L_NOT:
-      curaddr = linearitree(daget(cexpr->params, 0), prog);
+      curaddr = linearitree(daget(cexpr->params, 0), prog, 0);
       assert(!(curaddr.addr_type & ISFLOAT));
       FILLREG(destaddr, (curaddr.addr_type & ISSIGNED) | 1);
       otheraddr.addr.uintconst_64 = 0;
@@ -626,7 +626,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
                                    destaddr.addr_type, destaddr.addr));
       return destaddr;
     case B_NOT:
-      curaddr = linearitree(daget(cexpr->params, 0), prog);
+      curaddr = linearitree(daget(cexpr->params, 0), prog, 0);
       FILLREG(destaddr, curaddr.addr_type & GENREGMASK);
       assert(!(destaddr.addr_type & ISFLOAT));
       opn(prog, ct_3ac_op2(NOT_U, curaddr.addr_type, curaddr.addr, destaddr.addr_type, destaddr.addr));
@@ -636,19 +636,19 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       varty = typex(daget(cexpr->params, 0));
       char hpoints = ispointer2(varty);
       if(!(hpoints) && (varty.tb & STRUCTVAL)) {
-        return linearitree(daget(cexpr->params, 0), prog);//addr should be a no-op for single pointers to structs
+        return linearitree(daget(cexpr->params, 0), prog, 0);//addr should be a no-op for single pointers to structs
       }
       if(hpoints) {
         struct declarator_part* dclp = dapeek(varty.pointerstack);
         if(dclp->type == ARRAYSPEC || dclp->type == VLASPEC)
-          return linearitree(daget(cexpr->params, 0), prog);//addr should be a no-op for single pointers to arrays
+          return linearitree(daget(cexpr->params, 0), prog, 0);//addr should be a no-op for single pointers to arrays
       }
       return op2ret(prog, implicit_unary_2(ADDR_3, cexpr, prog));
 
     case DEREF:
       varty = typex(daget(cexpr->params, 0));
       assert(ispointer2(varty));
-      destaddr = linearitree(daget(cexpr->params, 0), prog);
+      destaddr = linearitree(daget(cexpr->params, 0), prog, 0);
       if(varty.pointerstack->length == 1 && (varty.tb & STRUCTVAL)) {
         return destaddr; //dereferencing single pointer to struct should be a no-op
       }
@@ -726,9 +726,9 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return op2ret(prog, binshift_3(SHR_U, cexpr, prog));
     case COMMA:
       for(int i = 0; i < cexpr->params->length - 1; i++) {
-        linearitree(daget(cexpr->params, i), prog);
+        linearitree(daget(cexpr->params, i), prog, 0);
       }
-      return linearitree(daget(cexpr->params, cexpr->params->length - 1), prog);
+      return linearitree(daget(cexpr->params, cexpr->params->length - 1), prog, 0);
 
     case DOTOP:
       varty = typex(daget(cexpr->params, 0));
@@ -745,13 +745,13 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
         struct declarator_part* dclp = dapeek(varty.pointerstack);
         destaddr.addr.garbage = dclp->addrun;
         destaddr.addr_type = dclp->addrty;
-        linearitree(daget(cexpr->params, 0), prog);
+        linearitree(daget(cexpr->params, 0), prog, 0);
       } else {
         destaddr.addr_type = ISCONST | 0x8;
       }
       return destaddr;
     case CAST: //handle identity casts differently
-      curaddr = linearitree(daget(cexpr->params, 0), prog);
+      curaddr = linearitree(daget(cexpr->params, 0), prog, islvalue);
       if(ispointer(cexpr->vartype)) {
         assert(!(curaddr.addr_type & ISFLOAT));
         FILLREG(destaddr, 8 | ISPOINTER);
@@ -805,7 +805,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       FILLREG(destaddr, addrconv(&t3t));
       join->dest = destaddr.addr;
       join->dest_type = destaddr.addr_type;
-      curaddr = linearitree(daget(cexpr->params, 1), prog);
+      curaddr = linearitree(daget(cexpr->params, 1), prog, 0);
       if(!(t1t.tb & FLOATNUM) && (t2t.tb & FLOATNUM)) {
         FULLADDR ad2;
         FILLREG(ad2, (t0t.tb & 0xf) | ISFLOAT | ISSIGNED);
@@ -827,7 +827,7 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       join->addr0.joins[0] = otheraddr;
       opn(prog, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, otheraddr.addr_type, otheraddr.addr));
       giveblock(prog, failblock);
-      otheraddr = linearitree(daget(cexpr->params, 2), prog);
+      otheraddr = linearitree(daget(cexpr->params, 2), prog, 0);
       if((t1t.tb & FLOATNUM) && !(t2t.tb & FLOATNUM)) {
         FULLADDR ad2;
         FILLREG(ad2, (t0t.tb & 0xf) | ISFLOAT | ISSIGNED);
@@ -849,8 +849,8 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
       return destaddr;
     case ASSIGN:
       varty = typex(cexpr);
-      curaddr = linearitree(daget(cexpr->params, 1), prog);
-      destaddr = linearitree(daget(cexpr->params, 0), prog);
+      curaddr = linearitree(daget(cexpr->params, 1), prog, 0);
+      destaddr = linearitree(daget(cexpr->params, 0), prog, 1);
       if(!ispointer2(varty) && varty.tb & (STRUCTVAL | UNIONVAL)) {
         feedstruct(varty.structtype);
         otheraddr.addr.uintconst_64 = varty.structtype->size;
@@ -903,10 +903,10 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog) {
     case FCALL:
       if(cexpr->params->length > 1) {
         OPERATION* fparam;
-        curaddr = linearitree(daget(cexpr->params, 1), prog);
+        curaddr = linearitree(daget(cexpr->params, 1), prog, 0);
         fparam = ct_3ac_op1(ARG_3, curaddr.addr_type, curaddr.addr);
         for(int i = 2; i < cexpr->params->length; ++i) {
-          curaddr = linearitree(daget(cexpr->params, i), prog);
+          curaddr = linearitree(daget(cexpr->params, i), prog, 0);
           opn(prog, ct_3ac_op1(ARG_3, curaddr.addr_type, curaddr.addr));
         }
         opn(prog, fparam);
@@ -983,7 +983,7 @@ void cmptype(EXPRESSION* cmpexpr, BBLOCK* failblock, BBLOCK* successblock, PROGR
        cmptype(daget(cmpexpr->params, 0), successblock, failblock, prog);
        return;
      default:
-       destaddr = linearitree(cmpexpr, prog);
+       destaddr = linearitree(cmpexpr, prog, 0);
        opn(prog, ct_3ac_op1(BEZ_3, destaddr.addr_type, destaddr.addr));
        break;
   }
@@ -1006,7 +1006,7 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
     if(dclp->type == ARRAYSPEC) {
       if(i->expr) {
         if(i->expr->type == ARRAY_LIT) {
-          FULLADDR lastemp = linearitree(i->expr, prog);
+          FULLADDR lastemp = linearitree(i->expr, prog, 0);
           opn(prog, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
         } else if(i->expr->type == STRING) {
         } else {
@@ -1036,13 +1036,13 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
       opn(prog, ct_3ac_op2(ALOC_3, scratchaddr.addr_type, scratchaddr.addr, newa->addr_type, newa->addr));
     } else {
       if(i->expr) {
-        FULLADDR curaddr = linearitree(i->expr, prog);
+        FULLADDR curaddr = linearitree(i->expr, prog, 0);
         opn(prog, ct_3ac_op2(MOV_3, curaddr.addr_type, curaddr.addr, newa->addr_type, newa->addr));
       }
     }
   } else if(i->decl->type->tb & (STRUCTVAL | UNIONVAL)) {
     if(i->expr) {
-      FULLADDR lastemp = linearitree(i->expr, prog);
+      FULLADDR lastemp = linearitree(i->expr, prog, 0);
       opn(prog, ct_3ac_op2(MOV_3, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
     } else {
       ADDRESS tmpaddr;
@@ -1052,7 +1052,7 @@ void initializestate(INITIALIZER* i, PROGRAM* prog) {
     }
   } else {
     if(i->expr) {
-      FULLADDR lastemp = linearitree(i->expr, prog);
+      FULLADDR lastemp = linearitree(i->expr, prog, 0);
       if((lastemp.addr_type & ISFLOAT) && !(newa->addr_type & ISFLOAT)) {
         opn(prog, ct_3ac_op2(F2I, lastemp.addr_type, lastemp.addr, newa->addr_type, newa->addr));
       } else if(!(lastemp.addr_type & ISFLOAT) && (newa->addr_type & ISFLOAT)) {
@@ -1099,7 +1099,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
   switch(cst->type){
     case FRET:
       if(cst->expression) {
-        ret_op = linearitree(cst->expression, prog);
+        ret_op = linearitree(cst->expression, prog, 0);
         opn(prog, ct_3ac_op1(RET_3, ret_op.addr_type, ret_op.addr));
       } else {
         ret_op.addr.uintconst_64 = 0;
@@ -1156,7 +1156,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       topblock = mpblk();
       if(cst->forinit->isE) {
         if(cst->forinit->E->type != NOP)
-          linearitree(cst->forinit->E, prog);
+          linearitree(cst->forinit->E, prog, 0);
       } else {
         for(int i = 0; i < cst->forinit->I->length; i++) {
           initializestate((INITIALIZER*) daget(cst->forinit->I, i), prog);
@@ -1172,7 +1172,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       solidstate(cst->forbody, prog);
       giveblock(prog, contblock);
       if(cst->increment->type != NOP)
-        linearitree(cst->increment, prog);
+        linearitree(cst->increment, prog, 0);
       prog->curblock->nextblock = topblock;
       dapush(topblock->inedges, prog->curblock);
       dapop(prog->continuelabels);
@@ -1187,7 +1187,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       dapush(prog->breaklabels, breakblock);
       giveblock(prog, topblock);
       solidstate(cst->body, prog);
-      linearitree(cst->cond, prog);
+      linearitree(cst->cond, prog, 0);
       giveblock(prog, contblock);
       cmptype(cst->cond, breakblock, topblock, prog);
       dapop(prog->continuelabels);
@@ -1223,7 +1223,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       return;
     case SWITCH:
       breakblock = mpblk();
-      FULLADDR fad = linearitree(cst->cond, prog);
+      FULLADDR fad = linearitree(cst->cond, prog, 0);
       dapush(prog->breaklabels, breakblock);
       DYNARR* cll = cst->switchinfo->caseorder;
       LVHASHTABLE* htl = cst->switchinfo->cases;
@@ -1282,7 +1282,7 @@ void solidstate(STATEMENT* cst, PROGRAM* prog) {
       }
       return;
     case EXPR:
-      linearitree(cst->expression, prog);
+      linearitree(cst->expression, prog, 0);
       return;
     case ASMSTMT:
       //TODO: asm statement really not implemented yet
