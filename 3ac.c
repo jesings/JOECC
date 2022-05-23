@@ -586,28 +586,67 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog, char islvalue) {
         EXPRESSION* member = daget(cexpr->params, i);
         DECLARATION* decl = daget(cexpr->rettype->structtype->fields, i);
         STRUCTFIELD* sf = qsearch(cexpr->rettype->structtype->offsets, decl->varname);
-        if(sf->offset & 0x7) assert(0); //it's a bitfield thingy! We don't handle this yet!
-        curaddr = linearitree(member, prog, 0);
-        otheraddr.addr.uintconst_64 = sf->offset >> 3;
-        ADDRTYPE sft = addrconv(sf->type);
-        if(sft & ISFLOAT && !(curaddr.addr_type & ISFLOAT)) {
+        if(sf->offset & 0x7) {
+          assert(!islvalue);
+          assert(!(curaddr.addr_type & ISFLOAT));
+
+          otheraddr.addr.uintconst_64 = sf->offset >> 3;
+          struct declarator_part* bfspec = dapeek(sf->type->pointerstack);
+          int bitlen = bfspec->bfspec->intconst;
+                                
+          int bitlencontainer = (((bitlen + (sf->offset & 7)) & (-(bitlen + (sf->offset & 7)) - 1))/8) << 1;
+          if(bitlencontainer < 1) bitlencontainer = 1;
+
+          assert(bitlencontainer <= 64); //TODO: not do this
+
+          curaddr = linearitree(member, prog, 0);
+          otheraddr.addr.uintconst_64 = sf->offset >> 3;
+          ADDRTYPE sft = addrconv(sf->type);
+
+          if(sft & ISFLOAT && !(curaddr.addr_type & ISFLOAT)) {
+            FULLADDR fad2;
+            FILLREG(fad2, sft);
+            opn(prog, ct_3ac_op2(I2F, curaddr.addr_type, curaddr.addr, fad2.addr_type, fad2.addr));
+            curaddr = fad2;
+          }
+
           FULLADDR fad2;
-          FILLREG(fad2, sft);
-          opn(prog, ct_3ac_op2(I2F, curaddr.addr_type, curaddr.addr, fad2.addr_type, fad2.addr));
-          curaddr = fad2;
-        } else if(!(sft & ISFLOAT) && curaddr.addr_type & ISFLOAT) {
-          FULLADDR fad2;
-          FILLREG(fad2, sft);
-          opn(prog, ct_3ac_op2(F2I, curaddr.addr_type, curaddr.addr, fad2.addr_type, fad2.addr));
-          curaddr = fad2;
-        } else if(sft & ISFLOAT && curaddr.addr_type & ISFLOAT &&
-                  ((sf->type->tb & 0xf) != (otheraddr.addr_type & 0xf))) {
-          FULLADDR fad2;
-          FILLREG(fad2, sft);
-          opn(prog, ct_3ac_op2(F2F, otheraddr.addr_type, otheraddr.addr, fad2.addr_type, fad2.addr));
-          otheraddr = fad2;
+          FILLREG(fad2, ISPOINTER | 0x8);
+          opn(prog, ct_3ac_op3(ADD_U, destaddr.addr_type, destaddr.addr, otheraddr.addr_type, otheraddr.addr, fad2.addr_type, fad2.addr));
+
+          FULLADDR bringdown;
+          FILLREG(bringdown, UNSIGNEDNUM | bitlencontainer);
+          opn(prog, ct_3ac_op2(MOV_3, fad2.addr_type | ISDEREF, fad2.addr, bringdown.addr_type,  bringdown.addr));
+
+          int mask = ((0xffffffffffffffff << (bitlencontainer - bitlen)) >> (bitlencontainer - bitlen)) << (sf->offset & 7);
+          ADDRESS adr;
+          adr.intconst_64 = mask;
+          opn(prog, ct_3ac_op3(AND_U, curaddr.addr_type, curaddr.addr, ISCONST | bitlencontainer,  adr, curaddr.addr_type, curaddr.addr));
+
+          opn(prog, ct_3ac_op3(OR_U, curaddr.addr_type, curaddr.addr, bringdown.addr_type, bringdown.addr, fad2.addr_type | ISDEREF, fad2.addr));
+        } else {
+          curaddr = linearitree(member, prog, 0);
+          otheraddr.addr.uintconst_64 = sf->offset >> 3;
+          ADDRTYPE sft = addrconv(sf->type);
+          if(sft & ISFLOAT && !(curaddr.addr_type & ISFLOAT)) {
+            FULLADDR fad2;
+            FILLREG(fad2, sft);
+            opn(prog, ct_3ac_op2(I2F, curaddr.addr_type, curaddr.addr, fad2.addr_type, fad2.addr));
+            curaddr = fad2;
+          } else if(!(sft & ISFLOAT) && curaddr.addr_type & ISFLOAT) {
+            FULLADDR fad2;
+            FILLREG(fad2, sft);
+            opn(prog, ct_3ac_op2(F2I, curaddr.addr_type, curaddr.addr, fad2.addr_type, fad2.addr));
+            curaddr = fad2;
+          } else if(sft & ISFLOAT && curaddr.addr_type & ISFLOAT &&
+                    ((sf->type->tb & 0xf) != (otheraddr.addr_type & 0xf))) {
+            FULLADDR fad2;
+            FILLREG(fad2, sft);
+            opn(prog, ct_3ac_op2(F2F, otheraddr.addr_type, otheraddr.addr, fad2.addr_type, fad2.addr));
+            otheraddr = fad2;
+          }
+          opn(prog, ct_3ac_op3(MTP_OFF, curaddr.addr_type, curaddr.addr, ISCONST | 0x8, otheraddr.addr, destaddr.addr_type | ISDEREF, destaddr.addr));
         }
-        opn(prog, ct_3ac_op3(MTP_OFF, curaddr.addr_type, curaddr.addr, ISCONST | 0x8, otheraddr.addr, destaddr.addr_type | ISDEREF, destaddr.addr));
       }
       return destaddr;
 
