@@ -1385,7 +1385,7 @@ int feedstruct(USTRUCT* s) {
           if(declptop->type == BITFIELDSPEC) {
             //no bitfield pointers or floats!!!
             assert(!(mmi->type->pointerstack->length > 1 || mmi->type->tb & FLOAT));
-
+            esize = declptop->bfspec->intconst;
           } else {
             esize = 8;
             dapush(newmm, mmi);

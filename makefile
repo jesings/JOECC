@@ -11,6 +11,7 @@ nodebug: LDFLAGS +=
 nodebug: compiler
 useclang: VERSION = $(shell clang --version | grep "[0-9]\+\.[0-9]\+\.[0-9]\+" -o)
 useclang: CFLAGS += -D USECLANG
+useclang: CC = clang
 useclang: compiler
 usemusl: CFLAGS += -D USEMUSL
 usemusl: CFLAGS += -fsanitize=address

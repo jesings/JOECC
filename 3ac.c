@@ -417,16 +417,21 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
     dclp = dapeek(sf->type->pointerstack);
   if(!pointerqual && (sf->type->tb & (STRUCTVAL | UNIONVAL))) {
     //handle here
-    if(offaddr.intconst_64) {
-      FILLREG(retaddr, ISPOINTER | 8);
-      opn(prog, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST | 0x8, offaddr, retaddr.addr_type, retaddr.addr));
+    if(dclp && dclp->type == BITFIELDSPEC) {
+        assert(0);
     } else {
-      if(sead.addr_type & ISDEREF) {
-        FILLREG(retaddr, ISPOINTER | 8);
-        opn(prog, ct_3ac_op2(MOV_3, sead.addr_type, sead.addr, retaddr.addr_type, retaddr.addr));
-      } else {
-        return sead;
-      }
+        assert((sf->offset & 0x7) == 0);
+        if(offaddr.intconst_64) {
+          FILLREG(retaddr, ISPOINTER | 8);
+          opn(prog, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST | 0x8, offaddr, retaddr.addr_type, retaddr.addr));
+        } else {
+          if(sead.addr_type & ISDEREF) {
+            FILLREG(retaddr, ISPOINTER | 8);
+            opn(prog, ct_3ac_op2(MOV_3, sead.addr_type, sead.addr, retaddr.addr_type, retaddr.addr));
+          } else {
+            return sead;
+          }
+        }
     }
   } else {
     assert(!dclp || dclp->type != BITFIELDSPEC);
@@ -587,13 +592,12 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog, char islvalue) {
         DECLARATION* decl = daget(cexpr->rettype->structtype->fields, i);
         STRUCTFIELD* sf = qsearch(cexpr->rettype->structtype->offsets, decl->varname);
         if(sf->offset & 0x7) {
-          assert(!islvalue);
           assert(!(curaddr.addr_type & ISFLOAT));
 
           otheraddr.addr.uintconst_64 = sf->offset >> 3;
           struct declarator_part* bfspec = dapeek(sf->type->pointerstack);
           int bitlen = bfspec->bfspec->intconst;
-                                
+
           int bitlencontainer = (((bitlen + (sf->offset & 7)) & (-(bitlen + (sf->offset & 7)) - 1))/8) << 1;
           if(bitlencontainer < 1) bitlencontainer = 1;
 
