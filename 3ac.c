@@ -393,7 +393,7 @@ OPERATION* binshift_3(enum opcode_3ac opcode_unsigned, EXPRESSION* cexpr, PROGRA
 }
 
 //Parses and creates operations for the accessing of a struct/union field, performing necessary casts
-FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
+FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char islvalue) {
   FULLADDR sead = linearitree(daget(cexpr->params, 0), prog, 0);
   IDTYPE seaty = typex(daget(cexpr->params, 0));
   IDTYPE retty = typex(cexpr);
@@ -418,6 +418,13 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog) {
   if(!pointerqual && (sf->type->tb & (STRUCTVAL | UNIONVAL))) {
     //handle here
     if(dclp && dclp->type == BITFIELDSPEC) {
+        if(islvalue) {
+            //there is a big issue with lvalues, currently we don't treat rvalues and lvalues much differently until we actually assign
+            //however with bitfields, the bitwise ops are entirely different and we don't necessarily have that information 
+            //when we enter into a function. This means that we will probably need to handle bitfield lvalues in a complex
+            //and unique way, unfortunately.
+            assert(0);
+        }
         assert(0);
     } else {
         assert((sf->offset & 0x7) == 0);
@@ -776,11 +783,11 @@ FULLADDR linearitree(EXPRESSION* cexpr, PROGRAM* prog, char islvalue) {
     case DOTOP:
       varty = typex(daget(cexpr->params, 0));
       assert(!ispointer2(varty));
-      return smemrec(cexpr, prog);
+      return smemrec(cexpr, prog, islvalue);
     case ARROW:
       varty = typex(daget(cexpr->params, 0));
       assert(varty.pointerstack && (varty.pointerstack->length == 1));
-      return smemrec(cexpr, prog);
+      return smemrec(cexpr, prog, islvalue);
     case SZOFEXPR:
       varty = typex(cexpr);
       destaddr.addr.uintconst_64 = lentype(&varty);
