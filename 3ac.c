@@ -419,26 +419,27 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char islvalue) {
     //handle here
     if(dclp && dclp->type == BITFIELDSPEC) {
         if(islvalue) {
-            //there is a big issue with lvalues, currently we don't treat rvalues and lvalues much differently until we actually assign
-            //however with bitfields, the bitwise ops are entirely different and we don't necessarily have that information 
-            //when we enter into a function. This means that we will probably need to handle bitfield lvalues in a complex
-            //and unique way, unfortunately.
-            assert(0);
-        }
-        assert(0);
-    } else {
-        assert((sf->offset & 0x7) == 0);
-        if(offaddr.intconst_64) {
-          FILLREG(retaddr, ISPOINTER | 8);
-          opn(prog, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST | 0x8, offaddr, retaddr.addr_type, retaddr.addr));
+          //there is a big issue with lvalues, currently we don't treat rvalues and lvalues much differently until we actually assign
+          //however with bitfields, the bitwise ops are entirely different and we don't necessarily have that information 
+          //when we enter into a function. This means that we will probably need to handle bitfield lvalues in a complex
+          //and unique way, unfortunately.
+          assert(0);
         } else {
-          if(sead.addr_type & ISDEREF) {
-            FILLREG(retaddr, ISPOINTER | 8);
-            opn(prog, ct_3ac_op2(MOV_3, sead.addr_type, sead.addr, retaddr.addr_type, retaddr.addr));
-          } else {
-            return sead;
-          }
+          assert(0);
         }
+    } else {
+      assert((sf->offset & 0x7) == 0);
+      if(offaddr.intconst_64) {
+        FILLREG(retaddr, ISPOINTER | 8);
+        opn(prog, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST | 0x8, offaddr, retaddr.addr_type, retaddr.addr));
+      } else {
+        if(sead.addr_type & ISDEREF) {
+          FILLREG(retaddr, ISPOINTER | 8);
+          opn(prog, ct_3ac_op2(MOV_3, sead.addr_type, sead.addr, retaddr.addr_type, retaddr.addr));
+        } else {
+          return sead;
+        }
+      }
     }
   } else {
     assert(!dclp || dclp->type != BITFIELDSPEC);
