@@ -425,7 +425,23 @@ FULLADDR smemrec(EXPRESSION* cexpr, PROGRAM* prog, char islvalue) {
           //and unique way, unfortunately.
           assert(0);
         } else {
-          assert(0);
+          int bitlen = dclp->bfspec->intconst;
+          int bitoffset = sf->offset & 0x7;
+          int bitlencontainer = (((bitlen + (bitoffset)) & (-(bitlen + (bitoffset)) - 1))/8) << 1;
+          assert(bitlencontainer <= 64);
+          ADDRESS mask;
+          ADDRESS byteoffset;
+          mask.intconst_64 = ((0xffffffffffffffff << (bitlencontainer - bitlen)) >> (bitlencontainer - bitlen)) << (sf->offset & 7);
+          byteoffset.intconst_64 = sf->offset >> 3;
+          FULLADDR structoffaddr;
+          FULLADDR retval;
+          FILLREG(structoffaddr, ISPOINTER | 0x8);
+          FILLREG(retval, addrconv(&retty));
+          opn(prog, ct_3ac_op3(ADD_U, sead.addr_type, sead.addr, ISCONST | 0x8, byteoffset, structoffaddr.addr_type, structoffaddr.addr));
+          opn(prog, ct_3ac_op3(AND_U, structoffaddr.addr_type, structoffaddr.addr, ISCONST | 0x8, mask, retval.addr_type, retval.addr));
+          opn(prog, ct_3ac_op3(SHR_U, retval.addr_type, structoffaddr.addr, ISCONST | 0x8, mask, retval.addr_type, retval.addr));
+
+          return retval;
         }
     } else {
       assert((sf->offset & 0x7) == 0);
