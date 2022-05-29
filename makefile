@@ -5,14 +5,12 @@ LEXFLAGS = -d -Cfe --yylineno
 compilerasan: CFLAGS += -fsanitize=address
 compilerasan: LDFLAGS += -fsanitize=address
 compilerasan: compiler
-nodebug: CFLAGS = -O2 -D NODEBUG -ggdb -g3 -march=native
-nodebug: LDFLAGS +=
+nodebug: CFLAGS = -O2 -D NODEBUG -march=native
 nodebug: compiler
 useclang: CFLAGS += -D USECLANG
 useclang: CC = clang
 useclang: compiler
-usemusl: CFLAGS += -D USEMUSL
-usemusl: CFLAGS += -fsanitize=address
+usemusl: CFLAGS += -D USEMUSL -fsanitize=address
 usemusl: LDFLAGS += -fsanitize=address
 usemusl: compiler
 perftest: CFLAGS = -O2 -D NODEBUG -g -march=native
@@ -35,14 +33,11 @@ lex.yy.c: joecc.lex
 
 profile: compiler
 	perf record -g --call-graph=dwarf ./compiler *.c *.h
-
 perfreport:
 	perf report -g fractal -F+period,srcline
-
 flamegraph:
 	perf script | ~/build/FlameGraph/stackcollapse-perf.pl > out.perf-folded #replace with the right directory
 	~/build/FlameGraph/flamegraph.pl out.perf-folded > perf.svg #replace with the right directory
-
 
 clean:
 	-rm *.o *.joecco *.joeccs ./functions/* *.tab.* ./compiler precompilation*
