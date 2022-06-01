@@ -304,6 +304,15 @@ void liveness(PROGRAM* prog) {
     )
   )
 
+  for(int i = 0; i < prog->regcnt; i++) {
+    DYNARR* chain = usedefchains[i];
+    if(chain) {
+      if(chain->length == 1) {
+        //change to NOP!
+      }
+    }
+  }
+
   //vabs is an array of hash sets, indexed by block numbers, of variables live on entry to that block
   IHASHSET** varbs = calloc(prog->allblocks->length, sizeof(IHASHSET*));
   liveness_populate(prog, usedefchains, varbs);
