@@ -304,17 +304,25 @@ void liveness(PROGRAM* prog) {
     )
   )
 
-  for(int i = 0; i < prog->regcnt; i++) {
-    DYNARR* chain = usedefchains[i];
-    if(chain) {
-      if(chain->length == 1) {
-        //change to NOP!
+  LOOPALLBLOCKS(
+    OPARGCASES(
+      , ,
+      if(!(op->dest_type & (ISLABEL | ISCONST | GARBAGEVAL))) {
+        DYNARR* chain = usedefchains[op->dest.regnum];
+        if(chain->length == 1) {
+          if(op->opcode == PHI)
+            free(op->addr0.joins);
+          op->opcode = NOP_3;
+        }
       }
-    }
-  }
+      ,
+      (void) phijoinaddr;
+    )
+  )
 
   //vabs is an array of hash sets, indexed by block numbers, of variables live on entry to that block
   IHASHSET** varbs = calloc(prog->allblocks->length, sizeof(IHASHSET*));
+
   liveness_populate(prog, usedefchains, varbs);
 
   lastuse(prog, usedefchains, varbs);
