@@ -488,3 +488,8 @@ DYNINT* isetelems(IHASHSET* ihs) {
   }
   return di;
 }
+
+void iiwipehash(IHASHSET* hs) {
+  hs->keys = 0;
+  memset(hs->bf, 0, (hs->slotmask + 8) >> 3);
+}

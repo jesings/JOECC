@@ -64,5 +64,7 @@ type_prefix ## SET* prefix ## setclone(type_prefix ## SET* qh);
 SETPROTO(IHASH, i, int); //ihashset, uses integer keys
 SETPROTO(LHASH, l, long); //lhashset, uses long keys
 
+void iiwipehash(IHASHSET* hs);
+
 DYNINT* isetelems(IHASHSET* ihs);
 #endif

@@ -305,24 +305,27 @@ void liveness(PROGRAM* prog) {
   )
 
   //remove all defines with no uses
-  LOOPALLBLOCKS(
-    OPARGCASES(
-      , ,
-      //TODO: look through LHS and for each addr, check if a use needs to be removed...
-      if(!(op->dest_type & (ISLABEL | ISCONST | GARBAGEVAL))) {
-        DYNARR* chain = usedefchains[op->dest.regnum];
-        if(chain->length == 1) {
-          if(op->opcode == PHI)
-            free(op->addr0.joins);
-          op->opcode = NOP_3;
+  for(int blockind = 0; blockind < prog->allblocks->length; blockind++) {
+    BBLOCK* blk = daget(prog->allblocks, blockind);
+    LOOPOPS(
+      OPARGCASES(
+        , ,
+        //TODO: look through LHS and for each addr, check if a use needs to be removed...
+        if(!(op->dest_type & (ISLABEL | ISCONST | GARBAGEVAL))) {
+          DYNARR* chain = usedefchains[op->dest.regnum];
+          if(chain->length == 1) {
+            if(op->opcode == PHI)
+              free(op->addr0.joins);
+            op->opcode = NOP_3;
+          }
+          dadtor(usedefchains[op->dest.regnum]);
+          usedefchains[op->dest.regnum] = NULL;
         }
-        dadtor(usedefchains[op->dest.regnum]);
-        usedefchains[op->dest.regnum] = NULL;
-      }
-      ,
-      (void) phijoinaddr;
+        ,
+        (void) phijoinaddr;
+      )
     )
-  )
+  }
 
   //vabs is an array of hash sets, indexed by block numbers, of variables live on entry to that block
   IHASHSET** varbs = calloc(prog->allblocks->length, sizeof(IHASHSET*));
