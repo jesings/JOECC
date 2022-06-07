@@ -764,3 +764,16 @@ void renumber(PROGRAM* prog) {
   iihtdtor(regtransht);
   //change dynvars and dynchars?
 }
+
+void inlinefunction(PROGRAM* prog, BBLOCK* blk, int opindex) {
+    DYNARR* parameters = dactor(8);
+    OPERATION* op = daget(blk->operations, opindex);
+    if(op->opcode == PARAM_3) {
+        dapush(parameters, &op->dest_type);
+        op->opcode = NOP_3;
+        op = daget(blk->operations, ++opindex);
+    }
+    if(op->opcode == CALL_3) {
+    }
+    dadtor(parameters);
+}
