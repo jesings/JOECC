@@ -203,9 +203,17 @@ void ldstrsep(PROGRAM* prog) {
 #undef X
 
 
-static void addrgen(FILE* of, ADDRTYPE adt, ADDRESS addr) {
+static void addrgen(FILE* of, QHASHTABLE* strconstht, ADDRTYPE adt, ADDRESS addr) {
   if(adt & ISCONST) {
     if(adt & ISSTRCONST) {
+      char* labelstr = qsearch(strconstht, addr.strconst);
+      if(!labelstr) {
+          labelstr = malloc(16);
+          snprintf(labelstr, 16, ".strlabel%d", strconstht->keys);
+          qinsert(strconstht, addr.strconst, labelstr);
+          //fprintf(of, "%s:\n.asciiz %s\n", labelstr, addr.strconst); do this at end with key/value pairs of strconstht
+      }
+      fprintf(of, "%s(%%rip)\n", labelstr);
       //stringconsty, but to some buffer, retrieve label as well?
     } else if(adt & ISFLOAT) {
       if((adt & 0xf) == 4) {
